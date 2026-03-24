@@ -1,3 +1,4 @@
+import { decode } from 'nostr-tools/nip19'
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { RelayPool } from './relay-pool.js'
 import type { RelaySet } from './types.js'
@@ -37,15 +38,18 @@ export class Nip65Manager {
   }
 
   /** Load relay list for an identity from kind 10002 events */
-  async loadForIdentity(npub: string, pubkeyHex: string): Promise<RelaySet> {
+  async loadForIdentity(npub: string, pubkeyHex?: string): Promise<RelaySet> {
     // Return cached if available
     const cached = this.cache.get(npub)
     if (cached) return cached
 
+    // Decode npub to hex if not provided
+    const hex = pubkeyHex ?? decode(npub).data as string
+
     // Query default relays for kind 10002
     const events = await this.pool.query(npub, {
       kinds: [10002],
-      authors: [pubkeyHex],
+      authors: [hex],
     })
 
     if (events.length === 0) {
