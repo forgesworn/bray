@@ -1,0 +1,78 @@
+{
+  "name": "nostr-bray",
+  "version": "0.0.0-development",
+  "description": "MCP server giving AI agents sovereign Nostr identities — key derivation, personas, attestations, duress detection, zaps",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "nostr-bray": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "llms.txt",
+    "llms-full.txt"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "start": "node dist/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "nostr",
+    "nostr-identity",
+    "nsec",
+    "npub",
+    "nip-17",
+    "nip-65",
+    "nip-47",
+    "nip-va",
+    "attestation",
+    "identity",
+    "key-derivation",
+    "persona",
+    "hierarchical-deterministic",
+    "ring-signature",
+    "duress",
+    "coercion-resistance",
+    "shamir",
+    "lightning",
+    "zap",
+    "nwc",
+    "nostr-wallet-connect",
+    "ai-agent",
+    "claude",
+    "typescript",
+    "esm"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/forgesworn/bray.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@forgesworn/ring-sig": "^1.0.2",
+    "@forgesworn/shamir-words": "^1.0.4",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "canary-kit": "^2.6.2",
+    "nostr-attestations": "^2.1.0",
+    "nostr-tools": "^2.23.3",
+    "nsec-tree": "^1.4.1",
+    "spoken-token": "^2.0.3",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}
