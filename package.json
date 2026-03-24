@@ -68,10 +68,12 @@
     "nostr-tools": "^2.23.3",
     "nsec-tree": "^1.4.1",
     "spoken-token": "^2.0.3",
+    "ws": "^8.20.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
+    "@types/ws": "^8.18.1",
     "typescript": "^6.0.2",
     "vitest": "^4.1.1"
   }
