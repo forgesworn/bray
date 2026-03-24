@@ -6,7 +6,7 @@
 [![licence](https://img.shields.io/npm/l/nostr-bray)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-ESM-blue)](./tsconfig.json)
 
-An MCP server that gives AI agents a full Nostr identity — not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, and duress detection. 35 tools across 7 groups.
+An MCP server that gives AI agents a full Nostr identity — not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, and duress detection. 41 tools across 7 groups.
 
 ## The Problem
 
@@ -50,7 +50,7 @@ Or with a secret file (recommended):
 
 ## Tool Groups
 
-### Identity (9 tools)
+### Identity (12 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -62,6 +62,9 @@ Or with a secret file (recommended):
 | `identity_prove` | Create blind/full linkage proof |
 | `identity_backup_shamir` | Split master secret into Shamir shard files |
 | `identity_restore_shamir` | Reconstruct secret from shard files |
+| `identity_backup` | Fetch profile, contacts, relay list as portable bundle |
+| `identity_restore` | Re-sign migratable events under the active identity |
+| `identity_migrate` | Full migration with preview, confirmation, and linkage proof |
 
 ### Social (9 tools)
 
@@ -93,19 +96,22 @@ Or with a secret file (recommended):
 | `trust_spoken_challenge` | Generate spoken verification token |
 | `trust_spoken_verify` | Verify spoken token response |
 
-### Relay (3 tools)
+### Relay (4 tools)
 
 | Tool | Description |
 |------|-------------|
 | `relay_list` | List relays with shared-relay warnings |
 | `relay_set` | Publish kind 10002 relay list |
 | `relay_add` | Add relay to active identity (in-memory) |
+| `relay_info` | Fetch NIP-11 relay information document |
 
-### Zap (2 tools)
+### Zap (4 tools)
 
 | Tool | Description |
 |------|-------------|
+| `zap_send` | Pay a Lightning invoice via NWC |
 | `zap_receipts` | Parse zap receipts (amount, sender, message) |
+| `zap_balance` | Check NWC wallet connection status |
 | `zap_decode` | Decode bolt11 invoice fields |
 
 ### Safety (2 tools)
