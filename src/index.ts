@@ -21,6 +21,11 @@ const nip65 = new Nip65Manager(pool, config.relays)
 const ctx = new IdentityContext(config.secretKey, config.secretFormat)
 export const deps = { ctx, pool, nip65, nwcUri: config.nwcUri }
 
+// Clear secret references from config — strings are immutable so originals
+// persist until GC, but removing references allows earlier collection
+;(config as any).secretKey = ''
+;(config as any).nwcUri = undefined
+
 // Load master identity relay list
 const masterRelays = await nip65.loadForIdentity(ctx.activeNpub)
 pool.reconfigure(ctx.activeNpub, masterRelays)
@@ -58,9 +63,13 @@ if (config.transport === 'stdio') {
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
   await server.connect(transport)
 
+  const { timingSafeEqual } = await import('node:crypto')
+  const expectedAuth = Buffer.from(`Bearer ${token}`)
+
   const httpServer = createServer(async (req, res) => {
-    // Bearer token auth
-    if (req.headers.authorization !== `Bearer ${token}`) {
+    // Bearer token auth (constant-time comparison)
+    const actual = Buffer.from(req.headers.authorization ?? '')
+    if (actual.length !== expectedAuth.length || !timingSafeEqual(actual, expectedAuth)) {
       res.writeHead(401, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ error: 'Unauthorised' }))
       return
@@ -93,8 +102,6 @@ if (config.transport === 'stdio') {
   })
 }
 
-process.on('SIGINT', () => {
-  ctx.destroy()
-  pool.close()
-  process.exit(0)
-})
+const shutdown = () => { ctx.destroy(); pool.close(); process.exit(0) }
+process.on('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)

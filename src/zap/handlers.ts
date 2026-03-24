@@ -1,5 +1,5 @@
 import { getConversationKey, encrypt, decrypt } from 'nostr-tools/nip44'
-import { finalizeEvent, getPublicKey } from 'nostr-tools/pure'
+import { finalizeEvent } from 'nostr-tools/pure'
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
@@ -32,22 +32,25 @@ function buildNwcRequest(
   params: Record<string, unknown>,
 ): NostrEvent {
   const secretBytes = Buffer.from(conn.secret, 'hex')
-  const clientPubkey = getPublicKey(secretBytes)
-  const conversationKey = getConversationKey(secretBytes, conn.pubkey)
+  try {
+    const conversationKey = getConversationKey(secretBytes, conn.pubkey)
 
-  const content = encrypt(
-    JSON.stringify({ method, params }),
-    conversationKey,
-  )
+    const content = encrypt(
+      JSON.stringify({ method, params }),
+      conversationKey,
+    )
 
-  const event = finalizeEvent({
-    kind: 23194,
-    created_at: Math.floor(Date.now() / 1000),
-    tags: [['p', conn.pubkey]],
-    content,
-  }, secretBytes) as unknown as NostrEvent
+    const event = finalizeEvent({
+      kind: 23194,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [['p', conn.pubkey]],
+      content,
+    }, secretBytes) as unknown as NostrEvent
 
-  return event
+    return event
+  } finally {
+    secretBytes.fill(0)
+  }
 }
 
 /** Decrypt a NIP-47 response event (kind 23195) */
@@ -56,9 +59,13 @@ function decryptNwcResponse(
   event: NostrEvent,
 ): { result_type: string; result?: Record<string, unknown>; error?: { code: string; message: string } } {
   const secretBytes = Buffer.from(conn.secret, 'hex')
-  const conversationKey = getConversationKey(secretBytes, conn.pubkey)
-  const plaintext = decrypt(event.content, conversationKey)
-  return JSON.parse(plaintext)
+  try {
+    const conversationKey = getConversationKey(secretBytes, conn.pubkey)
+    const plaintext = decrypt(event.content, conversationKey)
+    return JSON.parse(plaintext)
+  } finally {
+    secretBytes.fill(0)
+  }
 }
 
 // --- Zap Receipts ---

@@ -106,10 +106,8 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: false, destructiveHint: false },
   }, async ({ threshold, shares, outputDir }) => {
-    // Get the raw secret from config (re-parse would be needed in production;
-    // for now this tool requires the secret to be passed via a secure channel)
     const result = handleBackupShamir({
-      secret: deps.ctx._getPrivateKeyRefForTesting(deps.ctx.activeNpub)!,
+      secret: new Uint8Array(deps.ctx.activePrivateKey),
       threshold,
       shares,
       outputDir,
