@@ -4,6 +4,7 @@ import {
   handleRelayList,
   handleRelaySet,
   handleRelayAdd,
+  handleRelayInfo,
 } from '../../src/relay/handlers.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
@@ -90,6 +91,31 @@ describe('relay handlers', () => {
         mode: 'read',
       })
       expect(result.reconfigured).toBe(true)
+    })
+  })
+
+  describe('handleRelayInfo', () => {
+    it('converts wss:// to https:// for NIP-11 fetch', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ name: 'Test Relay', description: 'A test relay' }),
+      })
+      vi.stubGlobal('fetch', mockFetch)
+
+      const result = await handleRelayInfo('wss://relay.example.com')
+      expect(result.name).toBe('Test Relay')
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://relay.example.com',
+        expect.objectContaining({ headers: { Accept: 'application/nostr+json' } }),
+      )
+
+      vi.unstubAllGlobals()
+    })
+
+    it('throws on non-OK response', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' }))
+      await expect(handleRelayInfo('wss://bad.example.com')).rejects.toThrow(/404/)
+      vi.unstubAllGlobals()
     })
   })
 })

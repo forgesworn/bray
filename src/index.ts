@@ -19,7 +19,7 @@ const pool = new RelayPool({
 })
 const nip65 = new Nip65Manager(pool, config.relays)
 const ctx = new IdentityContext(config.secretKey, config.secretFormat)
-export const deps = { ctx, pool, nip65 }
+export const deps = { ctx, pool, nip65, nwcUri: config.nwcUri }
 
 // Load master identity relay list
 const masterRelays = await nip65.loadForIdentity(ctx.activeNpub)

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { IdentityContext } from '../../src/context.js'
-import { handleZapReceipts, handleZapDecode } from '../../src/zap/handlers.js'
+import { handleZapReceipts, handleZapDecode, handleZapSend, handleZapBalance } from '../../src/zap/handlers.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
 
@@ -52,6 +52,45 @@ describe('zap handlers', () => {
     it('returns empty for unrecognised format', () => {
       const result = handleZapDecode('not-a-bolt11')
       expect(result.amountMsats).toBeUndefined()
+    })
+  })
+
+  describe('handleZapSend', () => {
+    it('errors when NWC not configured', async () => {
+      const pool = mockPool()
+      await expect(handleZapSend(ctx, pool as any, {
+        invoice: 'lnbc10u1...',
+      })).rejects.toThrow(/wallet not configured/i)
+    })
+
+    it('creates NWC request event when URI provided', async () => {
+      const pool = {
+        ...mockPool(),
+        publish: vi.fn().mockResolvedValue({ success: true, accepted: ['wss://relay'], rejected: [], errors: [] }),
+      }
+      const nwcUri = 'nostr+walletconnect://818b1ff78425c45464e7400d764ffc980dfdf522787e0c0309036b52933fece4?relay=wss%3A%2F%2Frelay.example.com&secret=c189b82fc49ad3362eacb0976a5405df2d0d4fde6cfc025e41c33e65db1ab915'
+      const result = await handleZapSend(ctx, pool as any, {
+        invoice: 'lnbc10u1pjtest',
+        nwcUri,
+      })
+      expect(result.event).toBeDefined()
+      expect(result.event.kind).toBe(23194)
+      expect(pool.publish).toHaveBeenCalled()
+    })
+  })
+
+  describe('handleZapBalance', () => {
+    it('returns configured: false when no NWC URI', () => {
+      const result = handleZapBalance({})
+      expect(result.configured).toBe(false)
+    })
+
+    it('returns wallet info when NWC configured', () => {
+      const nwcUri = 'nostr+walletconnect://818b1ff78425c45464e7400d764ffc980dfdf522787e0c0309036b52933fece4?relay=wss%3A%2F%2Frelay.example.com&secret=c189b82fc49ad3362eacb0976a5405df2d0d4fde6cfc025e41c33e65db1ab915'
+      const result = handleZapBalance({ nwcUri })
+      expect(result.configured).toBe(true)
+      expect(result.walletPubkey).toBeDefined()
+      expect(result.relay).toContain('relay.example.com')
     })
   })
 })

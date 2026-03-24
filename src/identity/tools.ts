@@ -12,11 +12,13 @@ import {
   handleIdentityProve,
 } from './handlers.js'
 import { handleBackupShamir, handleRestoreShamir } from './shamir.js'
+import { handleIdentityBackup, handleIdentityRestore, handleIdentityMigrate } from './migration.js'
 
 export interface ToolDeps {
   ctx: IdentityContext
   pool: RelayPool
   nip65: Nip65Manager
+  nwcUri?: string
 }
 
 export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
@@ -141,6 +143,56 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
         message: 'Secret reconstructed successfully',
         masterNpub: npub,
       }, null, 2) }],
+    }
+  })
+
+  server.registerTool('identity_backup', {
+    description: 'Fetch profile, contacts, relay list, and attestations for a pubkey. Returns a portable JSON bundle (no private keys).',
+    inputSchema: {
+      pubkeyHex: z.string().describe('Hex pubkey to back up'),
+      npub: z.string().optional().describe('Bech32 npub for relay routing (defaults to active identity)'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ pubkeyHex, npub }) => {
+    const resolvedNpub = npub ?? deps.ctx.activeNpub
+    const bundle = await handleIdentityBackup(deps.pool, pubkeyHex, resolvedNpub)
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({
+        pubkeyHex: bundle.pubkeyHex,
+        eventCount: bundle.events.length,
+        kinds: [...new Set(bundle.events.map(e => e.kind))],
+      }, null, 2) }],
+    }
+  })
+
+  server.registerTool('identity_restore', {
+    description: 'Re-sign migratable events (profile, contacts, relay list) under the active identity. Skips attestations (trust chain protection).',
+    inputSchema: {
+      pubkeyHex: z.string().describe('Hex pubkey of the original identity to restore from'),
+      npub: z.string().optional().describe('Bech32 npub for relay routing'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ pubkeyHex, npub }) => {
+    const resolvedNpub = npub ?? deps.ctx.activeNpub
+    const backup = await handleIdentityBackup(deps.pool, pubkeyHex, resolvedNpub)
+    const result = await handleIdentityRestore(deps.ctx, deps.pool, backup)
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    }
+  })
+
+  server.registerTool('identity_migrate', {
+    description: 'Migrate from an old identity to the active one. Shows preview first — set confirm: true to execute. Publishes linkage proof and re-signs migratable events.',
+    inputSchema: {
+      oldPubkeyHex: z.string().describe('Hex pubkey of the old identity'),
+      oldNpub: z.string().describe('Bech32 npub of the old identity'),
+      confirm: z.boolean().default(false).describe('Set true to execute migration (preview by default)'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ oldPubkeyHex, oldNpub, confirm }) => {
+    const result = await handleIdentityMigrate(deps.ctx, deps.pool, { oldPubkeyHex, oldNpub, confirm })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }
   })
 }

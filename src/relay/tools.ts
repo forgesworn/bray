@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
-import { handleRelayList, handleRelaySet, handleRelayAdd } from './handlers.js'
+import { handleRelayList, handleRelaySet, handleRelayAdd, handleRelayInfo } from './handlers.js'
 
 export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('relay_list', {
@@ -48,6 +48,19 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
     const result = handleRelayAdd(deps.ctx, deps.pool, { url, mode })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    }
+  })
+
+  server.registerTool('relay_info', {
+    description: 'Fetch the NIP-11 relay information document for a relay URL.',
+    inputSchema: {
+      url: z.string().describe('Relay WebSocket URL (wss://...)'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ url }) => {
+    const info = await handleRelayInfo(url)
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(info, null, 2) }],
     }
   })
 }

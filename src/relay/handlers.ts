@@ -100,3 +100,18 @@ export function handleRelayAdd(
   pool.reconfigure(ctx.activeNpub, { read, write })
   return { reconfigured: true }
 }
+
+/** Fetch NIP-11 relay information document */
+export async function handleRelayInfo(
+  url: string,
+): Promise<Record<string, unknown>> {
+  // Convert wss:// to https:// for NIP-11 HTTP fetch
+  const httpUrl = url.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://')
+  const response = await fetch(httpUrl, {
+    headers: { Accept: 'application/nostr+json' },
+  })
+  if (!response.ok) {
+    throw new Error(`NIP-11 fetch failed: ${response.status} ${response.statusText}`)
+  }
+  return response.json() as Promise<Record<string, unknown>>
+}
