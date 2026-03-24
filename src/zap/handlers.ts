@@ -1,6 +1,7 @@
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
+import type { PublishResult } from '../types.js'
 
 export interface ZapReceipt {
   id: string
@@ -75,4 +76,69 @@ export function handleZapDecode(bolt11: string): {
   }
 
   return result
+}
+
+interface NwcConnection {
+  pubkey: string
+  relay: string
+  secret: string
+}
+
+/** Parse a nostr+walletconnect:// URI */
+function parseNwcUri(uri: string): NwcConnection {
+  // Format: nostr+walletconnect://<pubkey>?relay=<url>&secret=<hex>
+  const url = new URL(uri)
+  const pubkey = url.hostname || url.pathname.replace('//', '')
+  const relay = url.searchParams.get('relay')
+  const secret = url.searchParams.get('secret')
+  if (!pubkey || !relay || !secret) {
+    throw new Error('Invalid NWC URI: missing pubkey, relay, or secret')
+  }
+  return { pubkey, relay, secret }
+}
+
+/** Send a zap via NWC (Nostr Wallet Connect) */
+export async function handleZapSend(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: { invoice: string; nwcUri?: string },
+): Promise<{ event: NostrEvent; publish: PublishResult }> {
+  if (!args.nwcUri) {
+    throw new Error('Wallet not configured. Set NWC_URI or NWC_URI_FILE to enable zap sending.')
+  }
+
+  const conn = parseNwcUri(args.nwcUri)
+  const { encrypt } = await import('nostr-tools/nip44')
+
+  // Build NWC pay_invoice request (NIP-47 kind 23194)
+  const conversationKey = (await import('nostr-tools/nip44')).getConversationKey(
+    Buffer.from(conn.secret, 'hex'),
+    conn.pubkey,
+  )
+  const content = encrypt(
+    JSON.stringify({ method: 'pay_invoice', params: { invoice: args.invoice } }),
+    conversationKey,
+  )
+
+  const sign = ctx.getSigningFunction()
+  const nwcEvent = await sign({
+    kind: 23194,
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [['p', conn.pubkey]],
+    content,
+  })
+
+  const publish = await pool.publish(ctx.activeNpub, nwcEvent)
+  return { event: nwcEvent, publish }
+}
+
+/** Get wallet balance via NWC — returns connection status */
+export function handleZapBalance(
+  args: { nwcUri?: string },
+): { configured: boolean; walletPubkey?: string; relay?: string } {
+  if (!args.nwcUri) {
+    return { configured: false }
+  }
+  const conn = parseNwcUri(args.nwcUri)
+  return { configured: true, walletPubkey: conn.pubkey, relay: conn.relay }
 }
