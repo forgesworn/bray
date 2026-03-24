@@ -1,6 +1,6 @@
 {
   "name": "nostr-bray",
-  "version": "0.0.0-development",
+  "version": "0.0.0",
   "description": "MCP server giving AI agents sovereign Nostr identities — key derivation, personas, attestations, duress detection, zaps",
   "type": "module",
   "main": "dist/index.js",
