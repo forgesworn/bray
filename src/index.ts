@@ -6,6 +6,7 @@ import { RelayPool } from './relay-pool.js'
 import { Nip65Manager } from './nip65.js'
 import { registerIdentityTools } from './identity/tools.js'
 import { registerSocialTools } from './social/tools.js'
+import { registerTrustTools } from './trust/tools.js'
 
 const config = loadConfig()
 const pool = new RelayPool({
@@ -28,6 +29,9 @@ registerIdentityTools(server, deps)
 
 // Phase 3: Social tools
 registerSocialTools(server, deps)
+
+// Phase 4: Trust tools
+registerTrustTools(server, deps)
 
 if (config.transport === 'stdio') {
   const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js')
