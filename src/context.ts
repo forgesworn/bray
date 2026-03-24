@@ -1,7 +1,8 @@
 import { fromNsec, fromMnemonic, derive, zeroise } from 'nsec-tree'
 import { derivePersona } from 'nsec-tree/persona'
+import { createBlindProof, createFullProof, verifyProof } from 'nsec-tree/proof'
 import { finalizeEvent } from 'nostr-tools/pure'
-import type { TreeRoot, Identity } from 'nsec-tree'
+import type { TreeRoot, Identity, LinkageProof } from 'nsec-tree'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 import type { PublicIdentity, SignFn } from './types.js'
 
@@ -152,6 +153,15 @@ export class IdentityContext {
       })
     }
     return result
+  }
+
+  /** Create a linkage proof for the active identity */
+  prove(mode: 'blind' | 'full' = 'blind'): LinkageProof {
+    const child = this.activeEntry.identity
+    if (mode === 'full') {
+      return createFullProof(this.root, child)
+    }
+    return createBlindProof(this.root, child)
   }
 
   /** Test helper — returns reference to private key bytes for verifying zeroise */

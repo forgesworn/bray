@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { IdentityContext } from '../../src/context.js'
+import { verifyProof } from 'nsec-tree/proof'
 import {
   handleIdentityDerive,
   handleIdentityDerivePersona,
   handleIdentitySwitch,
   handleIdentityList,
   handleIdentityCreate,
+  handleIdentityProve,
 } from '../../src/identity/handlers.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
@@ -84,6 +86,46 @@ describe('identity handlers', () => {
       expect(result.some(e => e.purpose === 'master')).toBe(true)
       expect(result.some(e => e.purpose === 'messaging')).toBe(true)
       expect(result.some(e => e.personaName === 'work')).toBe(true)
+    })
+  })
+
+  describe('handleIdentityProve', () => {
+    it('defaults to blind proof', () => {
+      ctx.derive('messaging', 0)
+      ctx.switch('messaging', 0)
+      const proof = handleIdentityProve(ctx, {})
+      expect(proof.masterPubkey).toBeDefined()
+      expect(proof.childPubkey).toBeDefined()
+      expect(proof.signature).toBeDefined()
+      // Blind proof: no purpose or index
+      expect(proof.purpose).toBeUndefined()
+      expect(proof.index).toBeUndefined()
+    })
+
+    it('full proof includes purpose and index', () => {
+      ctx.derive('messaging', 0)
+      ctx.switch('messaging', 0)
+      const proof = handleIdentityProve(ctx, { mode: 'full' })
+      expect(proof.masterPubkey).toBeDefined()
+      expect(proof.childPubkey).toBeDefined()
+      expect(proof.purpose).toBeDefined()
+      expect(proof.index).toBeDefined()
+    })
+
+    it('proof verifies via nsec-tree verifyProof', () => {
+      ctx.derive('messaging', 0)
+      ctx.switch('messaging', 0)
+      const proof = handleIdentityProve(ctx, { mode: 'full' })
+      expect(verifyProof(proof)).toBe(true)
+    })
+
+    it('response does NOT include any private key material', () => {
+      ctx.derive('messaging', 0)
+      ctx.switch('messaging', 0)
+      const proof = handleIdentityProve(ctx, {})
+      const serialised = JSON.stringify(proof)
+      expect(serialised).not.toMatch(/nsec1/)
+      expect(serialised).not.toMatch(/privateKey/)
     })
   })
 })

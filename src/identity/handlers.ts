@@ -1,6 +1,7 @@
 import { generateMnemonic } from '@scure/bip39'
 import { wordlist } from '@scure/bip39/wordlists/english.js'
 import { fromMnemonic } from 'nsec-tree'
+import type { LinkageProof } from 'nsec-tree'
 import type { IdentityContext } from '../context.js'
 import type { PublicIdentity } from '../types.js'
 
@@ -41,4 +42,12 @@ export function handleIdentitySwitch(
 /** List all known identities — returns public info only */
 export function handleIdentityList(ctx: IdentityContext): PublicIdentity[] {
   return ctx.listIdentities()
+}
+
+/** Create a linkage proof for the active identity. Defaults to blind (no purpose/index). */
+export function handleIdentityProve(
+  ctx: IdentityContext,
+  args: { mode?: 'blind' | 'full' },
+): LinkageProof {
+  return ctx.prove(args.mode ?? 'blind')
 }
