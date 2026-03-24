@@ -164,6 +164,11 @@ export class IdentityContext {
     return createBlindProof(this.root, child)
   }
 
+  /** Get the active identity's private key for NIP-17/44/04 crypto operations */
+  get activePrivateKey(): Uint8Array {
+    return this.activeEntry.identity.privateKey
+  }
+
   /** Test helper — returns reference to private key bytes for verifying zeroise */
   _getPrivateKeyRefForTesting(npub: string): Uint8Array | undefined {
     if (this.masterEntry.identity.npub === npub) return this.masterEntry.identity.privateKey

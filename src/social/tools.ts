@@ -8,6 +8,7 @@ import {
   handleSocialProfileGet,
   handleSocialProfileSet,
 } from './handlers.js'
+import { handleDmSend, handleDmRead } from './dm.js'
 
 export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('social_post', {
@@ -111,6 +112,42 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
         published: true,
         id: result.event.id,
       }, null, 2) }],
+    }
+  })
+
+  server.registerTool('dm_send', {
+    description: 'Send a direct message to a Nostr pubkey. Uses NIP-17 gift wrap by default. Set nip04: true for legacy NIP-04 (requires NIP04_ENABLED).',
+    inputSchema: {
+      recipientPubkeyHex: z.string().describe('Recipient hex pubkey'),
+      message: z.string().describe('Message text'),
+      nip04: z.boolean().default(false).describe('Use legacy NIP-04 instead of NIP-17'),
+      recipientRelay: z.string().optional().describe('Relay URL hint for recipient'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ recipientPubkeyHex, message, nip04, recipientRelay }) => {
+    const result = await handleDmSend(deps.ctx, deps.pool, {
+      recipientPubkeyHex,
+      message,
+      nip04,
+      nip04Enabled: false, // TODO: wire from config
+      recipientRelay,
+    })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({
+        protocol: result.protocol,
+        id: result.event.id,
+        publish: result.publish,
+      }, null, 2) }],
+    }
+  })
+
+  server.registerTool('dm_read', {
+    description: 'Read direct messages addressed to the active identity. Decrypts NIP-17 and NIP-04 messages.',
+    annotations: { readOnlyHint: true },
+  }, async () => {
+    const messages = await handleDmRead(deps.ctx, deps.pool)
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(messages, null, 2) }],
     }
   })
 }
