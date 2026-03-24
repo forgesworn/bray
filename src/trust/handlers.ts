@@ -1,6 +1,8 @@
 import { createAttestation, createRevocation } from 'nostr-attestations'
 import { validateAttestation } from 'nostr-attestations'
 import { attestationFilter } from 'nostr-attestations'
+import { wrapEvent } from 'nostr-tools/nip17'
+import { toUnsignedEvent } from 'nsec-tree/event'
 import { decode } from 'nostr-tools/nip19'
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
 import type { IdentityContext } from '../context.js'
@@ -111,4 +113,96 @@ export async function handleTrustRevoke(
 
   const publish = await pool.publish(ctx.activeNpub, event)
   return { event, publish }
+}
+
+// --- Task 14: Attestation request via NIP-17 ---
+
+const ATTESTATION_REQUEST_TYPE = 'nip-va/attestation-request'
+
+/** Send an attestation request as a NIP-17 structured DM */
+export async function handleTrustRequest(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: {
+    recipientPubkeyHex: string
+    subject: string
+    attestationType: string
+    message?: string
+  },
+): Promise<{ event: NostrEvent; publish: PublishResult }> {
+  const payload = JSON.stringify({
+    type: ATTESTATION_REQUEST_TYPE,
+    v: 1,
+    subject: args.subject,
+    attestation_type: args.attestationType,
+    message: args.message,
+  })
+
+  const event = wrapEvent(
+    ctx.activePrivateKey,
+    { publicKey: args.recipientPubkeyHex },
+    payload,
+  )
+  const publish = await pool.publish(ctx.activeNpub, event)
+  return { event, publish }
+}
+
+/** Scan NIP-17 DMs for attestation request payloads */
+export async function handleTrustRequestList(
+  ctx: IdentityContext,
+  pool: RelayPool,
+): Promise<Array<{ from: string; subject: string; attestationType: string; message?: string }>> {
+  const { handleDmRead } = await import('../social/dm.js')
+  const dms = await handleDmRead(ctx, pool)
+
+  const requests: Array<{ from: string; subject: string; attestationType: string; message?: string }> = []
+  for (const dm of dms) {
+    if (!dm.decrypted || !dm.content) continue
+    try {
+      const payload = JSON.parse(dm.content)
+      if (payload.type === ATTESTATION_REQUEST_TYPE && payload.v === 1) {
+        requests.push({
+          from: dm.from,
+          subject: payload.subject,
+          attestationType: payload.attestation_type,
+          message: payload.message,
+        })
+      }
+    } catch { /* not a structured DM */ }
+  }
+
+  return requests
+}
+
+// --- Task 15: Linkage proof publishing ---
+
+/** Publish a linkage proof as a kind 30078 event. Requires confirmation. */
+export async function handleTrustProofPublish(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: { mode?: 'blind' | 'full'; confirm: boolean },
+): Promise<{ event?: NostrEvent; published: boolean; warning?: string; publish?: PublishResult }> {
+  const proof = ctx.prove(args.mode ?? 'blind')
+  const reveals = args.mode === 'full'
+    ? `Full proof — reveals purpose "${proof.purpose}" and index ${proof.index}. This is irreversible.`
+    : 'Blind proof — reveals that child belongs to master, but NOT the derivation path.'
+
+  if (!args.confirm) {
+    return {
+      published: false,
+      warning: `About to publish linkage proof. ${reveals} Set confirm: true to proceed.`,
+    }
+  }
+
+  const unsigned = toUnsignedEvent(proof)
+  const sign = ctx.getSigningFunction()
+  const event = await sign({
+    kind: unsigned.kind,
+    created_at: unsigned.created_at,
+    tags: unsigned.tags,
+    content: unsigned.content,
+  })
+
+  const publish = await pool.publish(ctx.activeNpub, event)
+  return { event, published: true, publish }
 }
