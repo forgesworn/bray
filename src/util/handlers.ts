@@ -1,5 +1,6 @@
 import { decode, nprofileEncode, neventEncode, npubEncode, nsecEncode, naddrEncode, noteEncode } from 'nostr-tools/nip19'
-import { verifyEvent } from 'nostr-tools/pure'
+import { verifyEvent, getPublicKey } from 'nostr-tools/pure'
+import { matchFilter } from 'nostr-tools'
 import { getConversationKey, encrypt, decrypt } from 'nostr-tools/nip44'
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
 import type { IdentityContext } from '../context.js'
@@ -159,4 +160,63 @@ export async function handleFetch(
   }
 
   return pool.query(npub, filter)
+}
+
+// --- Key Public ---
+
+/** Derive a public key from a secret key (nsec, hex, or raw bytes) */
+export function handleKeyPublic(secret: string): { pubkeyHex: string; npub: string } {
+  let bytes: Uint8Array
+  if (secret.startsWith('nsec1')) {
+    const decoded = decode(secret)
+    bytes = decoded.data as Uint8Array
+  } else {
+    bytes = Buffer.from(secret, 'hex')
+  }
+  const pubkeyHex = getPublicKey(bytes)
+  return { pubkeyHex, npub: npubEncode(pubkeyHex) }
+}
+
+// --- Encode nsec ---
+
+/** Encode a hex private key as bech32 nsec */
+export function handleEncodeNsec(hex: string): string {
+  return nsecEncode(Buffer.from(hex, 'hex'))
+}
+
+// --- Filter match ---
+
+/** Test if an event matches a Nostr filter */
+export function handleFilter(event: NostrEvent, filter: Filter): { matches: boolean } {
+  return { matches: matchFilter(filter, event) }
+}
+
+// --- NIP list/show ---
+
+/** Fetch the list of official NIPs from GitHub */
+export async function handleNipList(): Promise<Array<{ number: number; title: string }>> {
+  const response = await fetch('https://raw.githubusercontent.com/nostr-protocol/nips/master/README.md', {
+    signal: AbortSignal.timeout(10_000),
+  })
+  if (!response.ok) throw new Error(`Failed to fetch NIP list: ${response.status}`)
+  const text = await response.text()
+
+  const nips: Array<{ number: number; title: string }> = []
+  const re = /- \[NIP-(\d+)\]\([^)]+\)\s*[-—:]+\s*(.+)/g
+  let match
+  while ((match = re.exec(text)) !== null) {
+    nips.push({ number: parseInt(match[1], 10), title: match[2].trim() })
+  }
+  return nips
+}
+
+/** Fetch a specific NIP's content from GitHub */
+export async function handleNipShow(number: number): Promise<{ number: number; content: string }> {
+  const padded = String(number).padStart(2, '0')
+  const response = await fetch(`https://raw.githubusercontent.com/nostr-protocol/nips/master/${padded}.md`, {
+    signal: AbortSignal.timeout(10_000),
+  })
+  if (!response.ok) throw new Error(`NIP-${padded} not found: ${response.status}`)
+  const content = await response.text()
+  return { number, content }
 }

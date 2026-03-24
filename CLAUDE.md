@@ -1,6 +1,6 @@
 # CLAUDE.md — nostr-bray
 
-MCP server giving AI agents sovereign Nostr identities. 62 tools across 7 groups.
+MCP server giving AI agents sovereign Nostr identities. 74 tools across 7 groups.
 
 ## Commands
 
