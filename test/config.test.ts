@@ -3,9 +3,9 @@ import { writeFileSync, unlinkSync, mkdtempSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
-// Known test values — NOT real keys, just valid format
-const TEST_NSEC = 'nsec1vl029mgpspedva04g90vltkh6fesm37d2pgdq05nt6y4lgfn36qs0wfhsq'
-const TEST_HEX = '67dca2364218b4e0aed522cf62eb7d264c371b4d5064348fd2e7a457e89a7480'
+// Valid test key pair — generated for testing only
+const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
+const TEST_HEX = 'c189b82fc49ad3362eacb0976a5405df2d0d4fde6cfc025e41c33e65db1ab915'
 const TEST_MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
 
 describe('loadConfig', () => {
