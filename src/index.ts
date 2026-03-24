@@ -7,6 +7,9 @@ import { Nip65Manager } from './nip65.js'
 import { registerIdentityTools } from './identity/tools.js'
 import { registerSocialTools } from './social/tools.js'
 import { registerTrustTools } from './trust/tools.js'
+import { registerRelayTools } from './relay/tools.js'
+import { registerZapTools } from './zap/tools.js'
+import { registerSafetyTools } from './safety/tools.js'
 
 const config = loadConfig()
 const pool = new RelayPool({
@@ -32,6 +35,11 @@ registerSocialTools(server, deps)
 
 // Phase 4: Trust tools
 registerTrustTools(server, deps)
+
+// Phase 5: Relay, Zap & Safety tools
+registerRelayTools(server, deps)
+registerZapTools(server, deps)
+registerSafetyTools(server, deps)
 
 if (config.transport === 'stdio') {
   const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js')
