@@ -156,3 +156,106 @@ export async function handleSocialProfileSet(
 
   return { published: true, event }
 }
+
+// --- Contacts (kind 3) ---
+
+export interface Contact {
+  pubkey: string
+  relay?: string
+  petname?: string
+}
+
+/** Fetch the kind 3 contact list for a pubkey */
+export async function handleContactsGet(
+  pool: RelayPool,
+  npub: string,
+  pubkeyHex: string,
+): Promise<Contact[]> {
+  const events = await pool.query(npub, {
+    kinds: [3],
+    authors: [pubkeyHex],
+  })
+
+  if (events.length === 0) return []
+
+  const best = events.reduce((a: NostrEvent, b: NostrEvent) =>
+    b.created_at > a.created_at ? b : a
+  )
+
+  return best.tags
+    .filter(t => t[0] === 'p' && t[1])
+    .map(t => ({
+      pubkey: t[1],
+      relay: t[2] || undefined,
+      petname: t[3] || undefined,
+    }))
+}
+
+/** Follow a pubkey — fetches current contacts, adds, publishes new kind 3 */
+export async function handleContactsFollow(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: { pubkeyHex: string; relay?: string; petname?: string },
+): Promise<PostResult> {
+  // Fetch existing contacts
+  const existing = await pool.query(ctx.activeNpub, {
+    kinds: [3],
+    authors: [ctx.activeNpub],
+  })
+
+  let tags: string[][] = []
+  if (existing.length > 0) {
+    const best = existing.reduce((a: NostrEvent, b: NostrEvent) =>
+      b.created_at > a.created_at ? b : a
+    )
+    tags = best.tags.filter(t => t[0] === 'p')
+  }
+
+  // Don't duplicate
+  if (!tags.some(t => t[1] === args.pubkeyHex)) {
+    const newTag = ['p', args.pubkeyHex]
+    if (args.relay) newTag.push(args.relay)
+    if (args.petname) { if (!args.relay) newTag.push(''); newTag.push(args.petname) }
+    tags.push(newTag)
+  }
+
+  const sign = ctx.getSigningFunction()
+  const event = await sign({
+    kind: 3,
+    created_at: Math.floor(Date.now() / 1000),
+    tags,
+    content: '',
+  })
+  const publish = await pool.publish(ctx.activeNpub, event)
+  return { event, publish }
+}
+
+/** Unfollow a pubkey — fetches current contacts, removes, publishes new kind 3 */
+export async function handleContactsUnfollow(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: { pubkeyHex: string },
+): Promise<PostResult> {
+  const existing = await pool.query(ctx.activeNpub, {
+    kinds: [3],
+    authors: [ctx.activeNpub],
+  })
+
+  let tags: string[][] = []
+  if (existing.length > 0) {
+    const best = existing.reduce((a: NostrEvent, b: NostrEvent) =>
+      b.created_at > a.created_at ? b : a
+    )
+    tags = best.tags.filter(t => t[0] === 'p' && t[1] !== args.pubkeyHex)
+  }
+
+  const sign = ctx.getSigningFunction()
+  const event = await sign({
+    kind: 3,
+    created_at: Math.floor(Date.now() / 1000),
+    tags,
+    content: '',
+  })
+  const publish = await pool.publish(ctx.activeNpub, event)
+  return { event, publish }
+}

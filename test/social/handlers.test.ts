@@ -7,6 +7,9 @@ import {
   handleSocialReact,
   handleSocialProfileGet,
   handleSocialProfileSet,
+  handleContactsGet,
+  handleContactsFollow,
+  handleContactsUnfollow,
 } from '../../src/social/handlers.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
@@ -142,6 +145,101 @@ describe('social handlers', () => {
         confirm: true,
       })
       expect(result.published).toBe(true)
+    })
+  })
+
+  describe('handleContactsGet', () => {
+    it('fetches kind 3 and returns list of followed pubkeys', async () => {
+      const contactEvent = {
+        kind: 3,
+        pubkey: 'mypub',
+        created_at: 1000,
+        tags: [['p', 'friend1'], ['p', 'friend2'], ['p', 'friend3', 'wss://relay.example.com', 'alice']],
+        content: '',
+        id: 'c1',
+        sig: 's1',
+      }
+      const pool = mockPool([contactEvent])
+      const result = await handleContactsGet(pool as any, 'somenpub', 'mypub')
+      expect(result.length).toBe(3)
+      expect(result[0].pubkey).toBe('friend1')
+      expect(result[2].relay).toBe('wss://relay.example.com')
+      expect(result[2].petname).toBe('alice')
+    })
+
+    it('returns empty when no kind 3 found', async () => {
+      const pool = mockPool([])
+      const result = await handleContactsGet(pool as any, 'somenpub', 'mypub')
+      expect(result).toEqual([])
+    })
+  })
+
+  describe('handleContactsFollow', () => {
+    it('adds pubkey to contact list and publishes kind 3', async () => {
+      const pool = mockPool([]) // no existing contacts
+      const result = await handleContactsFollow(ctx, pool as any, {
+        pubkeyHex: 'newfollow123',
+      })
+      expect(result.event.kind).toBe(3)
+      const pTags = result.event.tags.filter((t: string[]) => t[0] === 'p')
+      expect(pTags.some((t: string[]) => t[1] === 'newfollow123')).toBe(true)
+    })
+
+    it('preserves existing contacts when adding', async () => {
+      const existing = {
+        kind: 3,
+        pubkey: 'mypub',
+        created_at: 1000,
+        tags: [['p', 'existing1'], ['p', 'existing2']],
+        content: '',
+        id: 'c1',
+        sig: 's1',
+      }
+      const pool = mockPool([existing])
+      const result = await handleContactsFollow(ctx, pool as any, {
+        pubkeyHex: 'newfollow',
+      })
+      const pTags = result.event.tags.filter((t: string[]) => t[0] === 'p')
+      expect(pTags.length).toBe(3) // existing 2 + new 1
+    })
+
+    it('does not duplicate if already following', async () => {
+      const existing = {
+        kind: 3,
+        pubkey: 'mypub',
+        created_at: 1000,
+        tags: [['p', 'already']],
+        content: '',
+        id: 'c1',
+        sig: 's1',
+      }
+      const pool = mockPool([existing])
+      const result = await handleContactsFollow(ctx, pool as any, {
+        pubkeyHex: 'already',
+      })
+      const pTags = result.event.tags.filter((t: string[]) => t[0] === 'p')
+      expect(pTags.length).toBe(1)
+    })
+  })
+
+  describe('handleContactsUnfollow', () => {
+    it('removes pubkey from contact list', async () => {
+      const existing = {
+        kind: 3,
+        pubkey: 'mypub',
+        created_at: 1000,
+        tags: [['p', 'keep'], ['p', 'remove'], ['p', 'alsokeep']],
+        content: '',
+        id: 'c1',
+        sig: 's1',
+      }
+      const pool = mockPool([existing])
+      const result = await handleContactsUnfollow(ctx, pool as any, {
+        pubkeyHex: 'remove',
+      })
+      const pTags = result.event.tags.filter((t: string[]) => t[0] === 'p')
+      expect(pTags.length).toBe(2)
+      expect(pTags.every((t: string[]) => t[1] !== 'remove')).toBe(true)
     })
   })
 })

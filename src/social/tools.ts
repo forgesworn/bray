@@ -8,6 +8,9 @@ import {
   handleSocialReact,
   handleSocialProfileGet,
   handleSocialProfileSet,
+  handleContactsGet,
+  handleContactsFollow,
+  handleContactsUnfollow,
 } from './handlers.js'
 import { handleDmSend, handleDmRead } from './dm.js'
 import { handleNotifications, handleFeed } from './notifications.js'
@@ -179,6 +182,56 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     const feed = await handleFeed(deps.ctx, deps.pool, { authors, since, limit })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(feed, null, 2) }],
+    }
+  })
+
+  server.registerTool('contacts_get', {
+    description: 'Fetch the contact list (kind 3 follows) for a pubkey. Returns pubkeys, relay hints, and petnames.',
+    inputSchema: {
+      pubkeyHex: hexId.describe('Hex pubkey to fetch contacts for'),
+      npub: z.string().optional().describe('Bech32 npub for relay routing (defaults to active identity)'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ pubkeyHex, npub }) => {
+    const contacts = await handleContactsGet(deps.pool, npub ?? deps.ctx.activeNpub, pubkeyHex)
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(contacts, null, 2) }],
+    }
+  })
+
+  server.registerTool('contacts_follow', {
+    description: 'Follow a Nostr pubkey. Fetches current contact list, adds the pubkey, publishes updated kind 3.',
+    inputSchema: {
+      pubkeyHex: hexId.describe('Hex pubkey to follow'),
+      relay: z.string().optional().describe('Relay hint for the contact'),
+      petname: z.string().optional().describe('Local petname for the contact'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ pubkeyHex, relay, petname }) => {
+    const result = await handleContactsFollow(deps.ctx, deps.pool, { pubkeyHex, relay, petname })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({
+        id: result.event.id,
+        followCount: result.event.tags.filter(t => t[0] === 'p').length,
+        publish: result.publish,
+      }, null, 2) }],
+    }
+  })
+
+  server.registerTool('contacts_unfollow', {
+    description: 'Unfollow a Nostr pubkey. Fetches current contact list, removes the pubkey, publishes updated kind 3.',
+    inputSchema: {
+      pubkeyHex: hexId.describe('Hex pubkey to unfollow'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ pubkeyHex }) => {
+    const result = await handleContactsUnfollow(deps.ctx, deps.pool, { pubkeyHex })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({
+        id: result.event.id,
+        followCount: result.event.tags.filter(t => t[0] === 'p').length,
+        publish: result.publish,
+      }, null, 2) }],
     }
   })
 }
