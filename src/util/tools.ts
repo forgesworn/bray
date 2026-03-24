@@ -151,7 +151,7 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('key_public', {
-    description: 'Derive a public key (hex + npub) from a secret key (nsec or hex).',
+    description: 'Derive a public key (hex + npub) from a secret key (nsec or hex). WARNING: the secret key is transmitted through the MCP transport — use only for local/trusted setups.',
     inputSchema: {
       secret: z.string().describe('Secret key as nsec or hex'),
     },
@@ -162,7 +162,7 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('encode_nsec', {
-    description: 'Encode a hex private key as a bech32 nsec.',
+    description: 'Encode a hex private key as a bech32 nsec. WARNING: private key material flows through the MCP transport.',
     inputSchema: { hex: z.string().regex(/^[0-9a-f]{64}$/).describe('Hex private key') },
     annotations: { readOnlyHint: true },
   }, async ({ hex }) => {

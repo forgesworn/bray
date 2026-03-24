@@ -1,7 +1,7 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { createHash } from 'node:crypto'
+import { validatePublicUrl } from '../validation.js'
 import type { IdentityContext } from '../context.js'
-import type { RelayPool } from '../relay-pool.js'
 
 export interface BlobDescriptor {
   url: string
@@ -16,8 +16,13 @@ export async function handleBlossomUpload(
   ctx: IdentityContext,
   args: { server: string; filePath?: string; data?: Uint8Array; contentType?: string },
 ): Promise<BlobDescriptor> {
+  validatePublicUrl(args.server)
+  const MAX_UPLOAD = 100 * 1024 * 1024 // 100MB
+
   let body: Uint8Array
   if (args.filePath) {
+    const size = statSync(args.filePath).size
+    if (size > MAX_UPLOAD) throw new Error(`File too large: ${size} bytes (max ${MAX_UPLOAD})`)
     body = readFileSync(args.filePath)
   } else if (args.data) {
     body = args.data
@@ -66,6 +71,7 @@ export async function handleBlossomUpload(
 export async function handleBlossomList(
   args: { server: string; pubkeyHex: string },
 ): Promise<BlobDescriptor[]> {
+  validatePublicUrl(args.server)
   const serverUrl = args.server.replace(/\/$/, '')
   const response = await fetch(`${serverUrl}/list/${args.pubkeyHex}`, {
     headers: { Accept: 'application/json' },
@@ -80,6 +86,7 @@ export async function handleBlossomList(
 export async function handleBlossomDownload(
   args: { server: string; sha256: string },
 ): Promise<{ data: Uint8Array; contentType: string }> {
+  validatePublicUrl(args.server)
   const serverUrl = args.server.replace(/\/$/, '')
   const response = await fetch(`${serverUrl}/${args.sha256}`, {
     signal: AbortSignal.timeout(30_000),
@@ -96,6 +103,7 @@ export async function handleBlossomDelete(
   ctx: IdentityContext,
   args: { server: string; sha256: string },
 ): Promise<{ deleted: boolean }> {
+  validatePublicUrl(args.server)
   const now = Math.floor(Date.now() / 1000)
   const sign = ctx.getSigningFunction()
   const authEvent = await sign({

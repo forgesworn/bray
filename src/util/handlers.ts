@@ -20,8 +20,9 @@ export function handleDecode(input: string): DecodeResult {
   const decoded = decode(cleaned)
 
   if (decoded.type === 'nsec') {
-    // Return hex, not raw bytes
-    return { type: 'nsec', data: { hex: Buffer.from(decoded.data as Uint8Array).toString('hex') } }
+    // Never return private key — derive pubkey instead
+    const pubkey = getPublicKey(decoded.data as Uint8Array)
+    return { type: 'nsec', data: { pubkeyHex: pubkey, npub: npubEncode(pubkey), warning: 'Private key not returned for safety' } }
   }
 
   return { type: decoded.type, data: decoded.data }
@@ -173,8 +174,12 @@ export function handleKeyPublic(secret: string): { pubkeyHex: string; npub: stri
   } else {
     bytes = Buffer.from(secret, 'hex')
   }
-  const pubkeyHex = getPublicKey(bytes)
-  return { pubkeyHex, npub: npubEncode(pubkeyHex) }
+  try {
+    const pubkeyHex = getPublicKey(bytes)
+    return { pubkeyHex, npub: npubEncode(pubkeyHex) }
+  } finally {
+    bytes.fill(0)
+  }
 }
 
 // --- Encode nsec ---
@@ -200,6 +205,7 @@ export async function handleNipList(): Promise<Array<{ number: number; title: st
   })
   if (!response.ok) throw new Error(`Failed to fetch NIP list: ${response.status}`)
   const text = await response.text()
+  if (text.length > 1_048_576) throw new Error('NIP list response too large')
 
   const nips: Array<{ number: number; title: string }> = []
   const re = /- \[NIP-(\d+)\]\([^)]+\)\s*[-—:]+\s*(.+)/g
@@ -217,6 +223,7 @@ export async function handleNipShow(number: number): Promise<{ number: number; c
     signal: AbortSignal.timeout(10_000),
   })
   if (!response.ok) throw new Error(`NIP-${padded} not found: ${response.status}`)
-  const content = await response.text()
-  return { number, content }
+  const text = await response.text()
+  if (text.length > 1_048_576) throw new Error('NIP content too large')
+  return { number, content: text }
 }
