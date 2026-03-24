@@ -1,4 +1,4 @@
-import type { Event as NostrEvent, UnsignedEvent } from 'nostr-tools'
+import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 
 /** Public identity info returned by tools — never includes private keys */
 export interface PublicIdentity {
@@ -15,8 +15,8 @@ export interface IdentitySnapshot {
   relayList?: NostrEvent  // kind 10002
 }
 
-/** Signing function — signs an unsigned event, returns signed event */
-export type SignFn = (event: UnsignedEvent) => Promise<NostrEvent>
+/** Signing function — signs an event template, returns signed event */
+export type SignFn = (template: EventTemplate) => Promise<NostrEvent>
 
 /** Relay set with read/write separation */
 export interface RelaySet {
