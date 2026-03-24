@@ -13,6 +13,9 @@ import {
   handleDecrypt,
   handleCount,
   handleFetch,
+  handleKeyPublic,
+  handleEncodeNsec,
+  handleFilter,
 } from '../../src/util/handlers.js'
 
 // Generate a real keypair for testing
@@ -195,6 +198,66 @@ describe('util handlers', () => {
     it('throws on unsupported type', async () => {
       const pool = { query: vi.fn() }
       await expect(handleFetch(pool as any, 'npub1test', nsec)).rejects.toThrow(/Cannot fetch/)
+    })
+  })
+
+  // --- Key Public ---
+
+  describe('handleKeyPublic', () => {
+    it('derives pubkey from nsec', () => {
+      const result = handleKeyPublic(nsec)
+      expect(result.pubkeyHex).toBe(pk)
+      expect(result.npub).toMatch(/^npub1/)
+    })
+
+    it('derives pubkey from hex', () => {
+      const result = handleKeyPublic(skHex)
+      expect(result.pubkeyHex).toBe(pk)
+    })
+
+    it('round-trips with encode', () => {
+      const result = handleKeyPublic(nsec)
+      expect(handleEncodeNpub(result.pubkeyHex)).toBe(npub)
+    })
+  })
+
+  // --- Encode nsec ---
+
+  describe('handleEncodeNsec', () => {
+    it('encodes hex to nsec', () => {
+      const result = handleEncodeNsec(skHex)
+      expect(result).toMatch(/^nsec1/)
+    })
+
+    it('round-trips with decode', () => {
+      const encoded = handleEncodeNsec(skHex)
+      const decoded = handleDecode(encoded)
+      expect((decoded.data as any).hex).toBe(skHex)
+    })
+  })
+
+  // --- Filter ---
+
+  describe('handleFilter', () => {
+    it('returns true when event matches filter', () => {
+      const event = { kind: 1, pubkey: pk, created_at: 1000, tags: [], content: 'hi', id: 'e1', sig: 's1' }
+      expect(handleFilter(event as any, { kinds: [1] }).matches).toBe(true)
+    })
+
+    it('returns false when event does not match', () => {
+      const event = { kind: 1, pubkey: pk, created_at: 1000, tags: [], content: 'hi', id: 'e1', sig: 's1' }
+      expect(handleFilter(event as any, { kinds: [7] }).matches).toBe(false)
+    })
+
+    it('matches by author', () => {
+      const event = { kind: 1, pubkey: pk, created_at: 1000, tags: [], content: 'hi', id: 'e1', sig: 's1' }
+      expect(handleFilter(event as any, { authors: [pk] }).matches).toBe(true)
+      expect(handleFilter(event as any, { authors: ['wrong'] }).matches).toBe(false)
+    })
+
+    it('matches by tag', () => {
+      const event = { kind: 1, pubkey: pk, created_at: 1000, tags: [['t', 'nostr']], content: 'hi', id: 'e1', sig: 's1' }
+      expect(handleFilter(event as any, { '#t': ['nostr'] } as any).matches).toBe(true)
     })
   })
 })
