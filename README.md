@@ -15,7 +15,23 @@ AI agents interacting with Nostr today are handed a single key pair with no sepa
 
 nostr-bray solves this with nsec-tree hierarchical derivation. A single master secret generates unlimited child identities, each with its own key pair, purpose, and relay set. Private keys are zeroed from memory on eviction. Agents can switch personas mid-conversation, prove they control the master without revealing the derivation path, and activate a duress identity if compromised.
 
-## Quick Start
+## Quick Start — CLI
+
+```bash
+# Post a note to Nostr from your terminal
+export NOSTR_SECRET_KEY="nsec1..."
+export NOSTR_RELAYS="wss://relay.damus.io,wss://nos.lol"
+
+npx nostr-bray whoami                    # show your npub
+npx nostr-bray post "hello from bray!"   # publish a note
+npx nostr-bray persona work              # derive a work persona
+npx nostr-bray prove blind               # create a linkage proof
+npx nostr-bray --help                    # see all commands
+```
+
+## Quick Start — MCP Server
+
+Add to your Claude/Cursor/Windsurf MCP config:
 
 ```json
 {
@@ -81,7 +97,7 @@ Or with a secret file (recommended):
 | `social_notifications` | Fetch mentions, replies, reactions, zap receipts |
 | `social_feed` | Fetch kind 1 text note feed |
 
-### Trust (10 tools)
+### Trust (11 tools)
 
 | Tool | Description |
 |------|-------------|
