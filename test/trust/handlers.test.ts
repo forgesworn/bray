@@ -5,6 +5,8 @@ import {
   handleTrustRead,
   handleTrustVerify,
   handleTrustRevoke,
+  handleTrustRequest,
+  handleTrustProofPublish,
 } from '../../src/trust/handlers.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
@@ -115,6 +117,49 @@ describe('trust handlers', () => {
         identifier: 'subject-hex',
         originalAttestorPubkey: 'someone-elses-pubkey',
       })).rejects.toThrow(/attestor/i)
+    })
+  })
+
+  describe('handleTrustRequest', () => {
+    it('sends NIP-17 DM with correct JSON payload', async () => {
+      const pool = mockPool()
+      const result = await handleTrustRequest(ctx, pool as any, {
+        recipientPubkeyHex: '818b1ff78425c45464e7400d764ffc980dfdf522787e0c0309036b52933fece4',
+        subject: 'subject-hex',
+        attestationType: 'identity-verification',
+        message: 'Please verify my identity',
+      })
+      expect(result.event.kind).toBe(1059) // gift wrap
+    })
+  })
+
+  describe('handleTrustProofPublish', () => {
+    it('requires confirm: true (returns warning when false)', async () => {
+      const pool = mockPool()
+      ctx.derive('child', 0)
+      ctx.switch('child', 0)
+      const result = await handleTrustProofPublish(ctx, pool as any, { confirm: false })
+      expect(result.published).toBe(false)
+      expect(result.warning).toMatch(/confirm/i)
+    })
+
+    it('publishes kind 30078 when confirmed', async () => {
+      const pool = mockPool()
+      ctx.derive('child', 0)
+      ctx.switch('child', 0)
+      const result = await handleTrustProofPublish(ctx, pool as any, { confirm: true })
+      expect(result.published).toBe(true)
+      expect(result.event!.kind).toBe(30078)
+    })
+
+    it('returns warning about what the proof reveals', async () => {
+      const pool = mockPool()
+      ctx.derive('child', 0)
+      ctx.switch('child', 0)
+      const blind = await handleTrustProofPublish(ctx, pool as any, { mode: 'blind', confirm: false })
+      expect(blind.warning).toMatch(/blind/i)
+      const full = await handleTrustProofPublish(ctx, pool as any, { mode: 'full', confirm: false })
+      expect(full.warning).toMatch(/full/i)
     })
   })
 })
