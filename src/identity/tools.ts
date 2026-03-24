@@ -12,6 +12,7 @@ import {
   handleIdentityProve,
 } from './handlers.js'
 import { handleBackupShamir, handleRestoreShamir } from './shamir.js'
+import { hexId } from '../validation.js'
 import { handleIdentityBackup, handleIdentityRestore, handleIdentityMigrate } from './migration.js'
 
 export interface ToolDeps {
@@ -147,7 +148,7 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('identity_backup', {
     description: 'Fetch profile, contacts, relay list, and attestations for a pubkey. Returns a portable JSON bundle (no private keys).',
     inputSchema: {
-      pubkeyHex: z.string().describe('Hex pubkey to back up'),
+      pubkeyHex: hexId.describe('Hex pubkey to back up'),
       npub: z.string().optional().describe('Bech32 npub for relay routing (defaults to active identity)'),
     },
     annotations: { readOnlyHint: true },
@@ -166,7 +167,7 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('identity_restore', {
     description: 'Re-sign migratable events (profile, contacts, relay list) under the active identity. Skips attestations (trust chain protection).',
     inputSchema: {
-      pubkeyHex: z.string().describe('Hex pubkey of the original identity to restore from'),
+      pubkeyHex: hexId.describe('Hex pubkey of the original identity to restore from'),
       npub: z.string().optional().describe('Bech32 npub for relay routing'),
     },
     annotations: { readOnlyHint: false },

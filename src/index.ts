@@ -66,7 +66,32 @@ if (config.transport === 'stdio') {
   const { timingSafeEqual } = await import('node:crypto')
   const expectedAuth = Buffer.from(`Bearer ${token}`)
 
+  // Sliding window rate limiter (per-IP)
+  const rateLimits = new Map<string, { count: number; resetAt: number }>()
+  const RATE_WINDOW = 60_000 // 60 seconds
+  const RATE_LIMIT = 100     // 100 requests per window
+
+  function checkRateLimit(ip: string): boolean {
+    const now = Date.now()
+    const entry = rateLimits.get(ip)
+    if (!entry || now > entry.resetAt) {
+      rateLimits.set(ip, { count: 1, resetAt: now + RATE_WINDOW })
+      return true
+    }
+    entry.count++
+    return entry.count <= RATE_LIMIT
+  }
+
   const httpServer = createServer(async (req, res) => {
+    const clientIp = req.socket.remoteAddress ?? 'unknown'
+
+    // Rate limiting
+    if (!checkRateLimit(clientIp)) {
+      res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' })
+      res.end(JSON.stringify({ error: 'Too many requests' }))
+      return
+    }
+
     // Bearer token auth (constant-time comparison)
     const actual = Buffer.from(req.headers.authorization ?? '')
     if (actual.length !== expectedAuth.length || !timingSafeEqual(actual, expectedAuth)) {

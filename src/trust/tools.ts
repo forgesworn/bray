@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
+import { hexId } from '../validation.js'
 import {
   handleTrustAttest,
   handleTrustRead,
@@ -42,9 +43,9 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('trust_read', {
     description: 'Read kind 31000 attestations from relays. Filter by subject, type, or attestor.',
     inputSchema: {
-      subject: z.string().optional().describe('Subject hex pubkey to filter by'),
+      subject: hexId.optional().describe('Subject hex pubkey to filter by'),
       type: z.string().optional().describe('Attestation type to filter by'),
-      attestor: z.string().optional().describe('Attestor hex pubkey to filter by'),
+      attestor: hexId.optional().describe('Attestor hex pubkey to filter by'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ subject, type, attestor }) => {
@@ -97,8 +98,8 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('trust_request', {
     description: 'Send an attestation request to another Nostr identity via NIP-17 encrypted DM.',
     inputSchema: {
-      recipientPubkeyHex: z.string().describe('Hex pubkey of the attestor you are requesting from'),
-      subject: z.string().describe('Hex pubkey of the subject to be attested'),
+      recipientPubkeyHex: hexId.describe('Hex pubkey of the attestor you are requesting from'),
+      subject: hexId.describe('Hex pubkey of the subject to be attested'),
       attestationType: z.string().describe('Type of attestation requested'),
       message: z.string().optional().describe('Optional message explaining the request'),
     },
@@ -142,7 +143,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('trust_ring_prove', {
     description: 'Create a ring signature proving anonymous membership in a group of public keys.',
     inputSchema: {
-      ring: z.array(z.string()).describe('Hex x-only public keys of ring members (must include active identity)'),
+      ring: z.array(hexId).describe('Hex x-only public keys of ring members (must include active identity)'),
       attestationType: z.string().describe('Attestation type context for the canonical message'),
       message: z.string().optional().describe('Custom message to sign (defaults to canonical format)'),
     },
@@ -170,7 +171,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('trust_spoken_challenge', {
     description: 'Generate a spoken verification token for in-person identity confirmation.',
     inputSchema: {
-      secret: z.string().describe('Shared secret (hex, min 32 chars)'),
+      secret: z.string().regex(/^[0-9a-f]{32,}$/, 'Hex string, min 32 chars').describe('Shared secret'),
       context: z.string().describe('Context string for domain separation'),
       counter: z.number().int().describe('Time-based or usage counter'),
     },
@@ -185,7 +186,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('trust_spoken_verify', {
     description: 'Verify a spoken token response against the shared secret.',
     inputSchema: {
-      secret: z.string().describe('Shared secret (hex, min 32 chars)'),
+      secret: z.string().regex(/^[0-9a-f]{32,}$/, 'Hex string, min 32 chars').describe('Shared secret'),
       context: z.string().describe('Context string used during challenge'),
       counter: z.number().int().describe('Current counter value'),
       input: z.string().describe('The spoken/entered token to verify'),

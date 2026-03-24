@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
+import { hexId } from '../validation.js'
 import {
   handleSocialPost,
   handleSocialReply,
@@ -33,8 +34,8 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     description: 'Reply to a Nostr event (kind 1 with e-tag and p-tag) as the active identity.',
     inputSchema: {
       content: z.string().describe('Reply text'),
-      replyTo: z.string().describe('Event ID being replied to (hex)'),
-      replyToPubkey: z.string().describe('Pubkey of the event author (hex)'),
+      replyTo: hexId.describe('Event ID being replied to (hex)'),
+      replyToPubkey: hexId.describe('Pubkey of the event author (hex)'),
       relay: z.string().optional().describe('Relay URL where the parent event was seen'),
     },
     annotations: { readOnlyHint: false },
@@ -51,8 +52,8 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('social_react', {
     description: 'React to a Nostr event (kind 7) as the active identity. Default reaction is "+".',
     inputSchema: {
-      eventId: z.string().describe('Event ID to react to (hex)'),
-      eventPubkey: z.string().describe('Pubkey of the event author (hex)'),
+      eventId: hexId.describe('Event ID to react to (hex)'),
+      eventPubkey: hexId.describe('Pubkey of the event author (hex)'),
       reaction: z.string().default('+').describe('Reaction content (default "+", or emoji)'),
     },
     annotations: { readOnlyHint: false },
@@ -69,7 +70,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('social_profile_get', {
     description: 'Fetch the kind 0 profile for a Nostr pubkey. Returns parsed profile fields.',
     inputSchema: {
-      pubkeyHex: z.string().describe('Hex pubkey to fetch profile for'),
+      pubkeyHex: hexId.describe('Hex pubkey to fetch profile for'),
       npub: z.string().optional().describe('Bech32 npub (used for relay routing, defaults to active identity)'),
     },
     annotations: { readOnlyHint: true },
@@ -119,7 +120,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('dm_send', {
     description: 'Send a direct message to a Nostr pubkey. Uses NIP-17 gift wrap by default. Set nip04: true for legacy NIP-04 (requires NIP04_ENABLED).',
     inputSchema: {
-      recipientPubkeyHex: z.string().describe('Recipient hex pubkey'),
+      recipientPubkeyHex: hexId.describe('Recipient hex pubkey'),
       message: z.string().describe('Message text'),
       nip04: z.boolean().default(false).describe('Use legacy NIP-04 instead of NIP-17'),
       recipientRelay: z.string().optional().describe('Relay URL hint for recipient'),
@@ -169,7 +170,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('social_feed', {
     description: 'Fetch the kind 1 text note feed. Optionally filter by authors.',
     inputSchema: {
-      authors: z.array(z.string()).optional().describe('Hex pubkeys to filter by'),
+      authors: z.array(hexId).optional().describe('Hex pubkeys to filter by'),
       since: z.number().optional().describe('Unix timestamp — only fetch posts after this time'),
       limit: z.number().int().min(1).max(100).default(20).describe('Max posts to return'),
     },
