@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
+// Mock verifyEvent to accept test fixtures
+vi.mock('nostr-tools/pure', () => ({
+  verifyEvent: () => true,
+}))
+
 const TEST_NPUB = 'npub1abc111111111111111111111111111111111111111111111111abcdef01'
 const TEST_PUBKEY = 'abc111111111111111111111111111111111111111111111111111abcdef01'
 

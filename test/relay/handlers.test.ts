@@ -96,9 +96,10 @@ describe('relay handlers', () => {
 
   describe('handleRelayInfo', () => {
     it('converts wss:// to https:// for NIP-11 fetch', async () => {
+      const jsonBody = JSON.stringify({ name: 'Test Relay', description: 'A test relay' })
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({ name: 'Test Relay', description: 'A test relay' }),
+        text: () => Promise.resolve(jsonBody),
       })
       vi.stubGlobal('fetch', mockFetch)
 
@@ -116,6 +117,15 @@ describe('relay handlers', () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' }))
       await expect(handleRelayInfo('wss://bad.example.com')).rejects.toThrow(/404/)
       vi.unstubAllGlobals()
+    })
+
+    it('rejects non-wss URLs (SSRF protection)', async () => {
+      await expect(handleRelayInfo('https://evil.com')).rejects.toThrow(/wss:\/\//)
+    })
+
+    it('rejects private network addresses', async () => {
+      await expect(handleRelayInfo('wss://127.0.0.1')).rejects.toThrow(/private/)
+      await expect(handleRelayInfo('wss://169.254.169.254')).rejects.toThrow(/private/)
     })
   })
 })

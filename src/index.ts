@@ -75,8 +75,7 @@ if (config.transport === 'stdio') {
       return
     }
 
-    // Security headers
-    res.setHeader('Access-Control-Allow-Origin', 'null')
+    // Security headers — no CORS headers = deny all cross-origin
     res.setHeader('X-Content-Type-Options', 'nosniff')
     res.setHeader('X-Frame-Options', 'DENY')
 
@@ -86,11 +85,28 @@ if (config.transport === 'stdio') {
       return
     }
 
-    // Parse body for POST requests
+    // Parse body for POST requests (1MB limit)
     if (req.method === 'POST') {
+      const MAX_BODY = 1_048_576
       const chunks: Buffer[] = []
-      for await (const chunk of req) chunks.push(chunk as Buffer)
-      const body = JSON.parse(Buffer.concat(chunks).toString())
+      let size = 0
+      for await (const chunk of req) {
+        size += (chunk as Buffer).length
+        if (size > MAX_BODY) {
+          res.writeHead(413, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ error: 'Request body too large' }))
+          return
+        }
+        chunks.push(chunk as Buffer)
+      }
+      let body: unknown
+      try {
+        body = JSON.parse(Buffer.concat(chunks).toString())
+      } catch {
+        res.writeHead(400, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ error: 'Invalid JSON' }))
+        return
+      }
       await transport.handleRequest(req, res, body)
     } else {
       await transport.handleRequest(req, res)

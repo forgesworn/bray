@@ -1,4 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// Mock verifyEvent to accept test fixtures
+vi.mock('nostr-tools/pure', async () => {
+  const actual = await vi.importActual('nostr-tools/pure')
+  return { ...actual, verifyEvent: () => true }
+})
 import { IdentityContext } from '../../src/context.js'
 import {
   handleIdentityBackup,
