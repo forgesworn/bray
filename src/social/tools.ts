@@ -16,6 +16,7 @@ import {
 } from './handlers.js'
 import { handleDmSend, handleDmRead } from './dm.js'
 import { handleNotifications, handleFeed } from './notifications.js'
+import { handleNipPublish, handleNipRead } from './nips.js'
 
 export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('social_post', {
@@ -263,6 +264,37 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
         followCount: result.event.tags.filter(t => t[0] === 'p').length,
         publish: result.publish,
       }, null, 2) }],
+    }
+  })
+
+  server.registerTool('nip_publish', {
+    description: 'Publish a community NIP (kind 30817) — a custom protocol specification on Nostr.',
+    inputSchema: {
+      identifier: z.string().describe('URL-safe slug for the NIP (e.g. "sovereign-identity")'),
+      title: z.string().describe('Human-readable title'),
+      content: z.string().describe('Full NIP specification in Markdown'),
+      kinds: z.array(z.number().int()).optional().describe('Event kinds defined by this NIP'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ identifier, title, content, kinds }) => {
+    const result = await handleNipPublish(deps.ctx, deps.pool, { identifier, title, content, kinds })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({ id: result.event.id, publish: result.publish }, null, 2) }],
+    }
+  })
+
+  server.registerTool('nip_read', {
+    description: 'Fetch community NIPs (kind 30817) from relays. Filter by author, identifier, or defined kind.',
+    inputSchema: {
+      author: hexId.optional().describe('Author hex pubkey'),
+      identifier: z.string().optional().describe('NIP identifier (d-tag)'),
+      kind: z.number().int().optional().describe('Event kind defined by the NIP'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ author, identifier, kind }) => {
+    const nips = await handleNipRead(deps.pool, deps.ctx.activeNpub, { author, identifier, kind })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(nips, null, 2) }],
     }
   })
 }

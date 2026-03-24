@@ -6,6 +6,7 @@ import { Nip65Manager } from './nip65.js'
 import { handleSocialPost, handleSocialReply, handleSocialReact, handleSocialDelete, handleSocialRepost, handleSocialProfileGet, handleSocialProfileSet, handleContactsGet, handleContactsFollow, handleContactsUnfollow } from './social/handlers.js'
 import { handleDmSend, handleDmRead } from './social/dm.js'
 import { handleNotifications, handleFeed } from './social/notifications.js'
+import { handleNipPublish, handleNipRead } from './social/nips.js'
 import { handleIdentityList, handleIdentityProve, handleIdentityCreate } from './identity/handlers.js'
 import { handleBackupShamir, handleRestoreShamir } from './identity/shamir.js'
 import { handleIdentityBackup, handleIdentityRestore, handleIdentityMigrate } from './identity/migration.js'
@@ -60,6 +61,8 @@ Social:
   dm-read                             Read received DMs
   feed [--limit N]                    Fetch text note feed
   notifications [--limit N]           Fetch mentions, replies, reactions, zaps
+  nip-publish <id> <title> <file>     Publish a community NIP (kind 30817)
+  nip-read [--author X] [--kind N]    Fetch community NIPs
 
 Trust:
   attest <type> <identifier> [subject]  Create kind 31000 attestation
@@ -335,6 +338,27 @@ async function run(cmdArgs: string[]): Promise<void> {
       out(await handleFeed(ctx, pool, { limit: parseInt(flag('limit', '20')!, 10) }))
       break
 
+    case 'nip-publish': {
+      const id = req(1, 'nip-publish <identifier> <title> <content-or-file>')
+      const title = req(2, 'nip-publish <identifier> <title> <content-or-file>')
+      let content = req(3, 'nip-publish <identifier> <title> <content-or-file>')
+      // If content looks like a file path, read it
+      const { existsSync, readFileSync } = await import('node:fs')
+      if (existsSync(content)) content = readFileSync(content, 'utf-8')
+      const kindsStr = flag('kinds')
+      const kinds = kindsStr ? kindsStr.split(',').map(Number) : undefined
+      out(await handleNipPublish(ctx, pool, { identifier: id, title, content, kinds }))
+      break
+    }
+
+    case 'nip-read':
+      out(await handleNipRead(pool, ctx.activeNpub, {
+        author: flag('author'),
+        identifier: flag('identifier'),
+        kind: flag('kind') ? parseInt(flag('kind')!, 10) : undefined,
+      }))
+      break
+
     case 'notifications':
       out(await handleNotifications(ctx, pool, { limit: parseInt(flag('limit', '50')!, 10) }))
       break
@@ -551,7 +575,7 @@ async function run(cmdArgs: string[]): Promise<void> {
 const ALL_COMMANDS = [
   'whoami', 'create', 'list', 'derive', 'persona', 'switch', 'prove', 'proof-publish',
   'backup', 'restore', 'identity-backup', 'identity-restore', 'migrate',
-  'post', 'reply', 'react', 'delete', 'repost', 'profile', 'profile-set', 'contacts', 'follow', 'unfollow', 'dm', 'dm-read', 'feed', 'notifications',
+  'post', 'reply', 'react', 'delete', 'repost', 'profile', 'profile-set', 'contacts', 'follow', 'unfollow', 'dm', 'dm-read', 'feed', 'notifications', 'nip-publish', 'nip-read',
   'attest', 'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-request-list',
   'ring-prove', 'ring-verify', 'spoken-challenge', 'spoken-verify',
   'relay-list', 'relay-set', 'relay-add', 'relay-info',

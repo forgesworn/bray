@@ -4,7 +4,7 @@
 
 ## Architecture
 
-Single-process MCP server (stdio or HTTP transport) with 49 tools in 7 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction.
+Single-process MCP server (stdio or HTTP transport) with 62 tools in 7 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction.
 
 ## Configuration
 
