@@ -3,7 +3,7 @@ import { loadConfig } from './config.js'
 import { IdentityContext } from './context.js'
 import { RelayPool } from './relay-pool.js'
 import { Nip65Manager } from './nip65.js'
-import { handleSocialPost, handleSocialReply, handleSocialReact, handleSocialProfileGet, handleSocialProfileSet } from './social/handlers.js'
+import { handleSocialPost, handleSocialReply, handleSocialReact, handleSocialProfileGet, handleSocialProfileSet, handleContactsGet, handleContactsFollow, handleContactsUnfollow } from './social/handlers.js'
 import { handleDmSend, handleDmRead } from './social/dm.js'
 import { handleNotifications, handleFeed } from './social/notifications.js'
 import { handleIdentityList, handleIdentityProve, handleIdentityCreate } from './identity/handlers.js'
@@ -50,6 +50,9 @@ Social:
   react <event-id> <pubkey> [emoji]   React to an event
   profile <pubkey-hex>                Fetch a profile
   profile-set <json>                  Set profile (add --confirm to overwrite)
+  contacts <pubkey-hex>               List who a pubkey follows
+  follow <pubkey-hex> [relay] [name]  Follow a pubkey
+  unfollow <pubkey-hex>               Unfollow a pubkey
   dm <pubkey-hex> "message"           Send NIP-17 encrypted DM
   dm-read                             Read received DMs
   feed [--limit N]                    Fetch text note feed
@@ -268,6 +271,24 @@ async function run(cmdArgs: string[]): Promise<void> {
       break
     }
 
+    case 'contacts':
+      out(await handleContactsGet(pool, ctx.activeNpub, req(1, 'contacts <pubkey-hex>')))
+      break
+
+    case 'follow':
+      out(await handleContactsFollow(ctx, pool, {
+        pubkeyHex: req(1, 'follow <pubkey-hex> [relay] [petname]'),
+        relay: cmdArgs[2],
+        petname: cmdArgs[3],
+      }))
+      break
+
+    case 'unfollow':
+      out(await handleContactsUnfollow(ctx, pool, {
+        pubkeyHex: req(1, 'unfollow <pubkey-hex>'),
+      }))
+      break
+
     case 'dm':
       out(await handleDmSend(ctx, pool, {
         recipientPubkeyHex: req(1, 'dm <pubkey-hex> "message"'),
@@ -443,7 +464,7 @@ async function run(cmdArgs: string[]): Promise<void> {
 const ALL_COMMANDS = [
   'whoami', 'create', 'list', 'derive', 'persona', 'switch', 'prove', 'proof-publish',
   'backup', 'restore', 'identity-backup', 'identity-restore', 'migrate',
-  'post', 'reply', 'react', 'profile', 'profile-set', 'dm', 'dm-read', 'feed', 'notifications',
+  'post', 'reply', 'react', 'profile', 'profile-set', 'contacts', 'follow', 'unfollow', 'dm', 'dm-read', 'feed', 'notifications',
   'attest', 'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-request-list',
   'ring-prove', 'ring-verify', 'spoken-challenge', 'spoken-verify',
   'relay-list', 'relay-set', 'relay-add', 'relay-info',
