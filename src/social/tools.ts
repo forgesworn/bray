@@ -11,6 +11,8 @@ import {
   handleContactsGet,
   handleContactsFollow,
   handleContactsUnfollow,
+  handleSocialDelete,
+  handleSocialRepost,
 } from './handlers.js'
 import { handleDmSend, handleDmRead } from './dm.js'
 import { handleNotifications, handleFeed } from './notifications.js'
@@ -67,6 +69,35 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
         id: result.event.id,
         publish: result.publish,
       }, null, 2) }],
+    }
+  })
+
+  server.registerTool('social_delete', {
+    description: 'Request deletion of an event you published (kind 5). Relays may or may not honour the request.',
+    inputSchema: {
+      eventId: hexId.describe('Event ID to delete (hex)'),
+      reason: z.string().optional().describe('Reason for deletion'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ eventId, reason }) => {
+    const result = await handleSocialDelete(deps.ctx, deps.pool, { eventId, reason })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({ id: result.event.id, publish: result.publish }, null, 2) }],
+    }
+  })
+
+  server.registerTool('social_repost', {
+    description: 'Repost/boost a Nostr event (kind 6) as the active identity.',
+    inputSchema: {
+      eventId: hexId.describe('Event ID to repost (hex)'),
+      eventPubkey: hexId.describe('Pubkey of the original author (hex)'),
+      relay: z.string().optional().describe('Relay URL where the event was seen'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ eventId, eventPubkey, relay }) => {
+    const result = await handleSocialRepost(deps.ctx, deps.pool, { eventId, eventPubkey, relay })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({ id: result.event.id, publish: result.publish }, null, 2) }],
     }
   })
 

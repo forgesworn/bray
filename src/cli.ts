@@ -3,7 +3,7 @@ import { loadConfig } from './config.js'
 import { IdentityContext } from './context.js'
 import { RelayPool } from './relay-pool.js'
 import { Nip65Manager } from './nip65.js'
-import { handleSocialPost, handleSocialReply, handleSocialReact, handleSocialProfileGet, handleSocialProfileSet, handleContactsGet, handleContactsFollow, handleContactsUnfollow } from './social/handlers.js'
+import { handleSocialPost, handleSocialReply, handleSocialReact, handleSocialDelete, handleSocialRepost, handleSocialProfileGet, handleSocialProfileSet, handleContactsGet, handleContactsFollow, handleContactsUnfollow } from './social/handlers.js'
 import { handleDmSend, handleDmRead } from './social/dm.js'
 import { handleNotifications, handleFeed } from './social/notifications.js'
 import { handleIdentityList, handleIdentityProve, handleIdentityCreate } from './identity/handlers.js'
@@ -48,6 +48,8 @@ Social:
   post "message"                      Post a text note (kind 1)
   reply <event-id> <pubkey> "text"    Reply to an event
   react <event-id> <pubkey> [emoji]   React to an event
+  delete <event-id> [reason]          Request deletion of your event (kind 5)
+  repost <event-id> <pubkey>          Repost/boost an event (kind 6)
   profile <pubkey-hex>                Fetch a profile
   profile-set <json>                  Set profile (add --confirm to overwrite)
   contacts <pubkey-hex>               List who a pubkey follows
@@ -271,6 +273,20 @@ async function run(cmdArgs: string[]): Promise<void> {
       break
     }
 
+    case 'delete':
+      out(await handleSocialDelete(ctx, pool, {
+        eventId: req(1, 'delete <event-id> [reason]'),
+        reason: cmdArgs[2],
+      }))
+      break
+
+    case 'repost':
+      out(await handleSocialRepost(ctx, pool, {
+        eventId: req(1, 'repost <event-id> <pubkey>'),
+        eventPubkey: req(2, 'repost <event-id> <pubkey>'),
+      }))
+      break
+
     case 'contacts':
       out(await handleContactsGet(pool, ctx.activeNpub, req(1, 'contacts <pubkey-hex>')))
       break
@@ -464,7 +480,7 @@ async function run(cmdArgs: string[]): Promise<void> {
 const ALL_COMMANDS = [
   'whoami', 'create', 'list', 'derive', 'persona', 'switch', 'prove', 'proof-publish',
   'backup', 'restore', 'identity-backup', 'identity-restore', 'migrate',
-  'post', 'reply', 'react', 'profile', 'profile-set', 'contacts', 'follow', 'unfollow', 'dm', 'dm-read', 'feed', 'notifications',
+  'post', 'reply', 'react', 'delete', 'repost', 'profile', 'profile-set', 'contacts', 'follow', 'unfollow', 'dm', 'dm-read', 'feed', 'notifications',
   'attest', 'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-request-list',
   'ring-prove', 'ring-verify', 'spoken-challenge', 'spoken-verify',
   'relay-list', 'relay-set', 'relay-add', 'relay-info',
