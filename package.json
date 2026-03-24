@@ -56,6 +56,15 @@
     "url": "https://github.com/forgesworn/bray.git"
   },
   "license": "MIT",
+  "release": {
+    "branches": ["main"],
+    "plugins": [
+      "@semantic-release/commit-analyzer",
+      "@semantic-release/release-notes-generator",
+      "@semantic-release/npm",
+      "@semantic-release/github"
+    ]
+  },
   "engines": {
     "node": ">=20"
   },
@@ -72,8 +81,11 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
     "@types/node": "^25.5.0",
     "@types/ws": "^8.18.1",
+    "semantic-release": "^25.0.3",
     "typescript": "^6.0.2",
     "vitest": "^4.1.1"
   }
