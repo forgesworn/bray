@@ -150,6 +150,12 @@ Derived identities are cryptographically unlinkable unless you publish a linkage
 | `TRANSPORT` | `stdio` (default) or `http` |
 | `PORT` | HTTP port (default 3000) |
 
+## Documentation
+
+- **[Usage Guide](./docs/guide.md)** — walkthroughs for identity management, DMs, attestations, NWC payments, Tor, and duress
+- **[Examples](./examples/)** — MCP config files (basic, NWC, Tor) and a CLI workflow script
+- **[Contributing](./CONTRIBUTING.md)** — setup, architecture, testing, and conventions
+
 ## For AI Assistants
 
 See [llms.txt](./llms.txt) for a concise summary optimised for AI context windows, or [llms-full.txt](./llms-full.txt) for complete tool documentation with parameter details.

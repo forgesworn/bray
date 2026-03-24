@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "nostr": {
+      "command": "npx",
+      "args": ["nostr-bray"],
+      "env": {
+        "NOSTR_SECRET_KEY_FILE": "/path/to/your/secret.key",
+        "NOSTR_RELAYS": "wss://relay.damus.io,wss://nos.lol",
+        "NWC_URI_FILE": "/path/to/your/nwc.uri"
+      }
+    }
+  }
+}
