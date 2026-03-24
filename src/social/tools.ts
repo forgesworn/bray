@@ -9,6 +9,7 @@ import {
   handleSocialProfileSet,
 } from './handlers.js'
 import { handleDmSend, handleDmRead } from './dm.js'
+import { handleNotifications, handleFeed } from './notifications.js'
 
 export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('social_post', {
@@ -148,6 +149,35 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     const messages = await handleDmRead(deps.ctx, deps.pool)
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(messages, null, 2) }],
+    }
+  })
+
+  server.registerTool('social_notifications', {
+    description: 'Fetch notifications for the active identity — mentions, replies, reactions, and zap receipts.',
+    inputSchema: {
+      since: z.number().optional().describe('Unix timestamp — only fetch notifications after this time'),
+      limit: z.number().int().min(1).default(50).describe('Max notifications to return'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ since, limit }) => {
+    const notifications = await handleNotifications(deps.ctx, deps.pool, { since, limit })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(notifications, null, 2) }],
+    }
+  })
+
+  server.registerTool('social_feed', {
+    description: 'Fetch the kind 1 text note feed. Optionally filter by authors.',
+    inputSchema: {
+      authors: z.array(z.string()).optional().describe('Hex pubkeys to filter by'),
+      since: z.number().optional().describe('Unix timestamp — only fetch posts after this time'),
+      limit: z.number().int().min(1).default(20).describe('Max posts to return'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ authors, since, limit }) => {
+    const feed = await handleFeed(deps.ctx, deps.pool, { authors, since, limit })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(feed, null, 2) }],
     }
   })
 }
