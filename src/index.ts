@@ -5,6 +5,7 @@ import { IdentityContext } from './context.js'
 import { RelayPool } from './relay-pool.js'
 import { Nip65Manager } from './nip65.js'
 import { registerIdentityTools } from './identity/tools.js'
+import { registerSocialTools } from './social/tools.js'
 
 const config = loadConfig()
 const pool = new RelayPool({
@@ -24,6 +25,9 @@ const server = new McpServer({ name: 'nostr-bray', version: '0.1.0' })
 
 // Phase 2: Identity tools
 registerIdentityTools(server, deps)
+
+// Phase 3: Social tools
+registerSocialTools(server, deps)
 
 if (config.transport === 'stdio') {
   const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js')
