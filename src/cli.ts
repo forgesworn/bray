@@ -86,6 +86,10 @@ Safety:
   safety-configure [persona-name]     Configure alternative identity
   safety-activate [persona-name]      Switch to alternative identity
 
+Modes:
+  (no command)                        Start MCP server (stdio)
+  shell                               Interactive REPL (persistent relay connection)
+
 Environment:
   NOSTR_SECRET_KEY              nsec, hex, or BIP-39 mnemonic
   NOSTR_SECRET_KEY_FILE         Path to secret key file
@@ -118,25 +122,46 @@ pool.reconfigure(ctx.activeNpub, masterRelays)
 /** Helper: print JSON result */
 function out(data: unknown): void { console.log(JSON.stringify(data, null, 2)) }
 
-/** Helper: require arg or exit */
-function req(index: number, usage: string): string {
-  const val = args[index]
-  if (!val) { console.error(`Usage: nostr-bray ${usage}`); process.exit(1) }
-  return val
+/** Parse a shell line into args, respecting quotes */
+function parseShellLine(line: string): string[] {
+  const result: string[] = []
+  let current = ''
+  let inQuote: string | null = null
+  for (const ch of line) {
+    if (inQuote) {
+      if (ch === inQuote) { inQuote = null } else { current += ch }
+    } else if (ch === '"' || ch === "'") {
+      inQuote = ch
+    } else if (ch === ' ' || ch === '\t') {
+      if (current) { result.push(current); current = '' }
+    } else {
+      current += ch
+    }
+  }
+  if (current) result.push(current)
+  return result
 }
 
-/** Helper: parse --flag value from args */
-function flag(name: string, fallback?: string): string | undefined {
-  const i = args.indexOf(`--${name}`)
-  if (i === -1) return fallback
-  return args[i + 1] ?? fallback
-}
+async function run(cmdArgs: string[]): Promise<void> {
+  const command = cmdArgs[0]
 
-function hasFlag(name: string): boolean {
-  return args.includes(`--${name}`)
-}
+  /** Require arg or throw */
+  function req(index: number, usage: string): string {
+    const val = cmdArgs[index]
+    if (!val) { throw new Error(`Usage: ${usage}`) }
+    return val
+  }
 
-async function run(): Promise<void> {
+  function flag(name: string, fallback?: string): string | undefined {
+    const i = cmdArgs.indexOf(`--${name}`)
+    if (i === -1) return fallback
+    return cmdArgs[i + 1] ?? fallback
+  }
+
+  function hasFlag(name: string): boolean {
+    return cmdArgs.includes(`--${name}`)
+  }
+
   switch (command) {
     // === Identity ===
 
@@ -153,25 +178,25 @@ async function run(): Promise<void> {
       break
 
     case 'derive':
-      out(ctx.derive(req(1, 'derive <purpose> [index]'), parseInt(args[2] ?? '0', 10)))
+      out(ctx.derive(req(1, 'derive <purpose> [index]'), parseInt(cmdArgs[2] ?? '0', 10)))
       break
 
     case 'persona':
-      out(ctx.derivePersona(req(1, 'persona <name> [index]'), parseInt(args[2] ?? '0', 10)))
+      out(ctx.derivePersona(req(1, 'persona <name> [index]'), parseInt(cmdArgs[2] ?? '0', 10)))
       break
 
     case 'switch':
-      ctx.switch(req(1, 'switch <target> [index]'), args[2] ? parseInt(args[2], 10) : undefined)
+      ctx.switch(req(1, 'switch <target> [index]'), cmdArgs[2] ? parseInt(cmdArgs[2], 10) : undefined)
       console.log(ctx.activeNpub)
       break
 
     case 'prove':
-      out(handleIdentityProve(ctx, { mode: (args[1] === 'full' ? 'full' : 'blind') }))
+      out(handleIdentityProve(ctx, { mode: (cmdArgs[1] === 'full' ? 'full' : 'blind') }))
       break
 
     case 'proof-publish': {
       const r = await handleTrustProofPublish(ctx, pool, {
-        mode: (args[1] === 'full' ? 'full' : 'blind'),
+        mode: (cmdArgs[1] === 'full' ? 'full' : 'blind'),
         confirm: hasFlag('confirm'),
       })
       out(r)
@@ -181,8 +206,8 @@ async function run(): Promise<void> {
     case 'backup':
       out(handleBackupShamir({
         secret: new Uint8Array(ctx.activePrivateKey),
-        threshold: parseInt(args[2] ?? '3', 10),
-        shares: parseInt(args[3] ?? '5', 10),
+        threshold: parseInt(cmdArgs[2] ?? '3', 10),
+        shares: parseInt(cmdArgs[3] ?? '5', 10),
         outputDir: req(1, 'backup <dir> [threshold] [shares]'),
       }))
       break
@@ -229,7 +254,7 @@ async function run(): Promise<void> {
       out(await handleSocialReact(ctx, pool, {
         eventId: req(1, 'react <event-id> <pubkey> [emoji]'),
         eventPubkey: req(2, 'react <event-id> <pubkey> [emoji]'),
-        reaction: args[3] ?? '+',
+        reaction: cmdArgs[3] ?? '+',
       }))
       break
 
@@ -269,8 +294,8 @@ async function run(): Promise<void> {
     case 'attest':
       out(await handleTrustAttest(ctx, pool, {
         type: req(1, 'attest <type> <identifier> [subject]'),
-        identifier: args[2],
-        subject: args[3],
+        identifier: cmdArgs[2],
+        subject: cmdArgs[3],
       }))
       break
 
@@ -353,7 +378,7 @@ async function run(): Promise<void> {
     case 'relay-add':
       out(handleRelayAdd(ctx, pool, {
         url: req(1, 'relay-add <url> [read|write]'),
-        mode: args[2] as 'read' | 'write' | undefined,
+        mode: cmdArgs[2] as 'read' | 'write' | undefined,
       }))
       break
 
@@ -374,7 +399,7 @@ async function run(): Promise<void> {
     case 'zap-invoice':
       out(await handleZapMakeInvoice(ctx, pool, {
         amountMsats: parseInt(req(1, 'zap-invoice <msats> [description]'), 10),
-        description: args[2],
+        description: cmdArgs[2],
         nwcUri,
       }))
       break
@@ -401,23 +426,66 @@ async function run(): Promise<void> {
     // === Safety ===
 
     case 'safety-configure':
-      out(handleDuressConfigure(ctx, pool, { personaName: args[1] }))
+      out(handleDuressConfigure(ctx, pool, { personaName: cmdArgs[1] }))
       break
 
     case 'safety-activate':
-      out(handleDuressActivate(ctx, { personaName: args[1] }))
+      out(handleDuressActivate(ctx, { personaName: cmdArgs[1] }))
       break
 
     default:
-      console.error(`Unknown command: ${command}\n`)
-      console.error(HELP)
-      process.exit(1)
+      throw new Error(`Unknown command: ${command}. Run --help for usage.`)
   }
 }
 
-try {
-  await run()
-} finally {
-  ctx.destroy()
-  pool.close()
+// === Shell mode ===
+
+async function shell(): Promise<void> {
+  const { createInterface } = await import('node:readline')
+  const rl = createInterface({ input: process.stdin, output: process.stdout })
+
+  console.log(`nostr-bray shell — ${ctx.activeNpub}`)
+  console.log('Type a command, or "help" / "exit".\n')
+
+  const prompt = (): Promise<string> => new Promise(resolve => {
+    rl.question('bray> ', resolve)
+  })
+
+  while (true) {
+    const line = await prompt()
+    const trimmed = line.trim()
+    if (!trimmed) continue
+    if (trimmed === 'exit' || trimmed === 'quit') break
+    if (trimmed === 'help') { console.log(HELP); continue }
+
+    const shellArgs = parseShellLine(trimmed)
+    try {
+      await run(shellArgs)
+    } catch (e: any) {
+      console.error(e.message)
+    }
+  }
+
+  rl.close()
+}
+
+// === Entry point ===
+
+if (command === 'shell') {
+  try {
+    await shell()
+  } finally {
+    ctx.destroy()
+    pool.close()
+  }
+} else {
+  try {
+    await run(args)
+  } catch (e: any) {
+    console.error(e.message)
+    process.exit(1)
+  } finally {
+    ctx.destroy()
+    pool.close()
+  }
 }
