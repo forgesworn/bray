@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "nostr": {
+      "command": "npx",
+      "args": ["nostr-bray"],
+      "env": {
+        "NOSTR_SECRET_KEY_FILE": "/path/to/your/secret.key",
+        "NOSTR_RELAYS": "ws://jgqaglhautb4k6e6i2g34jakber2ihhe6yf5pyawmqdoumrn2phdangqd.onion",
+        "TOR_PROXY": "socks5h://127.0.0.1:9050"
+      }
+    }
+  }
+}
