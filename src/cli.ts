@@ -440,9 +440,32 @@ async function run(cmdArgs: string[]): Promise<void> {
 
 // === Shell mode ===
 
+const ALL_COMMANDS = [
+  'whoami', 'create', 'list', 'derive', 'persona', 'switch', 'prove', 'proof-publish',
+  'backup', 'restore', 'identity-backup', 'identity-restore', 'migrate',
+  'post', 'reply', 'react', 'profile', 'profile-set', 'dm', 'dm-read', 'feed', 'notifications',
+  'attest', 'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-request-list',
+  'ring-prove', 'ring-verify', 'spoken-challenge', 'spoken-verify',
+  'relay-list', 'relay-set', 'relay-add', 'relay-info',
+  'zap-send', 'zap-balance', 'zap-invoice', 'zap-lookup', 'zap-transactions', 'zap-receipts', 'zap-decode',
+  'safety-configure', 'safety-activate',
+  'help', 'exit',
+]
+
 async function shell(): Promise<void> {
   const { createInterface } = await import('node:readline')
-  const rl = createInterface({ input: process.stdin, output: process.stdout })
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    completer: (line: string) => {
+      const parts = line.split(/\s+/)
+      if (parts.length <= 1) {
+        const hits = ALL_COMMANDS.filter(c => c.startsWith(line))
+        return [hits.length ? hits : ALL_COMMANDS, line]
+      }
+      return [[], line]
+    },
+  })
 
   console.log(`nostr-bray shell — ${ctx.activeNpub}`)
   console.log('Type a command, or "help" / "exit".\n')
