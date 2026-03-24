@@ -7,7 +7,7 @@
 [![licence](https://img.shields.io/npm/l/nostr-bray)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-ESM-blue)](./tsconfig.json)
 
-An MCP server that gives AI agents a full Nostr identity — not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, and duress detection. 49 tools across 7 groups.
+An MCP server that gives AI agents a full Nostr identity — not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, and duress detection. 62 tools across 7 groups.
 
 ## The Problem
 
