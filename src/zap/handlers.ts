@@ -1,7 +1,67 @@
+import { getConversationKey, encrypt, decrypt } from 'nostr-tools/nip44'
+import { finalizeEvent, getPublicKey } from 'nostr-tools/pure'
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
+
+// --- NWC Connection ---
+
+export interface NwcConnection {
+  pubkey: string
+  relay: string
+  secret: string
+}
+
+/** Parse a nostr+walletconnect:// URI */
+export function parseNwcUri(uri: string): NwcConnection {
+  const url = new URL(uri)
+  const pubkey = url.hostname || url.pathname.replace('//', '')
+  const relay = url.searchParams.get('relay')
+  const secret = url.searchParams.get('secret')
+  if (!pubkey || !relay || !secret) {
+    throw new Error('Invalid NWC URI: missing pubkey, relay, or secret')
+  }
+  return { pubkey, relay, secret }
+}
+
+/** Build an encrypted NIP-47 request event (kind 23194) */
+function buildNwcRequest(
+  conn: NwcConnection,
+  method: string,
+  params: Record<string, unknown>,
+): NostrEvent {
+  const secretBytes = Buffer.from(conn.secret, 'hex')
+  const clientPubkey = getPublicKey(secretBytes)
+  const conversationKey = getConversationKey(secretBytes, conn.pubkey)
+
+  const content = encrypt(
+    JSON.stringify({ method, params }),
+    conversationKey,
+  )
+
+  const event = finalizeEvent({
+    kind: 23194,
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [['p', conn.pubkey]],
+    content,
+  }, secretBytes) as unknown as NostrEvent
+
+  return event
+}
+
+/** Decrypt a NIP-47 response event (kind 23195) */
+function decryptNwcResponse(
+  conn: NwcConnection,
+  event: NostrEvent,
+): { result_type: string; result?: Record<string, unknown>; error?: { code: string; message: string } } {
+  const secretBytes = Buffer.from(conn.secret, 'hex')
+  const conversationKey = getConversationKey(secretBytes, conn.pubkey)
+  const plaintext = decrypt(event.content, conversationKey)
+  return JSON.parse(plaintext)
+}
+
+// --- Zap Receipts ---
 
 export interface ZapReceipt {
   id: string
@@ -49,55 +109,37 @@ function parseZapReceipt(event: NostrEvent): ZapReceipt {
   return result
 }
 
+// --- Bolt11 Decode ---
+
 /** Decode basic bolt11 invoice fields */
 export function handleZapDecode(bolt11: string): {
   amountMsats?: number
   description?: string
   expiry?: number
 } {
-  // Basic bolt11 prefix parsing — amount is encoded in the human-readable part
-  // Full decode requires a bolt11 library; this extracts what we can
   const result: { amountMsats?: number; description?: string; expiry?: number } = {}
 
-  // Extract amount from human-readable part: lnbc<amount><multiplier>
   const match = bolt11.match(/^ln(?:bc|tb|tbs)(\d+)([munp])?/)
   if (match) {
     const num = parseInt(match[1], 10)
     const multiplier = match[2]
-    const satsMultipliers: Record<string, number> = {
-      'm': 100_000_000, // milli-bitcoin = 0.001 BTC
-      'u': 100_000,     // micro-bitcoin = 0.000001 BTC
-      'n': 100,         // nano-bitcoin
-      'p': 0.1,         // pico-bitcoin
+    const multipliers: Record<string, number> = {
+      'm': 100_000_000,
+      'u': 100_000,
+      'n': 100,
+      'p': 0.1,
     }
-    if (multiplier && satsMultipliers[multiplier]) {
-      result.amountMsats = Math.round(num * satsMultipliers[multiplier])
+    if (multiplier && multipliers[multiplier]) {
+      result.amountMsats = Math.round(num * multipliers[multiplier])
     }
   }
 
   return result
 }
 
-interface NwcConnection {
-  pubkey: string
-  relay: string
-  secret: string
-}
+// --- NWC Operations ---
 
-/** Parse a nostr+walletconnect:// URI */
-function parseNwcUri(uri: string): NwcConnection {
-  // Format: nostr+walletconnect://<pubkey>?relay=<url>&secret=<hex>
-  const url = new URL(uri)
-  const pubkey = url.hostname || url.pathname.replace('//', '')
-  const relay = url.searchParams.get('relay')
-  const secret = url.searchParams.get('secret')
-  if (!pubkey || !relay || !secret) {
-    throw new Error('Invalid NWC URI: missing pubkey, relay, or secret')
-  }
-  return { pubkey, relay, secret }
-}
-
-/** Send a zap via NWC (Nostr Wallet Connect) */
+/** Pay a Lightning invoice via NWC */
 export async function handleZapSend(
   ctx: IdentityContext,
   pool: RelayPool,
@@ -108,37 +150,89 @@ export async function handleZapSend(
   }
 
   const conn = parseNwcUri(args.nwcUri)
-  const { encrypt } = await import('nostr-tools/nip44')
-
-  // Build NWC pay_invoice request (NIP-47 kind 23194)
-  const conversationKey = (await import('nostr-tools/nip44')).getConversationKey(
-    Buffer.from(conn.secret, 'hex'),
-    conn.pubkey,
-  )
-  const content = encrypt(
-    JSON.stringify({ method: 'pay_invoice', params: { invoice: args.invoice } }),
-    conversationKey,
-  )
-
-  const sign = ctx.getSigningFunction()
-  const nwcEvent = await sign({
-    kind: 23194,
-    created_at: Math.floor(Date.now() / 1000),
-    tags: [['p', conn.pubkey]],
-    content,
-  })
-
-  const publish = await pool.publish(ctx.activeNpub, nwcEvent)
-  return { event: nwcEvent, publish }
+  const event = buildNwcRequest(conn, 'pay_invoice', { invoice: args.invoice })
+  const publish = await pool.publish(ctx.activeNpub, event)
+  return { event, publish }
 }
 
-/** Get wallet balance via NWC — returns connection status */
-export function handleZapBalance(
+/** Request wallet balance via NWC */
+export async function handleZapBalance(
+  ctx: IdentityContext,
+  pool: RelayPool,
   args: { nwcUri?: string },
-): { configured: boolean; walletPubkey?: string; relay?: string } {
+): Promise<{ event: NostrEvent; publish: PublishResult }> {
   if (!args.nwcUri) {
-    return { configured: false }
+    throw new Error('Wallet not configured. Set NWC_URI or NWC_URI_FILE to check balance.')
   }
+
   const conn = parseNwcUri(args.nwcUri)
-  return { configured: true, walletPubkey: conn.pubkey, relay: conn.relay }
+  const event = buildNwcRequest(conn, 'get_balance', {})
+  const publish = await pool.publish(ctx.activeNpub, event)
+  return { event, publish }
+}
+
+/** Generate a Lightning invoice via NWC */
+export async function handleZapMakeInvoice(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: { amountMsats: number; description?: string; nwcUri?: string },
+): Promise<{ event: NostrEvent; publish: PublishResult }> {
+  if (!args.nwcUri) {
+    throw new Error('Wallet not configured. Set NWC_URI or NWC_URI_FILE to create invoices.')
+  }
+
+  const conn = parseNwcUri(args.nwcUri)
+  const event = buildNwcRequest(conn, 'make_invoice', {
+    amount: args.amountMsats,
+    description: args.description,
+  })
+  const publish = await pool.publish(ctx.activeNpub, event)
+  return { event, publish }
+}
+
+/** Look up an invoice via NWC */
+export async function handleZapLookupInvoice(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: { paymentHash?: string; invoice?: string; nwcUri?: string },
+): Promise<{ event: NostrEvent; publish: PublishResult }> {
+  if (!args.nwcUri) {
+    throw new Error('Wallet not configured.')
+  }
+
+  const conn = parseNwcUri(args.nwcUri)
+  const params: Record<string, unknown> = {}
+  if (args.paymentHash) params.payment_hash = args.paymentHash
+  if (args.invoice) params.invoice = args.invoice
+  const event = buildNwcRequest(conn, 'lookup_invoice', params)
+  const publish = await pool.publish(ctx.activeNpub, event)
+  return { event, publish }
+}
+
+/** List recent transactions via NWC */
+export async function handleZapListTransactions(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: { limit?: number; offset?: number; nwcUri?: string },
+): Promise<{ event: NostrEvent; publish: PublishResult }> {
+  if (!args.nwcUri) {
+    throw new Error('Wallet not configured.')
+  }
+
+  const conn = parseNwcUri(args.nwcUri)
+  const event = buildNwcRequest(conn, 'list_transactions', {
+    limit: args.limit ?? 10,
+    offset: args.offset ?? 0,
+  })
+  const publish = await pool.publish(ctx.activeNpub, event)
+  return { event, publish }
+}
+
+/** Parse a NWC wallet response event */
+export function handleZapParseResponse(
+  nwcUri: string,
+  event: NostrEvent,
+): { result_type: string; result?: Record<string, unknown>; error?: { code: string; message: string } } {
+  const conn = parseNwcUri(nwcUri)
+  return decryptNwcResponse(conn, event)
 }
