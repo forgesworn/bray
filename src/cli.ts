@@ -15,6 +15,7 @@ import { handleTrustRingProve, handleTrustRingVerify } from './trust/ring.js'
 import { handleTrustSpokenChallenge, handleTrustSpokenVerify } from './trust/spoken.js'
 import { handleDuressConfigure, handleDuressActivate } from './safety/handlers.js'
 import { handleZapSend, handleZapBalance, handleZapMakeInvoice, handleZapLookupInvoice, handleZapListTransactions, handleZapReceipts, handleZapDecode } from './zap/handlers.js'
+import { handleDecode, handleEncodeNpub, handleEncodeNote, handleEncodeNprofile, handleEncodeNevent, handleVerify, handleEncrypt, handleDecrypt, handleCount, handleFetch } from './util/handlers.js'
 
 const args = process.argv.slice(2)
 const command = args[0]
@@ -90,6 +91,18 @@ Zap:
 Safety:
   safety-configure [persona-name]     Configure alternative identity
   safety-activate [persona-name]      Switch to alternative identity
+
+Utility:
+  decode <nip19>                      Decode npub/nsec/note/nevent/nprofile/naddr
+  encode-npub <hex>                   Encode hex pubkey as npub
+  encode-note <hex>                   Encode hex event ID as note
+  encode-nprofile <hex> [relay,...]   Encode pubkey + relays as nprofile
+  encode-nevent <hex> [relay,...]     Encode event ID + relays as nevent
+  verify <event-json>                 Verify event hash and signature
+  encrypt <pubkey-hex> "plaintext"    NIP-44 encrypt for a recipient
+  decrypt <pubkey-hex> <ciphertext>   NIP-44 decrypt from a sender
+  count --kinds 1 [--authors <hex>]   Count events matching filter
+  fetch <nip19>                       Fetch events by nip19 code
 
 Modes:
   (no command)                        Start MCP server (stdio)
@@ -470,6 +483,64 @@ async function run(cmdArgs: string[]): Promise<void> {
       out(handleDuressActivate(ctx, { personaName: cmdArgs[1] }))
       break
 
+    // === Utility ===
+
+    case 'decode':
+      out(handleDecode(req(1, 'decode <nip19>')))
+      break
+
+    case 'encode-npub':
+      console.log(handleEncodeNpub(req(1, 'encode-npub <hex>')))
+      break
+
+    case 'encode-note':
+      console.log(handleEncodeNote(req(1, 'encode-note <hex>')))
+      break
+
+    case 'encode-nprofile': {
+      const relays = cmdArgs[2] ? cmdArgs[2].split(',') : undefined
+      console.log(handleEncodeNprofile(req(1, 'encode-nprofile <hex> [relay,...]'), relays))
+      break
+    }
+
+    case 'encode-nevent': {
+      const relays = cmdArgs[2] ? cmdArgs[2].split(',') : undefined
+      console.log(handleEncodeNevent(req(1, 'encode-nevent <hex> [relay,...]'), relays))
+      break
+    }
+
+    case 'verify':
+      out(handleVerify(JSON.parse(req(1, 'verify <event-json>'))))
+      break
+
+    case 'encrypt': {
+      const skHex = Buffer.from(ctx.activePrivateKey).toString('hex')
+      console.log(handleEncrypt(skHex, req(1, 'encrypt <pubkey-hex> "plaintext"'), req(2, 'encrypt <pubkey-hex> "plaintext"')))
+      break
+    }
+
+    case 'decrypt': {
+      const skHex = Buffer.from(ctx.activePrivateKey).toString('hex')
+      console.log(handleDecrypt(skHex, req(1, 'decrypt <pubkey-hex> <ciphertext>'), req(2, 'decrypt <pubkey-hex> <ciphertext>')))
+      break
+    }
+
+    case 'count': {
+      const filter: Record<string, unknown> = {}
+      const kinds = flag('kinds')
+      if (kinds) filter.kinds = kinds.split(',').map(Number)
+      const authors = flag('authors')
+      if (authors) filter.authors = authors.split(',')
+      const since = flag('since')
+      if (since) filter.since = parseInt(since, 10)
+      out(await handleCount(pool, ctx.activeNpub, filter as any))
+      break
+    }
+
+    case 'fetch':
+      out(await handleFetch(pool, ctx.activeNpub, req(1, 'fetch <nip19>')))
+      break
+
     default:
       throw new Error(`Unknown command: ${command}. Run --help for usage.`)
   }
@@ -486,6 +557,8 @@ const ALL_COMMANDS = [
   'relay-list', 'relay-set', 'relay-add', 'relay-info',
   'zap-send', 'zap-balance', 'zap-invoice', 'zap-lookup', 'zap-transactions', 'zap-receipts', 'zap-decode',
   'safety-configure', 'safety-activate',
+  'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent',
+  'verify', 'encrypt', 'decrypt', 'count', 'fetch',
   'help', 'exit',
 ]
 

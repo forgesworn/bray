@@ -10,6 +10,7 @@ import { registerTrustTools } from './trust/tools.js'
 import { registerRelayTools } from './relay/tools.js'
 import { registerZapTools } from './zap/tools.js'
 import { registerSafetyTools } from './safety/tools.js'
+import { registerUtilTools } from './util/tools.js'
 
 const config = loadConfig()
 const pool = new RelayPool({
@@ -45,6 +46,9 @@ registerTrustTools(server, deps)
 registerRelayTools(server, deps)
 registerZapTools(server, deps)
 registerSafetyTools(server, deps)
+
+// Utility tools
+registerUtilTools(server, deps)
 
 if (config.transport === 'stdio') {
   const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js')
