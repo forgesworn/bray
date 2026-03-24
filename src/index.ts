@@ -46,8 +46,51 @@ if (config.transport === 'stdio') {
   await server.connect(new StdioServerTransport())
   console.error('nostr-bray started (stdio)')
 } else {
-  console.error('HTTP transport not yet implemented')
-  process.exit(1)
+  const { createServer } = await import('node:http')
+  const { StreamableHTTPServerTransport } = await import(
+    '@modelcontextprotocol/sdk/server/streamableHttp.js'
+  )
+  const { randomUUID } = await import('node:crypto')
+
+  const token = randomUUID()
+  console.error(`nostr-bray HTTP auth token: ${token}`)
+
+  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
+  await server.connect(transport)
+
+  const httpServer = createServer(async (req, res) => {
+    // Bearer token auth
+    if (req.headers.authorization !== `Bearer ${token}`) {
+      res.writeHead(401, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'Unauthorised' }))
+      return
+    }
+
+    // Security headers
+    res.setHeader('Access-Control-Allow-Origin', 'null')
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('X-Frame-Options', 'DENY')
+
+    if (req.url === '/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ status: 'ok' }))
+      return
+    }
+
+    // Parse body for POST requests
+    if (req.method === 'POST') {
+      const chunks: Buffer[] = []
+      for await (const chunk of req) chunks.push(chunk as Buffer)
+      const body = JSON.parse(Buffer.concat(chunks).toString())
+      await transport.handleRequest(req, res, body)
+    } else {
+      await transport.handleRequest(req, res)
+    }
+  })
+
+  httpServer.listen(config.port, config.bindAddress, () => {
+    console.error(`nostr-bray HTTP on ${config.bindAddress}:${config.port}`)
+  })
 }
 
 process.on('SIGINT', () => {
