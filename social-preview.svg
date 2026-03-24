@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <defs>
+    <linearGradient id="amber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+    <linearGradient id="amberDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d97706"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="amberLight" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#fcd34d"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#475569"/>
+      <stop offset="100%" stop-color="#334155"/>
+    </linearGradient>
+    <linearGradient id="steelLight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#64748b"/>
+      <stop offset="100%" stop-color="#475569"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="640" fill="#0f172a"/>
+
+  <!-- Hex grid -->
+  <g opacity="0.04" stroke="#94a3b8" stroke-width="0.5" fill="none">
+    <polygon points="40,20 60,10 80,20 80,40 60,50 40,40"/><polygon points="80,20 100,10 120,20 120,40 100,50 80,40"/><polygon points="120,20 140,10 160,20 160,40 140,50 120,40"/><polygon points="160,20 180,10 200,20 200,40 180,50 160,40"/><polygon points="200,20 220,10 240,20 240,40 220,50 200,40"/><polygon points="240,20 260,10 280,20 280,40 260,50 240,40"/><polygon points="280,20 300,10 320,20 320,40 300,50 280,40"/><polygon points="320,20 340,10 360,20 360,40 340,50 320,40"/><polygon points="360,20 380,10 400,20 400,40 380,50 360,40"/><polygon points="400,20 420,10 440,20 440,40 420,50 400,40"/><polygon points="440,20 460,10 480,20 480,40 460,50 440,40"/><polygon points="480,20 500,10 520,20 520,40 500,50 480,40"/><polygon points="520,20 540,10 560,20 560,40 540,50 520,40"/><polygon points="560,20 580,10 600,20 600,40 580,50 560,40"/><polygon points="600,20 620,10 640,20 640,40 620,50 600,40"/><polygon points="640,20 660,10 680,20 680,40 660,50 640,40"/><polygon points="680,20 700,10 720,20 720,40 700,50 680,40"/><polygon points="720,20 740,10 760,20 760,40 740,50 720,40"/><polygon points="760,20 780,10 800,20 800,40 780,50 760,40"/><polygon points="800,20 820,10 840,20 840,40 820,50 800,40"/><polygon points="840,20 860,10 880,20 880,40 860,50 840,40"/><polygon points="880,20 900,10 920,20 920,40 900,50 880,40"/><polygon points="920,20 940,10 960,20 960,40 940,50 920,40"/><polygon points="960,20 980,10 1000,20 1000,40 980,50 960,40"/><polygon points="1000,20 1020,10 1040,20 1040,40 1020,50 1000,40"/><polygon points="1040,20 1060,10 1080,20 1080,40 1060,50 1040,40"/><polygon points="1080,20 1100,10 1120,20 1120,40 1100,50 1080,40"/><polygon points="1120,20 1140,10 1160,20 1160,40 1140,50 1120,40"/><polygon points="1160,20 1180,10 1200,20 1200,40 1180,50 1160,40"/><polygon points="1200,20 1220,10 1240,20 1240,40 1220,50 1200,40"/>
+    <polygon points="60,50 80,40 100,50 100,70 80,80 60,70"/><polygon points="140,50 160,40 180,50 180,70 160,80 140,70"/><polygon points="220,50 240,40 260,50 260,70 240,80 220,70"/><polygon points="300,50 320,40 340,50 340,70 320,80 300,70"/><polygon points="380,50 400,40 420,50 420,70 400,80 380,70"/><polygon points="460,50 480,40 500,50 500,70 480,80 460,70"/><polygon points="540,50 560,40 580,50 580,70 560,80 540,70"/><polygon points="620,50 640,40 660,50 660,70 640,80 620,70"/><polygon points="700,50 720,40 740,50 740,70 720,80 700,70"/><polygon points="780,50 800,40 820,50 820,70 800,80 780,70"/><polygon points="860,50 880,40 900,50 900,70 880,80 860,70"/><polygon points="940,50 960,40 980,50 980,70 960,80 940,70"/><polygon points="1020,50 1040,40 1060,50 1060,70 1040,80 1020,70"/><polygon points="1100,50 1120,40 1140,50 1140,70 1120,80 1100,70"/><polygon points="1180,50 1200,40 1220,50 1220,70 1200,80 1180,70"/>
+    <polygon points="60,470 80,460 100,470 100,490 80,500 60,490"/><polygon points="180,470 200,460 220,470 220,490 200,500 180,490"/><polygon points="300,470 320,460 340,470 340,490 320,500 300,490"/><polygon points="420,470 440,460 460,470 460,490 440,500 420,490"/><polygon points="540,470 560,460 580,470 580,490 560,500 540,490"/><polygon points="660,470 680,460 700,470 700,490 680,500 660,490"/><polygon points="780,470 800,460 820,470 820,490 800,500 780,490"/><polygon points="900,470 920,460 940,470 940,490 920,500 900,490"/><polygon points="1020,470 1040,460 1060,470 1060,490 1040,500 1020,490"/><polygon points="1140,470 1160,460 1180,470 1180,490 1160,500 1140,490"/>
+    <polygon points="60,530 80,520 100,530 100,550 80,560 60,550"/><polygon points="180,530 200,520 220,530 220,550 200,560 180,550"/><polygon points="300,530 320,520 340,530 340,550 320,560 300,550"/><polygon points="420,530 440,520 460,530 460,550 440,560 420,550"/><polygon points="540,530 560,520 580,530 580,550 560,560 540,550"/><polygon points="660,530 680,520 700,530 700,550 680,560 660,550"/><polygon points="780,530 800,520 820,530 820,550 800,560 780,550"/><polygon points="900,530 920,520 940,530 940,550 920,560 900,550"/><polygon points="1020,530 1040,520 1060,530 1060,550 1040,560 1020,550"/><polygon points="1140,530 1160,520 1180,530 1180,550 1160,560 1140,550"/>
+    <polygon points="60,590 80,580 100,590 100,610 80,620 60,610"/><polygon points="180,590 200,580 220,590 220,610 200,620 180,610"/><polygon points="300,590 320,580 340,590 340,610 320,620 300,610"/><polygon points="420,590 440,580 460,590 460,610 440,620 420,610"/><polygon points="540,590 560,580 580,590 580,610 560,620 540,610"/><polygon points="660,590 680,580 700,590 700,610 680,620 660,610"/><polygon points="780,590 800,580 820,590 820,610 800,620 780,610"/><polygon points="900,590 920,580 940,590 940,610 920,620 900,610"/><polygon points="1020,590 1040,580 1060,590 1060,610 1040,620 1020,610"/><polygon points="1140,590 1160,580 1180,590 1180,610 1160,620 1140,610"/>
+  </g>
+
+  <!-- Low-poly donkey head (bray = donkey's call) -->
+  <g transform="translate(240, 180)" filter="url(#glow)">
+    <!-- Head base — large facets -->
+    <polygon points="120,0 180,30 170,100" fill="url(#amber)"/>
+    <polygon points="120,0 60,30 70,100" fill="url(#amberDark)"/>
+    <polygon points="60,30 70,100 30,120" fill="url(#amberDark)"/>
+    <polygon points="180,30 170,100 210,120" fill="url(#amber)"/>
+    <!-- Muzzle -->
+    <polygon points="70,100 170,100 160,180 80,180" fill="url(#amberLight)"/>
+    <polygon points="80,180 160,180 150,220 90,220" fill="url(#amber)"/>
+    <!-- Left ear (tall, pointed) -->
+    <polygon points="60,30 40,-50 70,10" fill="url(#amber)"/>
+    <polygon points="40,-50 70,10 55,-20" fill="url(#amberLight)"/>
+    <!-- Right ear -->
+    <polygon points="180,30 200,-50 170,10" fill="url(#amberDark)"/>
+    <polygon points="200,-50 170,10 185,-20" fill="url(#amber)"/>
+    <!-- Eye left -->
+    <circle cx="95" cy="80" r="10" fill="#0f172a"/>
+    <circle cx="97" cy="78" r="4" fill="#f59e0b"/>
+    <!-- Eye right -->
+    <circle cx="145" cy="80" r="10" fill="#0f172a"/>
+    <circle cx="147" cy="78" r="4" fill="#f59e0b"/>
+    <!-- Nostrils -->
+    <ellipse cx="105" cy="200" rx="8" ry="5" fill="#d97706"/>
+    <ellipse cx="135" cy="200" rx="8" ry="5" fill="#d97706"/>
+  </g>
+
+  <!-- Key symbol orbiting the donkey — identity sovereignty -->
+  <g transform="translate(170, 370)" opacity="0.7">
+    <!-- Key shaft -->
+    <rect x="0" y="0" width="50" height="6" rx="3" fill="url(#steelLight)"/>
+    <!-- Key head (ring) -->
+    <circle cx="-8" cy="3" r="14" stroke="url(#amber)" stroke-width="3" fill="none"/>
+    <!-- Key teeth -->
+    <rect x="38" y="6" width="4" height="8" fill="url(#steelLight)"/>
+    <rect x="46" y="6" width="4" height="6" fill="url(#steelLight)"/>
+  </g>
+
+  <!-- Identity tree branches (nsec-tree visual) -->
+  <g stroke="url(#amber)" stroke-width="1.5" fill="none" opacity="0.3">
+    <line x1="360" y1="280" x2="420" y2="230"/>
+    <line x1="360" y1="280" x2="420" y2="280"/>
+    <line x1="360" y1="280" x2="420" y2="330"/>
+    <circle cx="420" cy="230" r="5" fill="#f59e0b"/>
+    <circle cx="420" cy="280" r="5" fill="#fbbf24"/>
+    <circle cx="420" cy="330" r="5" fill="#d97706"/>
+    <circle cx="360" cy="280" r="7" fill="#f59e0b"/>
+    <!-- Sub-branches -->
+    <line x1="420" y1="230" x2="460" y2="210"/>
+    <line x1="420" y1="230" x2="460" y2="250"/>
+    <circle cx="460" cy="210" r="3" fill="#fbbf24"/>
+    <circle cx="460" cy="250" r="3" fill="#fbbf24"/>
+  </g>
+
+  <!-- Divider -->
+  <line x1="580" y1="80" x2="580" y2="560" stroke="#334155" stroke-width="1" opacity="0.5"/>
+  <line x1="586" y1="80" x2="586" y2="560" stroke="#334155" stroke-width="1" opacity="0.5"/>
+  <!-- Divider icon: key -->
+  <g transform="translate(575, 306)">
+    <circle cx="8" cy="8" r="7" stroke="#64748b" stroke-width="1.5" fill="none"/>
+    <line x1="15" y1="8" x2="22" y2="8" stroke="#64748b" stroke-width="1.5"/>
+    <line x1="19" y1="8" x2="19" y2="12" stroke="#64748b" stroke-width="1.5"/>
+  </g>
+
+  <!-- Title -->
+  <text x="660" y="300" font-family="'SF Mono', 'Fira Code', 'JetBrains Mono', 'Menlo', monospace" font-size="64" font-weight="bold" fill="#f8fafc">nostr-bray</text>
+
+  <!-- Tagline -->
+  <text x="660" y="345" font-family="'Inter', -apple-system, 'Segoe UI', sans-serif" font-size="18" fill="#94a3b8">sovereign nostr identities. for AI agents.</text>
+
+  <!-- Tool count badge -->
+  <g transform="translate(660, 370)">
+    <rect width="100" height="24" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <text x="50" y="16" font-family="'SF Mono', monospace" font-size="11" fill="#94a3b8" text-anchor="middle">44 MCP tools</text>
+  </g>
+
+  <!-- Keyword ticker -->
+  <text x="40" y="622" font-family="'SF Mono', 'Fira Code', monospace" font-size="12" fill="#94a3b8" opacity="0.06">
+    nostr · mcp · nsec-tree · ring-sig · shamir · nip-17 · nip-47 · nwc · attestation · tor · lightning · duress · persona · identity
+  </text>
+</svg>
