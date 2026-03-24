@@ -55,6 +55,7 @@
     "type": "git",
     "url": "https://github.com/forgesworn/bray.git"
   },
+  "homepage": "https://github.com/forgesworn/bray#readme",
   "license": "MIT",
   "release": {
     "branches": [

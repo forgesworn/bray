@@ -6,7 +6,7 @@
 [![licence](https://img.shields.io/npm/l/nostr-bray)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-ESM-blue)](./tsconfig.json)
 
-An MCP server that gives AI agents a full Nostr identity — not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, and duress detection. 41 tools across 7 groups.
+An MCP server that gives AI agents a full Nostr identity — not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, and duress detection. 44 tools across 7 groups.
 
 ## The Problem
 
@@ -50,7 +50,7 @@ Or with a secret file (recommended):
 
 ## Tool Groups
 
-### Identity (12 tools)
+### Identity (11 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -105,13 +105,16 @@ Or with a secret file (recommended):
 | `relay_add` | Add relay to active identity (in-memory) |
 | `relay_info` | Fetch NIP-11 relay information document |
 
-### Zap (4 tools)
+### Zap (7 tools)
 
 | Tool | Description |
 |------|-------------|
 | `zap_send` | Pay a Lightning invoice via NWC |
+| `zap_balance` | Request wallet balance via NWC |
+| `zap_make_invoice` | Generate a Lightning invoice via NWC |
+| `zap_lookup_invoice` | Check invoice payment status via NWC |
+| `zap_list_transactions` | List recent Lightning transactions |
 | `zap_receipts` | Parse zap receipts (amount, sender, message) |
-| `zap_balance` | Check NWC wallet connection status |
 | `zap_decode` | Decode bolt11 invoice fields |
 
 ### Safety (2 tools)
