@@ -1,0 +1,233 @@
+# nostr-bray — Full Documentation for AI Assistants
+
+> MCP server giving AI agents sovereign Nostr identities — key derivation, personas, attestations, ring signatures, duress detection, and Lightning zaps.
+
+## Architecture
+
+Single-process MCP server (stdio or HTTP transport) with 35 tools in 7 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction.
+
+## Configuration
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| NOSTR_SECRET_KEY | Yes* | nsec bech32, 64-char hex, or BIP-39 mnemonic |
+| NOSTR_SECRET_KEY_FILE | Yes* | Path to file containing the secret key |
+| NOSTR_RELAYS | Yes | Comma-separated relay WebSocket URLs |
+| NWC_URI | No | Nostr Wallet Connect URI for zap operations |
+| NWC_URI_FILE | No | Path to file containing NWC URI |
+| TOR_PROXY | No | SOCKS5h proxy URL (e.g. socks5h://127.0.0.1:9050) |
+| ALLOW_CLEARNET_WITH_TOR | No | Set to "1" to allow clearnet relays with Tor |
+| NIP04_ENABLED | No | Set to "1" to enable legacy NIP-04 DMs |
+| TRANSPORT | No | "stdio" (default) or "http" |
+| PORT | No | HTTP port (default 3000) |
+| BIND_ADDRESS | No | HTTP bind address (default 127.0.0.1) |
+
+*One of NOSTR_SECRET_KEY or NOSTR_SECRET_KEY_FILE is required. File takes precedence.
+
+Secret env vars are deleted from process.env after parsing.
+
+## Tool Reference
+
+### Identity Tools
+
+#### identity_create
+Generate a fresh Nostr identity with a BIP-39 mnemonic seed.
+- Returns: { npub, mnemonic }
+- No private key bytes in response
+
+#### identity_derive
+Derive a child Nostr identity from the active tree root.
+- Input: purpose (string), index (number, default 0)
+- Returns: { npub, purpose, index }
+
+#### identity_derive_persona
+Derive a named persona identity (e.g. "work", "personal").
+- Input: name (string), index (number, default 0)
+- Returns: { npub, purpose, index, personaName }
+
+#### identity_switch
+Switch the active Nostr identity. All subsequent tools operate as the new identity.
+- Input: target (string — purpose, persona name, or "master"), index (optional number)
+- Returns: { npub }
+
+#### identity_list
+List all known Nostr identities. Returns public info only, never private keys.
+- Returns: Array of { npub, purpose, index, personaName }
+
+#### identity_prove
+Create a cryptographic linkage proof between master and active identity.
+- Input: mode ("blind" or "full", default "blind")
+- Blind: hides derivation path. Full: reveals purpose and index.
+- Returns: LinkageProof object
+
+#### identity_backup_shamir
+Split the master secret into Shamir shard files.
+- Input: threshold (number), shares (number), outputDir (string)
+- Shard content written to disk — never in response
+- Returns: { files, threshold, shares }
+
+#### identity_restore_shamir
+Reconstruct a secret from Shamir shard files.
+- Input: files (string[]), threshold (number)
+- Returns: { masterNpub }
+
+### Social Tools
+
+#### social_post
+Post a text note (kind 1) as the active identity.
+- Input: content (string)
+
+#### social_reply
+Reply to a Nostr event (kind 1 with e-tag and p-tag).
+- Input: content, replyTo (event ID), replyToPubkey, relay (optional)
+
+#### social_react
+React to a Nostr event (kind 7). Default reaction is "+".
+- Input: eventId, eventPubkey, reaction (default "+")
+
+#### social_profile_get
+Fetch kind 0 profile for a pubkey.
+- Input: pubkeyHex, npub (optional)
+- Returns: Parsed profile fields
+
+#### social_profile_set
+Set kind 0 profile for the active identity. Warns if profile exists.
+- Input: name, about, picture, nip05, banner, lud16, confirm (default false)
+- Safety guard: returns diff + warning if existing profile found
+
+#### dm_send
+Send a direct message via NIP-17 (default) or NIP-04 (legacy).
+- Input: recipientPubkeyHex, message, nip04 (default false)
+- NIP-04 requires NIP04_ENABLED=1
+
+#### dm_read
+Read direct messages addressed to the active identity.
+- Decrypts NIP-17 and NIP-04 messages
+- Returns metadata with "could not decrypt" flag on failure (no throw)
+
+#### social_notifications
+Fetch notifications — mentions, replies, reactions, zap receipts.
+- Input: since (optional timestamp), limit (default 50)
+- Excludes kind 3 (follows)
+- Zap receipts parsed with amount in msats
+
+#### social_feed
+Fetch kind 1 text note feed.
+- Input: authors (optional hex pubkeys), since (optional), limit (default 20)
+
+### Trust Tools
+
+#### trust_attest
+Create and publish a kind 31000 verifiable attestation.
+- Input: type, identifier, subject, summary, content, expiration
+- Warns when attesting as derived persona
+
+#### trust_read
+Read kind 31000 attestations from relays.
+- Input: subject, type, attestor (all optional filters)
+
+#### trust_verify
+Validate structural correctness of a kind 31000 attestation.
+- Input: event object
+- Returns: { valid, errors }
+
+#### trust_revoke
+Revoke a previously issued attestation.
+- Input: type, identifier, originalAttestorPubkey (optional verification)
+- Errors if active identity doesn't match original attestor
+
+#### trust_request
+Send an attestation request via NIP-17 encrypted DM.
+- Input: recipientPubkeyHex, subject, attestationType, message
+- Payload: { type: "nip-va/attestation-request", v: 1, ... }
+
+#### trust_request_list
+Scan received NIP-17 DMs for attestation request payloads.
+- Returns: Array of { from, subject, attestationType, message }
+
+#### trust_proof_publish
+Publish a linkage proof as kind 30078. Requires confirmation.
+- Input: mode ("blind"/"full"), confirm (boolean)
+- Returns warning about what proof reveals before publishing
+
+#### trust_ring_prove
+Create a ring signature proving anonymous group membership.
+- Input: ring (hex pubkeys), attestationType, message (optional)
+- Active identity must be in the ring
+- Returns: kind 30078 event with ring signature
+
+#### trust_ring_verify
+Verify a ring signature proof.
+- Input: signature (RingSignature object or Nostr event)
+- Returns: { valid }
+
+#### trust_spoken_challenge
+Generate a spoken verification token.
+- Input: secret (hex), context, counter
+- Returns: { token }
+
+#### trust_spoken_verify
+Verify a spoken token response.
+- Input: secret, context, counter, input, tolerance (default 1)
+- Returns: { valid, identity }
+
+### Relay Tools
+
+#### relay_list
+List relay set for the active identity.
+- Input: compareWithNpub (optional — warns about shared relays)
+
+#### relay_set
+Publish kind 10002 relay list.
+- Input: relays (array of { url, mode }), confirm
+- Safety guard: warns if relay list exists
+
+#### relay_add
+Add a relay to active identity's relay set (in-memory).
+- Input: url, mode (optional: "read", "write", or both)
+
+### Zap Tools
+
+#### zap_receipts
+Fetch zap receipts (kind 9735) for the active identity.
+- Input: since (optional), limit (default 20)
+- Returns: sender, amountMsats, message
+
+#### zap_decode
+Decode basic fields from a bolt11 Lightning invoice.
+- Input: bolt11 string
+- Returns: { amountMsats }
+
+### Safety Tools
+
+#### safety_configure
+Configure an alternative identity persona.
+- Input: personaName (default "anonymous")
+
+#### safety_activate
+Switch to an alternative identity configuration.
+- Input: personaName (default "anonymous")
+- Response structure identical to identity_switch
+
+## Example Workflow
+
+```
+1. identity_list                    → see master identity
+2. identity_derive_persona("work")  → derive work persona
+3. identity_switch("work")          → switch to work
+4. social_profile_set(name: "Work Account")  → set profile
+5. social_post("Hello from my work persona")
+6. identity_switch("master")        → back to master
+7. trust_attest(type: "endorsement", subject: workPubkeyHex)
+8. identity_prove(mode: "blind")    → prove without revealing path
+```
+
+## Security Model
+
+- Private keys never appear in tool responses
+- LRU cache with cryptographic zeroing on eviction
+- Secrets deleted from process.env after parsing
+- NIP-04 disabled by default (requires explicit opt-in)
+- Tor proxy support with clearnet blocking
+- Per-identity relay separation to prevent linking
+- HTTP transport: bearer token auth, restrictive CORS, security headers

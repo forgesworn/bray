@@ -1,0 +1,150 @@
+# nostr-bray
+
+> Sovereign Nostr identities for AI agents
+
+[![npm](https://img.shields.io/npm/v/nostr-bray)](https://www.npmjs.com/package/nostr-bray)
+[![licence](https://img.shields.io/npm/l/nostr-bray)](./LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-ESM-blue)](./tsconfig.json)
+
+An MCP server that gives AI agents a full Nostr identity — not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, and duress detection. 35 tools across 7 groups.
+
+## The Problem
+
+AI agents interacting with Nostr today are handed a single key pair with no separation of concerns. One compromised session leaks everything. There is no way to rotate keys, prove identity links, or maintain separate personas for different contexts.
+
+nostr-bray solves this with nsec-tree hierarchical derivation. A single master secret generates unlimited child identities, each with its own key pair, purpose, and relay set. Private keys are zeroed from memory on eviction. Agents can switch personas mid-conversation, prove they control the master without revealing the derivation path, and activate a duress identity if compromised.
+
+## Quick Start
+
+```json
+{
+  "mcpServers": {
+    "nostr": {
+      "command": "npx",
+      "args": ["nostr-bray"],
+      "env": {
+        "NOSTR_SECRET_KEY": "nsec1...",
+        "NOSTR_RELAYS": "wss://relay.damus.io,wss://nos.lol"
+      }
+    }
+  }
+}
+```
+
+Or with a secret file (recommended):
+
+```json
+{
+  "mcpServers": {
+    "nostr": {
+      "command": "npx",
+      "args": ["nostr-bray"],
+      "env": {
+        "NOSTR_SECRET_KEY_FILE": "/path/to/secret.key",
+        "NOSTR_RELAYS": "wss://relay.damus.io,wss://nos.lol"
+      }
+    }
+  }
+}
+```
+
+## Tool Groups
+
+### Identity (9 tools)
+
+| Tool | Description |
+|------|-------------|
+| `identity_create` | Generate a fresh identity with BIP-39 mnemonic |
+| `identity_derive` | Derive a child identity by purpose and index |
+| `identity_derive_persona` | Derive a named persona (work, personal, anonymous) |
+| `identity_switch` | Switch active identity — all tools operate as the new identity |
+| `identity_list` | List all known identities (public info only) |
+| `identity_prove` | Create blind/full linkage proof |
+| `identity_backup_shamir` | Split master secret into Shamir shard files |
+| `identity_restore_shamir` | Reconstruct secret from shard files |
+
+### Social (9 tools)
+
+| Tool | Description |
+|------|-------------|
+| `social_post` | Post a text note (kind 1) |
+| `social_reply` | Reply with correct e-tag and p-tag threading |
+| `social_react` | React to an event (kind 7) |
+| `social_profile_get` | Fetch and parse a kind 0 profile |
+| `social_profile_set` | Set profile with overwrite safety guard |
+| `dm_send` | Send encrypted DM (NIP-17 default, NIP-04 opt-in) |
+| `dm_read` | Read and decrypt received DMs |
+| `social_notifications` | Fetch mentions, replies, reactions, zap receipts |
+| `social_feed` | Fetch kind 1 text note feed |
+
+### Trust (10 tools)
+
+| Tool | Description |
+|------|-------------|
+| `trust_attest` | Create kind 31000 verifiable attestation |
+| `trust_read` | Read attestations by subject/type/attestor |
+| `trust_verify` | Validate attestation structure |
+| `trust_revoke` | Revoke an attestation (identity check) |
+| `trust_request` | Send attestation request via NIP-17 |
+| `trust_request_list` | Scan DMs for attestation requests |
+| `trust_proof_publish` | Publish linkage proof (kind 30078) with confirmation |
+| `trust_ring_prove` | Anonymous group membership proof (ring signature) |
+| `trust_ring_verify` | Verify ring signature proof |
+| `trust_spoken_challenge` | Generate spoken verification token |
+| `trust_spoken_verify` | Verify spoken token response |
+
+### Relay (3 tools)
+
+| Tool | Description |
+|------|-------------|
+| `relay_list` | List relays with shared-relay warnings |
+| `relay_set` | Publish kind 10002 relay list |
+| `relay_add` | Add relay to active identity (in-memory) |
+
+### Zap (2 tools)
+
+| Tool | Description |
+|------|-------------|
+| `zap_receipts` | Parse zap receipts (amount, sender, message) |
+| `zap_decode` | Decode bolt11 invoice fields |
+
+### Safety (2 tools)
+
+| Tool | Description |
+|------|-------------|
+| `safety_configure` | Configure an alternative identity persona |
+| `safety_activate` | Switch to alternative identity |
+
+## Identity Switching
+
+The killer feature. Every tool operates as the "active identity." Switch with a single call:
+
+```
+identity_derive_persona("work")    → npub1abc...
+identity_switch("work")            → now operating as work persona
+social_post("Hello from work!")    → signed by npub1abc...
+identity_switch("master")          → back to master
+social_post("Back to main")       → signed by master npub
+```
+
+Derived identities are cryptographically unlinkable unless you publish a linkage proof.
+
+## Configuration
+
+| Variable | Description |
+|----------|-------------|
+| `NOSTR_SECRET_KEY` | nsec bech32, 64-char hex, or BIP-39 mnemonic |
+| `NOSTR_SECRET_KEY_FILE` | Path to secret key file (takes precedence) |
+| `NOSTR_RELAYS` | Comma-separated relay URLs |
+| `TOR_PROXY` | SOCKS5h proxy for Tor (blocks clearnet relays by default) |
+| `NIP04_ENABLED` | Set `1` to enable legacy NIP-04 DMs |
+| `TRANSPORT` | `stdio` (default) or `http` |
+| `PORT` | HTTP port (default 3000) |
+
+## For AI Assistants
+
+See [llms.txt](./llms.txt) for a concise summary optimised for AI context windows, or [llms-full.txt](./llms-full.txt) for complete tool documentation with parameter details.
+
+## Licence
+
+MIT
