@@ -7,7 +7,7 @@
 [![licence](https://img.shields.io/npm/l/nostr-bray)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-ESM-blue)](./tsconfig.json)
 
-An MCP server that gives AI agents a full Nostr identity — not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, and duress detection. 44 tools across 7 groups.
+An MCP server that gives AI agents a full Nostr identity — not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, and duress detection. 49 tools across 7 groups.
 
 ## The Problem
 
@@ -83,17 +83,22 @@ Or with a secret file (recommended):
 | `identity_restore` | Re-sign migratable events under the active identity |
 | `identity_migrate` | Full migration with preview, confirmation, and linkage proof |
 
-### Social (9 tools)
+### Social (14 tools)
 
 | Tool | Description |
 |------|-------------|
 | `social_post` | Post a text note (kind 1) |
 | `social_reply` | Reply with correct e-tag and p-tag threading |
 | `social_react` | React to an event (kind 7) |
+| `social_delete` | Request deletion of your event (kind 5) |
+| `social_repost` | Repost/boost an event (kind 6) |
 | `social_profile_get` | Fetch and parse a kind 0 profile |
 | `social_profile_set` | Set profile with overwrite safety guard |
 | `dm_send` | Send encrypted DM (NIP-17 default, NIP-04 opt-in) |
 | `dm_read` | Read and decrypt received DMs |
+| `contacts_get` | Fetch contact list (kind 3 follows) |
+| `contacts_follow` | Follow a pubkey (publishes updated kind 3) |
+| `contacts_unfollow` | Unfollow a pubkey |
 | `social_notifications` | Fetch mentions, replies, reactions, zap receipts |
 | `social_feed` | Fetch kind 1 text note feed |
 

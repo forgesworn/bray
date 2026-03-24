@@ -4,7 +4,7 @@
 
 ## Architecture
 
-Single-process MCP server (stdio or HTTP transport) with 44 tools in 7 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction.
+Single-process MCP server (stdio or HTTP transport) with 49 tools in 7 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction.
 
 ## Configuration
 
@@ -100,6 +100,27 @@ Reply to a Nostr event (kind 1 with e-tag and p-tag).
 #### social_react
 React to a Nostr event (kind 7). Default reaction is "+".
 - Input: eventId, eventPubkey, reaction (default "+")
+
+#### social_delete
+Request deletion of an event you published (kind 5). Relays may or may not honour the request.
+- Input: eventId, reason (optional)
+
+#### social_repost
+Repost/boost a Nostr event (kind 6) as the active identity.
+- Input: eventId, eventPubkey, relay (optional)
+
+#### contacts_get
+Fetch the contact list (kind 3 follows) for a pubkey.
+- Input: pubkeyHex, npub (optional)
+- Returns: Array of { pubkey, relay, petname }
+
+#### contacts_follow
+Follow a Nostr pubkey. Fetches current contact list, adds the pubkey, publishes updated kind 3.
+- Input: pubkeyHex, relay (optional), petname (optional)
+
+#### contacts_unfollow
+Unfollow a Nostr pubkey. Removes from contact list and publishes updated kind 3.
+- Input: pubkeyHex
 
 #### social_profile_get
 Fetch kind 0 profile for a pubkey.

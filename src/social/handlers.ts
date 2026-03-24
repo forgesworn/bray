@@ -66,6 +66,43 @@ export async function handleSocialReact(
   return { event, publish }
 }
 
+/** Delete an event (kind 5 deletion request) */
+export async function handleSocialDelete(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: { eventId: string; reason?: string },
+): Promise<PostResult> {
+  const sign = ctx.getSigningFunction()
+  const event = await sign({
+    kind: 5,
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [['e', args.eventId]],
+    content: args.reason ?? '',
+  })
+  const publish = await pool.publish(ctx.activeNpub, event)
+  return { event, publish }
+}
+
+/** Repost/boost an event (kind 6) */
+export async function handleSocialRepost(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: { eventId: string; eventPubkey: string; relay?: string },
+): Promise<PostResult> {
+  const sign = ctx.getSigningFunction()
+  const event = await sign({
+    kind: 6,
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [
+      ['e', args.eventId, args.relay ?? ''],
+      ['p', args.eventPubkey],
+    ],
+    content: '',
+  })
+  const publish = await pool.publish(ctx.activeNpub, event)
+  return { event, publish }
+}
+
 /** Fetch and parse the kind 0 profile for a pubkey */
 export async function handleSocialProfileGet(
   pool: RelayPool,

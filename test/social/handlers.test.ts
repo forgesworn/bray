@@ -10,6 +10,8 @@ import {
   handleContactsGet,
   handleContactsFollow,
   handleContactsUnfollow,
+  handleSocialDelete,
+  handleSocialRepost,
 } from '../../src/social/handlers.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
@@ -145,6 +147,40 @@ describe('social handlers', () => {
         confirm: true,
       })
       expect(result.published).toBe(true)
+    })
+  })
+
+  describe('handleSocialDelete', () => {
+    it('creates kind 5 deletion event', async () => {
+      const pool = mockPool()
+      const result = await handleSocialDelete(ctx, pool as any, { eventId: 'abc123' })
+      expect(result.event.kind).toBe(5)
+      const eTag = result.event.tags.find((t: string[]) => t[0] === 'e')
+      expect(eTag![1]).toBe('abc123')
+    })
+
+    it('includes reason when provided', async () => {
+      const pool = mockPool()
+      const result = await handleSocialDelete(ctx, pool as any, {
+        eventId: 'abc123',
+        reason: 'posted by mistake',
+      })
+      expect(result.event.content).toBe('posted by mistake')
+    })
+  })
+
+  describe('handleSocialRepost', () => {
+    it('creates kind 6 repost event', async () => {
+      const pool = mockPool()
+      const result = await handleSocialRepost(ctx, pool as any, {
+        eventId: 'note123',
+        eventPubkey: 'author456',
+      })
+      expect(result.event.kind).toBe(6)
+      const eTag = result.event.tags.find((t: string[]) => t[0] === 'e')
+      expect(eTag![1]).toBe('note123')
+      const pTag = result.event.tags.find((t: string[]) => t[0] === 'p')
+      expect(pTag![1]).toBe('author456')
     })
   })
 
