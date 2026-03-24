@@ -7,7 +7,7 @@
 [![licence](https://img.shields.io/npm/l/nostr-bray)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-ESM-blue)](./tsconfig.json)
 
-An MCP server that gives AI agents a full Nostr identity — not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, and duress detection. 74 tools across 7 groups.
+An MCP server that gives AI agents a full Nostr identity — not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, and duress detection. 74 tools across 11 groups.
 
 ## The Problem
 
@@ -145,6 +145,51 @@ Or with a secret file (recommended):
 |------|-------------|
 | `safety_configure` | Configure an alternative identity persona |
 | `safety_activate` | Switch to alternative identity |
+
+### Blossom (3 tools)
+
+| Tool | Description |
+|------|-------------|
+| `blossom_upload` | Upload file to a blossom media server |
+| `blossom_list` | List blobs for a pubkey |
+| `blossom_delete` | Delete a blob by SHA-256 hash |
+
+### Groups — NIP-29 (4 tools)
+
+| Tool | Description |
+|------|-------------|
+| `group_info` | Fetch group metadata |
+| `group_chat` | Read group chat messages |
+| `group_send` | Send message to a group |
+| `group_members` | List group members |
+
+### Community NIPs (2 tools)
+
+| Tool | Description |
+|------|-------------|
+| `nip_publish` | Publish a community NIP (kind 30817) |
+| `nip_read` | Fetch community NIPs |
+
+### Utility (16 tools)
+
+| Tool | Description |
+|------|-------------|
+| `decode` | Decode npub/nsec/note/nevent/nprofile/naddr |
+| `encode_npub` | Encode hex pubkey as npub |
+| `encode_note` | Encode hex event ID as note |
+| `encode_nprofile` | Encode pubkey + relays as nprofile |
+| `encode_nevent` | Encode event ID + relays as nevent |
+| `encode_naddr` | Encode addressable event as naddr |
+| `encode_nsec` | Encode hex private key as nsec |
+| `key_public` | Derive pubkey from secret key |
+| `verify_event` | Verify event hash and signature |
+| `filter` | Test if an event matches a filter |
+| `nip44_encrypt` | NIP-44 encrypt for a recipient |
+| `nip44_decrypt` | NIP-44 decrypt from a sender |
+| `count` | Count events matching a filter |
+| `fetch` | Fetch events by nip19 code |
+| `nip_list` | List all official NIPs |
+| `nip_show` | Show a specific NIP's content |
 
 ## Identity Switching
 
