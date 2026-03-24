@@ -9,6 +9,7 @@ import {
   handleIdentityDerivePersona,
   handleIdentitySwitch,
   handleIdentityList,
+  handleIdentityProve,
 } from './handlers.js'
 
 export interface ToolDeps {
@@ -77,6 +78,19 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
     const result = handleIdentityList(deps.ctx)
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    }
+  })
+
+  server.registerTool('identity_prove', {
+    description: 'Create a cryptographic linkage proof between the master key and the active identity. Defaults to blind proof (no purpose/index revealed).',
+    inputSchema: {
+      mode: z.enum(['blind', 'full']).default('blind').describe('Proof mode: "blind" hides derivation path, "full" reveals purpose and index'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ mode }) => {
+    const proof = handleIdentityProve(deps.ctx, { mode })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(proof, null, 2) }],
     }
   })
 }
