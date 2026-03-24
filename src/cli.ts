@@ -1,70 +1,104 @@
 #!/usr/bin/env node
-/**
- * nostr-bray CLI — standalone Nostr identity management from the terminal.
- *
- * Usage:
- *   nostr-bray                          Start MCP server (default)
- *   nostr-bray post "hello nostr"       Post a text note
- *   nostr-bray reply <event-id> "text"  Reply to an event
- *   nostr-bray react <event-id>         React to an event (+)
- *   nostr-bray derive <purpose>         Derive a child identity
- *   nostr-bray persona <name>           Derive a named persona
- *   nostr-bray switch <target>          Switch active identity
- *   nostr-bray list                     List all identities
- *   nostr-bray prove [blind|full]       Create a linkage proof
- *   nostr-bray profile <pubkey-hex>     Fetch a profile
- *   nostr-bray relay-info <url>         Fetch NIP-11 relay info
- *   nostr-bray backup <dir>             Shamir backup (threshold=3, shares=5)
- *   nostr-bray whoami                   Show active identity npub
- */
-
 import { loadConfig } from './config.js'
 import { IdentityContext } from './context.js'
 import { RelayPool } from './relay-pool.js'
 import { Nip65Manager } from './nip65.js'
-import { handleSocialPost, handleSocialReply, handleSocialReact, handleSocialProfileGet } from './social/handlers.js'
-import { handleIdentityList, handleIdentityProve } from './identity/handlers.js'
-import { handleBackupShamir } from './identity/shamir.js'
-import { handleRelayInfo } from './relay/handlers.js'
+import { handleSocialPost, handleSocialReply, handleSocialReact, handleSocialProfileGet, handleSocialProfileSet } from './social/handlers.js'
+import { handleDmSend, handleDmRead } from './social/dm.js'
+import { handleNotifications, handleFeed } from './social/notifications.js'
+import { handleIdentityList, handleIdentityProve, handleIdentityCreate } from './identity/handlers.js'
+import { handleBackupShamir, handleRestoreShamir } from './identity/shamir.js'
+import { handleIdentityBackup, handleIdentityRestore, handleIdentityMigrate } from './identity/migration.js'
+import { handleRelayInfo, handleRelayList, handleRelaySet, handleRelayAdd } from './relay/handlers.js'
+import { handleTrustAttest, handleTrustRead, handleTrustVerify, handleTrustRevoke, handleTrustRequest, handleTrustRequestList, handleTrustProofPublish } from './trust/handlers.js'
+import { handleTrustRingProve, handleTrustRingVerify } from './trust/ring.js'
+import { handleTrustSpokenChallenge, handleTrustSpokenVerify } from './trust/spoken.js'
+import { handleDuressConfigure, handleDuressActivate } from './safety/handlers.js'
+import { handleZapSend, handleZapBalance, handleZapMakeInvoice, handleZapLookupInvoice, handleZapListTransactions, handleZapReceipts, handleZapDecode } from './zap/handlers.js'
 
 const args = process.argv.slice(2)
 const command = args[0]
 
-// No command = start MCP server (default behaviour)
+// No command = start MCP server
 if (!command || command === 'serve') {
   await import('./index.js')
   process.exit(0)
 }
 
-// Help — no config needed
+const HELP = `nostr-bray — Sovereign Nostr identities for AI agents
+
+Usage: nostr-bray [command] [args]
+
+Identity:
+  whoami                              Show active identity npub
+  create                              Generate a fresh identity (mnemonic + npub)
+  list                                List all identities
+  derive <purpose> [index]            Derive a child identity
+  persona <name> [index]              Derive a named persona
+  switch <target> [index]             Switch active identity
+  prove [blind|full]                  Create a linkage proof
+  proof-publish [blind|full]          Publish linkage proof to relays (irreversible)
+  backup <dir> [threshold] [shares]   Shamir backup (default 3-of-5)
+  restore <file1> <file2> ... -t <n>  Restore from Shamir shards
+  identity-backup <pubkey-hex>        Fetch profile/contacts/relays as bundle
+  identity-restore <pubkey-hex>       Re-sign events under active identity
+  migrate <old-hex> <old-npub>        Migrate identity (preview, add --confirm)
+
+Social:
+  post "message"                      Post a text note (kind 1)
+  reply <event-id> <pubkey> "text"    Reply to an event
+  react <event-id> <pubkey> [emoji]   React to an event
+  profile <pubkey-hex>                Fetch a profile
+  profile-set <json>                  Set profile (add --confirm to overwrite)
+  dm <pubkey-hex> "message"           Send NIP-17 encrypted DM
+  dm-read                             Read received DMs
+  feed [--limit N]                    Fetch text note feed
+  notifications [--limit N]           Fetch mentions, replies, reactions, zaps
+
+Trust:
+  attest <type> <identifier> [subject]  Create kind 31000 attestation
+  trust-read [--subject X] [--type X]   Read attestations
+  trust-verify <event-json>             Validate attestation structure
+  trust-revoke <type> <identifier>      Revoke an attestation
+  trust-request <pubkey> <subject> <type>  Send attestation request via DM
+  trust-request-list                    Scan DMs for attestation requests
+  ring-prove <type> <pk1,pk2,...>       Create ring signature proof
+  ring-verify <event-json>              Verify ring signature
+  spoken-challenge <secret> <ctx> <ctr> Generate spoken token
+  spoken-verify <secret> <ctx> <ctr> <input>  Verify spoken token
+
+Relay:
+  relay-list [--compare npub]         List relays for active identity
+  relay-set <url1> <url2> ...         Publish kind 10002 relay list (add --confirm)
+  relay-add <url> [read|write]        Add relay to active identity
+  relay-info <wss://url>              Fetch NIP-11 relay info
+
+Zap:
+  zap-send <bolt11>                   Pay invoice via NWC
+  zap-balance                         Request wallet balance via NWC
+  zap-invoice <msats> [description]   Generate invoice via NWC
+  zap-lookup <payment-hash>           Look up invoice status
+  zap-transactions [--limit N]        List recent transactions
+  zap-receipts [--limit N]            Fetch zap receipts
+  zap-decode <bolt11>                 Decode bolt11 invoice
+
+Safety:
+  safety-configure [persona-name]     Configure alternative identity
+  safety-activate [persona-name]      Switch to alternative identity
+
+Environment:
+  NOSTR_SECRET_KEY              nsec, hex, or BIP-39 mnemonic
+  NOSTR_SECRET_KEY_FILE         Path to secret key file
+  NOSTR_RELAYS                  Comma-separated relay URLs
+  NWC_URI / NWC_URI_FILE        Nostr Wallet Connect URI
+  TOR_PROXY                     SOCKS5h proxy URL`
+
 if (command === 'help' || command === '--help' || command === '-h') {
-  console.log('nostr-bray — Sovereign Nostr identities for AI agents')
-  console.log('')
-  console.log('Usage: nostr-bray [command] [args]')
-  console.log('')
-  console.log('Commands:')
-  console.log('  (no command)                  Start MCP server (stdio)')
-  console.log('  whoami                        Show active identity npub')
-  console.log('  list                          List all identities')
-  console.log('  derive <purpose> [index]      Derive a child identity')
-  console.log('  persona <name> [index]        Derive a named persona')
-  console.log('  switch <target> [index]       Switch active identity')
-  console.log('  prove [blind|full]            Create a linkage proof')
-  console.log('  post "message"                Post a text note')
-  console.log('  reply <event-id> "text"       Reply to an event')
-  console.log('  react <event-id> [reaction]   React to an event')
-  console.log('  profile <pubkey-hex>          Fetch a profile')
-  console.log('  relay-info <wss://url>        Fetch NIP-11 relay info')
-  console.log('  backup <dir> [t] [n]          Shamir backup (default 3-of-5)')
-  console.log('')
-  console.log('Environment:')
-  console.log('  NOSTR_SECRET_KEY              nsec, hex, or BIP-39 mnemonic')
-  console.log('  NOSTR_SECRET_KEY_FILE         Path to secret key file')
-  console.log('  NOSTR_RELAYS                  Comma-separated relay URLs')
+  console.log(HELP)
   process.exit(0)
 }
 
-// CLI commands need config + context
+// All other commands need config
 const config = loadConfig()
 const pool = new RelayPool({
   torProxy: config.torProxy,
@@ -73,144 +107,310 @@ const pool = new RelayPool({
 })
 const nip65 = new Nip65Manager(pool, config.relays)
 const ctx = new IdentityContext(config.secretKey, config.secretFormat)
+const nwcUri = config.nwcUri
 
-// Clear secrets
 ;(config as any).secretKey = ''
 ;(config as any).nwcUri = undefined
 
-// Load master relay list
 const masterRelays = await nip65.loadForIdentity(ctx.activeNpub)
 pool.reconfigure(ctx.activeNpub, masterRelays)
 
+/** Helper: print JSON result */
+function out(data: unknown): void { console.log(JSON.stringify(data, null, 2)) }
+
+/** Helper: require arg or exit */
+function req(index: number, usage: string): string {
+  const val = args[index]
+  if (!val) { console.error(`Usage: nostr-bray ${usage}`); process.exit(1) }
+  return val
+}
+
+/** Helper: parse --flag value from args */
+function flag(name: string, fallback?: string): string | undefined {
+  const i = args.indexOf(`--${name}`)
+  if (i === -1) return fallback
+  return args[i + 1] ?? fallback
+}
+
+function hasFlag(name: string): boolean {
+  return args.includes(`--${name}`)
+}
+
 async function run(): Promise<void> {
   switch (command) {
-    case 'whoami': {
+    // === Identity ===
+
+    case 'whoami':
       console.log(ctx.activeNpub)
       break
-    }
 
-    case 'list': {
-      const identities = handleIdentityList(ctx)
-      console.log(JSON.stringify(identities, null, 2))
+    case 'create':
+      out(handleIdentityCreate())
       break
-    }
 
-    case 'derive': {
-      const purpose = args[1]
-      if (!purpose) { console.error('Usage: nostr-bray derive <purpose> [index]'); process.exit(1) }
-      const index = parseInt(args[2] ?? '0', 10)
-      const result = ctx.derive(purpose, index)
-      console.log(JSON.stringify(result, null, 2))
+    case 'list':
+      out(handleIdentityList(ctx))
       break
-    }
 
-    case 'persona': {
-      const name = args[1]
-      if (!name) { console.error('Usage: nostr-bray persona <name> [index]'); process.exit(1) }
-      const index = parseInt(args[2] ?? '0', 10)
-      const result = ctx.derivePersona(name, index)
-      console.log(JSON.stringify(result, null, 2))
+    case 'derive':
+      out(ctx.derive(req(1, 'derive <purpose> [index]'), parseInt(args[2] ?? '0', 10)))
       break
-    }
 
-    case 'switch': {
-      const target = args[1]
-      if (!target) { console.error('Usage: nostr-bray switch <target> [index]'); process.exit(1) }
-      const index = args[2] ? parseInt(args[2], 10) : undefined
-      ctx.switch(target, index)
+    case 'persona':
+      out(ctx.derivePersona(req(1, 'persona <name> [index]'), parseInt(args[2] ?? '0', 10)))
+      break
+
+    case 'switch':
+      ctx.switch(req(1, 'switch <target> [index]'), args[2] ? parseInt(args[2], 10) : undefined)
       console.log(ctx.activeNpub)
       break
-    }
 
-    case 'prove': {
-      const mode = (args[1] === 'full' ? 'full' : 'blind') as 'blind' | 'full'
-      const proof = handleIdentityProve(ctx, { mode })
-      console.log(JSON.stringify(proof, null, 2))
+    case 'prove':
+      out(handleIdentityProve(ctx, { mode: (args[1] === 'full' ? 'full' : 'blind') }))
       break
-    }
 
-    case 'post': {
-      const content = args[1]
-      if (!content) { console.error('Usage: nostr-bray post "your message"'); process.exit(1) }
-      const result = await handleSocialPost(ctx, pool, { content })
-      console.log(JSON.stringify({ id: result.event.id, pubkey: result.event.pubkey, publish: result.publish }, null, 2))
-      break
-    }
-
-    case 'reply': {
-      const eventId = args[1]
-      const content = args[2]
-      if (!eventId || !content) { console.error('Usage: nostr-bray reply <event-id> "your reply"'); process.exit(1) }
-      const result = await handleSocialReply(ctx, pool, {
-        content,
-        replyTo: eventId,
-        replyToPubkey: '', // simplified for CLI
+    case 'proof-publish': {
+      const r = await handleTrustProofPublish(ctx, pool, {
+        mode: (args[1] === 'full' ? 'full' : 'blind'),
+        confirm: hasFlag('confirm'),
       })
-      console.log(JSON.stringify({ id: result.event.id, publish: result.publish }, null, 2))
+      out(r)
       break
     }
 
-    case 'react': {
-      const eventId = args[1]
-      if (!eventId) { console.error('Usage: nostr-bray react <event-id> [reaction]'); process.exit(1) }
-      const result = await handleSocialReact(ctx, pool, {
-        eventId,
-        eventPubkey: '',
-        reaction: args[2] ?? '+',
-      })
-      console.log(JSON.stringify({ id: result.event.id, publish: result.publish }, null, 2))
-      break
-    }
-
-    case 'profile': {
-      const pubkeyHex = args[1]
-      if (!pubkeyHex) { console.error('Usage: nostr-bray profile <pubkey-hex>'); process.exit(1) }
-      const profile = await handleSocialProfileGet(pool, ctx.activeNpub, pubkeyHex)
-      console.log(JSON.stringify(profile, null, 2))
-      break
-    }
-
-    case 'relay-info': {
-      const url = args[1]
-      if (!url) { console.error('Usage: nostr-bray relay-info <wss://relay-url>'); process.exit(1) }
-      const info = await handleRelayInfo(url)
-      console.log(JSON.stringify(info, null, 2))
-      break
-    }
-
-    case 'backup': {
-      const dir = args[1]
-      if (!dir) { console.error('Usage: nostr-bray backup <output-dir> [threshold] [shares]'); process.exit(1) }
-      const threshold = parseInt(args[2] ?? '3', 10)
-      const shares = parseInt(args[3] ?? '5', 10)
-      const result = handleBackupShamir({
+    case 'backup':
+      out(handleBackupShamir({
         secret: new Uint8Array(ctx.activePrivateKey),
-        threshold,
-        shares,
-        outputDir: dir,
-      })
-      console.log(JSON.stringify(result, null, 2))
+        threshold: parseInt(args[2] ?? '3', 10),
+        shares: parseInt(args[3] ?? '5', 10),
+        outputDir: req(1, 'backup <dir> [threshold] [shares]'),
+      }))
+      break
+
+    case 'restore': {
+      const tFlag = flag('t', '3')!
+      const files = args.slice(1).filter(a => a !== '--t' && a !== `-t` && a !== tFlag)
+      out({ masterNpub: handleRestoreShamir({ files, threshold: parseInt(tFlag, 10) }) })
       break
     }
+
+    case 'identity-backup':
+      out(await handleIdentityBackup(pool, req(1, 'identity-backup <pubkey-hex>'), ctx.activeNpub))
+      break
+
+    case 'identity-restore':
+      out(await handleIdentityRestore(ctx, pool,
+        await handleIdentityBackup(pool, req(1, 'identity-restore <pubkey-hex>'), ctx.activeNpub)))
+      break
+
+    case 'migrate':
+      out(await handleIdentityMigrate(ctx, pool, {
+        oldPubkeyHex: req(1, 'migrate <old-hex> <old-npub>'),
+        oldNpub: req(2, 'migrate <old-hex> <old-npub>'),
+        confirm: hasFlag('confirm'),
+      }))
+      break
+
+    // === Social ===
+
+    case 'post':
+      out(await handleSocialPost(ctx, pool, { content: req(1, 'post "message"') }))
+      break
+
+    case 'reply':
+      out(await handleSocialReply(ctx, pool, {
+        content: req(3, 'reply <event-id> <pubkey> "text"'),
+        replyTo: req(1, 'reply <event-id> <pubkey> "text"'),
+        replyToPubkey: req(2, 'reply <event-id> <pubkey> "text"'),
+      }))
+      break
+
+    case 'react':
+      out(await handleSocialReact(ctx, pool, {
+        eventId: req(1, 'react <event-id> <pubkey> [emoji]'),
+        eventPubkey: req(2, 'react <event-id> <pubkey> [emoji]'),
+        reaction: args[3] ?? '+',
+      }))
+      break
+
+    case 'profile':
+      out(await handleSocialProfileGet(pool, ctx.activeNpub, req(1, 'profile <pubkey-hex>')))
+      break
+
+    case 'profile-set': {
+      const profile = JSON.parse(req(1, 'profile-set \'{"name":"..."}\''))
+      out(await handleSocialProfileSet(ctx, pool, { profile, confirm: hasFlag('confirm') }))
+      break
+    }
+
+    case 'dm':
+      out(await handleDmSend(ctx, pool, {
+        recipientPubkeyHex: req(1, 'dm <pubkey-hex> "message"'),
+        message: req(2, 'dm <pubkey-hex> "message"'),
+        nip04: hasFlag('nip04'),
+        nip04Enabled: config.nip04Enabled,
+      }))
+      break
+
+    case 'dm-read':
+      out(await handleDmRead(ctx, pool))
+      break
+
+    case 'feed':
+      out(await handleFeed(ctx, pool, { limit: parseInt(flag('limit', '20')!, 10) }))
+      break
+
+    case 'notifications':
+      out(await handleNotifications(ctx, pool, { limit: parseInt(flag('limit', '50')!, 10) }))
+      break
+
+    // === Trust ===
+
+    case 'attest':
+      out(await handleTrustAttest(ctx, pool, {
+        type: req(1, 'attest <type> <identifier> [subject]'),
+        identifier: args[2],
+        subject: args[3],
+      }))
+      break
+
+    case 'trust-read':
+      out(await handleTrustRead(pool, ctx.activeNpub, {
+        subject: flag('subject'),
+        type: flag('type'),
+        attestor: flag('attestor'),
+      }))
+      break
+
+    case 'trust-verify':
+      out(handleTrustVerify(JSON.parse(req(1, 'trust-verify <event-json>'))))
+      break
+
+    case 'trust-revoke':
+      out(await handleTrustRevoke(ctx, pool, {
+        type: req(1, 'trust-revoke <type> <identifier>'),
+        identifier: req(2, 'trust-revoke <type> <identifier>'),
+      }))
+      break
+
+    case 'trust-request':
+      out(await handleTrustRequest(ctx, pool, {
+        recipientPubkeyHex: req(1, 'trust-request <pubkey> <subject> <type>'),
+        subject: req(2, 'trust-request <pubkey> <subject> <type>'),
+        attestationType: req(3, 'trust-request <pubkey> <subject> <type>'),
+      }))
+      break
+
+    case 'trust-request-list':
+      out(await handleTrustRequestList(ctx, pool))
+      break
+
+    case 'ring-prove': {
+      const ringKeys = req(2, 'ring-prove <type> <pk1,pk2,...>').split(',')
+      out(await handleTrustRingProve(ctx, pool, {
+        ring: ringKeys,
+        attestationType: req(1, 'ring-prove <type> <pk1,pk2,...>'),
+      }))
+      break
+    }
+
+    case 'ring-verify':
+      out(handleTrustRingVerify(JSON.parse(req(1, 'ring-verify <event-json>'))))
+      break
+
+    case 'spoken-challenge':
+      out(handleTrustSpokenChallenge({
+        secret: req(1, 'spoken-challenge <secret> <context> <counter>'),
+        context: req(2, 'spoken-challenge <secret> <context> <counter>'),
+        counter: parseInt(req(3, 'spoken-challenge <secret> <context> <counter>'), 10),
+      }))
+      break
+
+    case 'spoken-verify':
+      out(handleTrustSpokenVerify({
+        secret: req(1, 'spoken-verify <secret> <ctx> <ctr> <input>'),
+        context: req(2, 'spoken-verify <secret> <ctx> <ctr> <input>'),
+        counter: parseInt(req(3, 'spoken-verify <secret> <ctx> <ctr> <input>'), 10),
+        input: req(4, 'spoken-verify <secret> <ctx> <ctr> <input>'),
+      }))
+      break
+
+    // === Relay ===
+
+    case 'relay-list':
+      out(handleRelayList(ctx, pool, flag('compare')))
+      break
+
+    case 'relay-set': {
+      const urls = args.slice(1).filter(a => !a.startsWith('--'))
+      out(await handleRelaySet(ctx, pool, {
+        relays: urls.map(u => ({ url: u })),
+        confirm: hasFlag('confirm'),
+      }))
+      break
+    }
+
+    case 'relay-add':
+      out(handleRelayAdd(ctx, pool, {
+        url: req(1, 'relay-add <url> [read|write]'),
+        mode: args[2] as 'read' | 'write' | undefined,
+      }))
+      break
+
+    case 'relay-info':
+      out(await handleRelayInfo(req(1, 'relay-info <wss://url>')))
+      break
+
+    // === Zap ===
+
+    case 'zap-send':
+      out(await handleZapSend(ctx, pool, { invoice: req(1, 'zap-send <bolt11>'), nwcUri }))
+      break
+
+    case 'zap-balance':
+      out(await handleZapBalance(ctx, pool, { nwcUri }))
+      break
+
+    case 'zap-invoice':
+      out(await handleZapMakeInvoice(ctx, pool, {
+        amountMsats: parseInt(req(1, 'zap-invoice <msats> [description]'), 10),
+        description: args[2],
+        nwcUri,
+      }))
+      break
+
+    case 'zap-lookup':
+      out(await handleZapLookupInvoice(ctx, pool, { paymentHash: req(1, 'zap-lookup <payment-hash>'), nwcUri }))
+      break
+
+    case 'zap-transactions':
+      out(await handleZapListTransactions(ctx, pool, {
+        limit: parseInt(flag('limit', '10')!, 10),
+        nwcUri,
+      }))
+      break
+
+    case 'zap-receipts':
+      out(await handleZapReceipts(ctx, pool, { limit: parseInt(flag('limit', '20')!, 10) }))
+      break
+
+    case 'zap-decode':
+      out(handleZapDecode(req(1, 'zap-decode <bolt11>')))
+      break
+
+    // === Safety ===
+
+    case 'safety-configure':
+      out(handleDuressConfigure(ctx, pool, { personaName: args[1] }))
+      break
+
+    case 'safety-activate':
+      out(handleDuressActivate(ctx, { personaName: args[1] }))
+      break
 
     default:
-      console.error(`Unknown command: ${command}`)
-      console.error('')
-      console.error('Commands:')
-      console.error('  whoami                        Show active identity npub')
-      console.error('  list                          List all identities')
-      console.error('  derive <purpose> [index]      Derive a child identity')
-      console.error('  persona <name> [index]        Derive a named persona')
-      console.error('  switch <target> [index]       Switch active identity')
-      console.error('  prove [blind|full]            Create a linkage proof')
-      console.error('  post "message"                Post a text note')
-      console.error('  reply <event-id> "text"       Reply to an event')
-      console.error('  react <event-id> [reaction]   React to an event')
-      console.error('  profile <pubkey-hex>          Fetch a profile')
-      console.error('  relay-info <wss://url>        Fetch NIP-11 relay info')
-      console.error('  backup <dir> [t] [n]          Shamir backup (default 3-of-5)')
-      console.error('')
-      console.error('No command = start MCP server (stdio)')
+      console.error(`Unknown command: ${command}\n`)
+      console.error(HELP)
       process.exit(1)
   }
 }

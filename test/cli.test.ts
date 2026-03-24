@@ -9,7 +9,7 @@ const ENV = {
 }
 
 function run(...args: string[]): string {
-  return execFileSync('node', [CLI_PATH, ...args], { env: ENV, encoding: 'utf-8', timeout: 10_000 }).trim()
+  return execFileSync('node', [CLI_PATH, ...args], { env: ENV, encoding: 'utf-8', timeout: 10_000, stdio: ['pipe', 'pipe', 'pipe'] }).trim()
 }
 
 function runExpectFail(...args: string[]): string {
@@ -82,5 +82,63 @@ describe('CLI', () => {
   it('missing args shows usage', () => {
     const stderr = runExpectFail('derive')
     expect(stderr).toContain('Usage')
+  })
+
+  // === New commands ===
+
+  it('create returns npub + mnemonic', () => {
+    const output = JSON.parse(run('create'))
+    expect(output.npub).toMatch(/^npub1/)
+    expect(output.mnemonic.split(' ').length).toBeGreaterThanOrEqual(12)
+  })
+
+  it('switch changes active identity', () => {
+    const master = run('whoami')
+    // derive then switch in same invocation isn't possible (stateless)
+    // but switch to 'master' should always work
+    const result = run('switch', 'master')
+    expect(result).toBe(master)
+  })
+
+  it('spoken-challenge generates a token', () => {
+    const output = JSON.parse(run('spoken-challenge', 'a'.repeat(32), 'test-ctx', '1'))
+    expect(output.token).toBeDefined()
+    expect(typeof output.token).toBe('string')
+  })
+
+  it('spoken-verify round-trip', () => {
+    const secret = 'a'.repeat(32)
+    const challenge = JSON.parse(run('spoken-challenge', secret, 'roundtrip', '42'))
+    const verify = JSON.parse(run('spoken-verify', secret, 'roundtrip', '42', challenge.token))
+    expect(verify.valid).toBe(true)
+  })
+
+  it('zap-decode parses bolt11', () => {
+    const output = JSON.parse(run('zap-decode', 'lnbc10u1test'))
+    expect(output.amountMsats).toBe(1_000_000)
+  })
+
+  it('relay-list returns read/write arrays', () => {
+    const output = JSON.parse(run('relay-list'))
+    expect(output.read).toBeDefined()
+    expect(output.write).toBeDefined()
+  })
+
+  it('safety-configure returns npub', () => {
+    const output = JSON.parse(run('safety-configure', 'emergency'))
+    expect(output.configured).toBe(true)
+    expect(output.npub).toMatch(/^npub1/)
+  })
+
+  // dm-read, notifications, feed hit real relays — tested via MCP handler tests instead
+
+  it('help lists all command groups', () => {
+    const out = run('--help')
+    expect(out).toContain('Identity:')
+    expect(out).toContain('Social:')
+    expect(out).toContain('Trust:')
+    expect(out).toContain('Relay:')
+    expect(out).toContain('Zap:')
+    expect(out).toContain('Safety:')
   })
 })
