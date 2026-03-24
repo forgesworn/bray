@@ -261,6 +261,103 @@ Decode basic fields from a bolt11 Lightning invoice.
 - Input: bolt11 string
 - Returns: { amountMsats }
 
+### Contacts Tools
+
+#### contacts_get
+Fetch the contact list (kind 3 follows) for a pubkey.
+- Input: pubkeyHex, npub (optional)
+- Returns: Array of { pubkey, relay, petname }
+
+#### contacts_follow
+Follow a Nostr pubkey. Publishes updated kind 3.
+- Input: pubkeyHex, relay (optional), petname (optional)
+
+#### contacts_unfollow
+Unfollow a Nostr pubkey. Publishes updated kind 3.
+- Input: pubkeyHex
+
+### Blossom Tools (Media)
+
+#### blossom_upload
+Upload a file to a blossom media server. Signs a kind 24242 auth event.
+- Input: server (URL), filePath, contentType (optional)
+- Returns: { url, sha256, size }
+
+#### blossom_list
+List blobs uploaded by a pubkey on a blossom server.
+- Input: server (URL), pubkeyHex
+
+#### blossom_delete
+Delete a blob from a blossom server by SHA-256 hash.
+- Input: server (URL), sha256
+
+### Group Tools (NIP-29)
+
+#### group_info
+Fetch group metadata (kind 39000) — name, about, picture, open status.
+- Input: relay, groupId
+
+#### group_chat
+Fetch recent chat messages (kind 9) from a group.
+- Input: groupId, limit (default 20)
+
+#### group_send
+Send a message to a group (kind 9 with h-tag).
+- Input: groupId, content
+
+#### group_members
+List group members (kind 39002).
+- Input: groupId
+
+### Community NIP Tools
+
+#### nip_publish
+Publish a community NIP (kind 30817) — custom protocol spec on Nostr.
+- Input: identifier (slug), title, content (markdown), kinds (optional array)
+
+#### nip_read
+Fetch community NIPs from relays.
+- Input: author (optional), identifier (optional), kind (optional)
+
+### Utility Tools
+
+#### decode
+Decode any nip19 entity (npub, nsec, note, nevent, nprofile, naddr) or nostr: URI.
+- Input: nip19 string
+
+#### encode_npub / encode_note / encode_nprofile / encode_nevent / encode_naddr / encode_nsec
+Encode hex values to bech32 nip19 entities.
+
+#### key_public
+Derive a public key (hex + npub) from a secret key (nsec or hex).
+- Input: secret (nsec or hex string)
+
+#### verify_event
+Verify a Nostr event's id hash and cryptographic signature.
+- Input: event object
+
+#### filter
+Test if a Nostr event matches a given Nostr filter.
+- Input: event object, filter object
+- Returns: { matches: boolean }
+
+#### nip44_encrypt / nip44_decrypt
+Standalone NIP-44 encryption/decryption using the active identity's key.
+
+#### count
+Count events matching a filter on relays.
+- Input: kinds, authors, since (all optional)
+
+#### fetch
+Fetch events by nip19 code (note, nevent, nprofile, npub, naddr).
+
+#### nip_list
+List all official Nostr NIPs from the protocol repository.
+
+#### nip_show
+Fetch and display the full content of an official NIP by number.
+- Input: NIP number
+
 ### Safety Tools
 
 #### safety_configure
