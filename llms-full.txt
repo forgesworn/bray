@@ -4,7 +4,7 @@
 
 ## Architecture
 
-Single-process MCP server (stdio or HTTP transport) with 35 tools in 7 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction.
+Single-process MCP server (stdio or HTTP transport) with 44 tools in 7 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction.
 
 ## Configuration
 
@@ -70,6 +70,22 @@ Split the master secret into Shamir shard files.
 Reconstruct a secret from Shamir shard files.
 - Input: files (string[]), threshold (number)
 - Returns: { masterNpub }
+
+#### identity_backup
+Fetch profile, contacts, relay list, and attestations for a pubkey as a portable bundle.
+- Input: pubkeyHex, npub (optional)
+- Returns: event count, kinds included (no private keys)
+
+#### identity_restore
+Re-sign migratable events (profile, contacts, relay list) under the active identity.
+- Input: pubkeyHex, npub (optional)
+- Skips kind 31000 attestations (trust chain protection)
+- Verifies backup event signatures before re-signing
+
+#### identity_migrate
+Full migration from old identity to active. Shows preview first — set confirm: true to execute.
+- Input: oldPubkeyHex, oldNpub, confirm (default false)
+- Publishes linkage proof connecting old to new identity
 
 ### Social Tools
 
@@ -186,7 +202,33 @@ Publish kind 10002 relay list.
 Add a relay to active identity's relay set (in-memory).
 - Input: url, mode (optional: "read", "write", or both)
 
+#### relay_info
+Fetch the NIP-11 relay information document.
+- Input: url (wss:// relay URL)
+- Returns: Parsed relay info (name, description, supported NIPs, etc.)
+
 ### Zap Tools
+
+#### zap_send
+Pay a Lightning invoice via Nostr Wallet Connect (NIP-47).
+- Input: invoice (bolt11 string)
+- Requires NWC_URI configured. Signs with NWC client key, encrypts via NIP-44.
+
+#### zap_balance
+Request wallet balance via NWC.
+- Sends get_balance request to the wallet service.
+
+#### zap_make_invoice
+Generate a Lightning invoice via NWC to receive payments.
+- Input: amountMsats (number), description (optional string)
+
+#### zap_lookup_invoice
+Look up a Lightning invoice status via NWC.
+- Input: paymentHash or invoice (at least one)
+
+#### zap_list_transactions
+List recent Lightning transactions via NWC.
+- Input: limit (default 10), offset (default 0)
 
 #### zap_receipts
 Fetch zap receipts (kind 9735) for the active identity.
@@ -225,9 +267,15 @@ Switch to an alternative identity configuration.
 ## Security Model
 
 - Private keys never appear in tool responses
-- LRU cache with cryptographic zeroing on eviction
-- Secrets deleted from process.env after parsing
+- LRU cache with cryptographic zeroing on eviction (active entry never evicted)
+- Secrets deleted from process.env after parsing, references cleared after startup
+- NWC secret buffers zeroised in try/finally after each operation
 - NIP-04 disabled by default (requires explicit opt-in)
-- Tor proxy support with clearnet blocking
+- Tor proxy support via SOCKS5h with clearnet blocking enforced on runtime relay additions
 - Per-identity relay separation to prevent linking
-- HTTP transport: bearer token auth, restrictive CORS, security headers
+- NIP-65 relay lists signature-verified and author-checked with 1-hour cache TTL
+- Relay URLs validated (scheme + private IP rejection) — SSRF protection
+- HTTP transport: constant-time bearer token auth, rate limiting (100 req/60s), security headers
+- Hex pubkey and relay URL input validation via Zod across all tools
+- Shamir shard files written with 0o600 permissions via atomic rename
+- Migration verifies backup event signatures before re-signing
