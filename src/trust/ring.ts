@@ -25,10 +25,14 @@ export async function handleTrustRingProve(
     throw new Error('Active identity not found in ring. Derive and switch to a matching identity first.')
   }
 
-  // Get private key as hex
-  const privateKeyHex = Buffer.from(ctx.activePrivateKey).toString('hex')
-
-  const signature = ringSign(canonicalMessage, args.ring, signerIndex, privateKeyHex)
+  // Get private key as hex — strings can't be zeroised, so limit scope
+  let privateKeyHex = Buffer.from(ctx.activePrivateKey).toString('hex')
+  let signature: RingSignature
+  try {
+    signature = ringSign(canonicalMessage, args.ring, signerIndex, privateKeyHex)
+  } finally {
+    privateKeyHex = '' // remove reference; original string remains until GC
+  }
 
   // Build kind 30078 event
   const sign = ctx.getSigningFunction()

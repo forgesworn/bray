@@ -1,4 +1,4 @@
-import { writeFileSync, readFileSync, statSync } from 'node:fs'
+import { writeFileSync, readFileSync, statSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   splitSecret,
@@ -33,11 +33,20 @@ export function handleBackupShamir(args: BackupArgs): { files: string[]; thresho
   const shamirShares = splitSecret(args.secret, args.threshold, args.shares)
   const files: string[] = []
 
+  // Write to temp files first, then rename atomically
+  const tempPaths: string[] = []
   for (let i = 0; i < shamirShares.length; i++) {
     const words = shareToWords(shamirShares[i])
     const filePath = join(args.outputDir, `shard-${i + 1}.bray`)
-    writeFileSync(filePath, words.join(' '), 'utf-8')
+    const tempPath = `${filePath}.tmp`
+    writeFileSync(tempPath, words.join(' '), { encoding: 'utf-8', mode: 0o600 })
+    tempPaths.push(tempPath)
     files.push(filePath)
+  }
+
+  // Atomic rename — all or nothing
+  for (let i = 0; i < tempPaths.length; i++) {
+    renameSync(tempPaths[i], files[i])
   }
 
   return { files, threshold: args.threshold, shares: args.shares }

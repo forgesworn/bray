@@ -197,6 +197,8 @@ export class IdentityContext {
       let oldestNpub: string | undefined
       let oldestTime = Infinity
       for (const [n, e] of this.cache) {
+        // Never evict the active identity
+        if (n === this.activeEntry.identity.npub) continue
         if (e.lastUsed < oldestTime) {
           oldestTime = e.lastUsed
           oldestNpub = n
