@@ -14,6 +14,11 @@ import {
   handleDecrypt,
   handleCount,
   handleFetch,
+  handleKeyPublic,
+  handleEncodeNsec,
+  handleFilter,
+  handleNipList,
+  handleNipShow,
 } from './handlers.js'
 
 export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
@@ -143,5 +148,55 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
   }, async ({ code }) => {
     const events = await handleFetch(deps.pool, deps.ctx.activeNpub, code)
     return { content: [{ type: 'text' as const, text: JSON.stringify(events, null, 2) }] }
+  })
+
+  server.registerTool('key_public', {
+    description: 'Derive a public key (hex + npub) from a secret key (nsec or hex).',
+    inputSchema: {
+      secret: z.string().describe('Secret key as nsec or hex'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ secret }) => {
+    const result = handleKeyPublic(secret)
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('encode_nsec', {
+    description: 'Encode a hex private key as a bech32 nsec.',
+    inputSchema: { hex: z.string().regex(/^[0-9a-f]{64}$/).describe('Hex private key') },
+    annotations: { readOnlyHint: true },
+  }, async ({ hex }) => {
+    return { content: [{ type: 'text' as const, text: handleEncodeNsec(hex) }] }
+  })
+
+  server.registerTool('filter', {
+    description: 'Test if a Nostr event matches a given filter. Returns true or false.',
+    inputSchema: {
+      event: z.record(z.string(), z.unknown()).describe('Nostr event object'),
+      filter: z.record(z.string(), z.unknown()).describe('Nostr filter object'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ event, filter }) => {
+    const result = handleFilter(event as any, filter as any)
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('nip_list', {
+    description: 'List all official Nostr NIPs from the protocol repository.',
+    annotations: { readOnlyHint: true },
+  }, async () => {
+    const nips = await handleNipList()
+    return { content: [{ type: 'text' as const, text: JSON.stringify(nips, null, 2) }] }
+  })
+
+  server.registerTool('nip_show', {
+    description: 'Fetch and display the full content of an official NIP by number.',
+    inputSchema: {
+      number: z.number().int().min(1).describe('NIP number (e.g. 1, 17, 65)'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ number }) => {
+    const nip = await handleNipShow(number)
+    return { content: [{ type: 'text' as const, text: nip.content }] }
   })
 }

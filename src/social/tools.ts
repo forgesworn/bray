@@ -17,6 +17,8 @@ import {
 import { handleDmSend, handleDmRead } from './dm.js'
 import { handleNotifications, handleFeed } from './notifications.js'
 import { handleNipPublish, handleNipRead } from './nips.js'
+import { handleBlossomUpload, handleBlossomList, handleBlossomDelete } from './blossom.js'
+import { handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers } from './groups.js'
 
 export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('social_post', {
@@ -296,5 +298,93 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(nips, null, 2) }],
     }
+  })
+
+  // --- Blossom ---
+
+  server.registerTool('blossom_upload', {
+    description: 'Upload a file to a blossom media server. Returns the blob URL and SHA-256 hash.',
+    inputSchema: {
+      server: z.string().describe('Blossom server URL (e.g. https://blossom.example.com)'),
+      filePath: z.string().describe('Path to the file to upload'),
+      contentType: z.string().optional().describe('MIME type (default: application/octet-stream)'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ server, filePath, contentType }) => {
+    const result = await handleBlossomUpload(deps.ctx, { server, filePath, contentType })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('blossom_list', {
+    description: 'List blobs uploaded by a pubkey on a blossom server.',
+    inputSchema: {
+      server: z.string().describe('Blossom server URL'),
+      pubkeyHex: hexId.describe('Hex pubkey to list blobs for'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ server, pubkeyHex }) => {
+    const blobs = await handleBlossomList({ server, pubkeyHex })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(blobs, null, 2) }] }
+  })
+
+  server.registerTool('blossom_delete', {
+    description: 'Delete a blob from a blossom media server by SHA-256 hash.',
+    inputSchema: {
+      server: z.string().describe('Blossom server URL'),
+      sha256: z.string().describe('SHA-256 hash of the blob'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ server, sha256 }) => {
+    const result = await handleBlossomDelete(deps.ctx, { server, sha256 })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  // --- NIP-29 Groups ---
+
+  server.registerTool('group_info', {
+    description: 'Fetch group metadata (name, about, picture) for a NIP-29 group.',
+    inputSchema: {
+      relay: z.string().describe('Relay hosting the group'),
+      groupId: z.string().describe('Group identifier'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ relay, groupId }) => {
+    const info = await handleGroupInfo(deps.pool, deps.ctx.activeNpub, { relay, groupId })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(info, null, 2) }] }
+  })
+
+  server.registerTool('group_chat', {
+    description: 'Fetch recent chat messages from a NIP-29 group.',
+    inputSchema: {
+      groupId: z.string().describe('Group identifier'),
+      limit: z.number().int().min(1).max(100).default(20).describe('Max messages'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ groupId, limit }) => {
+    const messages = await handleGroupChat(deps.pool, deps.ctx.activeNpub, { groupId, limit })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(messages, null, 2) }] }
+  })
+
+  server.registerTool('group_send', {
+    description: 'Send a message to a NIP-29 group.',
+    inputSchema: {
+      groupId: z.string().describe('Group identifier'),
+      content: z.string().describe('Message text'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ groupId, content }) => {
+    const result = await handleGroupSend(deps.ctx, deps.pool, { groupId, content })
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ id: result.event.id, publish: result.publish }, null, 2) }] }
+  })
+
+  server.registerTool('group_members', {
+    description: 'List members of a NIP-29 group.',
+    inputSchema: {
+      groupId: z.string().describe('Group identifier'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ groupId }) => {
+    const members = await handleGroupMembers(deps.pool, deps.ctx.activeNpub, { groupId })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(members, null, 2) }] }
   })
 }

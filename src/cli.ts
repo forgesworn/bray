@@ -7,6 +7,8 @@ import { handleSocialPost, handleSocialReply, handleSocialReact, handleSocialDel
 import { handleDmSend, handleDmRead } from './social/dm.js'
 import { handleNotifications, handleFeed } from './social/notifications.js'
 import { handleNipPublish, handleNipRead } from './social/nips.js'
+import { handleBlossomUpload, handleBlossomList, handleBlossomDelete } from './social/blossom.js'
+import { handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers } from './social/groups.js'
 import { handleIdentityList, handleIdentityProve, handleIdentityCreate } from './identity/handlers.js'
 import { handleBackupShamir, handleRestoreShamir } from './identity/shamir.js'
 import { handleIdentityBackup, handleIdentityRestore, handleIdentityMigrate } from './identity/migration.js'
@@ -16,7 +18,7 @@ import { handleTrustRingProve, handleTrustRingVerify } from './trust/ring.js'
 import { handleTrustSpokenChallenge, handleTrustSpokenVerify } from './trust/spoken.js'
 import { handleDuressConfigure, handleDuressActivate } from './safety/handlers.js'
 import { handleZapSend, handleZapBalance, handleZapMakeInvoice, handleZapLookupInvoice, handleZapListTransactions, handleZapReceipts, handleZapDecode } from './zap/handlers.js'
-import { handleDecode, handleEncodeNpub, handleEncodeNote, handleEncodeNprofile, handleEncodeNevent, handleVerify, handleEncrypt, handleDecrypt, handleCount, handleFetch } from './util/handlers.js'
+import { handleDecode, handleEncodeNpub, handleEncodeNote, handleEncodeNprofile, handleEncodeNevent, handleVerify, handleEncrypt, handleDecrypt, handleCount, handleFetch, handleKeyPublic, handleEncodeNsec, handleFilter, handleNipList, handleNipShow } from './util/handlers.js'
 
 const args = process.argv.slice(2)
 const command = args[0]
@@ -63,6 +65,13 @@ Social:
   notifications [--limit N]           Fetch mentions, replies, reactions, zaps
   nip-publish <id> <title> <file>     Publish a community NIP (kind 30817)
   nip-read [--author X] [--kind N]    Fetch community NIPs
+  blossom-upload <server> <file>      Upload file to blossom media server
+  blossom-list <server> <pubkey>      List blobs on blossom server
+  blossom-delete <server> <sha256>    Delete blob from blossom server
+  group-info <group-id>              Fetch NIP-29 group metadata
+  group-chat <group-id> [--limit N]  Fetch group chat messages
+  group-send <group-id> "message"    Send message to group
+  group-members <group-id>           List group members
 
 Trust:
   attest <type> <identifier> [subject]  Create kind 31000 attestation
@@ -101,6 +110,11 @@ Utility:
   encode-note <hex>                   Encode hex event ID as note
   encode-nprofile <hex> [relay,...]   Encode pubkey + relays as nprofile
   encode-nevent <hex> [relay,...]     Encode event ID + relays as nevent
+  encode-nsec <hex>                   Encode hex private key as nsec
+  key-public <nsec-or-hex>            Derive pubkey from secret key
+  filter <event-json> <filter-json>   Test if event matches filter
+  nips                                List all official NIPs
+  nip <number>                        Show a specific NIP
   verify <event-json>                 Verify event hash and signature
   encrypt <pubkey-hex> "plaintext"    NIP-44 encrypt for a recipient
   decrypt <pubkey-hex> <ciphertext>   NIP-44 decrypt from a sender
@@ -507,6 +521,59 @@ async function run(cmdArgs: string[]): Promise<void> {
       out(handleDuressActivate(ctx, { personaName: cmdArgs[1] }))
       break
 
+    // === Blossom ===
+
+    case 'blossom-upload':
+      out(await handleBlossomUpload(ctx, {
+        server: req(1, 'blossom-upload <server> <file>'),
+        filePath: req(2, 'blossom-upload <server> <file>'),
+      }))
+      break
+
+    case 'blossom-list': {
+      out(await handleBlossomList({
+        server: req(1, 'blossom-list <server> <pubkey>'),
+        pubkeyHex: req(2, 'blossom-list <server> <pubkey>'),
+      }))
+      break
+    }
+
+    case 'blossom-delete':
+      out(await handleBlossomDelete(ctx, {
+        server: req(1, 'blossom-delete <server> <sha256>'),
+        sha256: req(2, 'blossom-delete <server> <sha256>'),
+      }))
+      break
+
+    // === Groups (NIP-29) ===
+
+    case 'group-info':
+      out(await handleGroupInfo(pool, ctx.activeNpub, {
+        relay: '',
+        groupId: req(1, 'group-info <group-id>'),
+      }))
+      break
+
+    case 'group-chat':
+      out(await handleGroupChat(pool, ctx.activeNpub, {
+        groupId: req(1, 'group-chat <group-id>'),
+        limit: parseInt(flag('limit', '20')!, 10),
+      }))
+      break
+
+    case 'group-send':
+      out(await handleGroupSend(ctx, pool, {
+        groupId: req(1, 'group-send <group-id> "message"'),
+        content: req(2, 'group-send <group-id> "message"'),
+      }))
+      break
+
+    case 'group-members':
+      out(await handleGroupMembers(pool, ctx.activeNpub, {
+        groupId: req(1, 'group-members <group-id>'),
+      }))
+      break
+
     // === Utility ===
 
     case 'decode':
@@ -530,6 +597,32 @@ async function run(cmdArgs: string[]): Promise<void> {
     case 'encode-nevent': {
       const relays = cmdArgs[2] ? cmdArgs[2].split(',') : undefined
       console.log(handleEncodeNevent(req(1, 'encode-nevent <hex> [relay,...]'), relays))
+      break
+    }
+
+    case 'encode-nsec':
+      console.log(handleEncodeNsec(req(1, 'encode-nsec <hex>')))
+      break
+
+    case 'key-public':
+      out(handleKeyPublic(req(1, 'key-public <nsec-or-hex>')))
+      break
+
+    case 'filter':
+      out(handleFilter(
+        JSON.parse(req(1, 'filter <event-json> <filter-json>')),
+        JSON.parse(req(2, 'filter <event-json> <filter-json>')),
+      ))
+      break
+
+    case 'nips':
+      out(await handleNipList())
+      break
+
+    case 'nip': {
+      const num = parseInt(req(1, 'nip <number>'), 10)
+      const nip = await handleNipShow(num)
+      console.log(nip.content)
       break
     }
 
@@ -581,8 +674,10 @@ const ALL_COMMANDS = [
   'relay-list', 'relay-set', 'relay-add', 'relay-info',
   'zap-send', 'zap-balance', 'zap-invoice', 'zap-lookup', 'zap-transactions', 'zap-receipts', 'zap-decode',
   'safety-configure', 'safety-activate',
-  'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent',
-  'verify', 'encrypt', 'decrypt', 'count', 'fetch',
+  'blossom-upload', 'blossom-list', 'blossom-delete',
+  'group-info', 'group-chat', 'group-send', 'group-members',
+  'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
+  'key-public', 'filter', 'nips', 'nip', 'verify', 'encrypt', 'decrypt', 'count', 'fetch',
   'help', 'exit',
 ]
 
