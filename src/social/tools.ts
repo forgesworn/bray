@@ -156,7 +156,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     description: 'Fetch notifications for the active identity — mentions, replies, reactions, and zap receipts.',
     inputSchema: {
       since: z.number().optional().describe('Unix timestamp — only fetch notifications after this time'),
-      limit: z.number().int().min(1).default(50).describe('Max notifications to return'),
+      limit: z.number().int().min(1).max(200).default(50).describe('Max notifications to return'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ since, limit }) => {
@@ -171,7 +171,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     inputSchema: {
       authors: z.array(z.string()).optional().describe('Hex pubkeys to filter by'),
       since: z.number().optional().describe('Unix timestamp — only fetch posts after this time'),
-      limit: z.number().int().min(1).default(20).describe('Max posts to return'),
+      limit: z.number().int().min(1).max(100).default(20).describe('Max posts to return'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ authors, since, limit }) => {

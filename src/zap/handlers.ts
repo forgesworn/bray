@@ -62,7 +62,11 @@ function decryptNwcResponse(
   try {
     const conversationKey = getConversationKey(secretBytes, conn.pubkey)
     const plaintext = decrypt(event.content, conversationKey)
-    return JSON.parse(plaintext)
+    try {
+      return JSON.parse(plaintext)
+    } catch {
+      throw new Error('NWC response is not valid JSON')
+    }
   } finally {
     secretBytes.fill(0)
   }

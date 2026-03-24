@@ -1,5 +1,6 @@
 import { wrapEvent } from 'nostr-tools/nip17'
 import * as nip04 from 'nostr-tools/nip04'
+import { decode } from 'nostr-tools/nip19'
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
@@ -68,9 +69,10 @@ export async function handleDmRead(
   pool: RelayPool,
 ): Promise<DmReadEntry[]> {
   // Fetch gift wraps (kind 1059) and legacy DMs (kind 4) addressed to us
+  const activeHex = decode(ctx.activeNpub).data as string
   const events = await pool.query(ctx.activeNpub, {
     kinds: [1059, 4],
-    '#p': [ctx.activeNpub], // simplified — in production use hex pubkey
+    '#p': [activeHex],
     limit: 50,
   })
 

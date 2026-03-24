@@ -1,3 +1,4 @@
+import { verifyEvent } from 'nostr-tools/pure'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
@@ -53,6 +54,15 @@ export async function handleIdentityRestore(
   const skipped: RestoreResult['skipped'] = []
 
   for (const event of backup.events) {
+    // Verify signature and author before re-signing
+    if (!verifyEvent(event) || event.pubkey !== backup.pubkeyHex) {
+      skipped.push({
+        kind: event.kind,
+        reason: `Event ${event.id} failed signature verification or author mismatch`,
+      })
+      continue
+    }
+
     if (!RESIGNABLE_KINDS.has(event.kind)) {
       skipped.push({
         kind: event.kind,

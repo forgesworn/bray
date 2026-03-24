@@ -101,17 +101,40 @@ export function handleRelayAdd(
   return { reconfigured: true }
 }
 
+/** Validate a relay URL — must be wss:// or ws://, no private networks */
+export function validateRelayUrl(url: string): void {
+  if (!/^wss?:\/\//i.test(url)) {
+    throw new Error('Relay URL must use wss:// or ws:// scheme')
+  }
+  const parsed = new URL(url)
+  const host = parsed.hostname.toLowerCase()
+  if (
+    host === 'localhost' || host === '[::1]' ||
+    host.startsWith('127.') || host.startsWith('10.') ||
+    host.startsWith('192.168.') || host === '169.254.169.254' ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+  ) {
+    throw new Error('Relay URL must not point to private network addresses')
+  }
+}
+
 /** Fetch NIP-11 relay information document */
 export async function handleRelayInfo(
   url: string,
 ): Promise<Record<string, unknown>> {
-  // Convert wss:// to https:// for NIP-11 HTTP fetch
+  validateRelayUrl(url)
+
   const httpUrl = url.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://')
   const response = await fetch(httpUrl, {
     headers: { Accept: 'application/nostr+json' },
+    signal: AbortSignal.timeout(10_000),
   })
   if (!response.ok) {
     throw new Error(`NIP-11 fetch failed: ${response.status} ${response.statusText}`)
   }
-  return response.json() as Promise<Record<string, unknown>>
+  const text = await response.text()
+  if (text.length > 1_048_576) {
+    throw new Error('Relay info document too large')
+  }
+  return JSON.parse(text) as Record<string, unknown>
 }

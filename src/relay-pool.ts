@@ -28,8 +28,13 @@ export class RelayPool {
   private relaySets = new Map<string, RelaySet>()
   private writeQueue = new Map<string, NostrEvent[]>()
   private defaults: RelaySet
+  private torProxy?: string
+  private allowClearnet: boolean
 
   constructor(config: RelayPoolConfig, injectedPool?: PoolLike) {
+    this.torProxy = config.torProxy
+    this.allowClearnet = config.allowClearnet
+
     // Validate Tor/clearnet policy on default relays
     if (config.torProxy && !config.allowClearnet) {
       const clearnet = config.defaultRelays.filter(r => !this.isOnion(r))
@@ -55,6 +60,14 @@ export class RelayPool {
 
   /** Store relay set for an identity and flush any queued writes */
   reconfigure(npub: string, relays: RelaySet): void {
+    // Enforce Tor policy on runtime relay additions
+    if (this.torProxy && !this.allowClearnet) {
+      const allUrls = [...relays.read, ...relays.write]
+      const clearnet = allUrls.filter(r => !this.isOnion(r))
+      if (clearnet.length > 0) {
+        throw new Error(`Clearnet relays not allowed with Tor proxy: ${clearnet.join(', ')}`)
+      }
+    }
     this.relaySets.set(npub, relays)
     void this.flushQueue(npub)
   }
@@ -108,6 +121,9 @@ export class RelayPool {
   /** Queue an event for publishing once the identity's relay list is known */
   queueWrite(npub: string, event: NostrEvent): void {
     const queue = this.writeQueue.get(npub) ?? []
+    if (queue.length >= 100) {
+      throw new Error(`Write queue full for ${npub} (max 100 events). Resolve relay list first.`)
+    }
     queue.push(event)
     this.writeQueue.set(npub, queue)
   }
