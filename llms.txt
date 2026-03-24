@@ -43,6 +43,18 @@ zap_send, zap_balance, zap_make_invoice, zap_lookup_invoice, zap_list_transactio
 ### Safety (2 tools)
 safety_configure, safety_activate
 
+### Blossom (3 tools)
+blossom_upload, blossom_list, blossom_delete
+
+### Groups — NIP-29 (4 tools)
+group_info, group_chat, group_send, group_members
+
+### Community NIPs (2 tools)
+nip_publish, nip_read
+
+### Utility (16 tools)
+decode, encode_npub, encode_note, encode_nprofile, encode_nevent, encode_naddr, encode_nsec, key_public, verify_event, filter, nip44_encrypt, nip44_decrypt, count, fetch, nip_list, nip_show
+
 ## Key concepts
 
 - **Active identity**: All tools operate as the currently active identity. Use identity_switch to change.

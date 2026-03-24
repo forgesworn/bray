@@ -32,11 +32,12 @@ src/
   validation.ts        Shared Zod validators (hexId, relayUrl)
   types.ts             Shared TypeScript types
   identity/            Identity tools — derive, prove, shamir, migration
-  social/              Social tools — post, reply, DM, notifications, feed
+  social/              Social tools — post, reply, DM, blossom media, groups, community NIPs, notifications, feed, contacts
   trust/               Trust tools — attestations, ring sigs, spoken tokens
   relay/               Relay tools — list, set, add, NIP-11 info
   zap/                 Zap tools — NWC wallet (NIP-47), receipts, decode
   safety/              Safety tools — duress persona configure/activate
+  util/                Utility tools — decode, encode, verify, encrypt, filter, NIP browse, fetch
 ```
 
 **Pattern:** Each tool group has `handlers.ts` (pure logic) and `tools.ts` (MCP registration with Zod schemas). Tests mirror this structure under `test/`.
