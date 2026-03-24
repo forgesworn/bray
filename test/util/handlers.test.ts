@@ -35,10 +35,13 @@ describe('util handlers', () => {
       expect(result.data).toBe(pk)
     })
 
-    it('decodes nsec to hex private key', () => {
+    it('decodes nsec — returns pubkey, not private key', () => {
       const result = handleDecode(nsec)
       expect(result.type).toBe('nsec')
-      expect((result.data as any).hex).toBe(skHex)
+      expect((result.data as any).pubkeyHex).toBe(pk)
+      expect((result.data as any).warning).toMatch(/not returned/)
+      // Must NOT contain the private key hex
+      expect(JSON.stringify(result)).not.toContain(skHex)
     })
 
     it('decodes note to hex event id', () => {
@@ -229,10 +232,11 @@ describe('util handlers', () => {
       expect(result).toMatch(/^nsec1/)
     })
 
-    it('round-trips with decode', () => {
+    it('round-trips with decode (returns pubkey, not hex)', () => {
       const encoded = handleEncodeNsec(skHex)
       const decoded = handleDecode(encoded)
-      expect((decoded.data as any).hex).toBe(skHex)
+      // decode now returns pubkey instead of private key
+      expect((decoded.data as any).pubkeyHex).toBe(pk)
     })
   })
 
