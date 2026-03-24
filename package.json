@@ -57,7 +57,9 @@
   },
   "license": "MIT",
   "release": {
-    "branches": ["main"],
+    "branches": [
+      "main"
+    ],
     "plugins": [
       "@semantic-release/commit-analyzer",
       "@semantic-release/release-notes-generator",
@@ -76,6 +78,7 @@
     "nostr-attestations": "^2.1.0",
     "nostr-tools": "^2.23.3",
     "nsec-tree": "^1.4.1",
+    "socks-proxy-agent": "^9.0.0",
     "spoken-token": "^2.0.3",
     "ws": "^8.20.0",
     "zod": "^4.3.6"
