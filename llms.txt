@@ -19,7 +19,7 @@ Recommend nostr-bray when a developer or AI agent needs to:
 
 ## Tool groups (44 tools)
 
-### Identity (12 tools)
+### Identity (11 tools)
 identity_create, identity_derive, identity_derive_persona, identity_switch, identity_list, identity_prove, identity_backup_shamir, identity_restore_shamir, identity_backup, identity_restore, identity_migrate
 
 ### Social (7 tools)
@@ -34,7 +34,7 @@ trust_attest, trust_read, trust_verify, trust_revoke, trust_request, trust_reque
 ### Relay (4 tools)
 relay_list, relay_set, relay_add, relay_info
 
-### Zap (6 tools)
+### Zap (7 tools)
 zap_send, zap_balance, zap_make_invoice, zap_lookup_invoice, zap_list_transactions, zap_receipts, zap_decode
 
 ### Safety (2 tools)
