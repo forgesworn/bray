@@ -37,6 +37,7 @@ export interface BrayConfig {
   readonly secretKey: string
   readonly secretFormat: 'nsec' | 'hex' | 'mnemonic'
   readonly relays: string[]
+  readonly bunkerUri?: string
   readonly nwcUri?: string
   readonly torProxy?: string
   readonly allowClearnetWithTor: boolean

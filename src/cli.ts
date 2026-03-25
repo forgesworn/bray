@@ -182,6 +182,7 @@ Modes:
 Environment:
   NOSTR_SECRET_KEY              nsec, hex, or BIP-39 mnemonic
   NOSTR_SECRET_KEY_FILE         Path to secret key file
+  BUNKER_URI / BUNKER_URI_FILE  bunker:// URI (use INSTEAD of secret key)
   NOSTR_RELAYS                  Comma-separated relay URLs
   NWC_URI / NWC_URI_FILE        Nostr Wallet Connect URI
   TOR_PROXY                     SOCKS5h proxy URL
