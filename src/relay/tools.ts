@@ -28,7 +28,7 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
       })).describe('Relay entries'),
       confirm: z.boolean().default(false).describe('Set true to overwrite existing relay list'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ relays, confirm }) => {
     const result = await handleRelaySet(deps.ctx, deps.pool, { relays, confirm })
     return {
