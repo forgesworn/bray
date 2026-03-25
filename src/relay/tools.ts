@@ -11,7 +11,7 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
     description: 'List the relay set (read/write) for the active identity. Optionally check for shared relays with another identity.',
     inputSchema: {
       compareWithNpub: z.string().optional().describe('Compare shared relays with this npub'),
-      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ compareWithNpub, output }) => {
