@@ -16,19 +16,45 @@ import { handleTrustSpokenChallenge, handleTrustSpokenVerify } from './spoken.js
 
 export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('trust-attest', {
-    description: 'Create and publish a kind 31000 verifiable attestation (NIP-VA) as the active identity. An attestation is a signed statement about a subject (e.g. "I verify this pubkey belongs to Alice"). Warns if attesting from a derived persona instead of master. Use trust_read to find existing attestations, trust_revoke to revoke them.',
+    description: 'Verify someone else\'s claim by attesting to their assertion event. The subject publishes their claim as a Nostr event; you reference it and say "I verify this." The type is inherited from the referenced event. This is the recommended pattern — it puts the individual at the centre.',
     inputSchema: {
-      type: z.string().describe('Attestation type (e.g. "identity-verification", "endorsement")'),
-      identifier: z.string().optional().describe('D-tag identifier (hex pubkey or context string)'),
-      subject: z.string().optional().describe('Subject hex pubkey (for third-party attestations)'),
+      assertionId: hexId.describe('Event ID of the subject\'s assertion to verify'),
+      subject: hexId.optional().describe('Subject hex pubkey (auto-detected from assertion if omitted)'),
+      type: z.string().optional().describe('Explicit type override (usually inherited from the assertion)'),
+      summary: z.string().optional().describe('Human-readable summary of what was verified'),
+      content: z.string().optional().describe('Evidence payload (text or JSON)'),
+      expiration: z.number().optional().describe('Unix timestamp for attestation expiry'),
+      assertionRelay: z.string().optional().describe('Relay hint for the assertion event'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ assertionId, subject, type, summary, content, expiration, assertionRelay }) => {
+    const result = await handleTrustAttest(deps.ctx, deps.pool, {
+      assertionId, subject, type, summary, content, expiration, assertionRelay,
+    })
+    const response: Record<string, unknown> = {
+      id: result.event.id,
+      publish: result.publish,
+    }
+    if (result.warning) response.warning = result.warning
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(response, null, 2) }],
+    }
+  })
+
+  server.registerTool('trust-claim', {
+    description: 'Make a direct statement about another identity — an endorsement, review, vouch, or any attestor-originated claim. You define the type and subject. Use trust-attest instead if the subject has published their own assertion event.',
+    inputSchema: {
+      type: z.string().describe('Claim type (e.g. "endorsement", "vouch", "review")'),
+      subject: hexId.optional().describe('Subject hex pubkey (omit for self-declarations)'),
+      identifier: z.string().optional().describe('D-tag identifier (defaults to subject pubkey)'),
       summary: z.string().optional().describe('Human-readable summary'),
       content: z.string().optional().describe('Event content (text or JSON)'),
       expiration: z.number().optional().describe('Unix timestamp for attestation expiry'),
     },
-    annotations: { readOnlyHint: false, destructiveHint: true },
-  }, async ({ type, identifier, subject, summary, content, expiration }) => {
+    annotations: { readOnlyHint: false },
+  }, async ({ type, subject, identifier, summary, content, expiration }) => {
     const result = await handleTrustAttest(deps.ctx, deps.pool, {
-      type, identifier, subject, summary, content, expiration,
+      type, subject, identifier, summary, content, expiration,
     })
     const response: Record<string, unknown> = {
       id: result.event.id,
@@ -41,7 +67,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('trust-read', {
-    description: 'Read kind 31000 attestations from relays. Filter by subject, type, or attestor.',
+    description: 'Read kind 31000 attestations from relays. Filter by subject, type, or attestor. Works with both assertion-first (trust-attest) and direct claims (trust-claim).',
     inputSchema: {
       subject: hexId.optional().describe('Subject hex pubkey to filter by'),
       type: z.string().optional().describe('Attestation type to filter by'),
