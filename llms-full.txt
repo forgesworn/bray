@@ -4,7 +4,7 @@
 
 ## Architecture
 
-Single-process MCP server (stdio or HTTP transport) with 78 tools in 10 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction.
+Single-process MCP server (stdio or HTTP transport) with 77 tools in 10 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction.
 
 ## Configuration
 
@@ -35,282 +35,282 @@ Returns the active identity's npub. The simplest way to check which identity is 
 - No inputs
 - Returns: npub string
 
-#### identity_create
+#### identity-create
 Generate a fresh Nostr identity with a BIP-39 mnemonic seed.
 - Returns: { npub, mnemonic }
 - No private key bytes in response
 
-#### identity_derive
+#### identity-derive
 Derive a child Nostr identity from the active tree root.
 - Input: purpose (string), index (number, default 0)
 - Returns: { npub, purpose, index }
 
-#### identity_derive_persona
+#### identity-derive-persona
 Derive a named persona identity (e.g. "work", "personal").
 - Input: name (string), index (number, default 0)
 - Returns: { npub, purpose, index, personaName }
 
-#### identity_switch
+#### identity-switch
 Switch the active Nostr identity. All subsequent tools operate as the new identity.
 - Input: target (string — purpose, persona name, or "master"), index (optional number)
 - Returns: { npub }
 
-#### identity_list
+#### identity-list
 List all known Nostr identities. Returns public info only, never private keys.
 - Returns: Array of { npub, purpose, index, personaName }
 
-#### identity_prove
+#### identity-prove
 Create a cryptographic linkage proof between master and active identity.
 - Input: mode ("blind" or "full", default "blind")
 - Blind: hides derivation path. Full: reveals purpose and index.
 - Returns: LinkageProof object
 
-#### identity_backup_shamir
+#### identity-backup-shamir
 Split the master secret into Shamir shard files.
 - Input: threshold (number), shares (number), outputDir (string)
 - Shard content written to disk — never in response
 - Returns: { files, threshold, shares }
 
-#### identity_restore_shamir
+#### identity-restore-shamir
 Reconstruct a secret from Shamir shard files.
 - Input: files (string[]), threshold (number)
 - Returns: { masterNpub }
 
-#### identity_backup
+#### identity-backup
 Fetch profile, contacts, relay list, and attestations for a pubkey as a portable bundle.
 - Input: pubkeyHex, npub (optional)
 - Returns: event count, kinds included (no private keys)
 
-#### identity_restore
+#### identity-restore
 Re-sign migratable events (profile, contacts, relay list) under the active identity.
 - Input: pubkeyHex, npub (optional)
 - Skips kind 31000 attestations (trust chain protection)
 - Verifies backup event signatures before re-signing
 
-#### identity_migrate
+#### identity-migrate
 Full migration from old identity to active. Shows preview first — set confirm: true to execute.
 - Input: oldPubkeyHex, oldNpub, confirm (default false)
 - Publishes linkage proof connecting old to new identity
 
 ### Social Tools
 
-#### social_post
+#### social-post
 Post a text note (kind 1) as the active identity.
 - Input: content (string)
 
-#### social_reply
+#### social-reply
 Reply to a Nostr event (kind 1 with e-tag and p-tag).
 - Input: content, replyTo (event ID), replyToPubkey, relay (optional)
 
-#### social_react
+#### social-react
 React to a Nostr event (kind 7). Default reaction is "+".
 - Input: eventId, eventPubkey, reaction (default "+")
 
-#### social_delete
+#### social-delete
 Request deletion of an event you published (kind 5). Relays may or may not honour the request.
 - Input: eventId, reason (optional)
 
-#### social_repost
+#### social-repost
 Repost/boost a Nostr event (kind 6) as the active identity.
 - Input: eventId, eventPubkey, relay (optional)
 
-#### contacts_get
+#### contacts-get
 Fetch the contact list (kind 3 follows) for a pubkey.
 - Input: pubkeyHex, npub (optional)
 - Returns: Array of { pubkey, relay, petname }
 
-#### contacts_follow
+#### contacts-follow
 Follow a Nostr pubkey. Fetches current contact list, adds the pubkey, publishes updated kind 3.
 - Input: pubkeyHex, relay (optional), petname (optional)
 
-#### contacts_unfollow
+#### contacts-unfollow
 Unfollow a Nostr pubkey. Removes from contact list and publishes updated kind 3.
 - Input: pubkeyHex
 
-#### social_profile_get
+#### social-profile-get
 Fetch kind 0 profile for a pubkey.
 - Input: pubkeyHex, npub (optional)
 - Returns: Parsed profile fields
 
-#### social_profile_set
+#### social-profile-set
 Set kind 0 profile for the active identity. Warns if profile exists.
 - Input: name, about, picture, nip05, banner, lud16, confirm (default false)
 - Safety guard: returns diff + warning if existing profile found
 
-#### dm_send
+#### dm-send
 Send a direct message via NIP-17 (default) or NIP-04 (legacy).
 - Input: recipientPubkeyHex, message, nip04 (default false)
 - NIP-04 requires NIP04_ENABLED=1
 
-#### dm_read
+#### dm-read
 Read direct messages addressed to the active identity.
 - Decrypts NIP-17 and NIP-04 messages
 - Returns metadata with "could not decrypt" flag on failure (no throw)
 
-#### social_notifications
+#### social-notifications
 Fetch notifications — mentions, replies, reactions, zap receipts.
 - Input: since (optional timestamp), limit (default 50)
 - Excludes kind 3 (follows)
 - Zap receipts parsed with amount in msats
 
-#### social_feed
+#### social-feed
 Fetch kind 1 text note feed.
 - Input: authors (optional hex pubkeys), since (optional), limit (default 20)
 
 ### Trust Tools
 
-#### trust_attest
+#### trust-attest
 Create and publish a kind 31000 verifiable attestation.
 - Input: type, identifier, subject, summary, content, expiration
 - Warns when attesting as derived persona
 
-#### trust_read
+#### trust-read
 Read kind 31000 attestations from relays.
 - Input: subject, type, attestor (all optional filters)
 
-#### trust_verify
+#### trust-verify
 Validate structural correctness of a kind 31000 attestation.
 - Input: event object
 - Returns: { valid, errors }
 
-#### trust_revoke
+#### trust-revoke
 Revoke a previously issued attestation.
 - Input: type, identifier, originalAttestorPubkey (optional verification)
 - Errors if active identity doesn't match original attestor
 
-#### trust_request
+#### trust-request
 Send an attestation request via NIP-17 encrypted DM.
 - Input: recipientPubkeyHex, subject, attestationType, message
 - Payload: { type: "nip-va/attestation-request", v: 1, ... }
 
-#### trust_request_list
+#### trust-request-list
 Scan received NIP-17 DMs for attestation request payloads.
 - Returns: Array of { from, subject, attestationType, message }
 
-#### trust_proof_publish
+#### trust-proof-publish
 Publish a linkage proof as kind 30078. Requires confirmation.
 - Input: mode ("blind"/"full"), confirm (boolean)
 - Returns warning about what proof reveals before publishing
 
-#### trust_ring_prove
+#### trust-ring-prove
 Create a ring signature proving anonymous group membership.
 - Input: ring (hex pubkeys), attestationType, message (optional)
 - Active identity must be in the ring
 - Returns: kind 30078 event with ring signature
 
-#### trust_ring_verify
+#### trust-ring-verify
 Verify a ring signature proof.
 - Input: signature (RingSignature object or Nostr event)
 - Returns: { valid }
 
-#### trust_spoken_challenge
+#### trust-spoken-challenge
 Generate a spoken verification token.
 - Input: secret (hex), context, counter
 - Returns: { token }
 
-#### trust_spoken_verify
+#### trust-spoken-verify
 Verify a spoken token response.
 - Input: secret, context, counter, input, tolerance (default 1)
 - Returns: { valid, identity }
 
 ### Relay Tools
 
-#### relay_list
+#### relay-list
 List relay set for the active identity.
 - Input: compareWithNpub (optional — warns about shared relays)
 
-#### relay_set
+#### relay-set
 Publish kind 10002 relay list.
 - Input: relays (array of { url, mode }), confirm
 - Safety guard: warns if relay list exists
 
-#### relay_add
+#### relay-add
 Add a relay to active identity's relay set (in-memory).
 - Input: url, mode (optional: "read", "write", or both)
 
-#### relay_query
+#### relay-query
 Query events from Nostr relays by kind, author, tags, or time range.
 - Input: kinds (optional array), authors (optional hex pubkeys), tags (optional key-value pairs), since (optional), until (optional), limit (default 50, max 500), relays (optional — overrides identity relay set)
 - Returns: { count, events }
 
-#### relay_info
+#### relay-info
 Fetch the NIP-11 relay information document.
 - Input: url (wss:// relay URL)
 - Returns: Parsed relay info (name, description, supported NIPs, etc.)
 
 ### Zap Tools
 
-#### zap_send
+#### zap-send
 Pay a Lightning invoice via Nostr Wallet Connect (NIP-47).
 - Input: invoice (bolt11 string)
 - Requires NWC_URI configured. Signs with NWC client key, encrypts via NIP-44.
 
-#### zap_balance
+#### zap-balance
 Request wallet balance via NWC.
 - Sends get_balance request to the wallet service.
 
-#### zap_make_invoice
+#### zap-make-invoice
 Generate a Lightning invoice via NWC to receive payments.
 - Input: amountMsats (number), description (optional string)
 
-#### zap_lookup_invoice
+#### zap-lookup-invoice
 Look up a Lightning invoice status via NWC.
 - Input: paymentHash or invoice (at least one)
 
-#### zap_list_transactions
+#### zap-list-transactions
 List recent Lightning transactions via NWC.
 - Input: limit (default 10), offset (default 0)
 
-#### zap_receipts
+#### zap-receipts
 Fetch zap receipts (kind 9735) for the active identity.
 - Input: since (optional), limit (default 20)
 - Returns: sender, amountMsats, message
 
-#### zap_decode
+#### zap-decode
 Decode basic fields from a bolt11 Lightning invoice.
 - Input: bolt11 string
 - Returns: { amountMsats }
 
 ### Blossom Tools (Media)
 
-#### blossom_upload
+#### blossom-upload
 Upload a file to a blossom media server. Signs a kind 24242 auth event.
 - Input: server (URL), filePath, contentType (optional)
 - Returns: { url, sha256, size }
 
-#### blossom_list
+#### blossom-list
 List blobs uploaded by a pubkey on a blossom server.
 - Input: server (URL), pubkeyHex
 
-#### blossom_delete
+#### blossom-delete
 Delete a blob from a blossom server by SHA-256 hash.
 - Input: server (URL), sha256
 
 ### Group Tools (NIP-29)
 
-#### group_info
+#### group-info
 Fetch group metadata (kind 39000) — name, about, picture, open status.
 - Input: relay, groupId
 
-#### group_chat
+#### group-chat
 Fetch recent chat messages (kind 9) from a group.
 - Input: groupId, limit (default 20)
 
-#### group_send
+#### group-send
 Send a message to a group (kind 9 with h-tag).
 - Input: groupId, content
 
-#### group_members
+#### group-members
 List group members (kind 39002).
 - Input: groupId
 
 ### Community NIP Tools
 
-#### nip_publish
+#### nip-publish
 Publish a community NIP (kind 30817) — custom protocol spec on Nostr.
 - Input: identifier (slug), title, content (markdown), kinds (optional array)
 
-#### nip_read
+#### nip-read
 Fetch community NIPs from relays.
 - Input: author (optional), identifier (optional), kind (optional)
 
@@ -320,25 +320,25 @@ Fetch community NIPs from relays.
 Decode any nip19 entity (npub, nsec, note, nevent, nprofile, naddr) or nostr: URI.
 - Input: nip19 string
 
-#### encode_npub / encode_note / encode_nprofile / encode_nevent / encode_naddr / encode_nsec
+#### encode-npub / encode-note / encode-nprofile / encode-nevent / encode-naddr / encode-nsec
 Encode hex values to bech32 nip19 entities.
 
-#### key_public
+#### key-public
 Derive a public key (hex + npub) from a secret key (nsec or hex).
 - Input: secret (nsec or hex string)
 
-#### key_encrypt
+#### key-encrypt
 Encrypt a secret key with a password (NIP-49 ncryptsec).
 - Input: secret (nsec or hex), password
 - Returns: { ncryptsec, npub }
 - WARNING: secret key is transmitted through the MCP transport
 
-#### key_decrypt
+#### key-decrypt
 Decrypt an ncryptsec (NIP-49) with a password. Returns the derived pubkey for verification — never the raw key.
 - Input: ncryptsec, password
 - Returns: { npub }
 
-#### verify_event
+#### verify-event
 Verify a Nostr event's id hash and cryptographic signature.
 - Input: event object
 
@@ -347,7 +347,7 @@ Test if a Nostr event matches a given Nostr filter.
 - Input: event object, filter object
 - Returns: { matches: boolean }
 
-#### nip44_encrypt / nip44_decrypt
+#### nip44-encrypt / nip44-decrypt
 Standalone NIP-44 encryption/decryption using the active identity's key.
 
 #### count
@@ -357,35 +357,35 @@ Count events matching a filter on relays.
 #### fetch
 Fetch events by nip19 code (note, nevent, nprofile, npub, naddr).
 
-#### nip_list
+#### nip-list
 List all official Nostr NIPs from the protocol repository.
 
-#### nip_show
+#### nip-show
 Fetch and display the full content of an official NIP by number.
 - Input: NIP number
 
 ### Safety Tools
 
-#### safety_configure
+#### safety-configure
 Configure an alternative identity persona.
 - Input: personaName (default "anonymous")
 
-#### safety_activate
+#### safety-activate
 Switch to an alternative identity configuration.
 - Input: personaName (default "anonymous")
-- Response structure identical to identity_switch
+- Response structure identical to identity-switch
 
 ## Example Workflow
 
 ```
-1. identity_list                    → see master identity
-2. identity_derive_persona("work")  → derive work persona
-3. identity_switch("work")          → switch to work
-4. social_profile_set(name: "Work Account")  → set profile
-5. social_post("Hello from my work persona")
-6. identity_switch("master")        → back to master
-7. trust_attest(type: "endorsement", subject: workPubkeyHex)
-8. identity_prove(mode: "blind")    → prove without revealing path
+1. identity-list                    → see master identity
+2. identity-derive-persona("work")  → derive work persona
+3. identity-switch("work")          → switch to work
+4. social-profile-set(name: "Work Account")  → set profile
+5. social-post("Hello from my work persona")
+6. identity-switch("master")        → back to master
+7. trust-attest(type: "endorsement", subject: workPubkeyHex)
+8. identity-prove(mode: "blind")    → prove without revealing path
 ```
 
 ## Security Model
