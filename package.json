@@ -17,6 +17,7 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
     "start": "node dist/index.js"
@@ -89,6 +90,7 @@
     "@semantic-release/git": "^10.0.1",
     "@types/node": "^25.5.0",
     "@types/ws": "^8.18.1",
+    "@vitest/coverage-v8": "^4.1.1",
     "semantic-release": "^25.0.3",
     "typescript": "^6.0.2",
     "vitest": "^4.1.1"
