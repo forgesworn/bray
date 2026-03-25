@@ -77,7 +77,7 @@
     "@forgesworn/shamir-words": "^1.0.4",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "canary-kit": "^2.6.2",
-    "nostr-attestations": "file:../nostr-attestations",
+    "nostr-attestations": "^2.2.0",
     "nostr-tools": "^2.23.3",
     "nsec-tree": "^1.4.1",
     "socks-proxy-agent": "^9.0.0",
