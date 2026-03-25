@@ -224,6 +224,15 @@ if (command === 'help' || command === '--help' || command === '-h') {
   process.exit(0)
 }
 
+// Commands that work purely offline — no relay connection needed
+const OFFLINE_COMMANDS = new Set([
+  'whoami', 'create', 'list', 'derive', 'persona', 'switch', 'prove',
+  'backup', 'restore', 'spoken-challenge', 'spoken-verify', 'trust-verify',
+  'ring-verify', 'zap-decode', 'safety-configure', 'safety-activate',
+  'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
+  'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'verify', 'encrypt', 'decrypt',
+])
+
 // All other commands need config
 const config = loadConfig()
 const pool = new RelayPool({
@@ -246,8 +255,11 @@ const nwcUri = config.nwcUri
 ;(config as any).secretKey = ''
 ;(config as any).nwcUri = undefined
 
-const masterRelays = await nip65.loadForIdentity(ctx.activeNpub)
-pool.reconfigure(ctx.activeNpub, masterRelays)
+// Only fetch NIP-65 relay list for commands that need network access
+if (!OFFLINE_COMMANDS.has(command)) {
+  const masterRelays = await nip65.loadForIdentity(ctx.activeNpub)
+  pool.reconfigure(ctx.activeNpub, masterRelays)
+}
 
 // Default output mode from env (CLI-level --json/--human handled per-command)
 const envDefault = process.env.NOSTR_BRAY_OUTPUT === 'json' ? 'json' : 'human'
