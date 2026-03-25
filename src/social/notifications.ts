@@ -1,3 +1,4 @@
+import { decode } from 'nostr-tools/nip19'
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
@@ -29,9 +30,10 @@ export async function handleNotifications(
   pool: RelayPool,
   opts?: { since?: number; limit?: number },
 ): Promise<Notification[]> {
+  const activeHex = decode(ctx.activeNpub).data as string
   const events = await pool.query(ctx.activeNpub, {
     kinds: [1, 7, 9735],
-    '#p': [ctx.activeNpub],
+    '#p': [activeHex],
     limit: opts?.limit ?? 50,
     ...(opts?.since ? { since: opts.since } : {}),
   })

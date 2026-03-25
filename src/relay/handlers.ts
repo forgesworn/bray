@@ -45,7 +45,7 @@ export async function handleRelaySet(
   // Check for existing relay list
   const existing = await pool.query(ctx.activeNpub, {
     kinds: [10002],
-    authors: [ctx.activeNpub],
+    authors: [ctx.activePublicKeyHex],
   })
 
   // Build r-tags

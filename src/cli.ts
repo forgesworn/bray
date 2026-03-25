@@ -735,6 +735,13 @@ async function shell(): Promise<void> {
     if (trimmed === 'help') { console.log(HELP); continue }
 
     const shellArgs = parseShellLine(trimmed)
+
+    // Per-command help in shell
+    if (shellArgs.includes('--help') && shellArgs[0]) {
+      const h = getCommandHelp(shellArgs[0])
+      if (h) { console.log(h); continue }
+    }
+
     try {
       await run(shellArgs)
     } catch (e: any) {

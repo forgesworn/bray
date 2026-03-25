@@ -48,9 +48,14 @@ export class IdentityContext {
     this.activeEntry = this.masterEntry
   }
 
-  /** Current active identity's npub */
+  /** Current active identity's npub (bech32) */
   get activeNpub(): string {
     return this.activeEntry.identity.npub
+  }
+
+  /** Current active identity's hex public key — use this in relay filters */
+  get activePublicKeyHex(): string {
+    return Buffer.from(this.activeEntry.identity.publicKey).toString('hex')
   }
 
   /** Derive a child identity by purpose and index */
