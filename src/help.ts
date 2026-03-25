@@ -92,6 +92,7 @@ export const COMMAND_HELP: Record<string, { usage: string; description: string; 
   count: { usage: 'count [--kinds N,N] [--authors X,X] [--since N]', description: 'Count events matching a filter on relays.', examples: ['nostr-bray count --kinds 1', 'nostr-bray count --kinds 1,7 --authors abc123...'] },
   fetch: { usage: 'fetch <nip19>', description: 'Fetch events by nip19 code (note, nevent, nprofile, npub, naddr). Resolves the entity and queries relays.', examples: ['nostr-bray fetch note1...', 'nostr-bray fetch nevent1...', 'nostr-bray fetch npub1...'] },
   shell: { usage: 'shell', description: 'Start an interactive REPL with a persistent relay connection. Supports tab autocomplete. Type "help" for commands, "exit" to quit.', examples: ['nostr-bray shell'] },
+  serve: { usage: 'serve [--port N] [--hostname H] [--events file.jsonl] [--quiet]', description: 'Start an in-memory Nostr relay for testing. Implements NIP-01 (events, subscriptions, EOSE) and NIP-11 (relay info). Events live in memory only — no persistence. Optionally pre-load events from a JSONL file.', examples: ['nostr-bray serve', 'nostr-bray serve --port 7777', 'nostr-bray serve --events test-data.jsonl', 'nostr-bray serve --port 7777 --quiet'] },
 }
 
 /** Get formatted help for a single command */

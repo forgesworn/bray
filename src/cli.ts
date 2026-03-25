@@ -27,9 +27,24 @@ const args = process.argv.slice(2)
 const command = args[0]
 
 // No command = start MCP server
-if (!command || command === 'serve') {
+if (!command) {
   await import('./index.js')
   process.exit(0)
+}
+
+// Serve = in-memory test relay
+if (command === 'serve' && !args.includes('--help')) {
+  const { startRelay } = await import('./serve.js')
+  const hostname = args.includes('--hostname') ? args[args.indexOf('--hostname') + 1] : 'localhost'
+  const port = args.includes('--port') ? parseInt(args[args.indexOf('--port') + 1], 10) : 10547
+  const eventsFile = args.includes('--events') ? args[args.indexOf('--events') + 1] : undefined
+  const relay = startRelay({ hostname, port, eventsFile, quiet: args.includes('--quiet') })
+  console.error(`nostr-bray test relay running at ${relay.url}`)
+  console.error('Press Ctrl+C to stop')
+  process.on('SIGINT', () => { relay.close(); process.exit(0) })
+  process.on('SIGTERM', () => { relay.close(); process.exit(0) })
+  // Keep process alive
+  await new Promise(() => {})
 }
 
 // Per-command help: `nostr-bray post --help`
@@ -132,6 +147,7 @@ Utility:
 
 Modes:
   (no command)                        Start MCP server (stdio)
+  serve [--port N] [--events file]    Start in-memory test relay
   shell                               Interactive REPL (persistent relay connection)
 
 Environment:
