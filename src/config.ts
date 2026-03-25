@@ -42,9 +42,12 @@ export function loadConfig(): BrayConfig {
   const keyEnvVar = process.env.NOSTR_SECRET_KEY
   let secretKey: string
 
-  const bunkerUri = process.env.BUNKER_URI ?? process.env.BUNKER_URI_FILE
-    ? (process.env.BUNKER_URI_FILE ? readSecretFile(process.env.BUNKER_URI_FILE) : process.env.BUNKER_URI)
-    : undefined
+  let bunkerUri: string | undefined
+  if (process.env.BUNKER_URI_FILE) {
+    bunkerUri = readSecretFile(process.env.BUNKER_URI_FILE)
+  } else if (process.env.BUNKER_URI) {
+    bunkerUri = process.env.BUNKER_URI
+  }
 
   if (keyFilePath) {
     secretKey = readSecretFile(keyFilePath)
@@ -57,7 +60,7 @@ export function loadConfig(): BrayConfig {
     throw new Error('No secret key provided: set NOSTR_SECRET_KEY, NOSTR_SECRET_KEY_FILE, or BUNKER_URI')
   }
 
-  const secretFormat = detectKeyFormat(secretKey)
+  const secretFormat = secretKey ? detectKeyFormat(secretKey) : 'nsec' as const
 
   // --- NWC URI ---
   const nwcFilePath = process.env.NWC_URI_FILE
