@@ -4,7 +4,7 @@
 
 ## Architecture
 
-Single-process MCP server (stdio or HTTP transport) with 74 tools in 10 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction.
+Single-process MCP server (stdio or HTTP transport) with 78 tools in 10 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction.
 
 ## Configuration
 
@@ -29,6 +29,11 @@ Secret env vars are deleted from process.env after parsing.
 ## Tool Reference
 
 ### Identity Tools
+
+#### whoami
+Returns the active identity's npub. The simplest way to check which identity is currently in use.
+- No inputs
+- Returns: npub string
 
 #### identity_create
 Generate a fresh Nostr identity with a BIP-39 mnemonic seed.
@@ -223,6 +228,11 @@ Publish kind 10002 relay list.
 Add a relay to active identity's relay set (in-memory).
 - Input: url, mode (optional: "read", "write", or both)
 
+#### relay_query
+Query events from Nostr relays by kind, author, tags, or time range.
+- Input: kinds (optional array), authors (optional hex pubkeys), tags (optional key-value pairs), since (optional), until (optional), limit (default 50, max 500), relays (optional — overrides identity relay set)
+- Returns: { count, events }
+
 #### relay_info
 Fetch the NIP-11 relay information document.
 - Input: url (wss:// relay URL)
@@ -260,21 +270,6 @@ Fetch zap receipts (kind 9735) for the active identity.
 Decode basic fields from a bolt11 Lightning invoice.
 - Input: bolt11 string
 - Returns: { amountMsats }
-
-### Contacts Tools
-
-#### contacts_get
-Fetch the contact list (kind 3 follows) for a pubkey.
-- Input: pubkeyHex, npub (optional)
-- Returns: Array of { pubkey, relay, petname }
-
-#### contacts_follow
-Follow a Nostr pubkey. Publishes updated kind 3.
-- Input: pubkeyHex, relay (optional), petname (optional)
-
-#### contacts_unfollow
-Unfollow a Nostr pubkey. Publishes updated kind 3.
-- Input: pubkeyHex
 
 ### Blossom Tools (Media)
 
@@ -331,6 +326,17 @@ Encode hex values to bech32 nip19 entities.
 #### key_public
 Derive a public key (hex + npub) from a secret key (nsec or hex).
 - Input: secret (nsec or hex string)
+
+#### key_encrypt
+Encrypt a secret key with a password (NIP-49 ncryptsec).
+- Input: secret (nsec or hex), password
+- Returns: { ncryptsec, npub }
+- WARNING: secret key is transmitted through the MCP transport
+
+#### key_decrypt
+Decrypt an ncryptsec (NIP-49) with a password. Returns the derived pubkey for verification — never the raw key.
+- Input: ncryptsec, password
+- Returns: { npub }
 
 #### verify_event
 Verify a Nostr event's id hash and cryptographic signature.

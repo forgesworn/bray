@@ -4,14 +4,14 @@ Generic AI agent instructions. For Claude Code see `CLAUDE.md`, for Cursor see `
 
 ## What this is
 
-MCP server + CLI giving AI agents sovereign Nostr identities. 74 tools, 10 groups.
+MCP server + CLI giving AI agents sovereign Nostr identities. 78 tools, 10 groups.
 
 ## Build & Test
 
 ```bash
 npm install
 npm run build    # TypeScript → dist/
-npm test         # 279 tests via vitest
+npm test         # 329 tests via vitest
 npm run lint     # tsc --noEmit
 ```
 
@@ -20,7 +20,7 @@ npm run lint     # tsc --noEmit
 ```
 src/
   index.ts          MCP server entry point
-  cli.ts            CLI entry point (74 subcommands + shell REPL)
+  cli.ts            CLI entry point (78 subcommands + shell REPL)
   context.ts        IdentityContext — master key, LRU cache, derive, sign, zeroise
   config.ts         Secret loading from env/files, format detection
   relay-pool.ts     Relay connections, SOCKS5h proxy, Tor policy, write queue

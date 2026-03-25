@@ -1,11 +1,11 @@
 # CLAUDE.md — nostr-bray
 
-MCP server giving AI agents sovereign Nostr identities. 74 tools across 10 groups.
+MCP server giving AI agents sovereign Nostr identities. 78 tools across 10 groups.
 
 ## Commands
 
 - `npm run build` — compile TypeScript to dist/
-- `npm test` — run all tests (vitest, 269 tests)
+- `npm test` — run all tests (vitest, 329 tests)
 - `npm run test:watch` — watch mode
 - `npm run lint` — type-check without emitting (`tsc --noEmit`)
 - `npm start` — run the MCP server (requires NOSTR_SECRET_KEY + NOSTR_RELAYS)

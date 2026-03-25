@@ -1,11 +1,11 @@
 ## nostr-bray
 
-MCP server + CLI giving AI agents sovereign Nostr identities. 44 tools across 7 groups.
+MCP server + CLI giving AI agents sovereign Nostr identities. 78 tools across 10 groups.
 
 ## Commands
 
 - `npm run build` — compile TypeScript
-- `npm test` — run all tests (vitest, 203 tests)
+- `npm test` — run all tests (vitest, 329 tests)
 - `npm run lint` — type-check (`tsc --noEmit`)
 
 ## Architecture
@@ -15,7 +15,7 @@ Entry points:
 - `src/cli.ts` — CLI wrapper (same handlers, no MCP)
 
 Each tool group: `src/<group>/handlers.ts` (logic) + `src/<group>/tools.ts` (Zod schemas + MCP registration).
-Groups: identity, social, trust, relay, zap, safety.
+Groups: identity, social, trust, relay, zap, safety, util.
 
 Core modules:
 - `src/context.ts` — IdentityContext (nsec-tree root, LRU cache, zeroise, signing)
