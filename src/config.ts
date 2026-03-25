@@ -42,12 +42,19 @@ export function loadConfig(): BrayConfig {
   const keyEnvVar = process.env.NOSTR_SECRET_KEY
   let secretKey: string
 
+  const bunkerUri = process.env.BUNKER_URI ?? process.env.BUNKER_URI_FILE
+    ? (process.env.BUNKER_URI_FILE ? readSecretFile(process.env.BUNKER_URI_FILE) : process.env.BUNKER_URI)
+    : undefined
+
   if (keyFilePath) {
     secretKey = readSecretFile(keyFilePath)
   } else if (keyEnvVar) {
     secretKey = keyEnvVar
+  } else if (bunkerUri) {
+    // Bunker mode — no local secret needed
+    secretKey = ''
   } else {
-    throw new Error('No secret key provided: set NOSTR_SECRET_KEY or NOSTR_SECRET_KEY_FILE')
+    throw new Error('No secret key provided: set NOSTR_SECRET_KEY, NOSTR_SECRET_KEY_FILE, or BUNKER_URI')
   }
 
   const secretFormat = detectKeyFormat(secretKey)
@@ -82,11 +89,14 @@ export function loadConfig(): BrayConfig {
   delete process.env.NOSTR_SECRET_KEY_FILE
   delete process.env.NWC_URI
   delete process.env.NWC_URI_FILE
+  delete process.env.BUNKER_URI
+  delete process.env.BUNKER_URI_FILE
 
   return {
     secretKey,
     secretFormat,
     relays,
+    bunkerUri: bunkerUri ?? undefined,
     nwcUri,
     torProxy,
     allowClearnetWithTor,

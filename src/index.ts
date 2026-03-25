@@ -19,13 +19,22 @@ const pool = new RelayPool({
   defaultRelays: config.relays,
 })
 const nip65 = new Nip65Manager(pool, config.relays)
-const ctx = new IdentityContext(config.secretKey, config.secretFormat)
-export const deps = { ctx, pool, nip65, nwcUri: config.nwcUri }
 
-// Clear secret references from config — strings are immutable so originals
-// persist until GC, but removing references allows earlier collection
+// Connect to bunker or use local key
+let ctx: IdentityContext | import('./bunker-context.js').BunkerContext
+if (config.bunkerUri) {
+  const { BunkerContext } = await import('./bunker-context.js')
+  ctx = await BunkerContext.connect(config.bunkerUri)
+  console.error(`Connected to bunker — signing as ${ctx.activeNpub}`)
+} else {
+  ctx = new IdentityContext(config.secretKey, config.secretFormat)
+}
+
+export const deps = { ctx: ctx as any, pool, nip65, nwcUri: config.nwcUri }
+
 ;(config as any).secretKey = ''
 ;(config as any).nwcUri = undefined
+;(config as any).bunkerUri = undefined
 
 // Load master identity relay list
 const masterRelays = await nip65.loadForIdentity(ctx.activeNpub)
