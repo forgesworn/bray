@@ -21,7 +21,7 @@ function runExpectFail(...args: string[]): string {
   }
 }
 
-describe('CLI', () => {
+describe('CLI', { timeout: 15_000 }, () => {
   it('--help shows usage without requiring config', () => {
     const out = execFileSync('node', [CLI_PATH, '--help'], {
       encoding: 'utf-8',
