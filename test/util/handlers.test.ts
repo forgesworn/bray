@@ -264,4 +264,76 @@ describe('util handlers', () => {
       expect(handleFilter(event as any, { '#t': ['nostr'] } as any).matches).toBe(true)
     })
   })
+
+  // --- Fetch branches ---
+
+  describe('handleFetch — all nip19 types', () => {
+    it('fetches by nevent', async () => {
+      const pool = { query: vi.fn().mockResolvedValue([]) }
+      const nevent = handleEncodeNevent('b'.repeat(64))
+      await handleFetch(pool as any, 'npub1test', nevent)
+      expect(pool.query).toHaveBeenCalledWith('npub1test', { ids: ['b'.repeat(64)] })
+    })
+
+    it('fetches by nprofile', async () => {
+      const pool = { query: vi.fn().mockResolvedValue([]) }
+      const nprofile = handleEncodeNprofile(pk, ['wss://test.com'])
+      await handleFetch(pool as any, 'npub1test', nprofile)
+      expect(pool.query).toHaveBeenCalledWith('npub1test', { authors: [pk], kinds: [0], limit: 1 })
+    })
+
+    it('fetches by naddr', async () => {
+      const pool = { query: vi.fn().mockResolvedValue([]) }
+      const naddr = handleEncodeNaddr(pk, 30078, 'test-d')
+      await handleFetch(pool as any, 'npub1test', naddr)
+      expect(pool.query).toHaveBeenCalledWith('npub1test', { authors: [pk], kinds: [30078], '#d': ['test-d'], limit: 1 })
+    })
+  })
+
+  // --- NIP list/show (mocked fetch) ---
+
+  describe('handleNipList', () => {
+    it('parses NIP list from markdown', async () => {
+      const md = '- [NIP-01](01.md) — Basic protocol\n- [NIP-17](17.md) — Private DMs\n'
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve(md) }))
+      const { handleNipList: nipList } = await import('../../src/util/handlers.js')
+      const result = await nipList()
+      expect(result.length).toBe(2)
+      expect(result[0].number).toBe(1)
+      expect(result[1].title).toBe('Private DMs')
+      vi.unstubAllGlobals()
+    })
+
+    it('throws on fetch failure', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }))
+      const { handleNipList: nipList } = await import('../../src/util/handlers.js')
+      await expect(nipList()).rejects.toThrow(/500/)
+      vi.unstubAllGlobals()
+    })
+
+    it('throws on oversized response', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('x'.repeat(2_000_000)) }))
+      const { handleNipList: nipList } = await import('../../src/util/handlers.js')
+      await expect(nipList()).rejects.toThrow(/too large/)
+      vi.unstubAllGlobals()
+    })
+  })
+
+  describe('handleNipShow', () => {
+    it('fetches NIP content', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('# NIP-01\n\nBasic protocol') }))
+      const { handleNipShow: nipShow } = await import('../../src/util/handlers.js')
+      const result = await nipShow(1)
+      expect(result.number).toBe(1)
+      expect(result.content).toContain('NIP-01')
+      vi.unstubAllGlobals()
+    })
+
+    it('throws on not found', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }))
+      const { handleNipShow: nipShow } = await import('../../src/util/handlers.js')
+      await expect(nipShow(999)).rejects.toThrow(/not found/)
+      vi.unstubAllGlobals()
+    })
+  })
 })
