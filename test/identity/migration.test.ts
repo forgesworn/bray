@@ -104,6 +104,18 @@ describe('identity migration', () => {
       }
     })
 
+    it('skips events that fail signature verification', async () => {
+      const pool = mockPool()
+      const badEvent = { ...mockProfile, pubkey: 'wrong-pubkey' } // author mismatch
+      const backup = {
+        pubkeyHex: 'oldpub123',
+        events: [badEvent, mockContacts],
+      }
+      const result = await handleIdentityRestore(ctx, pool as any, backup)
+      expect(result.skipped.length).toBe(1)
+      expect(result.skipped[0].reason).toMatch(/verification|mismatch/i)
+    })
+
     it('does NOT re-sign kind 31000 attestations (trust chain protection)', async () => {
       const pool = mockPool()
       const backup = {
