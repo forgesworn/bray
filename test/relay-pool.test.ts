@@ -212,4 +212,49 @@ describe('RelayPool', () => {
       pool.close()
     })
   })
+
+  describe('write queue cap', () => {
+    it('rejects writes when queue exceeds 100', () => {
+      const pool = new RelayPool(
+        { allowClearnet: true, defaultRelays: ['wss://default.example.com'] },
+        mockPool(),
+      )
+      const fakeEvent = { id: 'abc', kind: 1 } as any
+      for (let i = 0; i < 100; i++) {
+        pool.queueWrite(NPUB_A, fakeEvent)
+      }
+      expect(() => pool.queueWrite(NPUB_A, fakeEvent)).toThrow(/queue full/i)
+      pool.close()
+    })
+  })
+
+  describe('Tor policy on reconfigure', () => {
+    it('rejects clearnet relays on reconfigure when Tor is set', () => {
+      const pool = new RelayPool({
+        torProxy: 'socks5h://127.0.0.1:9050',
+        allowClearnet: false,
+        defaultRelays: ['ws://abc.onion'],
+      }, mockPool())
+      expect(() => pool.reconfigure(NPUB_A, {
+        read: ['wss://clearnet.example.com'],
+        write: [],
+      })).toThrow(/clearnet.*tor/i)
+      pool.close()
+    })
+  })
+
+  describe('no write relays', () => {
+    it('returns failure when no write relays configured', async () => {
+      const pool = new RelayPool(
+        { allowClearnet: true, defaultRelays: [] },
+        mockPool(),
+      )
+      pool.reconfigure(NPUB_A, { read: ['wss://read.example.com'], write: [] })
+      const fakeEvent = { id: 'abc', kind: 1, pubkey: '1234', sig: 'dead', created_at: 0, tags: [], content: '' } as any
+      const result = await pool.publish(NPUB_A, fakeEvent)
+      expect(result.success).toBe(false)
+      expect(result.errors).toContain('no write relays configured')
+      pool.close()
+    })
+  })
 })

@@ -162,4 +162,43 @@ describe('trust handlers', () => {
       expect(full.warning).toMatch(/full/i)
     })
   })
+
+  describe('handleTrustRequestList', () => {
+    it('returns empty when no DMs match', async () => {
+      // Mock DM read to return non-matching DMs
+      vi.doMock('../../src/social/dm.js', () => ({
+        handleDmRead: vi.fn().mockResolvedValue([
+          { decrypted: true, content: '{"type":"random","v":1}', from: 'someone' },
+          { decrypted: false, content: null, from: 'other' },
+        ]),
+      }))
+      const { handleTrustRequestList: listFn } = await import('../../src/trust/handlers.js')
+      const pool = mockPool()
+      const result = await listFn(ctx, pool as any)
+      expect(result).toEqual([])
+      vi.doUnmock('../../src/social/dm.js')
+    })
+  })
+
+  describe('edge cases', () => {
+    it('trust_attest warns when attesting as derived persona', async () => {
+      const pool = mockPool()
+      ctx.derive('persona-x', 0)
+      ctx.switch('persona-x', 0)
+      const result = await handleTrustAttest(ctx, pool as any, {
+        type: 'test',
+        identifier: 'test-id',
+      })
+      expect(result.warning).toMatch(/derived|persona/i)
+    })
+
+    it('trust_revoke throws when active identity mismatches attestor', async () => {
+      const pool = mockPool()
+      await expect(handleTrustRevoke(ctx, pool as any, {
+        type: 'test',
+        identifier: 'test',
+        originalAttestorPubkey: 'completely-different-hex-pubkey-that-does-not-match-active',
+      })).rejects.toThrow(/attestor/i)
+    })
+  })
 })
