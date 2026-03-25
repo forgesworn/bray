@@ -5,6 +5,7 @@ import {
   handleRelaySet,
   handleRelayAdd,
   handleRelayInfo,
+  handleRelayQuery,
 } from '../../src/relay/handlers.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
@@ -12,6 +13,7 @@ const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364
 function mockPool(events: any[] = []) {
   return {
     query: vi.fn().mockResolvedValue(events),
+    queryDirect: vi.fn().mockResolvedValue(events),
     publish: vi.fn().mockResolvedValue({ success: true, accepted: ['wss://relay.example.com'], rejected: [], errors: [] }),
     getRelays: vi.fn().mockReturnValue({ read: ['wss://read.example.com'], write: ['wss://write.example.com'] }),
     reconfigure: vi.fn(),
@@ -91,6 +93,66 @@ describe('relay handlers', () => {
         mode: 'read',
       })
       expect(result.reconfigured).toBe(true)
+    })
+  })
+
+  describe('handleRelayQuery', () => {
+    it('queries with kinds filter via identity relays', async () => {
+      const pool = mockPool()
+      const events = await handleRelayQuery(pool as any, ctx.activeNpub, {
+        kinds: [30301],
+        limit: 10,
+      })
+      expect(pool.query).toHaveBeenCalledWith(
+        ctx.activeNpub,
+        expect.objectContaining({ kinds: [30301], limit: 10 }),
+      )
+    })
+
+    it('queries explicit relays via queryDirect', async () => {
+      const pool = mockPool()
+      await handleRelayQuery(pool as any, ctx.activeNpub, {
+        kinds: [30301],
+        relays: ['wss://relay.damus.io'],
+      })
+      expect(pool.queryDirect).toHaveBeenCalledWith(
+        ['wss://relay.damus.io'],
+        expect.objectContaining({ kinds: [30301] }),
+      )
+      expect(pool.query).not.toHaveBeenCalled()
+    })
+
+    it('maps tag filters with # prefix', async () => {
+      const pool = mockPool()
+      await handleRelayQuery(pool as any, ctx.activeNpub, {
+        kinds: [31000],
+        tags: { '#p': ['abc123'], d: ['credential'] },
+      })
+      expect(pool.query).toHaveBeenCalledWith(
+        ctx.activeNpub,
+        expect.objectContaining({
+          kinds: [31000],
+          '#p': ['abc123'],
+          '#d': ['credential'],
+        }),
+      )
+    })
+
+    it('defaults limit to 50', async () => {
+      const pool = mockPool()
+      await handleRelayQuery(pool as any, ctx.activeNpub, { kinds: [1] })
+      expect(pool.query).toHaveBeenCalledWith(
+        ctx.activeNpub,
+        expect.objectContaining({ limit: 50 }),
+      )
+    })
+
+    it('rejects private relay URLs', async () => {
+      const pool = mockPool()
+      await expect(handleRelayQuery(pool as any, ctx.activeNpub, {
+        kinds: [1],
+        relays: ['wss://127.0.0.1'],
+      })).rejects.toThrow(/private/)
     })
   })
 

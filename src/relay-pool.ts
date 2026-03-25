@@ -133,6 +133,12 @@ export class RelayPool {
     return pool.querySync(relays.read, filter)
   }
 
+  /** One-shot query against explicit relay URLs (not identity-bound) */
+  async queryDirect(relays: string[], filter: Filter): Promise<NostrEvent[]> {
+    const pool = await this.poolReady
+    return pool.querySync(relays, filter)
+  }
+
   /** Queue an event for publishing once the identity's relay list is known */
   queueWrite(npub: string, event: NostrEvent): void {
     const queue = this.writeQueue.get(npub) ?? []

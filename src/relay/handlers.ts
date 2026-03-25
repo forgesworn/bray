@@ -1,4 +1,4 @@
-import type { Event as NostrEvent } from 'nostr-tools'
+import type { Event as NostrEvent, Filter } from 'nostr-tools'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { RelaySet, PublishResult } from '../types.js'
@@ -99,6 +99,45 @@ export function handleRelayAdd(
 
   pool.reconfigure(ctx.activeNpub, { read, write })
   return { reconfigured: true }
+}
+
+export interface RelayQueryArgs {
+  kinds?: number[]
+  authors?: string[]
+  tags?: Record<string, string[]>
+  since?: number
+  until?: number
+  limit?: number
+  relays?: string[]
+}
+
+/** Query events from relays by arbitrary filter. Uses explicit relays if provided, otherwise the active identity's read relays. */
+export async function handleRelayQuery(
+  pool: RelayPool,
+  npub: string,
+  args: RelayQueryArgs,
+): Promise<NostrEvent[]> {
+  const filter: Filter = {}
+  if (args.kinds?.length) filter.kinds = args.kinds
+  if (args.authors?.length) filter.authors = args.authors
+  if (args.since) filter.since = args.since
+  if (args.until) filter.until = args.until
+  filter.limit = args.limit ?? 50
+
+  // Map tag filters (e.g. { "#p": ["abc"], "#d": ["xyz"] })
+  if (args.tags) {
+    for (const [key, values] of Object.entries(args.tags)) {
+      const tagKey = key.startsWith('#') ? key : `#${key}`
+      ;(filter as Record<string, unknown>)[tagKey] = values
+    }
+  }
+
+  if (args.relays?.length) {
+    for (const url of args.relays) validateRelayUrl(url)
+    return pool.queryDirect(args.relays, filter)
+  }
+
+  return pool.query(npub, filter)
 }
 
 /** Validate a relay URL — must be wss:// or ws://, no private networks */
