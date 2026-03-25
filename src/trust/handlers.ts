@@ -20,18 +20,28 @@ export async function handleTrustAttest(
   ctx: IdentityContext,
   pool: RelayPool,
   args: {
-    type: string
+    type?: string
     identifier?: string
     subject?: string
+    assertionId?: string
+    assertionRelay?: string
     summary?: string
     content?: string
     expiration?: number
   },
 ): Promise<AttestResult> {
+  if (!args.type && !args.assertionId) {
+    throw new Error('at least one of type or assertionId must be provided')
+  }
+
   const template = createAttestation({
     type: args.type,
     identifier: args.identifier,
     subject: args.subject,
+    assertion: args.assertionId ? {
+      id: args.assertionId,
+      relay: args.assertionRelay,
+    } : undefined,
     summary: args.summary,
     content: args.content,
     expiration: args.expiration,

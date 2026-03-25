@@ -48,6 +48,49 @@ describe('trust handlers', () => {
       })
       expect(result.warning).toMatch(/derived|persona/i)
     })
+
+    it('creates assertion-first attestation with e-tag', async () => {
+      const pool = mockPool()
+      const result = await handleTrustAttest(ctx, pool as any, {
+        subject: 'def456'.padEnd(64, '0'),
+        assertionId: 'evt999'.padEnd(64, '0'),
+        assertionRelay: 'wss://relay.example.com',
+        summary: 'Verified in person',
+      })
+      const eTags = result.event.tags.filter((t: string[]) => t[0] === 'e' && t[3] === 'assertion')
+      expect(eTags.length).toBe(1)
+      expect(eTags[0][1]).toBe('evt999'.padEnd(64, '0'))
+      // d-tag should use assertion: prefix
+      const dTag = result.event.tags.find((t: string[]) => t[0] === 'd')
+      expect(dTag![1]).toMatch(/^assertion:/)
+      // no type tag when assertion-only
+      const typeTag = result.event.tags.find((t: string[]) => t[0] === 'type')
+      expect(typeTag).toBeUndefined()
+    })
+
+    it('creates hybrid attestation (assertion ref + explicit type)', async () => {
+      const pool = mockPool()
+      const result = await handleTrustAttest(ctx, pool as any, {
+        type: 'credential',
+        subject: 'def456'.padEnd(64, '0'),
+        assertionId: 'evt999'.padEnd(64, '0'),
+        summary: 'Hybrid attestation',
+      })
+      // d-tag still uses assertion: prefix (assertion wins)
+      const dTag = result.event.tags.find((t: string[]) => t[0] === 'd')
+      expect(dTag![1]).toMatch(/^assertion:/)
+      // type tag present for filtering
+      const typeTag = result.event.tags.find((t: string[]) => t[0] === 'type')
+      expect(typeTag![1]).toBe('credential')
+    })
+
+    it('rejects when neither type nor assertionId provided', async () => {
+      const pool = mockPool()
+      await expect(handleTrustAttest(ctx, pool as any, {
+        subject: 'def456'.padEnd(64, '0'),
+        summary: 'Missing both',
+      })).rejects.toThrow(/type or assertionId/)
+    })
   })
 
   describe('handleTrustRead', () => {
