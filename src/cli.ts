@@ -140,6 +140,7 @@ Environment:
   NOSTR_RELAYS                  Comma-separated relay URLs
   NWC_URI / NWC_URI_FILE        Nostr Wallet Connect URI
   TOR_PROXY                     SOCKS5h proxy URL
+  NOSTR_BRAY_OUTPUT             Default output: "human" (default) or "json"
 
 Quick examples:
   nostr-bray whoami                           # show your npub
@@ -151,7 +152,8 @@ Quick examples:
   nostr-bray shell                            # interactive mode
 
 Flags:
-  --json                              Output raw JSON instead of human-readable
+  --json                              Output raw JSON (for piping/scripts)
+  --human                             Force human-readable output
   --help                              Show help for a command
 
 Use 'nostr-bray <command> --help' for detailed help on any command.
@@ -183,11 +185,22 @@ const nwcUri = config.nwcUri
 const masterRelays = await nip65.loadForIdentity(ctx.activeNpub)
 pool.reconfigure(ctx.activeNpub, masterRelays)
 
-const jsonMode = args.includes('--json')
+// Default output mode from env (CLI-level --json/--human handled per-command)
+const envDefault = process.env.NOSTR_BRAY_OUTPUT === 'json' ? 'json' : 'human'
 
-/** Print JSON (always) or human-readable (default) */
+/** Resolve output mode for a given set of args */
+function resolveOutputMode(cmdArgs: string[]): 'json' | 'human' {
+  if (cmdArgs.includes('--json')) return 'json'
+  if (cmdArgs.includes('--human')) return 'human'
+  return envDefault
+}
+
+// Top-level output mode (for single-command invocations)
+let currentOutputMode = resolveOutputMode(args)
+
+/** Print JSON or human-readable depending on output mode */
 function out(data: unknown, humanFormatter?: (d: any) => string): void {
-  if (jsonMode || !humanFormatter) {
+  if (currentOutputMode === 'json' || !humanFormatter) {
     console.log(JSON.stringify(data, null, 2))
   } else {
     console.log(humanFormatter(data))
@@ -215,6 +228,7 @@ function parseShellLine(line: string): string[] {
 }
 
 async function run(cmdArgs: string[]): Promise<void> {
+  currentOutputMode = resolveOutputMode(cmdArgs)
   const command = cmdArgs[0]
 
   /** Require arg or throw */
