@@ -19,6 +19,7 @@ import { handleTrustSpokenChallenge, handleTrustSpokenVerify } from './trust/spo
 import { handleDuressConfigure, handleDuressActivate } from './safety/handlers.js'
 import { handleZapSend, handleZapBalance, handleZapMakeInvoice, handleZapLookupInvoice, handleZapListTransactions, handleZapReceipts, handleZapDecode } from './zap/handlers.js'
 import { handleDecode, handleEncodeNpub, handleEncodeNote, handleEncodeNprofile, handleEncodeNevent, handleVerify, handleEncrypt, handleDecrypt, handleCount, handleFetch, handleKeyPublic, handleEncodeNsec, handleFilter, handleNipList, handleNipShow } from './util/handlers.js'
+import { handleKeyEncrypt, handleKeyDecrypt } from './util/ncryptsec.js'
 
 import { getCommandHelp } from './help.js'
 import * as fmt from './format.js'
@@ -30,6 +31,31 @@ const command = args[0]
 if (!command) {
   await import('./index.js')
   process.exit(0)
+}
+
+// Bunker = NIP-46 remote signer
+if (command === 'bunker' && !args.includes('--help')) {
+  const { startBunker } = await import('./bunker.js')
+  const config = (await import('./config.js')).loadConfig()
+  const { IdentityContext: IC } = await import('./context.js')
+  const bCtx = new IC(config.secretKey, config.secretFormat)
+  ;(config as any).secretKey = ''
+  const authorizedKeys = args.includes('--authorized-keys')
+    ? args[args.indexOf('--authorized-keys') + 1].split(',')
+    : undefined
+  const bunker = startBunker({
+    ctx: bCtx,
+    relays: config.relays,
+    authorizedKeys,
+    quiet: args.includes('--quiet'),
+  })
+  console.error(`nostr-bray bunker running`)
+  console.error(`URI: ${bunker.url}`)
+  console.error(`Signing as: ${bCtx.activeNpub}`)
+  console.error('Press Ctrl+C to stop')
+  process.on('SIGINT', () => { bunker.close(); bCtx.destroy(); process.exit(0) })
+  process.on('SIGTERM', () => { bunker.close(); bCtx.destroy(); process.exit(0) })
+  await new Promise(() => {})
 }
 
 // Serve = in-memory test relay
@@ -136,6 +162,8 @@ Utility:
   encode-nevent <hex> [relay,...]     Encode event ID + relays as nevent
   encode-nsec <hex>                   Encode hex private key as nsec
   key-public <nsec-or-hex>            Derive pubkey from secret key
+  key-encrypt <nsec-or-hex> <pass>    Encrypt key as ncryptsec (NIP-49)
+  key-decrypt <ncryptsec> <pass>      Decrypt ncryptsec to verify pubkey
   filter <event-json> <filter-json>   Test if event matches filter
   nips                                List all official NIPs
   nip <number>                        Show a specific NIP
@@ -148,6 +176,7 @@ Utility:
 Modes:
   (no command)                        Start MCP server (stdio)
   serve [--port N] [--events file]    Start in-memory test relay
+  bunker [--authorized-keys pk,pk]    Start NIP-46 remote signer daemon
   shell                               Interactive REPL (persistent relay connection)
 
 Environment:
@@ -675,6 +704,20 @@ async function run(cmdArgs: string[]): Promise<void> {
       out(handleKeyPublic(req(1, 'key-public <nsec-or-hex>')))
       break
 
+    case 'key-encrypt':
+      out(handleKeyEncrypt(
+        req(1, 'key-encrypt <nsec-or-hex> <password>'),
+        req(2, 'key-encrypt <nsec-or-hex> <password>'),
+      ))
+      break
+
+    case 'key-decrypt':
+      out(handleKeyDecrypt(
+        req(1, 'key-decrypt <ncryptsec> <password>'),
+        req(2, 'key-decrypt <ncryptsec> <password>'),
+      ))
+      break
+
     case 'filter':
       out(handleFilter(
         JSON.parse(req(1, 'filter <event-json> <filter-json>')),
@@ -744,7 +787,8 @@ const ALL_COMMANDS = [
   'blossom-upload', 'blossom-list', 'blossom-delete',
   'group-info', 'group-chat', 'group-send', 'group-members',
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
-  'key-public', 'filter', 'nips', 'nip', 'verify', 'encrypt', 'decrypt', 'count', 'fetch',
+  'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'encrypt', 'decrypt', 'count', 'fetch',
+  'bunker',
   'help', 'exit',
 ]
 

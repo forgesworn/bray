@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
 import { hexId } from '../validation.js'
+import { handleKeyEncrypt, handleKeyDecrypt } from './ncryptsec.js'
 import {
   handleDecode,
   handleEncodeNpub,
@@ -198,5 +199,29 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
   }, async ({ number }) => {
     const nip = await handleNipShow(number)
     return { content: [{ type: 'text' as const, text: nip.content }] }
+  })
+
+  server.registerTool('key_encrypt', {
+    description: 'Encrypt a secret key with a password (NIP-49 ncryptsec). Returns the ncryptsec string and the derived pubkey. WARNING: secret key is transmitted through the MCP transport.',
+    inputSchema: {
+      secret: z.string().describe('Secret key (nsec or hex)'),
+      password: z.string().describe('Password to encrypt with'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ secret, password }) => {
+    const result = handleKeyEncrypt(secret, password)
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('key_decrypt', {
+    description: 'Decrypt an ncryptsec (NIP-49) with a password. Returns the derived pubkey for verification — never the raw key.',
+    inputSchema: {
+      ncryptsec: z.string().describe('ncryptsec string to decrypt'),
+      password: z.string().describe('Password used during encryption'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ ncryptsec, password }) => {
+    const result = handleKeyDecrypt(ncryptsec, password)
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 }
