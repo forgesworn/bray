@@ -222,7 +222,15 @@ const pool = new RelayPool({
   defaultRelays: config.relays,
 })
 const nip65 = new Nip65Manager(pool, config.relays)
-const ctx = new IdentityContext(config.secretKey, config.secretFormat)
+
+let ctx: any
+if (config.bunkerUri) {
+  const { BunkerContext } = await import('./bunker-context.js')
+  ctx = await BunkerContext.connect(config.bunkerUri)
+  console.error(`Connected to bunker — signing as ${ctx.activeNpub}`)
+} else {
+  ctx = new IdentityContext(config.secretKey, config.secretFormat)
+}
 const nwcUri = config.nwcUri
 
 ;(config as any).secretKey = ''
