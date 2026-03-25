@@ -134,7 +134,8 @@ Social:
   group-members <group-id>           List group members
 
 Trust:
-  attest <type> <identifier> [subject]  Create kind 31000 attestation
+  attest <event-id>                     Verify someone's assertion (assertion-first)
+  claim <type>                          Make a direct claim (endorsement, vouch, review)
   trust-read [--subject X] [--type X]   Read attestations
   trust-verify <event-json>             Validate attestation structure
   trust-revoke <type> <identifier>      Revoke an attestation
@@ -506,13 +507,28 @@ async function run(cmdArgs: string[]): Promise<void> {
 
     // === Trust ===
 
-    case 'attest':
+    case 'attest': {
+      const assertionId = req(1, 'attest <assertion-event-id> [--subject <hex>] [--type <type>] [--summary <text>]')
       out(await handleTrustAttest(ctx, pool, {
-        type: req(1, 'attest <type> <identifier> [subject]'),
-        identifier: cmdArgs[2],
-        subject: cmdArgs[3],
+        assertionId,
+        subject: flag('subject'),
+        type: flag('type'),
+        summary: flag('summary'),
+        assertionRelay: flag('relay'),
       }))
       break
+    }
+
+    case 'claim': {
+      const type = req(1, 'claim <type> [--subject <hex>] [--identifier <string>] [--summary <text>]')
+      out(await handleTrustAttest(ctx, pool, {
+        type,
+        subject: flag('subject'),
+        identifier: flag('identifier'),
+        summary: flag('summary'),
+      }))
+      break
+    }
 
     case 'trust-read':
       out(await handleTrustRead(pool, ctx.activeNpub, {
