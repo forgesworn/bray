@@ -20,6 +20,8 @@ import { handleDuressConfigure, handleDuressActivate } from './safety/handlers.j
 import { handleZapSend, handleZapBalance, handleZapMakeInvoice, handleZapLookupInvoice, handleZapListTransactions, handleZapReceipts, handleZapDecode } from './zap/handlers.js'
 import { handleDecode, handleEncodeNpub, handleEncodeNote, handleEncodeNprofile, handleEncodeNevent, handleVerify, handleEncrypt, handleDecrypt, handleCount, handleFetch, handleKeyPublic, handleEncodeNsec, handleFilter, handleNipList, handleNipShow } from './util/handlers.js'
 
+import { getCommandHelp } from './help.js'
+
 const args = process.argv.slice(2)
 const command = args[0]
 
@@ -27,6 +29,12 @@ const command = args[0]
 if (!command || command === 'serve') {
   await import('./index.js')
   process.exit(0)
+}
+
+// Per-command help: `nostr-bray post --help`
+if (args.includes('--help') && command && command !== 'help' && command !== '--help' && command !== '-h') {
+  const help = getCommandHelp(command)
+  if (help) { console.log(help); process.exit(0) }
 }
 
 const HELP = `nostr-bray — Sovereign Nostr identities for AI agents
@@ -130,7 +138,23 @@ Environment:
   NOSTR_SECRET_KEY_FILE         Path to secret key file
   NOSTR_RELAYS                  Comma-separated relay URLs
   NWC_URI / NWC_URI_FILE        Nostr Wallet Connect URI
-  TOR_PROXY                     SOCKS5h proxy URL`
+  TOR_PROXY                     SOCKS5h proxy URL
+
+Quick examples:
+  nostr-bray whoami                           # show your npub
+  nostr-bray post "gm nostr"                  # publish a note
+  nostr-bray persona work                     # derive work identity
+  nostr-bray dm abc123... "secret message"    # send encrypted DM
+  nostr-bray decode npub1...                  # decode any nip19 entity
+  nostr-bray nips                             # browse official NIPs
+  nostr-bray shell                            # interactive mode
+
+Use 'nostr-bray <command> --help' for detailed help on any command.
+
+Learn more:
+  Guide:     https://github.com/forgesworn/bray/blob/main/docs/guide.md
+  Examples:  https://github.com/forgesworn/bray/tree/main/examples
+  npm:       https://www.npmjs.com/package/nostr-bray`
 
 if (command === 'help' || command === '--help' || command === '-h') {
   console.log(HELP)
