@@ -24,6 +24,7 @@ export interface BunkerOptions {
   ctx: IdentityContext
   relays: string[]
   authorizedKeys?: string[]  // hex pubkeys allowed to send requests
+  bunkerKeyHex?: string      // persistent bunker keypair (hex) — if not provided, generates ephemeral
   quiet?: boolean
 }
 
@@ -39,8 +40,10 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
   const authorizedKeys = new Set(opts.authorizedKeys ?? [])
   const log = quiet ? () => {} : (...args: unknown[]) => console.error('[bunker]', ...args)
 
-  // Generate a bunker-specific keypair for NIP-46 communication
-  const bunkerSk = generateSecretKey()
+  // Use persistent key if provided, otherwise generate ephemeral
+  const bunkerSk = opts.bunkerKeyHex
+    ? Buffer.from(opts.bunkerKeyHex, 'hex')
+    : generateSecretKey()
   const bunkerPk = getPublicKey(bunkerSk)
   const bunkerNpub = npubEncode(bunkerPk)
 

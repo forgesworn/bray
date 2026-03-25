@@ -43,10 +43,20 @@ if (command === 'bunker' && !args.includes('--help')) {
   const authorizedKeys = args.includes('--authorized-keys')
     ? args[args.indexOf('--authorized-keys') + 1].split(',')
     : undefined
+  // Persistent bunker key — read from file or flag
+  let bunkerKeyHex: string | undefined
+  if (args.includes('--bunker-key-file')) {
+    const { readFileSync } = await import('node:fs')
+    bunkerKeyHex = readFileSync(args[args.indexOf('--bunker-key-file') + 1], 'utf-8').trim()
+  } else if (args.includes('--bunker-key')) {
+    bunkerKeyHex = args[args.indexOf('--bunker-key') + 1]
+  }
+
   const bunker = startBunker({
     ctx: bCtx,
     relays: config.relays,
     authorizedKeys,
+    bunkerKeyHex,
     quiet: args.includes('--quiet'),
   })
   console.error(`nostr-bray bunker running`)
