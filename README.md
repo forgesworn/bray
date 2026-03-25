@@ -8,7 +8,7 @@
 [![licence](https://img.shields.io/npm/l/nostr-bray)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-ESM-blue)](./tsconfig.json)
 
-An MCP server that gives AI agents a full Nostr identity — not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, and duress detection. 74 tools across 10 groups.
+An MCP server that gives AI agents a full Nostr identity — not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, and duress detection. 78 tools across 10 groups.
 
 ## The Problem
 
@@ -68,10 +68,11 @@ Or with a secret file (recommended):
 
 ## Tool Groups
 
-### Identity (11 tools)
+### Identity (12 tools)
 
 | Tool | Description |
 |------|-------------|
+| `whoami` | Returns the active identity's npub |
 | `identity_create` | Generate a fresh identity with BIP-39 mnemonic |
 | `identity_derive` | Derive a child identity by purpose and index |
 | `identity_derive_persona` | Derive a named persona (work, personal, anonymous) |
@@ -119,13 +120,14 @@ Or with a secret file (recommended):
 | `trust_spoken_challenge` | Generate spoken verification token |
 | `trust_spoken_verify` | Verify spoken token response |
 
-### Relay (4 tools)
+### Relay (5 tools)
 
 | Tool | Description |
 |------|-------------|
 | `relay_list` | List relays with shared-relay warnings |
 | `relay_set` | Publish kind 10002 relay list |
 | `relay_add` | Add relay to active identity (in-memory) |
+| `relay_query` | Query events from relays by kind, author, tags, or time range |
 | `relay_info` | Fetch NIP-11 relay information document |
 
 ### Zap (7 tools)
@@ -171,7 +173,7 @@ Or with a secret file (recommended):
 | `nip_publish` | Publish a community NIP (kind 30817) |
 | `nip_read` | Fetch community NIPs |
 
-### Utility (16 tools)
+### Utility (18 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -183,6 +185,8 @@ Or with a secret file (recommended):
 | `encode_naddr` | Encode addressable event as naddr |
 | `encode_nsec` | Encode hex private key as nsec |
 | `key_public` | Derive pubkey from secret key |
+| `key_encrypt` | Encrypt a secret key with a password (NIP-49 ncryptsec) |
+| `key_decrypt` | Decrypt an ncryptsec (NIP-49) with a password |
 | `verify_event` | Verify event hash and signature |
 | `filter` | Test if an event matches a filter |
 | `nip44_encrypt` | NIP-44 encrypt for a recipient |
