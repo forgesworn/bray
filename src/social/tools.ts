@@ -22,7 +22,7 @@ import { handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers }
 
 export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('social_post', {
-    description: 'Post a text note (kind 1) as the active identity. Returns the signed event.',
+    description: 'Post a text note (kind 1) signed by the active identity and publish to relays. Returns { id, pubkey, publish: { success, accepted, rejected } }. The most common social action.',
     inputSchema: {
       content: z.string().describe('Text content of the note'),
     },
@@ -39,7 +39,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('social_reply', {
-    description: 'Reply to a Nostr event (kind 1 with e-tag and p-tag) as the active identity.',
+    description: 'Reply to a Nostr event (kind 1) with correct threading tags. You need the event ID and the author\'s pubkey — get these from social_feed or social_notifications.',
     inputSchema: {
       content: z.string().describe('Reply text'),
       replyTo: hexId.describe('Event ID being replied to (hex)'),
@@ -58,7 +58,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('social_react', {
-    description: 'React to a Nostr event (kind 7) as the active identity. Default reaction is "+".',
+    description: 'React to a Nostr event (kind 7). Pass "+" for like, or any emoji (🤙, ❤️, 🔥). You need the event ID and author pubkey.',
     inputSchema: {
       eventId: hexId.describe('Event ID to react to (hex)'),
       eventPubkey: hexId.describe('Pubkey of the event author (hex)'),
@@ -155,7 +155,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('dm_send', {
-    description: 'Send a direct message to a Nostr pubkey. Uses NIP-17 gift wrap by default. Set nip04: true for legacy NIP-04 (requires NIP04_ENABLED).',
+    description: 'Send an encrypted direct message. Default: NIP-17 gift wrap (most private — sender identity hidden behind ephemeral key). Set nip04: true for legacy NIP-04 (only if NIP04_ENABLED=1). Returns { protocol, id, publish }.',
     inputSchema: {
       recipientPubkeyHex: hexId.describe('Recipient hex pubkey'),
       message: z.string().describe('Message text'),
@@ -181,7 +181,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('dm_read', {
-    description: 'Read direct messages addressed to the active identity. Decrypts NIP-17 and NIP-04 messages.',
+    description: 'Read direct messages addressed to the active identity. Decrypts both NIP-17 (gift wrap) and NIP-04 (legacy). Each message includes { from, content, protocol, decrypted }. Gracefully handles decryption failures without crashing.',
     annotations: { readOnlyHint: true },
   }, async () => {
     const messages = await handleDmRead(deps.ctx, deps.pool)
