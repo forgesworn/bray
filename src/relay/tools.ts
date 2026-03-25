@@ -2,6 +2,8 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
 import { relayUrl } from '../validation.js'
+import { toolResponse } from '../tool-response.js'
+import * as fmt from '../format.js'
 import { handleRelayList, handleRelaySet, handleRelayAdd, handleRelayInfo } from './handlers.js'
 
 export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
@@ -9,13 +11,12 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
     description: 'List the relay set (read/write) for the active identity. Optionally check for shared relays with another identity.',
     inputSchema: {
       compareWithNpub: z.string().optional().describe('Compare shared relays with this npub'),
+      output: z.enum(['json', 'human']).default('json').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ compareWithNpub }) => {
+  }, async ({ compareWithNpub, output }) => {
     const result = handleRelayList(deps.ctx, deps.pool, compareWithNpub)
-    return {
-      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
-    }
+    return toolResponse(result, output, fmt.formatRelays)
   })
 
   server.registerTool('relay_set', {

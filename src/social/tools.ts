@@ -2,6 +2,8 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
 import { hexId } from '../validation.js'
+import { toolResponse } from '../tool-response.js'
+import * as fmt from '../format.js'
 import {
   handleSocialPost,
   handleSocialReply,
@@ -109,14 +111,13 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     inputSchema: {
       pubkeyHex: hexId.describe('Hex pubkey to fetch profile for'),
       npub: z.string().optional().describe('Bech32 npub (used for relay routing, defaults to active identity)'),
+      output: z.enum(['json', 'human']).default('json').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ pubkeyHex, npub }) => {
+  }, async ({ pubkeyHex, npub, output }) => {
     const resolvedNpub = npub ?? deps.ctx.activeNpub
     const profile = await handleSocialProfileGet(deps.pool, resolvedNpub, pubkeyHex)
-    return {
-      content: [{ type: 'text' as const, text: JSON.stringify(profile, null, 2) }],
-    }
+    return toolResponse(profile, output, fmt.formatProfile)
   })
 
   server.registerTool('social_profile_set', {
@@ -182,12 +183,13 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
 
   server.registerTool('dm_read', {
     description: 'Read direct messages addressed to the active identity. Decrypts both NIP-17 (gift wrap) and NIP-04 (legacy). Each message includes { from, content, protocol, decrypted }. Gracefully handles decryption failures without crashing.',
+    inputSchema: {
+      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+    },
     annotations: { readOnlyHint: true },
-  }, async () => {
+  }, async ({ output }) => {
     const messages = await handleDmRead(deps.ctx, deps.pool)
-    return {
-      content: [{ type: 'text' as const, text: JSON.stringify(messages, null, 2) }],
-    }
+    return toolResponse(messages, output, fmt.formatDms)
   })
 
   server.registerTool('social_notifications', {
@@ -195,13 +197,12 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     inputSchema: {
       since: z.number().optional().describe('Unix timestamp — only fetch notifications after this time'),
       limit: z.number().int().min(1).max(200).default(50).describe('Max notifications to return'),
+      output: z.enum(['json', 'human']).default('json').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ since, limit }) => {
+  }, async ({ since, limit, output }) => {
     const notifications = await handleNotifications(deps.ctx, deps.pool, { since, limit })
-    return {
-      content: [{ type: 'text' as const, text: JSON.stringify(notifications, null, 2) }],
-    }
+    return toolResponse(notifications, output, fmt.formatNotifications)
   })
 
   server.registerTool('social_feed', {
@@ -210,13 +211,12 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       authors: z.array(hexId).optional().describe('Hex pubkeys to filter by'),
       since: z.number().optional().describe('Unix timestamp — only fetch posts after this time'),
       limit: z.number().int().min(1).max(100).default(20).describe('Max posts to return'),
+      output: z.enum(['json', 'human']).default('json').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ authors, since, limit }) => {
+  }, async ({ authors, since, limit, output }) => {
     const feed = await handleFeed(deps.ctx, deps.pool, { authors, since, limit })
-    return {
-      content: [{ type: 'text' as const, text: JSON.stringify(feed, null, 2) }],
-    }
+    return toolResponse(feed, output, fmt.formatFeed)
   })
 
   server.registerTool('contacts_get', {
@@ -224,13 +224,12 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     inputSchema: {
       pubkeyHex: hexId.describe('Hex pubkey to fetch contacts for'),
       npub: z.string().optional().describe('Bech32 npub for relay routing (defaults to active identity)'),
+      output: z.enum(['json', 'human']).default('json').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ pubkeyHex, npub }) => {
+  }, async ({ pubkeyHex, npub, output }) => {
     const contacts = await handleContactsGet(deps.pool, npub ?? deps.ctx.activeNpub, pubkeyHex)
-    return {
-      content: [{ type: 'text' as const, text: JSON.stringify(contacts, null, 2) }],
-    }
+    return toolResponse(contacts, output, fmt.formatContacts)
   })
 
   server.registerTool('contacts_follow', {

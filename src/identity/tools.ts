@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { toolResponse } from '../tool-response.js'
+import * as fmt from '../format.js'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
@@ -77,12 +79,13 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
 
   server.registerTool('identity_list', {
     description: 'List all known identities (master + all derived). Returns array of { npub, purpose, index, personaName }. Never includes private keys. Use this to see what identities are available before switching.',
+    inputSchema: {
+      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+    },
     annotations: { readOnlyHint: true },
-  }, async () => {
+  }, async ({ output }) => {
     const result = handleIdentityList(deps.ctx)
-    return {
-      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
-    }
+    return toolResponse(result, output, fmt.formatIdentityList)
   })
 
   server.registerTool('identity_prove', {
