@@ -94,6 +94,15 @@ describe('social handlers', () => {
       expect(result.about).toBe('A test user')
     })
 
+    it('takes highest created_at when multiple profiles returned', async () => {
+      const pool = mockPool([
+        { kind: 0, pubkey: 'p', created_at: 500, tags: [], content: JSON.stringify({ name: 'Old' }), id: '1', sig: 's' },
+        { kind: 0, pubkey: 'p', created_at: 1000, tags: [], content: JSON.stringify({ name: 'New' }), id: '2', sig: 's' },
+      ])
+      const result = await handleSocialProfileGet(pool as any, 'npub', 'p')
+      expect(result.name).toBe('New')
+    })
+
     it('returns empty profile when none found', async () => {
       const pool = mockPool([])
       const result = await handleSocialProfileGet(pool as any, 'somenpub', 'somepub')
@@ -201,6 +210,16 @@ describe('social handlers', () => {
       expect(result[0].pubkey).toBe('friend1')
       expect(result[2].relay).toBe('wss://relay.example.com')
       expect(result[2].petname).toBe('alice')
+    })
+
+    it('takes highest created_at when multiple kind 3 events', async () => {
+      const pool = mockPool([
+        { kind: 3, pubkey: 'p', created_at: 500, tags: [['p', 'old']], content: '', id: '1', sig: 's' },
+        { kind: 3, pubkey: 'p', created_at: 1000, tags: [['p', 'new']], content: '', id: '2', sig: 's' },
+      ])
+      const result = await handleContactsGet(pool as any, 'npub', 'p')
+      expect(result.length).toBe(1)
+      expect(result[0].pubkey).toBe('new')
     })
 
     it('returns empty when no kind 3 found', async () => {

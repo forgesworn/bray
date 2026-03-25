@@ -36,6 +36,16 @@ describe('NIP-29 group handlers', () => {
       expect(result.isOpen).toBe(true)
     })
 
+    it('takes highest created_at from multiple metadata events', async () => {
+      const events = [
+        { kind: 39000, pubkey: 'r', created_at: 500, tags: [['d', 'g'], ['name', 'Old']], content: '', id: '1', sig: 's' },
+        { kind: 39000, pubkey: 'r', created_at: 1000, tags: [['d', 'g'], ['name', 'New']], content: '', id: '2', sig: 's' },
+      ]
+      const pool = mockPool(events)
+      const result = await handleGroupInfo(pool as any, 'npub1test', { relay: 'wss://test', groupId: 'g' })
+      expect(result.name).toBe('New')
+    })
+
     it('returns minimal info when no metadata found', async () => {
       const pool = mockPool([])
       const result = await handleGroupInfo(pool as any, 'npub1test', { relay: 'wss://test', groupId: 'unknown' })
@@ -98,6 +108,17 @@ describe('NIP-29 group handlers', () => {
       expect(result.length).toBe(2)
       expect(result[0].pubkey).toBe('member1')
       expect(result[1].role).toBe('admin')
+    })
+
+    it('takes highest created_at from multiple member events', async () => {
+      const events = [
+        { kind: 39002, pubkey: 'r', created_at: 500, tags: [['d', 'g'], ['p', 'old']], content: '', id: '1', sig: 's' },
+        { kind: 39002, pubkey: 'r', created_at: 1000, tags: [['d', 'g'], ['p', 'new']], content: '', id: '2', sig: 's' },
+      ]
+      const pool = mockPool(events)
+      const result = await handleGroupMembers(pool as any, 'npub1test', { groupId: 'g' })
+      expect(result.length).toBe(1)
+      expect(result[0].pubkey).toBe('new')
     })
 
     it('returns empty when no member list found', async () => {

@@ -191,4 +191,35 @@ describe('IdentityContext', () => {
       expect(refB!.every(b => b === 0)).toBe(true)
     })
   })
+
+  describe('treeRootPubkey', () => {
+    it('returns the nsec-tree root master pubkey', () => {
+      const ctx = new IdentityContext(TEST_NSEC, 'nsec')
+      expect(ctx.treeRootPubkey).toBeDefined()
+      // Tree root pubkey is different from the raw key's npub
+      expect(ctx.treeRootPubkey).not.toBe(ctx.activeNpub)
+      ctx.destroy()
+    })
+  })
+
+  describe('LRU cache duplicate', () => {
+    it('re-deriving the same identity updates cache without duplicating', () => {
+      const ctx = new IdentityContext(TEST_NSEC, 'nsec')
+      const first = ctx.derive('same', 0)
+      const second = ctx.derive('same', 0)
+      expect(first.npub).toBe(second.npub)
+      const list = ctx.listIdentities()
+      const sameCount = list.filter(i => i.purpose === 'same').length
+      expect(sameCount).toBe(1)
+      ctx.destroy()
+    })
+  })
+
+  describe('activePublicKeyHex', () => {
+    it('returns 64-char hex public key', () => {
+      const ctx = new IdentityContext(TEST_NSEC, 'nsec')
+      expect(ctx.activePublicKeyHex).toMatch(/^[0-9a-f]{64}$/)
+      ctx.destroy()
+    })
+  })
 })
