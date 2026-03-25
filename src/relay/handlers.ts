@@ -136,5 +136,9 @@ export async function handleRelayInfo(
   if (text.length > 1_048_576) {
     throw new Error('Relay info document too large')
   }
-  return JSON.parse(text) as Record<string, unknown>
+  try {
+    return JSON.parse(text) as Record<string, unknown>
+  } catch {
+    throw new Error('Relay info document is not valid JSON')
+  }
 }
