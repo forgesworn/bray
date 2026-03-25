@@ -42,7 +42,7 @@ describe('CLI', () => {
   })
 
   it('list returns JSON array with master identity', () => {
-    const output = JSON.parse(run('list'))
+    const output = JSON.parse(run('list', '--json'))
     expect(Array.isArray(output)).toBe(true)
     expect(output.length).toBeGreaterThanOrEqual(1)
     expect(output[0].purpose).toBe('master')
@@ -119,7 +119,7 @@ describe('CLI', () => {
   })
 
   it('relay-list returns read/write arrays', () => {
-    const output = JSON.parse(run('relay-list'))
+    const output = JSON.parse(run('relay-list', '--json'))
     expect(output.read).toBeDefined()
     expect(output.write).toBeDefined()
   })

@@ -21,6 +21,7 @@ import { handleZapSend, handleZapBalance, handleZapMakeInvoice, handleZapLookupI
 import { handleDecode, handleEncodeNpub, handleEncodeNote, handleEncodeNprofile, handleEncodeNevent, handleVerify, handleEncrypt, handleDecrypt, handleCount, handleFetch, handleKeyPublic, handleEncodeNsec, handleFilter, handleNipList, handleNipShow } from './util/handlers.js'
 
 import { getCommandHelp } from './help.js'
+import * as fmt from './format.js'
 
 const args = process.argv.slice(2)
 const command = args[0]
@@ -149,6 +150,10 @@ Quick examples:
   nostr-bray nips                             # browse official NIPs
   nostr-bray shell                            # interactive mode
 
+Flags:
+  --json                              Output raw JSON instead of human-readable
+  --help                              Show help for a command
+
 Use 'nostr-bray <command> --help' for detailed help on any command.
 
 Learn more:
@@ -178,8 +183,16 @@ const nwcUri = config.nwcUri
 const masterRelays = await nip65.loadForIdentity(ctx.activeNpub)
 pool.reconfigure(ctx.activeNpub, masterRelays)
 
-/** Helper: print JSON result */
-function out(data: unknown): void { console.log(JSON.stringify(data, null, 2)) }
+const jsonMode = args.includes('--json')
+
+/** Print JSON (always) or human-readable (default) */
+function out(data: unknown, humanFormatter?: (d: any) => string): void {
+  if (jsonMode || !humanFormatter) {
+    console.log(JSON.stringify(data, null, 2))
+  } else {
+    console.log(humanFormatter(data))
+  }
+}
 
 /** Parse a shell line into args, respecting quotes */
 function parseShellLine(line: string): string[] {
@@ -233,7 +246,7 @@ async function run(cmdArgs: string[]): Promise<void> {
       break
 
     case 'list':
-      out(handleIdentityList(ctx))
+      out(handleIdentityList(ctx), fmt.formatIdentityList)
       break
 
     case 'derive':
@@ -298,7 +311,7 @@ async function run(cmdArgs: string[]): Promise<void> {
     // === Social ===
 
     case 'post':
-      out(await handleSocialPost(ctx, pool, { content: req(1, 'post "message"') }))
+      out(await handleSocialPost(ctx, pool, { content: req(1, 'post "message"') }), fmt.formatPost)
       break
 
     case 'reply':
@@ -318,7 +331,7 @@ async function run(cmdArgs: string[]): Promise<void> {
       break
 
     case 'profile':
-      out(await handleSocialProfileGet(pool, ctx.activeNpub, req(1, 'profile <pubkey-hex>')))
+      out(await handleSocialProfileGet(pool, ctx.activeNpub, req(1, 'profile <pubkey-hex>')), fmt.formatProfile)
       break
 
     case 'profile-set': {
@@ -342,7 +355,7 @@ async function run(cmdArgs: string[]): Promise<void> {
       break
 
     case 'contacts':
-      out(await handleContactsGet(pool, ctx.activeNpub, req(1, 'contacts <pubkey-hex>')))
+      out(await handleContactsGet(pool, ctx.activeNpub, req(1, 'contacts <pubkey-hex>')), fmt.formatContacts)
       break
 
     case 'follow':
@@ -369,11 +382,11 @@ async function run(cmdArgs: string[]): Promise<void> {
       break
 
     case 'dm-read':
-      out(await handleDmRead(ctx, pool))
+      out(await handleDmRead(ctx, pool), fmt.formatDms)
       break
 
     case 'feed':
-      out(await handleFeed(ctx, pool, { limit: parseInt(flag('limit', '20')!, 10) }))
+      out(await handleFeed(ctx, pool, { limit: parseInt(flag('limit', '20')!, 10) }), fmt.formatFeed)
       break
 
     case 'nip-publish': {
@@ -398,7 +411,7 @@ async function run(cmdArgs: string[]): Promise<void> {
       break
 
     case 'notifications':
-      out(await handleNotifications(ctx, pool, { limit: parseInt(flag('limit', '50')!, 10) }))
+      out(await handleNotifications(ctx, pool, { limit: parseInt(flag('limit', '50')!, 10) }), fmt.formatNotifications)
       break
 
     // === Trust ===
@@ -475,7 +488,7 @@ async function run(cmdArgs: string[]): Promise<void> {
     // === Relay ===
 
     case 'relay-list':
-      out(handleRelayList(ctx, pool, flag('compare')))
+      out(handleRelayList(ctx, pool, flag('compare')), fmt.formatRelays)
       break
 
     case 'relay-set': {
@@ -528,7 +541,7 @@ async function run(cmdArgs: string[]): Promise<void> {
       break
 
     case 'zap-receipts':
-      out(await handleZapReceipts(ctx, pool, { limit: parseInt(flag('limit', '20')!, 10) }))
+      out(await handleZapReceipts(ctx, pool, { limit: parseInt(flag('limit', '20')!, 10) }), fmt.formatZapReceipts)
       break
 
     case 'zap-decode':
@@ -582,7 +595,7 @@ async function run(cmdArgs: string[]): Promise<void> {
       out(await handleGroupChat(pool, ctx.activeNpub, {
         groupId: req(1, 'group-chat <group-id>'),
         limit: parseInt(flag('limit', '20')!, 10),
-      }))
+      }), fmt.formatGroupChat)
       break
 
     case 'group-send':
@@ -601,7 +614,7 @@ async function run(cmdArgs: string[]): Promise<void> {
     // === Utility ===
 
     case 'decode':
-      out(handleDecode(req(1, 'decode <nip19>')))
+      out(handleDecode(req(1, 'decode <nip19>')), fmt.formatDecode)
       break
 
     case 'encode-npub':
@@ -640,7 +653,7 @@ async function run(cmdArgs: string[]): Promise<void> {
       break
 
     case 'nips':
-      out(await handleNipList())
+      out(await handleNipList(), fmt.formatNipList)
       break
 
     case 'nip': {
