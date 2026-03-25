@@ -25,6 +25,15 @@ export interface ToolDeps {
 }
 
 export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
+  server.registerTool('whoami', {
+    description: 'Returns the active identity\'s npub. The simplest way to check which identity is currently in use.',
+    annotations: { readOnlyHint: true },
+  }, async () => {
+    return {
+      content: [{ type: 'text' as const, text: deps.ctx.activeNpub }],
+    }
+  })
+
   server.registerTool('identity_create', {
     description: 'Generate a fresh Nostr identity with a BIP-39 mnemonic seed. Returns { npub, mnemonic }. Store the mnemonic securely — it will not be shown again. Use this when the user needs a brand new identity unrelated to the current one.',
     annotations: { readOnlyHint: false },
@@ -80,7 +89,7 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('identity_list', {
     description: 'List all known identities (master + all derived). Returns array of { npub, purpose, index, personaName }. Never includes private keys. Use this to see what identities are available before switching.',
     inputSchema: {
-      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ output }) => {

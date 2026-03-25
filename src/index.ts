@@ -36,9 +36,10 @@ export const deps = { ctx: ctx as any, pool, nip65, nwcUri: config.nwcUri }
 ;(config as any).nwcUri = undefined
 ;(config as any).bunkerUri = undefined
 
-// Load master identity relay list
-const masterRelays = await nip65.loadForIdentity(ctx.activeNpub)
-pool.reconfigure(ctx.activeNpub, masterRelays)
+// Load master identity relay list in the background — don't block tool registration
+nip65.loadForIdentity(ctx.activeNpub).then(masterRelays => {
+  pool.reconfigure(ctx.activeNpub, masterRelays)
+}).catch(e => console.error('NIP-65 relay load failed:', e.message))
 
 const server = new McpServer({ name: 'nostr-bray', version: '0.1.0' })
 

@@ -111,7 +111,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     inputSchema: {
       pubkeyHex: hexId.describe('Hex pubkey to fetch profile for'),
       npub: z.string().optional().describe('Bech32 npub (used for relay routing, defaults to active identity)'),
-      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ pubkeyHex, npub, output }) => {
@@ -184,7 +184,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('dm_read', {
     description: 'Read direct messages addressed to the active identity. Decrypts both NIP-17 (gift wrap) and NIP-04 (legacy). Each message includes { from, content, protocol, decrypted }. Gracefully handles decryption failures without crashing.',
     inputSchema: {
-      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ output }) => {
@@ -197,7 +197,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     inputSchema: {
       since: z.number().optional().describe('Unix timestamp — only fetch notifications after this time'),
       limit: z.number().int().min(1).max(200).default(50).describe('Max notifications to return'),
-      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ since, limit, output }) => {
@@ -211,7 +211,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       authors: z.array(hexId).optional().describe('Hex pubkeys to filter by'),
       since: z.number().optional().describe('Unix timestamp — only fetch posts after this time'),
       limit: z.number().int().min(1).max(100).default(20).describe('Max posts to return'),
-      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ authors, since, limit, output }) => {
@@ -224,7 +224,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     inputSchema: {
       pubkeyHex: hexId.describe('Hex pubkey to fetch contacts for'),
       npub: z.string().optional().describe('Bech32 npub for relay routing (defaults to active identity)'),
-      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ pubkeyHex, npub, output }) => {
