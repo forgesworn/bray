@@ -24,7 +24,7 @@ export interface ToolDeps {
 
 export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('identity_create', {
-    description: 'Generate a fresh Nostr identity with a BIP-39 mnemonic seed. Returns the master npub and mnemonic for backup.',
+    description: 'Generate a fresh Nostr identity with a BIP-39 mnemonic seed. Returns { npub, mnemonic }. Store the mnemonic securely — it will not be shown again. Use this when the user needs a brand new identity unrelated to the current one.',
     annotations: { readOnlyHint: false },
   }, async () => {
     const result = handleIdentityCreate()
@@ -34,7 +34,7 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('identity_derive', {
-    description: 'Derive a child Nostr identity from the active tree root. Returns the new npub.',
+    description: 'Derive a child Nostr identity from the master key by purpose and index. Deterministic — same inputs always produce the same npub. Returns { npub, purpose, index }. Use identity_switch after deriving to operate as the new identity.',
     inputSchema: {
       purpose: z.string().describe('Purpose string for derivation (e.g. "messaging", "signing")'),
       index: z.number().int().min(0).default(0).describe('Derivation index (default 0)'),
@@ -48,7 +48,7 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('identity_derive_persona', {
-    description: 'Derive a named persona identity (e.g. "work", "personal", "anonymous"). Returns the new npub.',
+    description: 'Derive a named persona (e.g. "work", "personal", "anonymous"). Like identity_derive but uses a human-readable name. Returns { npub, personaName, index }. Follow with identity_switch to activate.',
     inputSchema: {
       name: z.string().describe('Persona name (e.g. "work", "personal", "anonymous")'),
       index: z.number().int().min(0).default(0).describe('Derivation index (default 0)'),
@@ -62,7 +62,7 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('identity_switch', {
-    description: 'Switch the active Nostr identity. All subsequent tools operate as the new identity. Use "master" to return to root.',
+    description: 'Switch the active Nostr identity. ALL subsequent tool calls will sign events and query relays as the new identity. Pass "master" to return to root. Returns { npub } of the now-active identity. This is the key tool for multi-persona workflows.',
     inputSchema: {
       target: z.string().describe('Purpose, persona name, or "master" to switch to'),
       index: z.number().int().min(0).optional().describe('Derivation index (if switching by purpose)'),
@@ -76,7 +76,7 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('identity_list', {
-    description: 'List all known Nostr identities. Returns npub, purpose, and persona name for each. Never includes private keys.',
+    description: 'List all known identities (master + all derived). Returns array of { npub, purpose, index, personaName }. Never includes private keys. Use this to see what identities are available before switching.',
     annotations: { readOnlyHint: true },
   }, async () => {
     const result = handleIdentityList(deps.ctx)
@@ -86,7 +86,7 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('identity_prove', {
-    description: 'Create a cryptographic linkage proof between the master key and the active identity. Defaults to blind proof (no purpose/index revealed).',
+    description: 'Create a cryptographic linkage proof between the master key and the active identity. "blind" (default) proves they share a master without revealing how the child was derived. "full" also reveals the purpose and index. Returns a LinkageProof object that can be verified by anyone with nsec-tree. Use trust_proof_publish to make it permanent on relays.',
     inputSchema: {
       mode: z.enum(['blind', 'full']).default('blind').describe('Proof mode: "blind" hides derivation path, "full" reveals purpose and index'),
     },
@@ -99,7 +99,7 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('identity_backup_shamir', {
-    description: 'Split the master secret into Shamir shard files. Shard content is written to disk — never returned in the response.',
+    description: 'Split the active identity\'s private key into Shamir shard files using threshold secret sharing. Any "threshold" shards can reconstruct the key. Files written with 0600 permissions via atomic rename. Returns file paths only — shard content never appears in the response.',
     inputSchema: {
       threshold: z.number().int().min(2).describe('Minimum shards needed to reconstruct'),
       shares: z.number().int().min(2).describe('Total number of shards to create'),

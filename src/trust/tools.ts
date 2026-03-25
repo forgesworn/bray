@@ -16,7 +16,7 @@ import { handleTrustSpokenChallenge, handleTrustSpokenVerify } from './spoken.js
 
 export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('trust_attest', {
-    description: 'Create and publish a kind 31000 verifiable attestation as the active identity.',
+    description: 'Create and publish a kind 31000 verifiable attestation (NIP-VA) as the active identity. An attestation is a signed statement about a subject (e.g. "I verify this pubkey belongs to Alice"). Warns if attesting from a derived persona instead of master. Use trust_read to find existing attestations, trust_revoke to revoke them.',
     inputSchema: {
       type: z.string().describe('Attestation type (e.g. "identity-verification", "endorsement")'),
       identifier: z.string().optional().describe('D-tag identifier (hex pubkey or context string)'),
@@ -141,7 +141,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('trust_ring_prove', {
-    description: 'Create a ring signature proving anonymous membership in a group of public keys.',
+    description: 'Create a ring signature proving anonymous group membership. A verifier can confirm "someone in this ring signed this" but cannot determine who. The active identity must be one of the pubkeys in the ring. Returns kind 30078 event with the signature.',
     inputSchema: {
       ring: z.array(hexId).describe('Hex x-only public keys of ring members (must include active identity)'),
       attestationType: z.string().describe('Attestation type context for the canonical message'),
