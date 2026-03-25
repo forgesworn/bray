@@ -11,6 +11,7 @@ import { registerRelayTools } from './relay/tools.js'
 import { registerZapTools } from './zap/tools.js'
 import { registerSafetyTools } from './safety/tools.js'
 import { registerUtilTools } from './util/tools.js'
+import { ActionCatalog, createCatalogProxy } from './catalog.js'
 
 const config = loadConfig()
 const pool = new RelayPool({
@@ -42,25 +43,31 @@ nip65.loadForIdentity(ctx.activeNpub).then(masterRelays => {
 }).catch(e => console.error('NIP-65 relay load failed:', e.message))
 
 const server = new McpServer({ name: 'nostr-bray', version: '0.1.0' }, {
-  instructions: 'Always check whoami before posting or signing. Use social-feed or social-notifications to get event IDs and author pubkeys before calling social-reply or social-react. DMs default to NIP-17 gift wrap (most private); only use NIP-04 if the recipient requires it. For trust attestations, use trust-read to check existing attestations before creating new ones.',
+  instructions: 'Always check whoami before posting or signing. Use social-feed or social-notifications to get event IDs and author pubkeys before calling social-reply or social-react. DMs default to NIP-17 gift wrap (most private); only use NIP-04 if the recipient requires it. For less common actions (encoding, encryption, ring signatures, blossom, groups, NIPs, key management, safety), use search-actions to discover them, then execute-action to run them.',
 })
 
-// Phase 2: Identity tools
-registerIdentityTools(server, deps)
+// Promoted tools are registered directly with the server (always visible to Claude).
+// Everything else goes to the catalog, discoverable via search-actions + execute-action.
+const PROMOTED = new Set([
+  'whoami', 'social-post', 'social-reply', 'social-feed',
+  'dm-send', 'dm-read', 'zap-send', 'zap-balance',
+  'identity-switch', 'relay-query',
+])
+const catalog = new ActionCatalog()
+const proxy = createCatalogProxy(server, catalog, PROMOTED)
 
-// Phase 3: Social tools
-registerSocialTools(server, deps)
+// Register all tools — the proxy routes promoted to server, rest to catalog
+registerIdentityTools(proxy, deps)
+registerSocialTools(proxy, deps)
+registerTrustTools(proxy, deps)
+registerRelayTools(proxy, deps)
+registerZapTools(proxy, deps)
+registerSafetyTools(proxy, deps)
+registerUtilTools(proxy, deps)
 
-// Phase 4: Trust tools
-registerTrustTools(server, deps)
-
-// Phase 5: Relay, Zap & Safety tools
-registerRelayTools(server, deps)
-registerZapTools(server, deps)
-registerSafetyTools(server, deps)
-
-// Utility tools
-registerUtilTools(server, deps)
+// Add search-actions and execute-action meta-tools to the real server
+catalog.registerMetaTools(server)
+console.error(`nostr-bray: ${PROMOTED.size} promoted tools + ${catalog.size} cataloged (${PROMOTED.size + catalog.size + 2} total)`)
 
 if (config.transport === 'stdio') {
   const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js')
