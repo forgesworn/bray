@@ -16,6 +16,41 @@ AI agents interacting with Nostr today are handed a single key pair with no sepa
 
 nostr-bray solves this with nsec-tree hierarchical derivation. A single master secret generates unlimited child identities, each with its own key pair, purpose, and relay set. Private keys are zeroed from memory on eviction. Agents can switch personas mid-conversation, prove they control the master without revealing the derivation path, and activate a duress identity if compromised.
 
+## How It Works
+
+Every tool operates as the "active identity." Derive a persona, switch to it, and everything you do is signed by that persona's key — cryptographically unlinkable to the master unless you publish a proof.
+
+```
+identity-derive-persona("work")    → npub1abc...
+identity-switch("work")            → now operating as work persona
+social-post("Hello from work!")    → signed by npub1abc...
+identity-switch("master")          → back to master
+social-post("Back to main")       → signed by master npub
+```
+
+This is not just key management — it is context isolation. Each persona has its own relay set, its own contact list, and its own attestation chain. Compromise one and the others remain intact.
+
+## Comparison
+
+| Feature | nostr-bray | nak | nostr-mcp | nostr-tools |
+|---------|-----------|-----|-----------|-------------|
+| MCP server | 77 tools | [via `nak mcp`](https://github.com/fiatjaf/nak) | 5–23 tools | — |
+| CLI | 77 commands | ✓ (mature) | — | — |
+| Hierarchical identity (nsec-tree) | ✓ | — | — | — |
+| Persona switching | ✓ | — | — | — |
+| Ring signatures (anonymous proofs) | ✓ | — | — | — |
+| Shamir backup (BIP-39 words) | ✓ | — | — | — |
+| Duress detection | ✓ | — | — | — |
+| NIP-VA attestations (kind 31000) | ✓ | — | — | — |
+| Linkage proofs (blind/full) | ✓ | — | — | — |
+| NIP-46 bunker (server + client) | ✓ | ✓ (client) | partial | — |
+| NIP-17 encrypted DMs | ✓ | ✓ | ✓ | ✓ |
+| NWC Lightning payments | ✓ | — | — | — |
+| Blossom media | ✓ | ✓ | — | — |
+| NIP-29 groups | ✓ | — | — | — |
+| Tor routing (SOCKS5h) | ✓ | — | — | — |
+| 329 tests, 96% coverage | ✓ | — | — | — |
+
 ## Quick Start — CLI
 
 ```bash
@@ -68,7 +103,7 @@ Or with a secret file (recommended):
 
 ## Tool Groups
 
-### Identity (12 tools)
+### Identity (12 tools) — create, derive, switch, prove, backup, and migrate Nostr identities
 
 | Tool | Description |
 |------|-------------|
@@ -85,7 +120,7 @@ Or with a secret file (recommended):
 | `identity-restore` | Re-sign migratable events under the active identity |
 | `identity-migrate` | Full migration with preview, confirmation, and linkage proof |
 
-### Social (14 tools)
+### Social (14 tools) — post, reply, react, DM, follow, and read feeds
 
 | Tool | Description |
 |------|-------------|
@@ -104,7 +139,7 @@ Or with a secret file (recommended):
 | `social-notifications` | Fetch mentions, replies, reactions, zap receipts |
 | `social-feed` | Fetch kind 1 text note feed |
 
-### Trust (11 tools)
+### Trust (11 tools) — attestations, ring signatures, linkage proofs, spoken verification
 
 | Tool | Description |
 |------|-------------|
@@ -120,7 +155,7 @@ Or with a secret file (recommended):
 | `trust-spoken-challenge` | Generate spoken verification token |
 | `trust-spoken-verify` | Verify spoken token response |
 
-### Relay (5 tools)
+### Relay (5 tools) — per-identity relay lists, NIP-65 management, direct queries
 
 | Tool | Description |
 |------|-------------|
@@ -130,7 +165,7 @@ Or with a secret file (recommended):
 | `relay-query` | Query events from relays by kind, author, tags, or time range |
 | `relay-info` | Fetch NIP-11 relay information document |
 
-### Zap (7 tools)
+### Zap (7 tools) — Lightning payments and invoices via Nostr Wallet Connect
 
 | Tool | Description |
 |------|-------------|
@@ -142,14 +177,14 @@ Or with a secret file (recommended):
 | `zap-receipts` | Parse zap receipts (amount, sender, message) |
 | `zap-decode` | Decode bolt11 invoice fields |
 
-### Safety (2 tools)
+### Safety (2 tools) — duress personas for coercion resistance
 
 | Tool | Description |
 |------|-------------|
 | `safety-configure` | Configure an alternative identity persona |
 | `safety-activate` | Switch to alternative identity |
 
-### Blossom (3 tools)
+### Blossom (3 tools) — media uploads and management
 
 | Tool | Description |
 |------|-------------|
@@ -157,7 +192,7 @@ Or with a secret file (recommended):
 | `blossom-list` | List blobs for a pubkey |
 | `blossom-delete` | Delete a blob by SHA-256 hash |
 
-### Groups — NIP-29 (4 tools)
+### Groups — NIP-29 (4 tools) — group chat, metadata, and membership
 
 | Tool | Description |
 |------|-------------|
@@ -166,14 +201,14 @@ Or with a secret file (recommended):
 | `group-send` | Send message to a group |
 | `group-members` | List group members |
 
-### Community NIPs (2 tools)
+### Community NIPs (2 tools) — publish and read community-proposed NIPs
 
 | Tool | Description |
 |------|-------------|
 | `nip-publish` | Publish a community NIP (kind 30817) |
 | `nip-read` | Fetch community NIPs |
 
-### Utility (18 tools)
+### Utility (18 tools) — encode, decode, encrypt, verify, filter, fetch, browse NIPs
 
 | Tool | Description |
 |------|-------------|
@@ -195,20 +230,6 @@ Or with a secret file (recommended):
 | `fetch` | Fetch events by nip19 code |
 | `nip-list` | List all official NIPs |
 | `nip-show` | Show a specific NIP's content |
-
-## Identity Switching
-
-The killer feature. Every tool operates as the "active identity." Switch with a single call:
-
-```
-identity-derive-persona("work")    → npub1abc...
-identity-switch("work")            → now operating as work persona
-social-post("Hello from work!")    → signed by npub1abc...
-identity-switch("master")          → back to master
-social-post("Back to main")       → signed by master npub
-```
-
-Derived identities are cryptographically unlinkable unless you publish a linkage proof.
 
 ## Configuration
 
