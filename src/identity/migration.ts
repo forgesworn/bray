@@ -121,20 +121,23 @@ export async function handleIdentityMigrate(
   // Execute migration: re-sign migratable events
   await handleIdentityRestore(ctx, pool, backup)
 
-  // Publish linkage proof connecting old → new
-  const proof = ctx.prove('full')
-  const sign = ctx.getSigningFunction()
-  const proofEvent = await sign({
-    kind: 30078,
-    created_at: Math.floor(Date.now() / 1000),
-    tags: [
-      ['d', `migration:${args.oldPubkeyHex}`],
-      ['p', args.oldPubkeyHex],
-    ],
-    content: JSON.stringify(proof),
-  })
-
-  await pool.publish(args.oldNpub, proofEvent)
+  // Publish linkage proof connecting old → new (only if operating as a derived identity)
+  try {
+    const proof = ctx.prove('full')
+    const sign = ctx.getSigningFunction()
+    const proofEvent = await sign({
+      kind: 30078,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [
+        ['d', `migration:${args.oldPubkeyHex}`],
+        ['p', args.oldPubkeyHex],
+      ],
+      content: JSON.stringify(proof),
+    })
+    await pool.publish(args.oldNpub, proofEvent)
+  } catch {
+    // Master identity can't produce tree proofs — migration proceeds without linkage proof
+  }
 
   return { status: 'migrated', summary }
 }

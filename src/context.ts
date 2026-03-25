@@ -1,7 +1,8 @@
 import { fromNsec, fromMnemonic, derive, zeroise } from 'nsec-tree'
 import { derivePersona } from 'nsec-tree/persona'
-import { createBlindProof, createFullProof, verifyProof } from 'nsec-tree/proof'
-import { finalizeEvent } from 'nostr-tools/pure'
+import { createBlindProof, createFullProof } from 'nsec-tree/proof'
+import { finalizeEvent, getPublicKey } from 'nostr-tools/pure'
+import { decode, npubEncode, nsecEncode } from 'nostr-tools/nip19'
 import type { TreeRoot, Identity, LinkageProof } from 'nsec-tree'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 import type { PublicIdentity, SignFn } from './types.js'
@@ -12,6 +13,20 @@ interface CacheEntry {
   index: number
   personaName?: string
   lastUsed: number
+}
+
+/** Build an Identity-compatible object from raw key bytes */
+function rawIdentity(privateKey: Uint8Array): Identity {
+  const publicKeyHex = getPublicKey(privateKey)
+  const publicKey = Buffer.from(publicKeyHex, 'hex')
+  return {
+    nsec: nsecEncode(privateKey),
+    npub: npubEncode(publicKeyHex),
+    privateKey: new Uint8Array(privateKey), // copy so original can be cleaned
+    publicKey: new Uint8Array(publicKey),
+    purpose: 'master',
+    index: 0,
+  }
 }
 
 export interface ContextOptions {
@@ -28,24 +43,33 @@ export class IdentityContext {
   constructor(secretKey: string, format: 'nsec' | 'hex' | 'mnemonic', opts?: ContextOptions) {
     this.maxCacheSize = opts?.maxCache ?? 5
 
+    // Parse the raw secret key bytes — this IS the user's actual Nostr identity
+    let rawKeyBytes: Uint8Array
     if (format === 'mnemonic') {
+      // Mnemonic: create tree root, derive a "default" identity as master
       this.root = fromMnemonic(secretKey)
+      const derived = derive(this.root, 'master', 0)
+      this.masterEntry = { identity: derived, purpose: 'master', index: 0, lastUsed: Date.now() }
+      this.activeEntry = this.masterEntry
+      return
     } else if (format === 'hex') {
-      const bytes = Buffer.from(secretKey, 'hex')
-      this.root = fromNsec(bytes)
+      rawKeyBytes = Buffer.from(secretKey, 'hex')
     } else {
-      this.root = fromNsec(secretKey)
+      // nsec bech32
+      rawKeyBytes = decode(secretKey).data as Uint8Array
     }
 
-    // Derive master identity — kept separate from LRU cache
-    const masterIdentity = derive(this.root, 'master', 0)
+    // Master identity = the user's actual keypair (their real npub)
     this.masterEntry = {
-      identity: masterIdentity,
+      identity: rawIdentity(rawKeyBytes),
       purpose: 'master',
       index: 0,
       lastUsed: Date.now(),
     }
     this.activeEntry = this.masterEntry
+
+    // nsec-tree root for child derivation
+    this.root = fromNsec(rawKeyBytes)
   }
 
   /** Current active identity's npub (bech32) */
@@ -160,13 +184,22 @@ export class IdentityContext {
     return result
   }
 
-  /** Create a linkage proof for the active identity */
+  /** Create a linkage proof for the active identity.
+   *  Only works for derived identities — the master IS the raw key, not a tree child. */
   prove(mode: 'blind' | 'full' = 'blind'): LinkageProof {
+    if (this.activeEntry === this.masterEntry) {
+      throw new Error('Cannot prove master identity — it is the raw key, not a derived child. Switch to a derived identity first.')
+    }
     const child = this.activeEntry.identity
     if (mode === 'full') {
       return createFullProof(this.root, child)
     }
     return createBlindProof(this.root, child)
+  }
+
+  /** Get the nsec-tree root's master pubkey (the derivation anchor, distinct from the raw key's pubkey) */
+  get treeRootPubkey(): string {
+    return this.root.masterPubkey
   }
 
   /** Get the active identity's private key for NIP-17/44/04 crypto operations */

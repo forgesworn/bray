@@ -21,8 +21,8 @@ import {
 import { createMockWallet, buildNwcUri } from './mock-nwc-wallet.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
-// Use a fixed NWC client secret (valid secp256k1 scalar)
-const CLIENT_SECRET = 'c189b82fc49ad3362eacb0976a5405df2d0d4fde6cfc025e41c33e65db1ab915'
+// NWC client secret — must be DIFFERENT from the identity key (TEST_NSEC)
+const CLIENT_SECRET = 'a3f19ad618bcd6c58b892dfed6d20e5980c4ec11709c2d65718d3d653be9d397'
 
 describe('NWC round-trip integration', () => {
   let ctx: IdentityContext
