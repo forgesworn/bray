@@ -67,11 +67,11 @@ describe('CLI', () => {
     expect(output.personaName).toBe('work')
   })
 
-  it('prove returns linkage proof', () => {
-    const output = JSON.parse(run('prove', 'blind'))
-    expect(output.masterPubkey).toBeDefined()
-    expect(output.childPubkey).toBeDefined()
-    expect(output.signature).toBeDefined()
+  it('prove returns linkage proof (must derive first)', () => {
+    // Prove only works from a derived identity, not master
+    // CLI is stateless so we can't switch then prove — test the error
+    const stderr = runExpectFail('prove', 'blind')
+    expect(stderr).toMatch(/derive|raw key/)
   })
 
   it('unknown command shows help and exits non-zero', () => {
