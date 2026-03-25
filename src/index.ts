@@ -41,7 +41,9 @@ nip65.loadForIdentity(ctx.activeNpub).then(masterRelays => {
   pool.reconfigure(ctx.activeNpub, masterRelays)
 }).catch(e => console.error('NIP-65 relay load failed:', e.message))
 
-const server = new McpServer({ name: 'nostr-bray', version: '0.1.0' })
+const server = new McpServer({ name: 'nostr-bray', version: '0.1.0' }, {
+  instructions: 'Always check whoami before posting or signing. Use social-feed or social-notifications to get event IDs and author pubkeys before calling social-reply or social-react. DMs default to NIP-17 gift wrap (most private); only use NIP-04 if the recipient requires it. For trust attestations, use trust-read to check existing attestations before creating new ones.',
+})
 
 // Phase 2: Identity tools
 registerIdentityTools(server, deps)
