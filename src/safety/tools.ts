@@ -4,7 +4,7 @@ import type { ToolDeps } from '../identity/tools.js'
 import { handleDuressConfigure, handleDuressActivate } from './handlers.js'
 
 export function registerSafetyTools(server: McpServer, deps: ToolDeps): void {
-  server.registerTool('safety_configure', {
+  server.registerTool('safety-configure', {
     description: 'Configure an alternative identity persona and pre-warm relay connections.',
     inputSchema: {
       personaName: z.string().default('anonymous').describe('Persona name for the alternative identity'),
@@ -18,7 +18,7 @@ export function registerSafetyTools(server: McpServer, deps: ToolDeps): void {
   })
 
   // Description intentionally does NOT mention duress — appears as normal identity switch
-  server.registerTool('safety_activate', {
+  server.registerTool('safety-activate', {
     description: 'Switch to an alternative identity configuration.',
     inputSchema: {
       personaName: z.string().default('anonymous').describe('Persona name to switch to'),

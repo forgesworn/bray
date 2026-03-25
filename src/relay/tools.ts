@@ -7,7 +7,7 @@ import * as fmt from '../format.js'
 import { handleRelayList, handleRelaySet, handleRelayAdd, handleRelayInfo, handleRelayQuery } from './handlers.js'
 
 export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
-  server.registerTool('relay_list', {
+  server.registerTool('relay-list', {
     description: 'List the relay set (read/write) for the active identity. Optionally check for shared relays with another identity.',
     inputSchema: {
       compareWithNpub: z.string().optional().describe('Compare shared relays with this npub'),
@@ -19,7 +19,7 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
     return toolResponse(result, output, fmt.formatRelays)
   })
 
-  server.registerTool('relay_set', {
+  server.registerTool('relay-set', {
     description: 'Publish a kind 10002 relay list for the active identity. Warns if a relay list already exists.',
     inputSchema: {
       relays: z.array(z.object({
@@ -39,7 +39,7 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('relay_add', {
+  server.registerTool('relay-add', {
     description: 'Add a single relay to the active identity\'s relay set (in-memory only — does not publish kind 10002).',
     inputSchema: {
       url: relayUrl.describe('Relay WebSocket URL'),
@@ -53,7 +53,7 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('relay_query', {
+  server.registerTool('relay-query', {
     description: 'Query events from Nostr relays by kind, author, tags, or time range. Useful for discovering events, scanning for specific kinds, or investigating unknown event schemas. Uses explicit relays if provided, otherwise the active identity\'s read relays.',
     inputSchema: {
       kinds: z.array(z.number().int()).optional().describe('Event kinds to filter by (e.g. [30301, 31000])'),
@@ -85,7 +85,7 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('relay_info', {
+  server.registerTool('relay-info', {
     description: 'Fetch the NIP-11 relay information document for a relay URL.',
     inputSchema: {
       url: relayUrl.describe('Relay WebSocket URL (wss://...)'),

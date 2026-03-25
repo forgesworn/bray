@@ -15,7 +15,7 @@ import { handleTrustRingProve, handleTrustRingVerify } from './ring.js'
 import { handleTrustSpokenChallenge, handleTrustSpokenVerify } from './spoken.js'
 
 export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
-  server.registerTool('trust_attest', {
+  server.registerTool('trust-attest', {
     description: 'Create and publish a kind 31000 verifiable attestation (NIP-VA) as the active identity. An attestation is a signed statement about a subject (e.g. "I verify this pubkey belongs to Alice"). Warns if attesting from a derived persona instead of master. Use trust_read to find existing attestations, trust_revoke to revoke them.',
     inputSchema: {
       type: z.string().describe('Attestation type (e.g. "identity-verification", "endorsement")'),
@@ -40,7 +40,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('trust_read', {
+  server.registerTool('trust-read', {
     description: 'Read kind 31000 attestations from relays. Filter by subject, type, or attestor.',
     inputSchema: {
       subject: hexId.optional().describe('Subject hex pubkey to filter by'),
@@ -62,7 +62,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('trust_verify', {
+  server.registerTool('trust-verify', {
     description: 'Validate the structural correctness of a kind 31000 attestation event.',
     inputSchema: {
       event: z.record(z.string(), z.unknown()).describe('The attestation event object to validate'),
@@ -75,7 +75,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('trust_revoke', {
+  server.registerTool('trust-revoke', {
     description: 'Revoke a previously issued attestation. Active identity must match the original attestor.',
     inputSchema: {
       type: z.string().describe('Attestation type being revoked'),
@@ -95,7 +95,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('trust_request', {
+  server.registerTool('trust-request', {
     description: 'Send an attestation request to another Nostr identity via NIP-17 encrypted DM.',
     inputSchema: {
       recipientPubkeyHex: hexId.describe('Hex pubkey of the attestor you are requesting from'),
@@ -113,7 +113,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('trust_request_list', {
+  server.registerTool('trust-request-list', {
     description: 'Scan received NIP-17 DMs for attestation request payloads.',
     annotations: { readOnlyHint: true },
   }, async () => {
@@ -123,7 +123,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('trust_proof_publish', {
+  server.registerTool('trust-proof-publish', {
     description: 'Publish a cryptographic linkage proof as a kind 30078 event. Requires confirmation — this is irreversible.',
     inputSchema: {
       mode: z.enum(['blind', 'full']).default('blind').describe('Proof mode: blind hides derivation path, full reveals it'),
@@ -140,7 +140,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('trust_ring_prove', {
+  server.registerTool('trust-ring-prove', {
     description: 'Create a ring signature proving anonymous group membership. A verifier can confirm "someone in this ring signed this" but cannot determine who. The active identity must be one of the pubkeys in the ring. Returns kind 30078 event with the signature.',
     inputSchema: {
       ring: z.array(hexId).describe('Hex x-only public keys of ring members (must include active identity)'),
@@ -155,7 +155,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('trust_ring_verify', {
+  server.registerTool('trust-ring-verify', {
     description: 'Verify a ring signature proof.',
     inputSchema: {
       signature: z.record(z.string(), z.unknown()).describe('Ring signature object or Nostr event containing one'),
@@ -168,7 +168,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('trust_spoken_challenge', {
+  server.registerTool('trust-spoken-challenge', {
     description: 'Generate a spoken verification token for in-person identity confirmation.',
     inputSchema: {
       secret: z.string().regex(/^[0-9a-f]{32,}$/, 'Hex string, min 32 chars').describe('Shared secret'),
@@ -183,7 +183,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('trust_spoken_verify', {
+  server.registerTool('trust-spoken-verify', {
     description: 'Verify a spoken token response against the shared secret.',
     inputSchema: {
       secret: z.string().regex(/^[0-9a-f]{32,}$/, 'Hex string, min 32 chars').describe('Shared secret'),

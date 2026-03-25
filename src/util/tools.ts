@@ -34,7 +34,7 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 
-  server.registerTool('encode_npub', {
+  server.registerTool('encode-npub', {
     description: 'Encode a hex public key as a bech32 npub.',
     inputSchema: { hex: hexId.describe('Hex public key') },
     annotations: { readOnlyHint: true },
@@ -42,7 +42,7 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: handleEncodeNpub(hex) }] }
   })
 
-  server.registerTool('encode_note', {
+  server.registerTool('encode-note', {
     description: 'Encode a hex event ID as a bech32 note.',
     inputSchema: { hex: hexId.describe('Hex event ID') },
     annotations: { readOnlyHint: true },
@@ -50,7 +50,7 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: handleEncodeNote(hex) }] }
   })
 
-  server.registerTool('encode_nprofile', {
+  server.registerTool('encode-nprofile', {
     description: 'Encode a hex pubkey with relay hints as a bech32 nprofile.',
     inputSchema: {
       pubkey: hexId.describe('Hex public key'),
@@ -61,7 +61,7 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: handleEncodeNprofile(pubkey, relays) }] }
   })
 
-  server.registerTool('encode_nevent', {
+  server.registerTool('encode-nevent', {
     description: 'Encode an event ID with relay hints and optional author as a bech32 nevent.',
     inputSchema: {
       id: hexId.describe('Hex event ID'),
@@ -73,7 +73,7 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: handleEncodeNevent(id, relays, author) }] }
   })
 
-  server.registerTool('encode_naddr', {
+  server.registerTool('encode-naddr', {
     description: 'Encode an addressable event reference as a bech32 naddr.',
     inputSchema: {
       pubkey: hexId.describe('Author hex pubkey'),
@@ -86,7 +86,7 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: handleEncodeNaddr(pubkey, kind, identifier, relays) }] }
   })
 
-  server.registerTool('verify_event', {
+  server.registerTool('verify-event', {
     description: 'Verify a Nostr event\'s id hash and cryptographic signature.',
     inputSchema: {
       event: z.record(z.string(), z.unknown()).describe('The Nostr event object to verify'),
@@ -97,7 +97,7 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 
-  server.registerTool('nip44_encrypt', {
+  server.registerTool('nip44-encrypt', {
     description: 'Encrypt a plaintext string using NIP-44 for a recipient pubkey. Uses the active identity\'s private key.',
     inputSchema: {
       recipientPubkeyHex: hexId.describe('Recipient hex pubkey'),
@@ -110,7 +110,7 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: ciphertext }] }
   })
 
-  server.registerTool('nip44_decrypt', {
+  server.registerTool('nip44-decrypt', {
     description: 'Decrypt a NIP-44 ciphertext using the active identity\'s private key.',
     inputSchema: {
       senderPubkeyHex: hexId.describe('Sender hex pubkey'),
@@ -151,7 +151,7 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: JSON.stringify(events, null, 2) }] }
   })
 
-  server.registerTool('key_public', {
+  server.registerTool('key-public', {
     description: 'Derive a public key (hex + npub) from a secret key (nsec or hex). WARNING: the secret key is transmitted through the MCP transport — use only for local/trusted setups.',
     inputSchema: {
       secret: z.string().describe('Secret key as nsec or hex'),
@@ -162,7 +162,7 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 
-  server.registerTool('encode_nsec', {
+  server.registerTool('encode-nsec', {
     description: 'Encode a hex private key as a bech32 nsec. WARNING: private key material flows through the MCP transport.',
     inputSchema: { hex: z.string().regex(/^[0-9a-f]{64}$/).describe('Hex private key') },
     annotations: { readOnlyHint: true },
@@ -182,7 +182,7 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 
-  server.registerTool('nip_list', {
+  server.registerTool('nip-list', {
     description: 'List all official Nostr NIPs from the protocol repository.',
     annotations: { readOnlyHint: true },
   }, async () => {
@@ -190,7 +190,7 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: JSON.stringify(nips, null, 2) }] }
   })
 
-  server.registerTool('nip_show', {
+  server.registerTool('nip-show', {
     description: 'Fetch and display the full content of an official NIP by number.',
     inputSchema: {
       number: z.number().int().min(1).describe('NIP number (e.g. 1, 17, 65)'),
@@ -201,7 +201,7 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: nip.content }] }
   })
 
-  server.registerTool('key_encrypt', {
+  server.registerTool('key-encrypt', {
     description: 'Encrypt a secret key with a password (NIP-49 ncryptsec). Returns the ncryptsec string and the derived pubkey. WARNING: secret key is transmitted through the MCP transport.',
     inputSchema: {
       secret: z.string().describe('Secret key (nsec or hex)'),
@@ -213,7 +213,7 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 
-  server.registerTool('key_decrypt', {
+  server.registerTool('key-decrypt', {
     description: 'Decrypt an ncryptsec (NIP-49) with a password. Returns the derived pubkey for verification — never the raw key.',
     inputSchema: {
       ncryptsec: z.string().describe('ncryptsec string to decrypt'),

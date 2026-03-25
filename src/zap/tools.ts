@@ -12,7 +12,7 @@ import {
 } from './handlers.js'
 
 export function registerZapTools(server: McpServer, deps: ToolDeps): void {
-  server.registerTool('zap_send', {
+  server.registerTool('zap-send', {
     description: 'Pay a Lightning invoice via Nostr Wallet Connect (NWC). Requires NWC_URI to be configured.',
     inputSchema: {
       invoice: z.string().describe('Bolt11 Lightning invoice to pay'),
@@ -28,7 +28,7 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('zap_balance', {
+  server.registerTool('zap-balance', {
     description: 'Request wallet balance via NWC. Sends a get_balance request to the wallet service.',
     annotations: { readOnlyHint: true },
   }, async () => {
@@ -38,7 +38,7 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('zap_make_invoice', {
+  server.registerTool('zap-make-invoice', {
     description: 'Generate a Lightning invoice via NWC to receive payments.',
     inputSchema: {
       amountMsats: z.number().int().min(1).describe('Invoice amount in millisatoshis'),
@@ -54,7 +54,7 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('zap_lookup_invoice', {
+  server.registerTool('zap-lookup-invoice', {
     description: 'Look up a Lightning invoice status via NWC.',
     inputSchema: {
       paymentHash: z.string().optional().describe('Payment hash to look up'),
@@ -70,7 +70,7 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('zap_list_transactions', {
+  server.registerTool('zap-list-transactions', {
     description: 'List recent Lightning transactions via NWC.',
     inputSchema: {
       limit: z.number().int().min(1).default(10).describe('Max transactions to return'),
@@ -86,7 +86,7 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('zap_receipts', {
+  server.registerTool('zap-receipts', {
     description: 'Fetch zap receipts (kind 9735) for the active identity. Returns sender, amount in msats, and message.',
     inputSchema: {
       since: z.number().optional().describe('Unix timestamp — only fetch zaps after this time'),
@@ -100,7 +100,7 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('zap_decode', {
+  server.registerTool('zap-decode', {
     description: 'Decode basic fields from a bolt11 Lightning invoice string.',
     inputSchema: {
       bolt11: z.string().describe('Bolt11 invoice string'),

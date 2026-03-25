@@ -23,7 +23,7 @@ import { handleBlossomUpload, handleBlossomList, handleBlossomDelete } from './b
 import { handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers } from './groups.js'
 
 export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
-  server.registerTool('social_post', {
+  server.registerTool('social-post', {
     description: 'Post a text note (kind 1) signed by the active identity and publish to relays. Returns { id, pubkey, publish: { success, accepted, rejected } }. The most common social action.',
     inputSchema: {
       content: z.string().describe('Text content of the note'),
@@ -40,7 +40,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('social_reply', {
+  server.registerTool('social-reply', {
     description: 'Reply to a Nostr event (kind 1) with correct threading tags. You need the event ID and the author\'s pubkey — get these from social_feed or social_notifications.',
     inputSchema: {
       content: z.string().describe('Reply text'),
@@ -59,7 +59,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('social_react', {
+  server.registerTool('social-react', {
     description: 'React to a Nostr event (kind 7). Pass "+" for like, or any emoji (🤙, ❤️, 🔥). You need the event ID and author pubkey.',
     inputSchema: {
       eventId: hexId.describe('Event ID to react to (hex)'),
@@ -77,7 +77,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('social_delete', {
+  server.registerTool('social-delete', {
     description: 'Request deletion of an event you published (kind 5). Relays may or may not honour the request.',
     inputSchema: {
       eventId: hexId.describe('Event ID to delete (hex)'),
@@ -91,7 +91,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('social_repost', {
+  server.registerTool('social-repost', {
     description: 'Repost/boost a Nostr event (kind 6) as the active identity.',
     inputSchema: {
       eventId: hexId.describe('Event ID to repost (hex)'),
@@ -106,7 +106,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('social_profile_get', {
+  server.registerTool('social-profile-get', {
     description: 'Fetch the kind 0 profile for a Nostr pubkey. Returns parsed profile fields.',
     inputSchema: {
       pubkeyHex: hexId.describe('Hex pubkey to fetch profile for'),
@@ -120,7 +120,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     return toolResponse(profile, output, fmt.formatProfile)
   })
 
-  server.registerTool('social_profile_set', {
+  server.registerTool('social-profile-set', {
     description: 'Set the kind 0 profile for the active identity. Warns if profile already exists — set confirm: true to overwrite.',
     inputSchema: {
       name: z.string().optional().describe('Display name'),
@@ -155,7 +155,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('dm_send', {
+  server.registerTool('dm-send', {
     description: 'Send an encrypted direct message. Default: NIP-17 gift wrap (most private — sender identity hidden behind ephemeral key). Set nip04: true for legacy NIP-04 (only if NIP04_ENABLED=1). Returns { protocol, id, publish }.',
     inputSchema: {
       recipientPubkeyHex: hexId.describe('Recipient hex pubkey'),
@@ -181,7 +181,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('dm_read', {
+  server.registerTool('dm-read', {
     description: 'Read direct messages addressed to the active identity. Decrypts both NIP-17 (gift wrap) and NIP-04 (legacy). Each message includes { from, content, protocol, decrypted }. Gracefully handles decryption failures without crashing.',
     inputSchema: {
       output: z.enum(['json', 'human']).default('human').describe('Response format'),
@@ -192,7 +192,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     return toolResponse(messages, output, fmt.formatDms)
   })
 
-  server.registerTool('social_notifications', {
+  server.registerTool('social-notifications', {
     description: 'Fetch notifications for the active identity — mentions, replies, reactions, and zap receipts.',
     inputSchema: {
       since: z.number().optional().describe('Unix timestamp — only fetch notifications after this time'),
@@ -205,7 +205,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     return toolResponse(notifications, output, fmt.formatNotifications)
   })
 
-  server.registerTool('social_feed', {
+  server.registerTool('social-feed', {
     description: 'Fetch the kind 1 text note feed. Optionally filter by authors.',
     inputSchema: {
       authors: z.array(hexId).optional().describe('Hex pubkeys to filter by'),
@@ -219,7 +219,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     return toolResponse(feed, output, fmt.formatFeed)
   })
 
-  server.registerTool('contacts_get', {
+  server.registerTool('contacts-get', {
     description: 'Fetch the contact list (kind 3 follows) for a pubkey. Returns pubkeys, relay hints, and petnames.',
     inputSchema: {
       pubkeyHex: hexId.describe('Hex pubkey to fetch contacts for'),
@@ -232,7 +232,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     return toolResponse(contacts, output, fmt.formatContacts)
   })
 
-  server.registerTool('contacts_follow', {
+  server.registerTool('contacts-follow', {
     description: 'Follow a Nostr pubkey. Fetches current contact list, adds the pubkey, publishes updated kind 3.',
     inputSchema: {
       pubkeyHex: hexId.describe('Hex pubkey to follow'),
@@ -251,7 +251,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('contacts_unfollow', {
+  server.registerTool('contacts-unfollow', {
     description: 'Unfollow a Nostr pubkey. Fetches current contact list, removes the pubkey, publishes updated kind 3.',
     inputSchema: {
       pubkeyHex: hexId.describe('Hex pubkey to unfollow'),
@@ -268,7 +268,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('nip_publish', {
+  server.registerTool('nip-publish', {
     description: 'Publish a community NIP (kind 30817) — a custom protocol specification on Nostr.',
     inputSchema: {
       identifier: z.string().describe('URL-safe slug for the NIP (e.g. "sovereign-identity")'),
@@ -284,7 +284,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     }
   })
 
-  server.registerTool('nip_read', {
+  server.registerTool('nip-read', {
     description: 'Fetch community NIPs (kind 30817) from relays. Filter by author, identifier, or defined kind.',
     inputSchema: {
       author: hexId.optional().describe('Author hex pubkey'),
@@ -301,7 +301,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
 
   // --- Blossom ---
 
-  server.registerTool('blossom_upload', {
+  server.registerTool('blossom-upload', {
     description: 'Upload a file to a blossom media server. Returns the blob URL and SHA-256 hash.',
     inputSchema: {
       server: z.string().describe('Blossom server URL (e.g. https://blossom.example.com)'),
@@ -314,7 +314,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 
-  server.registerTool('blossom_list', {
+  server.registerTool('blossom-list', {
     description: 'List blobs uploaded by a pubkey on a blossom server.',
     inputSchema: {
       server: z.string().describe('Blossom server URL'),
@@ -326,7 +326,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: JSON.stringify(blobs, null, 2) }] }
   })
 
-  server.registerTool('blossom_delete', {
+  server.registerTool('blossom-delete', {
     description: 'Delete a blob from a blossom media server by SHA-256 hash.',
     inputSchema: {
       server: z.string().describe('Blossom server URL'),
@@ -340,7 +340,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
 
   // --- NIP-29 Groups ---
 
-  server.registerTool('group_info', {
+  server.registerTool('group-info', {
     description: 'Fetch group metadata (name, about, picture) for a NIP-29 group.',
     inputSchema: {
       relay: z.string().describe('Relay hosting the group'),
@@ -352,7 +352,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: JSON.stringify(info, null, 2) }] }
   })
 
-  server.registerTool('group_chat', {
+  server.registerTool('group-chat', {
     description: 'Fetch recent chat messages from a NIP-29 group.',
     inputSchema: {
       groupId: z.string().describe('Group identifier'),
@@ -364,7 +364,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: JSON.stringify(messages, null, 2) }] }
   })
 
-  server.registerTool('group_send', {
+  server.registerTool('group-send', {
     description: 'Send a message to a NIP-29 group.',
     inputSchema: {
       groupId: z.string().describe('Group identifier'),
@@ -376,7 +376,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     return { content: [{ type: 'text' as const, text: JSON.stringify({ id: result.event.id, publish: result.publish }, null, 2) }] }
   })
 
-  server.registerTool('group_members', {
+  server.registerTool('group-members', {
     description: 'List members of a NIP-29 group.',
     inputSchema: {
       groupId: z.string().describe('Group identifier'),
