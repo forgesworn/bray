@@ -4,7 +4,7 @@ Generic AI agent instructions. For Claude Code see `CLAUDE.md`, for Cursor see `
 
 ## What this is
 
-MCP server + CLI giving AI agents sovereign Nostr identities. 78 tools, 10 groups.
+MCP server + CLI giving AI agents sovereign Nostr identities. 77 tools, 10 groups.
 
 ## Build & Test
 

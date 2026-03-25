@@ -55,9 +55,9 @@ npx nostr-bray list
 Every tool operates as the "active identity." The CLI doesn't maintain state between invocations, but the MCP server does:
 
 ```
-identity_switch("work")         → all subsequent tools sign as work persona
-social_post("Hello from work!") → signed by work's npub
-identity_switch("master")       → back to master
+identity-switch("work")         → all subsequent tools sign as work persona
+social-post("Hello from work!") → signed by work's npub
+identity-switch("master")       → back to master
 ```
 
 ### Linkage Proofs
@@ -90,9 +90,9 @@ Shard files are written with 0o600 permissions. Each contains BIP-39 words — r
 Via MCP tools:
 
 ```
-social_post({ content: "Hello Nostr!" })
-social_reply({ content: "Great post!", replyTo: "<event-id>", replyToPubkey: "<hex>" })
-social_react({ eventId: "<event-id>", eventPubkey: "<hex>", reaction: "🤙" })
+social-post({ content: "Hello Nostr!" })
+social-reply({ content: "Great post!", replyTo: "<event-id>", replyToPubkey: "<hex>" })
+social-react({ eventId: "<event-id>", eventPubkey: "<hex>", reaction: "🤙" })
 ```
 
 Via CLI:
@@ -106,10 +106,10 @@ npx nostr-bray post "Hello Nostr!"
 The profile set tool has a safety guard — it warns you if a profile already exists and shows a diff before overwriting:
 
 ```
-social_profile_set({ name: "My Agent", about: "Powered by nostr-bray" })
+social-profile-set({ name: "My Agent", about: "Powered by nostr-bray" })
 # → Warning: Profile already exists. Set confirm: true to overwrite.
 
-social_profile_set({ name: "My Agent", about: "Updated bio", confirm: true })
+social-profile-set({ name: "My Agent", about: "Updated bio", confirm: true })
 # → Published
 ```
 
@@ -118,14 +118,14 @@ social_profile_set({ name: "My Agent", about: "Updated bio", confirm: true })
 NIP-17 gift-wrapped DMs are the default — the sender's identity is hidden behind an ephemeral key:
 
 ```
-dm_send({ recipientPubkeyHex: "<hex>", message: "Secret message" })
-dm_read()
+dm-send({ recipientPubkeyHex: "<hex>", message: "Secret message" })
+dm-read()
 ```
 
 Legacy NIP-04 requires explicit opt-in:
 
 ```
-dm_send({ recipientPubkeyHex: "<hex>", message: "Legacy DM", nip04: true })
+dm-send({ recipientPubkeyHex: "<hex>", message: "Legacy DM", nip04: true })
 ```
 
 NIP-04 only works if `NIP04_ENABLED=1` is set in the environment.
@@ -137,7 +137,7 @@ NIP-04 only works if `NIP04_ENABLED=1` is set in the environment.
 Kind 31000 verifiable attestations (NIP-VA):
 
 ```
-trust_attest({
+trust-attest({
   type: "identity-verification",
   subject: "<subject-hex-pubkey>",
   summary: "Verified identity in person on 2026-03-24"
@@ -149,7 +149,7 @@ trust_attest({
 Prove you belong to a group without revealing which member you are:
 
 ```
-trust_ring_prove({
+trust-ring-prove({
   ring: ["<pubkey1>", "<pubkey2>", "<your-pubkey>", "<pubkey3>"],
   attestationType: "kyc-verified"
 })
@@ -162,10 +162,10 @@ The verifier sees "someone in this ring signed this" but cannot determine who.
 For in-person identity confirmation. Both parties share a secret, then verify via spoken words:
 
 ```
-trust_spoken_challenge({ secret: "<shared-hex>", context: "meeting-2026-03-24", counter: 1 })
+trust-spoken-challenge({ secret: "<shared-hex>", context: "meeting-2026-03-24", counter: 1 })
 # → { token: "castle" }
 
-trust_spoken_verify({ secret: "<shared-hex>", context: "meeting-2026-03-24", counter: 1, input: "castle" })
+trust-spoken-verify({ secret: "<shared-hex>", context: "meeting-2026-03-24", counter: 1, input: "castle" })
 # → { valid: true }
 ```
 
@@ -180,10 +180,10 @@ export NWC_URI="nostr+walletconnect://<wallet-pubkey>?relay=wss://relay&secret=<
 Then use the zap tools:
 
 ```
-zap_send({ invoice: "lnbc10u1..." })
-zap_balance()
-zap_make_invoice({ amountMsats: 100000, description: "Payment for service" })
-zap_receipts({ limit: 10 })
+zap-send({ invoice: "lnbc10u1..." })
+zap-balance()
+zap-make-invoice({ amountMsats: 100000, description: "Payment for service" })
+zap-receipts({ limit: 10 })
 ```
 
 All NWC communication is NIP-44 encrypted. The NWC secret is zeroised from memory after each operation.
@@ -195,10 +195,10 @@ All NWC communication is NIP-44 encrypted. The NWC secret is zeroised from memor
 Each identity can have its own relay set. This prevents correlation between personas:
 
 ```
-relay_list()                                    # show current relays
-relay_add({ url: "wss://new-relay.com" })       # add a relay
-relay_set({ relays: [...], confirm: true })      # publish kind 10002
-relay_info({ url: "wss://relay.damus.io" })     # fetch NIP-11 info
+relay-list()                                    # show current relays
+relay-add({ url: "wss://new-relay.com" })       # add a relay
+relay-set({ relays: [...], confirm: true })      # publish kind 10002
+relay-info({ url: "wss://relay.damus.io" })     # fetch NIP-11 info
 ```
 
 ### Tor Support
@@ -219,11 +219,11 @@ Clearnet relays are blocked by default when a Tor proxy is configured. Set `ALLO
 Configure an alternative identity that looks identical to a normal persona switch:
 
 ```
-safety_configure({ personaName: "emergency" })
-safety_activate({ personaName: "emergency" })
+safety-configure({ personaName: "emergency" })
+safety-activate({ personaName: "emergency" })
 ```
 
-The activate response is structurally identical to `identity_switch` — an observer cannot distinguish a duress switch from a normal one. The duress persona appears in `identity_list` as a regular identity.
+The activate response is structurally identical to `identity-switch` — an observer cannot distinguish a duress switch from a normal one. The duress persona appears in `identity-list` as a regular identity.
 
 ## HTTP Transport
 
