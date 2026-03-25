@@ -13,15 +13,30 @@ import {
 
 export function registerZapTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('zap-send', {
-    description: 'Pay a Lightning invoice via Nostr Wallet Connect (NWC). Requires NWC_URI to be configured.',
+    description: 'Pay a Lightning invoice via Nostr Wallet Connect (NWC). SPENDS REAL SATS. Decodes the invoice and shows amount first — set confirm: true to execute payment.',
     inputSchema: {
       invoice: z.string().describe('Bolt11 Lightning invoice to pay'),
+      confirm: z.boolean().default(false).describe('Set true to execute payment (preview by default)'),
     },
-    annotations: { readOnlyHint: false },
-  }, async ({ invoice }) => {
+    annotations: { readOnlyHint: false, destructiveHint: true },
+  }, async ({ invoice, confirm }) => {
+    // Always decode first so the caller sees what they're paying
+    const decoded = handleZapDecode(invoice)
+    if (!confirm) {
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({
+          preview: true,
+          amountMsats: decoded.amountMsats,
+          description: decoded.description,
+          message: `This will pay ${decoded.amountMsats} msats. Set confirm: true to execute.`,
+        }, null, 2) }],
+      }
+    }
     const result = await handleZapSend(deps.ctx, deps.pool, { invoice, nwcUri: deps.nwcUri })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({
+        paid: true,
+        amountMsats: decoded.amountMsats,
         id: result.event.id,
         publish: result.publish,
       }, null, 2) }],
@@ -44,7 +59,7 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
       amountMsats: z.number().int().min(1).describe('Invoice amount in millisatoshis'),
       description: z.string().optional().describe('Invoice description'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ amountMsats, description }) => {
     const result = await handleZapMakeInvoice(deps.ctx, deps.pool, {
       amountMsats, description, nwcUri: deps.nwcUri,

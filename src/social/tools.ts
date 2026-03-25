@@ -28,7 +28,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     inputSchema: {
       content: z.string().describe('Text content of the note'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ content }) => {
     const result = await handleSocialPost(deps.ctx, deps.pool, { content })
     return {
@@ -48,7 +48,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       replyToPubkey: hexId.describe('Pubkey of the event author (hex)'),
       relay: z.string().optional().describe('Relay URL where the parent event was seen'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ content, replyTo, replyToPubkey, relay }) => {
     const result = await handleSocialReply(deps.ctx, deps.pool, { content, replyTo, replyToPubkey, relay })
     return {
@@ -66,7 +66,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       eventPubkey: hexId.describe('Pubkey of the event author (hex)'),
       reaction: z.string().default('+').describe('Reaction content (default "+", or emoji)'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ eventId, eventPubkey, reaction }) => {
     const result = await handleSocialReact(deps.ctx, deps.pool, { eventId, eventPubkey, reaction })
     return {
@@ -83,7 +83,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       eventId: hexId.describe('Event ID to delete (hex)'),
       reason: z.string().optional().describe('Reason for deletion'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ eventId, reason }) => {
     const result = await handleSocialDelete(deps.ctx, deps.pool, { eventId, reason })
     return {
@@ -98,7 +98,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       eventPubkey: hexId.describe('Pubkey of the original author (hex)'),
       relay: z.string().optional().describe('Relay URL where the event was seen'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ eventId, eventPubkey, relay }) => {
     const result = await handleSocialRepost(deps.ctx, deps.pool, { eventId, eventPubkey, relay })
     return {
@@ -131,7 +131,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       lud16: z.string().optional().describe('Lightning address'),
       confirm: z.boolean().default(false).describe('Set true to overwrite existing profile'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ confirm, ...fields }) => {
     // Filter out undefined fields
     const profile: Record<string, unknown> = {}
@@ -163,7 +163,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       nip04: z.boolean().default(false).describe('Use legacy NIP-04 instead of NIP-17'),
       recipientRelay: z.string().optional().describe('Relay URL hint for recipient'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ recipientPubkeyHex, message, nip04, recipientRelay }) => {
     const result = await handleDmSend(deps.ctx, deps.pool, {
       recipientPubkeyHex,
@@ -239,7 +239,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       relay: z.string().optional().describe('Relay hint for the contact'),
       petname: z.string().optional().describe('Local petname for the contact'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ pubkeyHex, relay, petname }) => {
     const result = await handleContactsFollow(deps.ctx, deps.pool, { pubkeyHex, relay, petname })
     return {
@@ -256,7 +256,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     inputSchema: {
       pubkeyHex: hexId.describe('Hex pubkey to unfollow'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ pubkeyHex }) => {
     const result = await handleContactsUnfollow(deps.ctx, deps.pool, { pubkeyHex })
     return {
@@ -276,7 +276,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       content: z.string().describe('Full NIP specification in Markdown'),
       kinds: z.array(z.number().int()).optional().describe('Event kinds defined by this NIP'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ identifier, title, content, kinds }) => {
     const result = await handleNipPublish(deps.ctx, deps.pool, { identifier, title, content, kinds })
     return {
@@ -308,7 +308,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       filePath: z.string().describe('Path to the file to upload'),
       contentType: z.string().optional().describe('MIME type (default: application/octet-stream)'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ server, filePath, contentType }) => {
     const result = await handleBlossomUpload(deps.ctx, { server, filePath, contentType })
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
@@ -332,7 +332,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       server: z.string().describe('Blossom server URL'),
       sha256: z.string().describe('SHA-256 hash of the blob'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ server, sha256 }) => {
     const result = await handleBlossomDelete(deps.ctx, { server, sha256 })
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
@@ -370,7 +370,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       groupId: z.string().describe('Group identifier'),
       content: z.string().describe('Message text'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ groupId, content }) => {
     const result = await handleGroupSend(deps.ctx, deps.pool, { groupId, content })
     return { content: [{ type: 'text' as const, text: JSON.stringify({ id: result.event.id, publish: result.publish }, null, 2) }] }

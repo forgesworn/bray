@@ -25,7 +25,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
       content: z.string().optional().describe('Event content (text or JSON)'),
       expiration: z.number().optional().describe('Unix timestamp for attestation expiry'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ type, identifier, subject, summary, content, expiration }) => {
     const result = await handleTrustAttest(deps.ctx, deps.pool, {
       type, identifier, subject, summary, content, expiration,
@@ -82,7 +82,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
       identifier: z.string().describe('D-tag identifier of the attestation'),
       originalAttestorPubkey: z.string().optional().describe('Hex pubkey of the original attestor (for verification)'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ type, identifier, originalAttestorPubkey }) => {
     const result = await handleTrustRevoke(deps.ctx, deps.pool, {
       type, identifier, originalAttestorPubkey,
@@ -103,7 +103,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
       attestationType: z.string().describe('Type of attestation requested'),
       message: z.string().optional().describe('Optional message explaining the request'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ recipientPubkeyHex, subject, attestationType, message }) => {
     const result = await handleTrustRequest(deps.ctx, deps.pool, {
       recipientPubkeyHex, subject, attestationType, message,
@@ -129,7 +129,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
       mode: z.enum(['blind', 'full']).default('blind').describe('Proof mode: blind hides derivation path, full reveals it'),
       confirm: z.boolean().default(false).describe('Set true to publish (irreversible)'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ mode, confirm }) => {
     const result = await handleTrustProofPublish(deps.ctx, deps.pool, { mode, confirm })
     if (!result.published) {
@@ -147,7 +147,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
       attestationType: z.string().describe('Attestation type context for the canonical message'),
       message: z.string().optional().describe('Custom message to sign (defaults to canonical format)'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ ring, attestationType, message }) => {
     const result = await handleTrustRingProve(deps.ctx, deps.pool, { ring, attestationType, message })
     return {

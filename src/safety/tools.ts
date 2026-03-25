@@ -23,7 +23,7 @@ export function registerSafetyTools(server: McpServer, deps: ToolDeps): void {
     inputSchema: {
       personaName: z.string().default('anonymous').describe('Persona name to switch to'),
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ personaName }) => {
     const result = handleDuressActivate(deps.ctx, { personaName })
     return {
