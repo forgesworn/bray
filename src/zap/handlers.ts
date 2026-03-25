@@ -88,9 +88,11 @@ export async function handleZapReceipts(
   pool: RelayPool,
   opts?: { since?: number; limit?: number },
 ): Promise<ZapReceipt[]> {
+  const { decode } = await import('nostr-tools/nip19')
+  const activeHex = decode(ctx.activeNpub).data as string
   const events = await pool.query(ctx.activeNpub, {
     kinds: [9735],
-    '#p': [ctx.activeNpub],
+    '#p': [activeHex],
     limit: opts?.limit ?? 20,
     ...(opts?.since ? { since: opts.since } : {}),
   })

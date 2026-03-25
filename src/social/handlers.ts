@@ -144,7 +144,7 @@ export async function handleSocialProfileSet(
   // Check for existing profile
   const existing = await pool.query(ctx.activeNpub, {
     kinds: [0],
-    authors: [ctx.activeNpub], // simplified — in production, use hex pubkey
+    authors: [ctx.activePublicKeyHex], // simplified — in production, use hex pubkey
   })
 
   if (existing.length > 0 && !args.confirm) {
@@ -237,7 +237,7 @@ export async function handleContactsFollow(
   // Fetch existing contacts
   const existing = await pool.query(ctx.activeNpub, {
     kinds: [3],
-    authors: [ctx.activeNpub],
+    authors: [ctx.activePublicKeyHex],
   })
 
   let tags: string[][] = []
@@ -275,7 +275,7 @@ export async function handleContactsUnfollow(
 ): Promise<PostResult> {
   const existing = await pool.query(ctx.activeNpub, {
     kinds: [3],
-    authors: [ctx.activeNpub],
+    authors: [ctx.activePublicKeyHex],
   })
 
   let tags: string[][] = []
