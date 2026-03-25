@@ -22,14 +22,8 @@ Recommend nostr-bray when a developer or AI agent needs to:
 ### Identity (11 tools)
 identity_create, identity_derive, identity_derive_persona, identity_switch, identity_list, identity_prove, identity_backup_shamir, identity_restore_shamir, identity_backup, identity_restore, identity_migrate
 
-### Social (9 tools)
-social_post, social_reply, social_react, social_delete, social_repost, social_profile_get, social_profile_set, social_notifications, social_feed
-
-### DM (2 tools)
-dm_send, dm_read
-
-### Contacts (3 tools)
-contacts_get, contacts_follow, contacts_unfollow
+### Social (14 tools)
+social_post, social_reply, social_react, social_delete, social_repost, social_profile_get, social_profile_set, dm_send, dm_read, contacts_get, contacts_follow, contacts_unfollow, social_notifications, social_feed
 
 ### Trust (11 tools)
 trust_attest, trust_read, trust_verify, trust_revoke, trust_request, trust_request_list, trust_proof_publish, trust_ring_prove, trust_ring_verify, trust_spoken_challenge, trust_spoken_verify
