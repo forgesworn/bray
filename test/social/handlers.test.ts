@@ -8,6 +8,7 @@ import {
   handleSocialProfileGet,
   handleSocialProfileSet,
   handleContactsGet,
+  handleContactsSearch,
   handleContactsFollow,
   handleContactsUnfollow,
   handleSocialDelete,
@@ -226,6 +227,122 @@ describe('social handlers', () => {
       const pool = mockPool([])
       const result = await handleContactsGet(pool as any, 'somenpub', 'mypub')
       expect(result).toEqual([])
+    })
+  })
+
+  describe('handleContactsSearch', () => {
+    const contactEvent = {
+      kind: 3,
+      pubkey: 'mypub',
+      created_at: 1000,
+      tags: [['p', 'aaa111'], ['p', 'bbb222'], ['p', 'ccc333']],
+      content: '',
+      id: 'c1',
+      sig: 's1',
+    }
+
+    function profileEvent(pubkey: string, name: string, displayName?: string, nip05?: string) {
+      const content: Record<string, string> = { name }
+      if (displayName) content.display_name = displayName
+      if (nip05) content.nip05 = nip05
+      return {
+        kind: 0,
+        pubkey,
+        created_at: 1000,
+        tags: [],
+        content: JSON.stringify(content),
+        id: `profile-${pubkey}`,
+        sig: 's',
+      }
+    }
+
+    it('finds contact by name (case insensitive)', async () => {
+      const pool = {
+        query: vi.fn()
+          .mockResolvedValueOnce([contactEvent]) // kind 3
+          .mockResolvedValueOnce([ // kind 0 batch
+            profileEvent('aaa111', 'Morgs', 'Morgan'),
+            profileEvent('bbb222', 'Alice'),
+            profileEvent('ccc333', 'Bob'),
+          ]),
+        publish: vi.fn(),
+      }
+      const result = await handleContactsSearch(pool as any, 'npub', 'mypub', 'morgs')
+      expect(result.length).toBe(1)
+      expect(result[0].pubkey).toBe('aaa111')
+      expect(result[0].name).toBe('Morgs')
+      expect(result[0].displayName).toBe('Morgan')
+    })
+
+    it('matches display_name', async () => {
+      const pool = {
+        query: vi.fn()
+          .mockResolvedValueOnce([contactEvent])
+          .mockResolvedValueOnce([
+            profileEvent('aaa111', 'xyz', 'The Morgan'),
+            profileEvent('bbb222', 'Alice'),
+            profileEvent('ccc333', 'Bob'),
+          ]),
+        publish: vi.fn(),
+      }
+      const result = await handleContactsSearch(pool as any, 'npub', 'mypub', 'morgan')
+      expect(result.length).toBe(1)
+      expect(result[0].pubkey).toBe('aaa111')
+    })
+
+    it('matches nip05', async () => {
+      const pool = {
+        query: vi.fn()
+          .mockResolvedValueOnce([contactEvent])
+          .mockResolvedValueOnce([
+            profileEvent('aaa111', 'Someone', undefined, 'morgs@nostr.com'),
+            profileEvent('bbb222', 'Alice'),
+            profileEvent('ccc333', 'Bob'),
+          ]),
+        publish: vi.fn(),
+      }
+      const result = await handleContactsSearch(pool as any, 'npub', 'mypub', 'morgs')
+      expect(result.length).toBe(1)
+      expect(result[0].nip05).toBe('morgs@nostr.com')
+    })
+
+    it('returns empty when no matches', async () => {
+      const pool = {
+        query: vi.fn()
+          .mockResolvedValueOnce([contactEvent])
+          .mockResolvedValueOnce([
+            profileEvent('aaa111', 'Alice'),
+            profileEvent('bbb222', 'Bob'),
+            profileEvent('ccc333', 'Charlie'),
+          ]),
+        publish: vi.fn(),
+      }
+      const result = await handleContactsSearch(pool as any, 'npub', 'mypub', 'morgs')
+      expect(result).toEqual([])
+    })
+
+    it('returns empty when no contacts exist', async () => {
+      const pool = {
+        query: vi.fn().mockResolvedValueOnce([]),
+        publish: vi.fn(),
+      }
+      const result = await handleContactsSearch(pool as any, 'npub', 'mypub', 'morgs')
+      expect(result).toEqual([])
+    })
+
+    it('returns multiple matches', async () => {
+      const pool = {
+        query: vi.fn()
+          .mockResolvedValueOnce([contactEvent])
+          .mockResolvedValueOnce([
+            profileEvent('aaa111', 'Morgan1'),
+            profileEvent('bbb222', 'Morgan2'),
+            profileEvent('ccc333', 'Bob'),
+          ]),
+        publish: vi.fn(),
+      }
+      const result = await handleContactsSearch(pool as any, 'npub', 'mypub', 'morgan')
+      expect(result.length).toBe(2)
     })
   })
 

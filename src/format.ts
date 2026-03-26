@@ -53,6 +53,20 @@ export function formatContacts(contacts: Array<{ pubkey: string; relay?: string;
   return `${contacts.length} contacts:\n${lines.join('\n')}`
 }
 
+export function formatContactSearch(contacts: Array<{ pubkey: string; name?: string; displayName?: string; nip05?: string; petname?: string }>): string {
+  if (contacts.length === 0) return 'No matching contacts.'
+  const lines = contacts.map(c => {
+    const label = c.displayName || c.name || c.petname || c.pubkey.slice(0, 12) + '...'
+    const parts = [label]
+    if (c.name && c.displayName && c.name !== c.displayName) parts.push(`(@${c.name})`)
+    else if (c.name && !c.displayName) parts.push(`(@${c.name})`)
+    if (c.nip05) parts.push(`[${c.nip05}]`)
+    parts.push(c.pubkey.slice(0, 12) + '...')
+    return parts.join('  ')
+  })
+  return `${contacts.length} match${contacts.length !== 1 ? 'es' : ''}:\n${lines.join('\n')}`
+}
+
 export function formatNotifications(notifications: any[]): string {
   if (notifications.length === 0) return 'No notifications.'
   return notifications.map(n => {
