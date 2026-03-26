@@ -1519,111 +1519,52 @@
       <div class="section-divider">
         <span class="section-label">Comparison</span>
       </div>
-      <h2 class="reveal">How bray compares</h2>
-      <p class="text-muted reveal" style="max-width:600px;">
-        Bray does not replace nostr-tools or nak. It builds an opinionated identity layer on top. Here is what each tool brings to the table.
+      <h2 class="reveal">Standing on shoulders</h2>
+      <p class="text-muted reveal" style="max-width:700px;">
+        Bray stands on existing Nostr tooling &mdash; it does not replace nostr-tools or nak. It adds a narrow, opinionated identity layer on top.
       </p>
-      <div class="comparison-table-wrapper reveal">
-        <table class="comparison-table">
-          <thead>
-            <tr>
-              <th>Capability</th>
-              <th class="highlight">nostr-bray</th>
-              <th>nak</th>
-              <th>nostr-tools</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>MCP server (AI agents)</td>
-              <td class="highlight"><span class="check">&check;</span></td>
-              <td><span class="check">&check;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-            </tr>
-            <tr>
-              <td>CLI tool</td>
-              <td class="highlight"><span class="check">&check;</span></td>
-              <td><span class="check">&check;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-            </tr>
-            <tr>
-              <td>Hierarchical key derivation</td>
-              <td class="highlight"><span class="check">&check;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-            </tr>
-            <tr>
-              <td>Persona switching</td>
-              <td class="highlight"><span class="check">&check;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-            </tr>
-            <tr>
-              <td>Ring signatures</td>
-              <td class="highlight"><span class="check">&check;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-            </tr>
-            <tr>
-              <td>Shamir backup</td>
-              <td class="highlight"><span class="check">&check;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-            </tr>
-            <tr>
-              <td>Duress detection</td>
-              <td class="highlight"><span class="check">&check;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-            </tr>
-            <tr>
-              <td>Verifiable attestations</td>
-              <td class="highlight"><span class="check">&check;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-            </tr>
-            <tr>
-              <td>Spoken verification</td>
-              <td class="highlight"><span class="check">&check;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-            </tr>
-            <tr>
-              <td>NIP-17 gift-wrap DMs</td>
-              <td class="highlight"><span class="check">&check;</span> default</td>
-              <td><span class="check">&check;</span></td>
-              <td><span class="check">&check;</span> library</td>
-            </tr>
-            <tr>
-              <td>Lightning / NWC</td>
-              <td class="highlight"><span class="check">&check;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-            </tr>
-            <tr>
-              <td>MuSig2 / Cashu / FUSE</td>
-              <td class="highlight"><span class="cross">&mdash;</span></td>
-              <td><span class="check">&check;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-            </tr>
-            <tr>
-              <td>Built-in relay server</td>
-              <td class="highlight"><span class="cross">&mdash;</span></td>
-              <td><span class="check">&check;</span></td>
-              <td><span class="cross">&mdash;</span></td>
-            </tr>
-            <tr>
-              <td>Language</td>
-              <td class="highlight">TypeScript</td>
-              <td>Go</td>
-              <td>TypeScript</td>
-            </tr>
-          </tbody>
-        </table>
+
+      <div class="ecosystem-cards reveal" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 2.5rem;">
+
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 2rem;">
+          <h3 style="font-family: var(--font-display); font-size: 1.6rem; margin-bottom: 0.5rem;">
+            <a href="https://github.com/nbd-wtf/nostr-tools" style="color: var(--text-primary); text-decoration: none; border-bottom: 1px solid var(--border-medium);">nostr-tools</a>
+          </h3>
+          <p style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">838 stars &middot; 1.2M monthly npm downloads</p>
+          <p style="color: var(--text-secondary); line-height: 1.7;">Our primary dependency. Handles event creation, signing, NIP-44 encryption, relay connections, and most protocol-level heavy lifting. If you are building a Nostr client in JavaScript, nostr-tools is the standard.</p>
+        </div>
+
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 2rem;">
+          <h3 style="font-family: var(--font-display); font-size: 1.6rem; margin-bottom: 0.5rem;">
+            <a href="https://github.com/fiatjaf/nak" style="color: var(--text-primary); text-decoration: none; border-bottom: 1px solid var(--border-medium);">nak</a>
+          </h3>
+          <p style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">by fiatjaf (the Nostr protocol creator) &middot; Go</p>
+          <p style="color: var(--text-secondary); line-height: 1.7;">The definitive Nostr Swiss Army knife. Covers far more ground than bray: MuSig2 collaborative signing, built-in relay with negentropy sync, FUSE filesystem, NIP-60 Cashu wallet, smart outbox routing, PoW mining, NIP-86 relay admin, and a full bunker with persistence and QR codes. If you want a power-user CLI for Nostr, nak is it.</p>
+        </div>
+
       </div>
-      <p class="comparison-note">
-        nak is the definitive Nostr Swiss Army knife by fiatjaf (the protocol creator). nostr-tools is the standard JS library powering most Nostr clients. Bray is narrowly focused on sovereign identity for AI agents.
-      </p>
+
+      <div style="background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 2rem; margin-top: 1.5rem;" class="reveal">
+        <h3 style="font-family: var(--font-display); font-size: 1.4rem; margin-bottom: 1rem; color: var(--accent-gold);">What bray adds</h3>
+        <p style="color: var(--text-secondary); line-height: 1.7; margin-bottom: 1.5rem;">A narrow set of capabilities that revolve around one theme: <strong style="color: var(--text-primary);">sovereign identity for AI agents.</strong></p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem;">
+          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Hierarchical identity derivation <span style="color: var(--text-muted); font-size: 0.75rem;">(nsec-tree)</span></div>
+          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Persona switching mid-session</div>
+          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Ring signatures <span style="color: var(--text-muted); font-size: 0.75rem;">(anonymous group proofs)</span></div>
+          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Shamir secret sharing backup</div>
+          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Duress detection <span style="color: var(--text-muted); font-size: 0.75rem;">(canary-kit)</span></div>
+          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Verifiable attestations <span style="color: var(--text-muted); font-size: 0.75rem;">(NIP-VA kind 31000)</span></div>
+          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Linkage proofs <span style="color: var(--text-muted); font-size: 0.75rem;">(blind + full)</span></div>
+          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Spoken verification tokens</div>
+          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">WoT-scored feeds <span style="color: var(--text-muted); font-size: 0.75rem;">(nostr-veil)</span></div>
+          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">NWC Lightning payments</div>
+          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Test relay server + NIP-46 bunker</div>
+          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Tor routing <span style="color: var(--text-muted); font-size: 0.75rem;">(SOCKS5h)</span></div>
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1.5rem; line-height: 1.6;">
+          All bundled into a single MCP server with 90 tools, so an AI agent gets a complete Nostr identity out of the box without stitching together multiple tools.
+        </p>
+      </div>
     </div>
   </section>
 
