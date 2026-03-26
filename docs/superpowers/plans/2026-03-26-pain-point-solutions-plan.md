@@ -1120,12 +1120,13 @@ In `src/relay/tools.ts`, ensure the handler callback uses `await`:
 In `src/identity/handlers.ts`, at the end of `handleIdentityDerive`, check if this is the first derivation:
 
 ```typescript
-if (ctx.cachedCount === 1) { // only master, this is first derived
+const identities = ctx.listIdentities()
+if (identities.length <= 1) { // only master exists, this is first derivation
   result.hint = 'Consider running identity-setup for guided safe identity creation with backup and relay configuration.'
 }
 ```
 
-Note: May need to expose a `cachedCount` getter on IdentityContext, or check via the return data.
+Note: `ctx.listIdentities()` returns the list of known identities (master + cached derivations). If only 1 exists (master), this is the first derivation. If `listIdentities` doesn't exist, add a getter: `get identityCount(): number { return this.cache.size + 1 }` to IdentityContext.
 
 - [ ] **Step 7: Run full test suite**
 
@@ -1528,7 +1529,7 @@ export interface VerificationResult {
   attestations: Array<{ type: string; by: string; content: string }>
   linkageProofs: Array<{ mode: string; linkedTo: string }>
   ringEndorsements: Array<{ circleSize: number; threshold: number; verified: boolean }>
-  spokenChallenge?: { token: string; expiresIn: string }
+  spokenChallenge?: { token: string; expiresIn: string; counter: number }
   confidence: 'high' | 'medium' | 'low' | 'unknown'
 }
 
@@ -1585,11 +1586,11 @@ export async function handleVerifyPerson(
   // 6. Spoken challenge (full mode)
   let spokenChallenge: VerificationResult['spokenChallenge']
   if (method === 'full') {
-    const { computeConversationKey } = await import('nostr-tools/nip44')
-    const sharedSecret = computeConversationKey(ctx.activePrivateKey, args.pubkey)
-    const { generateToken } = await import('spoken-token')
+    const { getConversationKey } = await import('nostr-tools/nip44')
+    const sharedSecret = getConversationKey(ctx.activePrivateKey, args.pubkey)
+    const { deriveToken } = await import('spoken-token')
     const counter = Math.floor(Date.now() / 300_000) // 5-minute windows
-    const token = generateToken(Buffer.from(sharedSecret).toString('hex'), 'verify-person', counter)
+    const token = deriveToken(Buffer.from(sharedSecret).toString('hex'), 'verify-person', counter, { format: 'pin', digits: 6 })
     spokenChallenge = { token: String(token), expiresIn: '5 minutes', counter }
   }
 
@@ -1796,9 +1797,8 @@ export async function handleIdentitySetup(
   }
 
   // Create Shamir backup using @forgesworn/shamir-words directly
-  const { split } = await import('@forgesworn/shamir-words')
-  const secretHex = Buffer.from(ctx.activePrivateKey).toString('hex')
-  const shards = split(secretHex, shamir.shares, shamir.threshold)
+  const { splitSecret } = await import('@forgesworn/shamir-words')
+  const shards = splitSecret(ctx.activePrivateKey, shamir.shares, shamir.threshold)
 
   const shardDir = args._shardDir ?? join(homedir(), '.nostr-bray', 'shards')
   mkdirSync(shardDir, { recursive: true })
@@ -1856,8 +1856,8 @@ export async function handleIdentityRecover(
   const shards = args.shardPaths.map(p => readFileSync(p, 'utf-8').trim())
 
   // Reconstruct via shamir-words
-  const { reconstruct } = await import('@forgesworn/shamir-words')
-  const secret = reconstruct(shards)
+  const { reconstructSecret } = await import('@forgesworn/shamir-words')
+  const secret = reconstructSecret(shards)
 
   // Create context from recovered secret
   const { IdentityContext } = await import('../context.js')
@@ -2139,7 +2139,7 @@ export function registerWorkflowTools(server: McpServer, deps: WorkflowDeps): vo
       pubkey: hexId.optional().describe('Pubkey to check (defaults to active identity)'),
       checkWrite: z.boolean().default(false).describe('Test write access (publishes ephemeral test event)'),
     },
-    annotations: { readOnlyHint: true },
+    annotations: { readOnlyHint: false }, // checkWrite publishes ephemeral test events
   }, async (args) => {
     const result = await handleRelayHealth(deps.ctx, deps.pool, args)
     return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
