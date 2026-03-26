@@ -30,26 +30,27 @@ social-post("Back to main")       → signed by master npub
 
 This is not just key management — it is context isolation. Each persona has its own relay set, its own contact list, and its own attestation chain. Compromise one and the others remain intact.
 
-## Comparison
+## Relationship to the Nostr Ecosystem
 
-| Feature | nostr-bray | nak | nostr-mcp | nostr-tools |
-|---------|-----------|-----|-----------|-------------|
-| MCP server | 77 tools | [via `nak mcp`](https://github.com/fiatjaf/nak) | 5–23 tools | — |
-| CLI | 77 commands | ✓ (mature) | — | — |
-| Hierarchical identity (nsec-tree) | ✓ | — | — | — |
-| Persona switching | ✓ | — | — | — |
-| Ring signatures (anonymous proofs) | ✓ | — | — | — |
-| Shamir backup (BIP-39 words) | ✓ | — | — | — |
-| Duress detection | ✓ | — | — | — |
-| NIP-VA attestations (kind 31000) | ✓ | — | — | — |
-| Linkage proofs (blind/full) | ✓ | — | — | — |
-| NIP-46 bunker (server + client) | ✓ | ✓ (client) | partial | — |
-| NIP-17 encrypted DMs | ✓ | ✓ | ✓ | ✓ |
-| NWC Lightning payments | ✓ | — | — | — |
-| Blossom media | ✓ | ✓ | — | — |
-| NIP-29 groups | ✓ | — | — | — |
-| Tor routing (SOCKS5h) | ✓ | — | — | — |
-| 329 tests, 96% coverage | ✓ | — | — | — |
+nostr-bray stands on the shoulders of the existing Nostr tooling:
+
+- **[nostr-tools](https://github.com/nbd-wtf/nostr-tools)** (838 stars, 1.2M monthly npm downloads) is our primary dependency. It handles event creation, signing, NIP-44 encryption, relay connections, and most of the protocol-level heavy lifting. If you are building a Nostr client in JavaScript, nostr-tools is the standard.
+- **[nak](https://github.com/fiatjaf/nak)** is the definitive Nostr CLI, written in Go by fiatjaf (the Nostr protocol creator). It covers far more ground than nostr-bray does: MuSig2 collaborative signing, a built-in relay server with negentropy sync, a FUSE filesystem, NIP-60 Cashu wallet, smart publishing with outbox routing, PoW mining, NIP-86 relay admin, paginated bulk downloads, and a full bunker (server + client) with persistence and QR codes. If you want a power-user Swiss Army knife for Nostr, nak is it. It also has [MCP support](https://github.com/fiatjaf/nak).
+
+**What nostr-bray adds** is a narrow, opinionated layer on top: sovereign identity for AI agents. The features that are unique to nostr-bray all revolve around that theme:
+
+| Capability | What it does |
+|-----------|-------------|
+| Hierarchical identity (nsec-tree) | Derive unlimited child keys from one master secret |
+| Persona switching | Change the active signing identity mid-session |
+| Ring signatures | Prove group membership without revealing which member you are |
+| Shamir backup | Split the master secret into BIP-39 word shares for social recovery |
+| Duress detection | An alternative identity that silently signals coercion |
+| Verifiable attestations | NIP-VA kind 31000 creation, verification, and revocation |
+| Linkage proofs | Prove (or selectively hide) links between personas |
+| Spoken verification | HMAC-based spoken word tokens for in-person identity checks |
+
+It also bundles NWC Lightning payments, Tor routing (SOCKS5h), NIP-29 groups, and a full social toolkit (post, reply, DM, follow, feed) into a single MCP server with 77 tools, so an AI agent can get a complete Nostr identity out of the box without stitching together multiple tools.
 
 ## Quick Start — CLI
 
