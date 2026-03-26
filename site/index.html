@@ -1399,18 +1399,22 @@
           </div>
           <div class="code-block">
 <pre><span class="comment">// claude_desktop_config.json</span>
+<span class="comment">// Option A: bunker (safest — key stays in bunker)</span>
 {
   <span class="key">"mcpServers"</span>: {
     <span class="key">"nostr"</span>: {
       <span class="key">"command"</span>: <span class="string">"npx"</span>,
       <span class="key">"args"</span>: [<span class="string">"nostr-bray"</span>],
       <span class="key">"env"</span>: {
-        <span class="key">"NOSTR_SECRET_KEY_FILE"</span>: <span class="string">"/path/to/key"</span>,
-        <span class="key">"NOSTR_RELAYS"</span>: <span class="string">"wss://relay.damus.io"</span>
+        <span class="key">"BUNKER_URI"</span>: <span class="string">"bunker://&lt;pubkey&gt;?relay=wss://relay.damus.io"</span>
       }
     }
   }
-}</pre>
+}
+<span class="comment">// Option B: file-based secret</span>
+<span class="comment">// Replace BUNKER_URI with:</span>
+<span class="comment">//   "NOSTR_SECRET_KEY_FILE": "~/.nostr/secret.key",</span>
+<span class="comment">//   "NOSTR_RELAYS": "wss://relay.damus.io"</span></pre>
           </div>
         </div>
         <!-- CLI -->
@@ -1420,9 +1424,11 @@
             <h3>Terminal Mode</h3>
           </div>
           <div class="code-block">
-<pre><span class="comment"># set your identity</span>
-<span class="cmd">export</span> <span class="key">NOSTR_SECRET_KEY</span>=<span class="string">"nsec1..."</span>
-<span class="cmd">export</span> <span class="key">NOSTR_RELAYS</span>=<span class="string">"wss://relay.damus.io"</span>
+<pre><span class="comment"># start your bunker (runs in background)</span>
+<span class="cmd">npx</span> nostr-bray <span class="flag">bunker</span> &amp;
+
+<span class="comment"># connect to it</span>
+<span class="cmd">export</span> <span class="key">BUNKER_URI</span>=<span class="string">"bunker://&lt;pubkey&gt;?relay=wss://relay.damus.io"</span>
 
 <span class="comment"># go</span>
 <span class="cmd">npx</span> nostr-bray <span class="flag">whoami</span>
@@ -1594,16 +1600,28 @@
         <div class="start-step reveal">
           <div class="step-number">2</div>
           <div class="step-content">
-            <h3>Configure</h3>
+            <h3>Authenticate</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">Three options, safest first:</p>
+            <div class="code-block" style="margin-bottom: 1rem;">
+<pre><span class="comment"># RECOMMENDED: NIP-46 bunker (key never touches bray)</span>
+<span class="comment"># Terminal 1 — start the bunker with your key</span>
+<span class="cmd">npx</span> nostr-bray <span class="flag">bunker</span>
+
+<span class="comment"># Terminal 2 — connect to it</span>
+<span class="cmd">export</span> <span class="key">BUNKER_URI</span>=<span class="string">"bunker://&lt;pubkey&gt;?relay=wss://relay.damus.io"</span>
+<span class="cmd">npx</span> nostr-bray <span class="flag">whoami</span></pre>
+            </div>
+            <div class="code-block" style="margin-bottom: 1rem;">
+<pre><span class="comment"># GOOD: file-based secret (protected by file permissions)</span>
+<span class="cmd">echo</span> <span class="string">"nsec1..."</span> > ~/.nostr/secret.key
+<span class="cmd">chmod</span> 600 ~/.nostr/secret.key
+<span class="cmd">export</span> <span class="key">NOSTR_SECRET_KEY_FILE</span>=<span class="string">"~/.nostr/secret.key"</span>
+<span class="cmd">export</span> <span class="key">NOSTR_RELAYS</span>=<span class="string">"wss://relay.damus.io,wss://nos.lol"</span></pre>
+            </div>
             <div class="code-block">
-<pre><span class="comment"># set your secret key (nsec, hex, or BIP-39 mnemonic)</span>
+<pre><span class="comment"># QUICK (testing only): env var</span>
 <span class="cmd">export</span> <span class="key">NOSTR_SECRET_KEY</span>=<span class="string">"nsec1..."</span>
-
-<span class="comment"># set your relays</span>
-<span class="cmd">export</span> <span class="key">NOSTR_RELAYS</span>=<span class="string">"wss://relay.damus.io,wss://nos.lol"</span>
-
-<span class="comment"># optional: use a file for the secret (recommended)</span>
-<span class="cmd">export</span> <span class="key">NOSTR_SECRET_KEY_FILE</span>=<span class="string">"~/.nostr/secret.key"</span></pre>
+<span class="cmd">export</span> <span class="key">NOSTR_RELAYS</span>=<span class="string">"wss://relay.damus.io,wss://nos.lol"</span></pre>
             </div>
           </div>
         </div>
