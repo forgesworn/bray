@@ -4,6 +4,8 @@ import type { ToolDeps } from '../identity/tools.js'
 import { hexId } from '../validation.js'
 import { toolResponse } from '../tool-response.js'
 import * as fmt from '../format.js'
+import { VeilScoring } from '../veil/scoring.js'
+import { TrustCache } from '../veil/cache.js'
 import {
   handleSocialPost,
   handleSocialReply,
@@ -24,6 +26,11 @@ import { handleBlossomUpload, handleBlossomList, handleBlossomDelete } from './b
 import { handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers } from './groups.js'
 
 export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
+  const trustCache = new TrustCache({
+    ttl: deps.veilCacheTtl ?? 300_000,
+    maxEntries: deps.veilCacheMax ?? 500,
+  })
+
   server.registerTool('social-post', {
     description: 'Post a text note (kind 1) signed by the active identity and publish to relays. Returns { id, pubkey, publish: { success, accepted, rejected } }. The most common social action.',
     inputSchema: {
@@ -265,11 +272,14 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     inputSchema: {
       since: z.number().optional().describe('Unix timestamp — only fetch notifications after this time'),
       limit: z.number().int().min(1).max(200).default(50).describe('Max notifications to return'),
+      trust: z.enum(['strict', 'annotate', 'off']).default('strict')
+        .describe('Trust filter mode: strict (hide untrusted), annotate (show scores), off (no filtering)'),
       output: z.enum(['json', 'human']).default('human').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ since, limit, output }) => {
-    const notifications = await handleNotifications(deps.ctx, deps.pool, { since, limit })
+  }, async ({ since, limit, trust, output }) => {
+    const scoring = new VeilScoring(deps.pool, trustCache, deps.ctx.activeNpub)
+    const notifications = await handleNotifications(deps.ctx, deps.pool, { since, limit, trust, _scoring: scoring })
     return toolResponse(notifications, output, fmt.formatNotifications)
   })
 
@@ -279,11 +289,14 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       authors: z.array(hexId).optional().describe('Hex pubkeys to filter by'),
       since: z.number().optional().describe('Unix timestamp — only fetch posts after this time'),
       limit: z.number().int().min(1).max(100).default(20).describe('Max posts to return'),
+      trust: z.enum(['strict', 'annotate', 'off']).default('strict')
+        .describe('Trust filter mode: strict (hide untrusted), annotate (show scores), off (no filtering)'),
       output: z.enum(['json', 'human']).default('human').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ authors, since, limit, output }) => {
-    const feed = await handleFeed(deps.ctx, deps.pool, { authors, since, limit })
+  }, async ({ authors, since, limit, trust, output }) => {
+    const scoring = new VeilScoring(deps.pool, trustCache, deps.ctx.activeNpub)
+    const feed = await handleFeed(deps.ctx, deps.pool, { authors, since, limit, trust, _scoring: scoring })
     return toolResponse(feed, output, fmt.formatFeed)
   })
 
