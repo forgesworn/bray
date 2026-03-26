@@ -594,7 +594,7 @@ async function run(cmdArgs: string[]): Promise<void> {
     // === Relay ===
 
     case 'relay-list':
-      out(handleRelayList(ctx, pool, flag('compare')), fmt.formatRelays)
+      out(await handleRelayList(ctx, pool, flag('compare')), fmt.formatRelays)
       break
 
     case 'relay-set': {
