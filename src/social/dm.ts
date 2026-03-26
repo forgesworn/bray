@@ -106,15 +106,36 @@ export async function handleDmSend(
 export async function handleDmRead(
   ctx: IdentityContext,
   pool: RelayPool,
+  args?: { limit?: number },
 ): Promise<DmReadEntry[]> {
   // Fetch gift wraps (kind 1059) and legacy DMs (kind 4) addressed to us
   const activeHex = decode(ctx.activeNpub).data as string
   const events = await pool.query(ctx.activeNpub, {
     kinds: [1059, 4],
     '#p': [activeHex],
-    limit: 50,
+    limit: args?.limit ?? 50,
   })
 
+  return decryptDmEvents(ctx, events)
+}
+
+/** Read DM conversation with a specific pubkey — filters to messages from that person only */
+export async function handleDmConversation(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: { withPubkeyHex: string; limit?: number },
+): Promise<DmReadEntry[]> {
+  const allMessages = await handleDmRead(ctx, pool, { limit: args.limit ?? 100 })
+  return allMessages
+    .filter(m => m.from === args.withPubkeyHex)
+    .sort((a, b) => a.createdAt - b.createdAt) // chronological for conversation view
+}
+
+/** Decrypt a list of DM events (kind 1059 gift wrap + kind 4 legacy) */
+async function decryptDmEvents(
+  ctx: IdentityContext,
+  events: NostrEvent[],
+): Promise<DmReadEntry[]> {
   const results: DmReadEntry[] = []
 
   for (const event of events) {
