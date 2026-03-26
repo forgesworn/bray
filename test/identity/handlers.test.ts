@@ -38,6 +38,21 @@ describe('identity handlers', () => {
       expect(result.purpose).toBe('messaging')
       expect(result.index).toBe(0)
     })
+
+    it('includes setup hint when only master identity exists', () => {
+      // Fresh ctx has only master — first derive should trigger hint
+      const result = handleIdentityDerive(ctx, { purpose: 'social', index: 0 })
+      expect(result.hint).toBeDefined()
+      expect(result.hint).toMatch(/identity-setup/)
+    })
+
+    it('does not include hint when other derived identities already exist', () => {
+      // Derive one first so cache has master + 1 child
+      ctx.derive('existing', 0)
+      // Now derive another — cache already has entries beyond just master
+      const result = handleIdentityDerive(ctx, { purpose: 'messaging', index: 0 })
+      expect(result.hint).toBeUndefined()
+    })
   })
 
   describe('handleIdentityDerivePersona', () => {

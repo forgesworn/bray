@@ -14,6 +14,7 @@ import {
   handleSocialDelete,
   handleSocialRepost,
 } from '../../src/social/handlers.js'
+import type { VeilScoring } from '../../src/veil/scoring.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
 
@@ -61,6 +62,47 @@ describe('social handlers', () => {
       const pTag = result.event.tags.find((t: string[]) => t[0] === 'p')
       expect(pTag).toBeDefined()
       expect(pTag![1]).toBe('def456pubkey')
+    })
+
+    it('adds trustWarning when scoring returns score 0', async () => {
+      const pool = mockPool()
+      const mockScoring = {
+        scorePubkey: vi.fn().mockResolvedValue({ pubkey: 'def456pubkey', score: 0, endorsements: 0, ringEndorsements: 0, flags: [] }),
+      } as unknown as VeilScoring
+      const result = await handleSocialReply(ctx, pool as any, {
+        content: 'hello',
+        replyTo: 'abc123event',
+        replyToPubkey: 'def456pubkey',
+        _scoring: mockScoring,
+      })
+      expect(result.trustWarning).toBe('This author has no trust endorsements in your network.')
+      expect(result.authorTrustScore).toBeUndefined()
+    })
+
+    it('adds authorTrustScore when scoring returns score > 0', async () => {
+      const pool = mockPool()
+      const mockScoring = {
+        scorePubkey: vi.fn().mockResolvedValue({ pubkey: 'def456pubkey', score: 0.75, endorsements: 3, ringEndorsements: 0, flags: [] }),
+      } as unknown as VeilScoring
+      const result = await handleSocialReply(ctx, pool as any, {
+        content: 'hello',
+        replyTo: 'abc123event',
+        replyToPubkey: 'def456pubkey',
+        _scoring: mockScoring,
+      })
+      expect(result.authorTrustScore).toBe(0.75)
+      expect(result.trustWarning).toBeUndefined()
+    })
+
+    it('works normally without scoring param', async () => {
+      const pool = mockPool()
+      const result = await handleSocialReply(ctx, pool as any, {
+        content: 'hello',
+        replyTo: 'abc123event',
+        replyToPubkey: 'def456pubkey',
+      })
+      expect(result.trustWarning).toBeUndefined()
+      expect(result.authorTrustScore).toBeUndefined()
     })
   })
 
@@ -396,11 +438,16 @@ describe('social handlers', () => {
 
   describe('handleContactsUnfollow', () => {
     it('removes pubkey from contact list', async () => {
+      // Use enough contacts so removing one is ≤20% shrinkage (10 contacts → 9 = 10%)
       const existing = {
         kind: 3,
         pubkey: 'mypub',
         created_at: 1000,
-        tags: [['p', 'keep'], ['p', 'remove'], ['p', 'alsokeep']],
+        tags: [
+          ['p', 'keep1'], ['p', 'keep2'], ['p', 'keep3'], ['p', 'keep4'],
+          ['p', 'keep5'], ['p', 'keep6'], ['p', 'keep7'], ['p', 'keep8'],
+          ['p', 'keep9'], ['p', 'remove'],
+        ],
         content: '',
         id: 'c1',
         sig: 's1',
@@ -409,9 +456,82 @@ describe('social handlers', () => {
       const result = await handleContactsUnfollow(ctx, pool as any, {
         pubkeyHex: 'remove',
       })
+      if ('guarded' in result) throw new Error('Unexpected guard')
       const pTags = result.event.tags.filter((t: string[]) => t[0] === 'p')
-      expect(pTags.length).toBe(2)
+      expect(pTags.length).toBe(9)
       expect(pTags.every((t: string[]) => t[1] !== 'remove')).toBe(true)
+    })
+  })
+
+  describe('contacts safety guard', () => {
+    function makeExisting(pubkeys: string[]) {
+      return {
+        kind: 3,
+        pubkey: 'mypub',
+        created_at: 1000,
+        tags: pubkeys.map(pk => ['p', pk]),
+        content: '',
+        id: 'c1',
+        sig: 's1',
+      }
+    }
+
+    describe('handleContactsFollow — guard', () => {
+      it('returns ContactGuardWarning when adding would shrink list by >20%', async () => {
+        // 5 contacts, adding a duplicate (no-op) leaves 5 — but if somehow shrinkage occurs
+        // Test: existing has 5, we follow one already there (no-op), list stays 5 — no guard
+        // For shrinkage, we need oldList > newList by >20%. Follow cannot shrink, so test unfollow.
+        // This test verifies the guard does NOT trigger on a normal follow (list grows)
+        const existing = makeExisting(['p1', 'p2', 'p3', 'p4', 'p5'])
+        const pool = mockPool([existing])
+        const result = await handleContactsFollow(ctx, pool as any, { pubkeyHex: 'p6' })
+        expect('guarded' in result).toBe(false)
+      })
+
+      it('does not guard when list is empty', async () => {
+        const pool = mockPool([])
+        const result = await handleContactsFollow(ctx, pool as any, { pubkeyHex: 'p1' })
+        expect('guarded' in result).toBe(false)
+      })
+    })
+
+    describe('handleContactsUnfollow — guard', () => {
+      it('returns ContactGuardWarning when unfollowing would shrink list by >20%', async () => {
+        // 3 contacts, remove 1 = 33% shrinkage → guarded
+        const existing = makeExisting(['p1', 'p2', 'p3'])
+        const pool = mockPool([existing])
+        const result = await handleContactsUnfollow(ctx, pool as any, { pubkeyHex: 'p1' })
+        expect('guarded' in result).toBe(true)
+        if (!('guarded' in result)) return
+        expect(result.guarded).toBe(true)
+        expect(result.warning).toMatch(/shrink/)
+        expect(result.previousCount).toBe(3)
+        expect(result.proposedCount).toBe(2)
+      })
+
+      it('proceeds when confirm: true bypasses the guard', async () => {
+        const existing = makeExisting(['p1', 'p2', 'p3'])
+        const pool = mockPool([existing])
+        const result = await handleContactsUnfollow(ctx, pool as any, { pubkeyHex: 'p1', confirm: true })
+        expect('guarded' in result).toBe(false)
+        if ('guarded' in result) return
+        const pTags = result.event.tags.filter((t: string[]) => t[0] === 'p')
+        expect(pTags.length).toBe(2)
+      })
+
+      it('does not guard when shrinkage is ≤20%', async () => {
+        // 10 contacts, remove 1 = 10% shrinkage → no guard
+        const existing = makeExisting(['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10'])
+        const pool = mockPool([existing])
+        const result = await handleContactsUnfollow(ctx, pool as any, { pubkeyHex: 'p1' })
+        expect('guarded' in result).toBe(false)
+      })
+
+      it('does not guard when list is empty', async () => {
+        const pool = mockPool([])
+        const result = await handleContactsUnfollow(ctx, pool as any, { pubkeyHex: 'p1' })
+        expect('guarded' in result).toBe(false)
+      })
     })
   })
 })

@@ -58,11 +58,14 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ content, replyTo, replyToPubkey, relay }) => {
-    const result = await handleSocialReply(deps.ctx, deps.pool, { content, replyTo, replyToPubkey, relay })
+    const scoring = new VeilScoring(deps.pool, trustCache, deps.ctx.activeNpub)
+    const result = await handleSocialReply(deps.ctx, deps.pool, { content, replyTo, replyToPubkey, relay, _scoring: scoring })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({
         id: result.event.id,
         publish: result.publish,
+        ...(result.trustWarning ? { trustWarning: result.trustWarning } : {}),
+        ...(result.authorTrustScore !== undefined ? { authorTrustScore: result.authorTrustScore } : {}),
       }, null, 2) }],
     }
   })
@@ -187,6 +190,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
         id: result.event.id,
         publish: result.publish,
         senderCopyPublish: result.senderCopyPublish,
+        ...(result.relayWarning ? { relayWarning: result.relayWarning } : {}),
       }, null, 2) }],
     }
   })
@@ -415,15 +419,21 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('contacts-follow', {
-    description: 'Follow a Nostr pubkey. Fetches current contact list, adds the pubkey, publishes updated kind 3.',
+    description: 'Follow a Nostr pubkey. Fetches current contact list, adds the pubkey, publishes updated kind 3. If the list would shrink by >20%, returns a guarded warning — pass confirm: true to proceed.',
     inputSchema: {
       pubkeyHex: hexId.describe('Hex pubkey to follow'),
       relay: z.string().optional().describe('Relay hint for the contact'),
       petname: z.string().optional().describe('Local petname for the contact'),
+      confirm: z.boolean().optional().describe('Set true to bypass the contacts safety guard'),
     },
     annotations: { readOnlyHint: false, destructiveHint: true },
-  }, async ({ pubkeyHex, relay, petname }) => {
-    const result = await handleContactsFollow(deps.ctx, deps.pool, { pubkeyHex, relay, petname })
+  }, async ({ pubkeyHex, relay, petname, confirm }) => {
+    const result = await handleContactsFollow(deps.ctx, deps.pool, { pubkeyHex, relay, petname, confirm })
+    if ('guarded' in result) {
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+      }
+    }
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({
         id: result.event.id,
@@ -434,13 +444,19 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('contacts-unfollow', {
-    description: 'Unfollow a Nostr pubkey. Fetches current contact list, removes the pubkey, publishes updated kind 3.',
+    description: 'Unfollow a Nostr pubkey. Fetches current contact list, removes the pubkey, publishes updated kind 3. If the list would shrink by >20%, returns a guarded warning — pass confirm: true to proceed.',
     inputSchema: {
       pubkeyHex: hexId.describe('Hex pubkey to unfollow'),
+      confirm: z.boolean().optional().describe('Set true to bypass the contacts safety guard'),
     },
     annotations: { readOnlyHint: false, destructiveHint: true },
-  }, async ({ pubkeyHex }) => {
-    const result = await handleContactsUnfollow(deps.ctx, deps.pool, { pubkeyHex })
+  }, async ({ pubkeyHex, confirm }) => {
+    const result = await handleContactsUnfollow(deps.ctx, deps.pool, { pubkeyHex, confirm })
+    if ('guarded' in result) {
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+      }
+    }
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({
         id: result.event.id,
