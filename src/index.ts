@@ -14,7 +14,7 @@ import { registerUtilTools } from './util/tools.js'
 import { registerWorkflowTools } from './workflow/tools.js'
 import { ActionCatalog, createCatalogProxy } from './catalog.js'
 
-const config = loadConfig()
+const config = await loadConfig()
 const pool = new RelayPool({
   torProxy: config.torProxy,
   allowClearnet: config.allowClearnetWithTor || !config.torProxy,

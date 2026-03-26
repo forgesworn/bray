@@ -36,7 +36,7 @@ if (!command) {
 // Bunker = NIP-46 remote signer
 if (command === 'bunker' && !args.includes('--help')) {
   const { startBunker } = await import('./bunker.js')
-  const config = (await import('./config.js')).loadConfig()
+  const config = await (await import('./config.js')).loadConfig()
   const { IdentityContext: IC } = await import('./context.js')
   const bCtx = new IC(config.secretKey, config.secretFormat)
   ;(config as any).secretKey = ''
@@ -235,7 +235,7 @@ const OFFLINE_COMMANDS = new Set([
 ])
 
 // All other commands need config
-const config = loadConfig()
+const config = await loadConfig()
 const pool = new RelayPool({
   torProxy: config.torProxy,
   allowClearnet: config.allowClearnetWithTor || !config.torProxy,

@@ -3,6 +3,7 @@ import type { BrayConfig } from './types.js'
 
 const NSEC_RE = /^nsec1[a-z0-9]{58}$/
 const HEX_RE = /^[0-9a-f]{64}$/
+const NCRYPTSEC_RE = /^ncryptsec1[a-z0-9]+$/
 
 /** Auto-detect key format from string content */
 export function detectKeyFormat(key: string): 'nsec' | 'hex' | 'mnemonic' {
@@ -36,7 +37,7 @@ function validateTorRelays(relays: string[], torProxy: string | undefined, allow
 }
 
 /** Load configuration from environment variables and optional secret files */
-export function loadConfig(): BrayConfig {
+export async function loadConfig(): Promise<BrayConfig> {
   // --- Secret key ---
   const keyFilePath = process.env.NOSTR_SECRET_KEY_FILE
   const keyEnvVar = process.env.NOSTR_SECRET_KEY
@@ -49,7 +50,29 @@ export function loadConfig(): BrayConfig {
     bunkerUri = process.env.BUNKER_URI
   }
 
-  if (keyFilePath) {
+  // --- NIP-49 ncryptsec (password-encrypted key) ---
+  const ncryptsec = process.env.NOSTR_NCRYPTSEC_FILE
+    ? readSecretFile(process.env.NOSTR_NCRYPTSEC_FILE)
+    : process.env.NOSTR_NCRYPTSEC
+  const ncryptsecPassword = process.env.NOSTR_NCRYPTSEC_PASSWORD
+
+  if (ncryptsec) {
+    if (!ncryptsecPassword) {
+      throw new Error('NOSTR_NCRYPTSEC provided but NOSTR_NCRYPTSEC_PASSWORD is missing')
+    }
+    if (!NCRYPTSEC_RE.test(ncryptsec)) {
+      throw new Error('Invalid ncryptsec format: expected ncryptsec1...')
+    }
+    // Lazy import to avoid loading nip49 when not needed
+    const { decrypt } = await import('nostr-tools/nip49')
+    const { nsecEncode } = await import('nostr-tools/nip19')
+    const bytes = decrypt(ncryptsec, ncryptsecPassword)
+    try {
+      secretKey = nsecEncode(bytes)
+    } finally {
+      bytes.fill(0)
+    }
+  } else if (keyFilePath) {
     secretKey = readSecretFile(keyFilePath)
   } else if (keyEnvVar) {
     secretKey = keyEnvVar
@@ -57,7 +80,7 @@ export function loadConfig(): BrayConfig {
     // Bunker mode — no local secret needed
     secretKey = ''
   } else {
-    throw new Error('No secret key provided: set NOSTR_SECRET_KEY, NOSTR_SECRET_KEY_FILE, or BUNKER_URI')
+    throw new Error('No secret key provided: set NOSTR_SECRET_KEY, NOSTR_SECRET_KEY_FILE, NOSTR_NCRYPTSEC, or BUNKER_URI')
   }
 
   const secretFormat = secretKey ? detectKeyFormat(secretKey) : 'nsec' as const
@@ -102,6 +125,9 @@ export function loadConfig(): BrayConfig {
   delete process.env.NWC_URI_FILE
   delete process.env.BUNKER_URI
   delete process.env.BUNKER_URI_FILE
+  delete process.env.NOSTR_NCRYPTSEC
+  delete process.env.NOSTR_NCRYPTSEC_FILE
+  delete process.env.NOSTR_NCRYPTSEC_PASSWORD
 
   return {
     secretKey,
