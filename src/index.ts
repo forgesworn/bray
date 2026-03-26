@@ -11,6 +11,7 @@ import { registerRelayTools } from './relay/tools.js'
 import { registerZapTools } from './zap/tools.js'
 import { registerSafetyTools } from './safety/tools.js'
 import { registerUtilTools } from './util/tools.js'
+import { registerWorkflowTools } from './workflow/tools.js'
 import { ActionCatalog, createCatalogProxy } from './catalog.js'
 
 const config = loadConfig()
@@ -64,6 +65,13 @@ registerRelayTools(proxy, deps)
 registerZapTools(proxy, deps)
 registerSafetyTools(proxy, deps)
 registerUtilTools(proxy, deps)
+registerWorkflowTools(proxy, {
+  ctx: deps.ctx,
+  pool: deps.pool,
+  nip65: deps.nip65,
+  veilCacheTtl: config.veilCacheTtl,
+  veilCacheMax: config.veilCacheMax,
+})
 
 // Add search-actions and execute-action meta-tools to the real server
 catalog.registerMetaTools(server)
