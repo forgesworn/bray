@@ -1,0 +1,1809 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>nostr-bray — Sovereign Nostr Identities for AI Agents</title>
+  <meta name="description" content="MCP server giving AI agents sovereign Nostr identities. 84 tools across 10 groups: hierarchical key derivation, personas, attestations, ring signatures, duress detection, Lightning zaps.">
+  <meta name="theme-color" content="#0a0a0f">
+  <meta property="og:title" content="nostr-bray -- Sovereign Nostr Identities for AI Agents">
+  <meta property="og:description" content="MCP server giving AI agents sovereign Nostr identities. 84 tools: key derivation, personas, attestations, ring signatures, duress detection, Lightning zaps.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://github.com/forgesworn/nostr-bray">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="nostr-bray -- Sovereign Nostr Identities for AI Agents">
+  <meta name="twitter:description" content="84 tools for AI agents on Nostr. Hierarchical identities, ring signatures, Shamir recovery, duress personas, Lightning zaps.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a0f'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='%23e8a838' font-family='serif'>b</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ========================================
+       RESET & BASE
+       ======================================== */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-deep: #06060b;
+      --bg-primary: #0a0a0f;
+      --bg-elevated: #111118;
+      --bg-card: #14141d;
+      --bg-card-hover: #1a1a26;
+      --border-subtle: #1e1e2e;
+      --border-medium: #2a2a3e;
+
+      --text-primary: #e8e6e3;
+      --text-secondary: #9896a1;
+      --text-muted: #5e5c66;
+
+      --accent-gold: #e8a838;
+      --accent-gold-dim: #b8842a;
+      --accent-gold-glow: rgba(232, 168, 56, 0.15);
+      --accent-blue: #4a9eff;
+      --accent-blue-dim: #3578cc;
+      --accent-blue-glow: rgba(74, 158, 255, 0.1);
+      --accent-green: #34d399;
+      --accent-red: #f87171;
+      --accent-purple: #a78bfa;
+
+      --font-display: 'Instrument Serif', Georgia, serif;
+      --font-body: 'DM Sans', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+
+      --max-width: 1200px;
+      --section-gap: clamp(6rem, 12vh, 10rem);
+    }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      line-height: 1.65;
+      font-size: 16px;
+      overflow-x: hidden;
+    }
+
+    /* Noise texture overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      pointer-events: none;
+      opacity: 0.025;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 256px 256px;
+    }
+
+    a { color: var(--accent-gold); text-decoration: none; transition: color 0.2s; }
+    a:hover { color: var(--accent-blue); }
+
+    ::selection { background: var(--accent-gold); color: var(--bg-deep); }
+
+    /* ========================================
+       LAYOUT
+       ======================================== */
+    .container {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 0 clamp(1.25rem, 4vw, 3rem);
+    }
+
+    section {
+      padding: var(--section-gap) 0;
+      position: relative;
+    }
+
+    /* ========================================
+       TYPOGRAPHY
+       ======================================== */
+    h1, h2, h3 {
+      font-family: var(--font-display);
+      font-weight: 400;
+      line-height: 1.1;
+    }
+
+    h2 {
+      font-size: clamp(2.2rem, 5vw, 3.5rem);
+      margin-bottom: 1.5rem;
+    }
+
+    h3 {
+      font-size: clamp(1.4rem, 2.5vw, 1.75rem);
+      margin-bottom: 0.75rem;
+    }
+
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent-gold);
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .text-muted { color: var(--text-secondary); }
+    .text-dim { color: var(--text-muted); }
+
+    p + p { margin-top: 1em; }
+
+    /* ========================================
+       NAV
+       ======================================== */
+    .nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      padding: 1rem 0;
+      background: rgba(6, 6, 11, 0.85);
+      backdrop-filter: blur(20px) saturate(1.5);
+      -webkit-backdrop-filter: blur(20px) saturate(1.5);
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.3s, padding 0.3s;
+    }
+
+    .nav.scrolled {
+      border-bottom-color: var(--border-subtle);
+      padding: 0.6rem 0;
+    }
+
+    .nav-inner {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 0 clamp(1.25rem, 4vw, 3rem);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-brand {
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+
+    .nav-brand span { color: var(--accent-gold); }
+
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--text-primary); }
+
+    .nav-links .btn-nav {
+      background: var(--accent-gold);
+      color: var(--bg-deep);
+      padding: 0.45rem 1rem;
+      border-radius: 4px;
+      font-weight: 600;
+      transition: background 0.2s, transform 0.15s;
+    }
+
+    .nav-links .btn-nav:hover {
+      background: #f0b848;
+      color: var(--bg-deep);
+      transform: translateY(-1px);
+    }
+
+    .nav-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text-primary);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0.25rem;
+    }
+
+    /* ========================================
+       HERO
+       ======================================== */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding-top: 5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Radial glow behind hero */
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -20%;
+      right: -10%;
+      width: 70vw;
+      height: 70vw;
+      max-width: 900px;
+      max-height: 900px;
+      background: radial-gradient(circle, rgba(232, 168, 56, 0.06) 0%, rgba(74, 158, 255, 0.03) 40%, transparent 70%);
+      pointer-events: none;
+      animation: hero-glow 8s ease-in-out infinite alternate;
+    }
+
+    @keyframes hero-glow {
+      0% { opacity: 0.7; transform: translate(0, 0) scale(1); }
+      100% { opacity: 1; transform: translate(-3%, 5%) scale(1.05); }
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      max-width: 860px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--accent-gold);
+      background: var(--accent-gold-glow);
+      border: 1px solid rgba(232, 168, 56, 0.2);
+      padding: 0.4rem 1rem;
+      border-radius: 100px;
+      margin-bottom: 2rem;
+      animation: fadeUp 0.8s ease-out both;
+    }
+
+    .hero-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--accent-gold);
+      border-radius: 50%;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .hero h1 {
+      font-size: clamp(3rem, 8vw, 5.5rem);
+      line-height: 1.02;
+      margin-bottom: 1.5rem;
+      animation: fadeUp 0.8s ease-out 0.1s both;
+    }
+
+    .hero h1 em {
+      font-style: italic;
+      color: var(--accent-gold);
+    }
+
+    .hero-sub {
+      font-size: clamp(1.1rem, 2vw, 1.35rem);
+      color: var(--text-secondary);
+      max-width: 600px;
+      line-height: 1.6;
+      margin-bottom: 2.5rem;
+      animation: fadeUp 0.8s ease-out 0.2s both;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      animation: fadeUp 0.8s ease-out 0.3s both;
+    }
+
+    .install-block {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-medium);
+      border-radius: 8px;
+      padding: 0.7rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+
+    .install-block:hover {
+      border-color: var(--accent-gold-dim);
+      background: var(--bg-card);
+    }
+
+    .install-block .prompt { color: var(--accent-gold); user-select: none; }
+    .install-block code { color: var(--text-primary); }
+
+    .install-block .copy-hint {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-left: 0.5rem;
+      transition: color 0.2s;
+    }
+
+    .install-block:hover .copy-hint { color: var(--text-secondary); }
+
+    .install-block.copied .copy-hint { color: var(--accent-green); }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      font-weight: 500;
+      background: transparent;
+      color: var(--text-primary);
+      border: 1px solid var(--border-medium);
+      padding: 0.7rem 1.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color 0.2s, background 0.2s, transform 0.15s;
+    }
+
+    .btn-primary:hover {
+      border-color: var(--accent-blue-dim);
+      background: var(--accent-blue-glow);
+      color: var(--text-primary);
+      transform: translateY(-1px);
+    }
+
+    .hero-stats {
+      display: flex;
+      gap: 2.5rem;
+      margin-top: 3.5rem;
+      animation: fadeUp 0.8s ease-out 0.45s both;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-value {
+      font-family: var(--font-display);
+      font-size: 2.2rem;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-top: 0.3rem;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ========================================
+       SECTION: PROBLEM
+       ======================================== */
+    .problem-section {
+      background: var(--bg-primary);
+      border-top: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .problem-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1px;
+      background: var(--border-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 2.5rem;
+    }
+
+    .problem-card {
+      background: var(--bg-card);
+      padding: 2rem;
+      transition: background 0.3s;
+    }
+
+    .problem-card:hover { background: var(--bg-card-hover); }
+
+    .problem-icon {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      display: block;
+      width: 40px;
+      height: 40px;
+      line-height: 40px;
+      text-align: center;
+      background: rgba(248, 113, 113, 0.08);
+      border: 1px solid rgba(248, 113, 113, 0.15);
+      border-radius: 8px;
+    }
+
+    .problem-card h3 {
+      font-family: var(--font-body);
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: var(--text-primary);
+    }
+
+    .problem-card p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+
+    /* ========================================
+       SECTION: SOLUTION
+       ======================================== */
+    .solution-list {
+      margin-top: 2.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .solution-item {
+      display: grid;
+      grid-template-columns: 3rem 1fr;
+      gap: 1.5rem;
+      padding: 2rem 0;
+      border-bottom: 1px solid var(--border-subtle);
+      align-items: start;
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+
+    .solution-item.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .solution-number {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      color: var(--accent-gold-dim);
+      line-height: 1;
+      padding-top: 0.15rem;
+    }
+
+    .solution-item h3 {
+      font-family: var(--font-body);
+      font-weight: 600;
+      font-size: 1.1rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .solution-item p {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+    }
+
+    .solution-tag {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      background: var(--accent-gold-glow);
+      color: var(--accent-gold);
+      padding: 0.15rem 0.55rem;
+      border-radius: 3px;
+      margin-top: 0.5rem;
+      letter-spacing: 0.03em;
+    }
+
+    /* ========================================
+       SECTION: FEATURES (TOOL GROUPS)
+       ======================================== */
+    .features-section { background: var(--bg-deep); }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 1.25rem;
+      margin-top: 2.5rem;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 1.75rem;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s, transform 0.2s, box-shadow 0.3s;
+    }
+
+    .feature-card:hover {
+      border-color: var(--border-medium);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 3px;
+      height: 100%;
+      background: var(--card-accent, var(--accent-gold));
+      opacity: 0.6;
+      transition: opacity 0.3s;
+    }
+
+    .feature-card:hover::before { opacity: 1; }
+
+    .feature-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+
+    .feature-card h3 {
+      font-family: var(--font-body);
+      font-weight: 600;
+      font-size: 1.05rem;
+    }
+
+    .feature-count {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: var(--bg-elevated);
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .feature-card p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 1rem;
+    }
+
+    .feature-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .tool-tag {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      padding: 0.2rem 0.5rem;
+      border-radius: 3px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .feature-card:hover .tool-tag {
+      color: var(--text-secondary);
+      border-color: var(--border-medium);
+    }
+
+    /* ========================================
+       SECTION: HOW IT WORKS
+       ======================================== */
+    .how-section {
+      background: var(--bg-primary);
+      border-top: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .how-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      margin-top: 2.5rem;
+      align-items: start;
+    }
+
+    .how-mode {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .how-mode-header {
+      padding: 1.25rem 1.75rem;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .how-mode-header h3 {
+      font-family: var(--font-body);
+      font-weight: 600;
+      font-size: 1rem;
+      margin-bottom: 0;
+    }
+
+    .mode-badge {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.5rem;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+
+    .mode-badge.mcp {
+      background: rgba(232, 168, 56, 0.12);
+      color: var(--accent-gold);
+    }
+
+    .mode-badge.cli {
+      background: rgba(74, 158, 255, 0.12);
+      color: var(--accent-blue);
+    }
+
+    .code-block {
+      padding: 1.5rem 1.75rem;
+      overflow-x: auto;
+    }
+
+    .code-block pre {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      line-height: 1.7;
+      color: var(--text-secondary);
+    }
+
+    .code-block .comment { color: var(--text-muted); }
+    .code-block .key { color: var(--accent-blue); }
+    .code-block .string { color: var(--accent-gold); }
+    .code-block .cmd { color: var(--accent-green); }
+    .code-block .flag { color: var(--accent-purple); }
+
+    /* ========================================
+       SECTION: TRUST & PRIVACY
+       ======================================== */
+    .trust-section { background: var(--bg-deep); }
+
+    .trust-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin-top: 2.5rem;
+    }
+
+    .trust-card {
+      padding: 2rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      transition: border-color 0.3s;
+    }
+
+    .trust-card:hover { border-color: var(--border-medium); }
+
+    .trust-card h3 {
+      font-family: var(--font-body);
+      font-weight: 600;
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .trust-card p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .trust-icon {
+      display: block;
+      width: 36px;
+      height: 36px;
+      margin-bottom: 1rem;
+    }
+
+    .crypto-deps {
+      margin-top: 2.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .crypto-chip {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      padding: 0.45rem 0.9rem;
+      border-radius: 6px;
+      color: var(--text-secondary);
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .crypto-chip:hover {
+      border-color: var(--accent-gold-dim);
+      color: var(--accent-gold);
+    }
+
+    /* ========================================
+       SECTION: COMPARISON
+       ======================================== */
+    .comparison-section {
+      background: var(--bg-primary);
+      border-top: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .comparison-table-wrapper {
+      margin-top: 2.5rem;
+      overflow-x: auto;
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+    }
+
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      min-width: 700px;
+    }
+
+    .comparison-table thead {
+      background: var(--bg-card);
+    }
+
+    .comparison-table th {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-align: left;
+      padding: 1rem 1.25rem;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-subtle);
+      white-space: nowrap;
+    }
+
+    .comparison-table th:first-child { padding-left: 1.5rem; }
+
+    .comparison-table th.highlight {
+      color: var(--accent-gold);
+      background: var(--accent-gold-glow);
+    }
+
+    .comparison-table td {
+      padding: 0.85rem 1.25rem;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      vertical-align: middle;
+    }
+
+    .comparison-table td:first-child {
+      padding-left: 1.5rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .comparison-table td.highlight {
+      background: rgba(232, 168, 56, 0.03);
+    }
+
+    .comparison-table tbody tr:last-child td { border-bottom: none; }
+
+    .comparison-table tbody tr:hover td { background: var(--bg-card); }
+    .comparison-table tbody tr:hover td.highlight { background: rgba(232, 168, 56, 0.06); }
+
+    .check { color: var(--accent-green); font-weight: 700; font-size: 1.1rem; }
+    .cross { color: var(--text-muted); font-size: 1rem; }
+    .partial { color: var(--accent-gold-dim); }
+
+    .comparison-note {
+      margin-top: 1.25rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    /* ========================================
+       SECTION: GET STARTED
+       ======================================== */
+    .start-section { background: var(--bg-deep); }
+
+    .start-steps {
+      margin-top: 2.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .start-step {
+      display: grid;
+      grid-template-columns: 3.5rem 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    .step-number {
+      width: 3.5rem;
+      height: 3.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      color: var(--accent-gold);
+      border: 1px solid var(--border-medium);
+      border-radius: 10px;
+      background: var(--bg-card);
+      flex-shrink: 0;
+    }
+
+    .step-content h3 {
+      font-family: var(--font-body);
+      font-weight: 600;
+      font-size: 1.1rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .step-content .code-block {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 1.25rem 1.5rem;
+    }
+
+    /* ========================================
+       FOOTER
+       ======================================== */
+    .footer {
+      padding: 3rem 0;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-deep);
+    }
+
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .footer-brand {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .footer-brand span { color: var(--text-secondary); }
+
+    .footer-links {
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+      list-style: none;
+    }
+
+    .footer-links a {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: var(--text-primary); }
+
+    /* ========================================
+       SCROLL ANIMATIONS
+       ======================================== */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .reveal-stagger > * {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+
+    .reveal-stagger.visible > * {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .reveal-stagger.visible > *:nth-child(1) { transition-delay: 0.05s; }
+    .reveal-stagger.visible > *:nth-child(2) { transition-delay: 0.1s; }
+    .reveal-stagger.visible > *:nth-child(3) { transition-delay: 0.15s; }
+    .reveal-stagger.visible > *:nth-child(4) { transition-delay: 0.2s; }
+    .reveal-stagger.visible > *:nth-child(5) { transition-delay: 0.25s; }
+    .reveal-stagger.visible > *:nth-child(6) { transition-delay: 0.3s; }
+    .reveal-stagger.visible > *:nth-child(7) { transition-delay: 0.35s; }
+    .reveal-stagger.visible > *:nth-child(8) { transition-delay: 0.4s; }
+    .reveal-stagger.visible > *:nth-child(9) { transition-delay: 0.45s; }
+    .reveal-stagger.visible > *:nth-child(10) { transition-delay: 0.5s; }
+
+    /* ========================================
+       RESPONSIVE
+       ======================================== */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .nav-links.open {
+        display: flex;
+        flex-direction: column;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: rgba(6, 6, 11, 0.97);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        padding: 1.5rem;
+        gap: 1.25rem;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .nav-toggle { display: block; }
+
+      .hero { min-height: auto; padding-top: 8rem; padding-bottom: 4rem; }
+      .hero h1 { font-size: clamp(2.4rem, 10vw, 3.5rem); }
+      .hero-stats { gap: 1.5rem; }
+      .hero-stats .stat-value { font-size: 1.8rem; }
+
+      .how-grid { grid-template-columns: 1fr; }
+      .features-grid { grid-template-columns: 1fr; }
+
+      .comparison-table-wrapper { margin-left: -1rem; margin-right: -1rem; border-radius: 0; border-left: none; border-right: none; }
+
+      .footer-inner { flex-direction: column; text-align: center; }
+      .footer-links { flex-wrap: wrap; justify-content: center; }
+    }
+
+    @media (max-width: 480px) {
+      .hero-actions { flex-direction: column; align-items: stretch; }
+      .install-block { justify-content: center; }
+      .hero-stats { flex-wrap: wrap; gap: 1.25rem; }
+      .problem-grid { grid-template-columns: 1fr; }
+      .trust-grid { grid-template-columns: 1fr; }
+      .start-step { grid-template-columns: 1fr; }
+      .step-number { width: 2.5rem; height: 2.5rem; font-size: 1.1rem; }
+    }
+
+    /* ========================================
+       DIVIDER FLOURISH
+       ======================================== */
+    .section-divider {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(to right, var(--border-medium), transparent);
+    }
+
+    /* Horizontal rule with glow */
+    .glow-rule {
+      border: none;
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--accent-gold-dim), transparent);
+      opacity: 0.3;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top accent line -->
+  <div style="position:fixed;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent-gold),var(--accent-blue),var(--accent-gold));background-size:200% 100%;animation:shimmer 4s linear infinite;z-index:1001;"></div>
+
+  <!-- ====== NAV ====== -->
+  <nav class="nav" id="nav" style="top:2px;">
+    <div class="nav-inner">
+      <a href="#" class="nav-brand">nostr-<span>bray</span></a>
+      <button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle navigation" aria-expanded="false">&#9776;</button>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#problem">Problem</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how">Setup</a></li>
+        <li><a href="#trust">Security</a></li>
+        <li><a href="#compare">Compare</a></li>
+        <li><a href="https://github.com/forgesworn/nostr-bray" class="btn-nav">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ====== HERO ====== -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-content">
+        <div class="hero-badge">MCP Server + CLI</div>
+        <h1>Sovereign Nostr identities for <em>AI&nbsp;agents</em></h1>
+        <p class="hero-sub">
+          One master secret. Unlimited derived personas. Ring signatures, attestations, duress detection, Lightning zaps, gift-wrapped DMs &mdash; 84&nbsp;tools your agent wields as naturally as language.
+        </p>
+        <div class="hero-actions">
+          <div class="install-block" id="installBlock" title="Click to copy">
+            <span class="prompt">$</span>
+            <code>npx nostr-bray</code>
+            <span class="copy-hint">click to copy</span>
+          </div>
+          <a href="https://github.com/forgesworn/nostr-bray" class="btn-primary">
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            View on GitHub
+          </a>
+        </div>
+        <div class="hero-stats">
+          <div class="stat">
+            <span class="stat-value">84</span>
+            <span class="stat-label">Tools</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value">10</span>
+            <span class="stat-label">Groups</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value">338</span>
+            <span class="stat-label">Tests</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value">96%</span>
+            <span class="stat-label">Coverage</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== THE PROBLEM ====== -->
+  <section class="problem-section" id="problem">
+    <div class="container">
+      <div class="section-divider">
+        <span class="section-label">The Problem</span>
+      </div>
+      <h2 class="reveal">Nostr is powerful.<br>Using it <em style="font-family:var(--font-display);color:var(--accent-red);">safely</em> is not.</h2>
+      <p class="text-muted reveal" style="max-width:640px;">
+        Every Nostr user &mdash; human or AI &mdash; faces the same structural risks. Most tools ignore them. Bray was built to solve them.
+      </p>
+      <div class="problem-grid reveal-stagger">
+        <div class="problem-card">
+          <span class="problem-icon">&#x1F5DD;</span>
+          <h3>Key loss is permanent</h3>
+          <p>Lose your nsec, lose your identity forever. No recovery, no recourse. Your entire social graph, reputation, and history &mdash; gone.</p>
+        </div>
+        <div class="problem-card">
+          <span class="problem-icon">&#x1F4E8;</span>
+          <h3>DMs leak metadata</h3>
+          <p>Legacy NIP-04 DMs expose who is talking to whom. Relay operators see your social graph even if they cannot read the content.</p>
+        </div>
+        <div class="problem-card">
+          <span class="problem-icon">&#x1F3AD;</span>
+          <h3>Impersonation is trivial</h3>
+          <p>Anyone can claim to be anyone. Without verifiable attestations, there is no way to prove identity claims are legitimate.</p>
+        </div>
+        <div class="problem-card">
+          <span class="problem-icon">&#x1F4CB;</span>
+          <h3>Contact lists get destroyed</h3>
+          <p>A malformed kind 3 event overwrites your entire follow list. One buggy client can erase years of curation in a single publish.</p>
+        </div>
+        <div class="problem-card">
+          <span class="problem-icon">&#x1F6E1;</span>
+          <h3>No coercion resistance</h3>
+          <p>If forced to hand over your key, the attacker gets everything. There is no way to comply under duress while signalling the situation.</p>
+        </div>
+        <div class="problem-card">
+          <span class="problem-icon">&#x1F4E1;</span>
+          <h3>Single-key architecture</h3>
+          <p>One key for all contexts. Your anonymous political posts are cryptographically linked to your professional identity.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== THE SOLUTION ====== -->
+  <section id="solution">
+    <div class="container">
+      <div class="section-divider">
+        <span class="section-label">The Solution</span>
+      </div>
+      <h2 class="reveal">Bray fixes each one</h2>
+      <p class="text-muted reveal" style="max-width:600px;">
+        Not with workarounds &mdash; with proper cryptographic primitives, sane defaults, and an architecture built for hostile environments.
+      </p>
+      <div class="solution-list">
+        <div class="solution-item">
+          <span class="solution-number">1</span>
+          <div>
+            <h3>Hierarchical identity derivation</h3>
+            <p>One master secret generates unlimited child key pairs via nsec-tree. Derive personas for work, personal, anonymous use &mdash; each cryptographically independent.</p>
+            <span class="solution-tag">nsec-tree</span>
+          </div>
+        </div>
+        <div class="solution-item">
+          <span class="solution-number">2</span>
+          <div>
+            <h3>Shamir Secret Sharing recovery</h3>
+            <p>Split your master secret into BIP-39 word shards. Distribute them to trusted parties. Any threshold subset reconstructs the original. No single point of failure.</p>
+            <span class="solution-tag">shamir-words</span>
+          </div>
+        </div>
+        <div class="solution-item">
+          <span class="solution-number">3</span>
+          <div>
+            <h3>Gift-wrapped DMs by default</h3>
+            <p>NIP-17 gift wrapping hides sender, recipient, and conversation metadata. Optional Tor routing via SOCKS5h proxy for network-layer anonymity.</p>
+            <span class="solution-tag">NIP-17 + Tor</span>
+          </div>
+        </div>
+        <div class="solution-item">
+          <span class="solution-number">4</span>
+          <div>
+            <h3>Verifiable attestations</h3>
+            <p>NIP-VA kind 31000 attestations let any pubkey vouch for claims about another. Machine-verifiable, revocable, and queryable. Ring signatures for anonymous group proofs.</p>
+            <span class="solution-tag">nostr-attestations</span>
+          </div>
+        </div>
+        <div class="solution-item">
+          <span class="solution-number">5</span>
+          <div>
+            <h3>Contact list snapshots</h3>
+            <p>Before any mutation to your follow list, bray fetches the current state. No more accidental overwrites. Your social graph is treated as precious data.</p>
+            <span class="solution-tag">contacts-get</span>
+          </div>
+        </div>
+        <div class="solution-item">
+          <span class="solution-number">6</span>
+          <div>
+            <h3>Duress personas</h3>
+            <p>Configure an alternative identity that activates under coercion. Indistinguishable from a normal persona switch. The attacker cannot tell you have complied under duress.</p>
+            <span class="solution-tag">canary-kit</span>
+          </div>
+        </div>
+        <div class="solution-item">
+          <span class="solution-number">7</span>
+          <div>
+            <h3>Per-persona relay isolation</h3>
+            <p>Each derived identity maintains its own relay set. Your anonymous persona never touches the same relays as your professional one. Context separation at the network layer.</p>
+            <span class="solution-tag">NIP-65</span>
+          </div>
+        </div>
+        <div class="solution-item">
+          <span class="solution-number">8</span>
+          <div>
+            <h3>Key zeroisation</h3>
+            <p>Private keys are cryptographically zeroed from memory on identity eviction and process shutdown. LRU cache ensures minimal key material exposure at any given moment.</p>
+            <span class="solution-tag">IdentityContext</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== FEATURES ====== -->
+  <section class="features-section" id="features">
+    <div class="container">
+      <div class="section-divider">
+        <span class="section-label">Tool Groups</span>
+      </div>
+      <h2 class="reveal">84 tools. 10 groups.<br>One coherent surface.</h2>
+      <p class="text-muted reveal" style="max-width:620px;">
+        Every tool operates as the active identity. Switch persona, and your posts, DMs, attestations, and payments all follow &mdash; no configuration changes needed.
+      </p>
+      <div class="features-grid reveal-stagger">
+
+        <div class="feature-card" style="--card-accent: var(--accent-gold);">
+          <div class="feature-header">
+            <h3>Identity</h3>
+            <span class="feature-count">12 tools</span>
+          </div>
+          <p>Create, derive, switch, prove, backup, and migrate Nostr identities. Hierarchical key tree with Shamir recovery.</p>
+          <div class="feature-tools">
+            <span class="tool-tag">whoami</span>
+            <span class="tool-tag">identity-derive-persona</span>
+            <span class="tool-tag">identity-switch</span>
+            <span class="tool-tag">identity-prove</span>
+            <span class="tool-tag">identity-backup-shamir</span>
+            <span class="tool-tag">identity-migrate</span>
+          </div>
+        </div>
+
+        <div class="feature-card" style="--card-accent: var(--accent-blue);">
+          <div class="feature-header">
+            <h3>Social</h3>
+            <span class="feature-count">19 tools</span>
+          </div>
+          <p>Post, reply, react, repost, DM by name, read feeds and conversations. Name-based lookups across your contact graph.</p>
+          <div class="feature-tools">
+            <span class="tool-tag">social-post</span>
+            <span class="tool-tag">dm-send</span>
+            <span class="tool-tag">dm-by-name</span>
+            <span class="tool-tag">contacts-search</span>
+            <span class="tool-tag">feed-by-name</span>
+            <span class="tool-tag">social-feed</span>
+          </div>
+        </div>
+
+        <div class="feature-card" style="--card-accent: var(--accent-green);">
+          <div class="feature-header">
+            <h3>Trust</h3>
+            <span class="feature-count">12 tools</span>
+          </div>
+          <p>Verifiable attestations, ring signatures for anonymous proofs, spoken verification tokens, linkage proofs.</p>
+          <div class="feature-tools">
+            <span class="tool-tag">trust-attest</span>
+            <span class="tool-tag">trust-ring-prove</span>
+            <span class="tool-tag">trust-spoken-challenge</span>
+            <span class="tool-tag">trust-verify</span>
+            <span class="tool-tag">trust-revoke</span>
+          </div>
+        </div>
+
+        <div class="feature-card" style="--card-accent: var(--accent-purple);">
+          <div class="feature-header">
+            <h3>Zap</h3>
+            <span class="feature-count">7 tools</span>
+          </div>
+          <p>Lightning payments via Nostr Wallet Connect. Send, receive, invoice, check balances, decode bolt11.</p>
+          <div class="feature-tools">
+            <span class="tool-tag">zap-send</span>
+            <span class="tool-tag">zap-balance</span>
+            <span class="tool-tag">zap-make-invoice</span>
+            <span class="tool-tag">zap-decode</span>
+          </div>
+        </div>
+
+        <div class="feature-card" style="--card-accent: #f472b6;">
+          <div class="feature-header">
+            <h3>Relay</h3>
+            <span class="feature-count">5 tools</span>
+          </div>
+          <p>Per-identity relay lists with NIP-65 management. Query events, fetch relay info, health monitoring.</p>
+          <div class="feature-tools">
+            <span class="tool-tag">relay-list</span>
+            <span class="tool-tag">relay-set</span>
+            <span class="tool-tag">relay-query</span>
+            <span class="tool-tag">relay-info</span>
+          </div>
+        </div>
+
+        <div class="feature-card" style="--card-accent: var(--accent-red);">
+          <div class="feature-header">
+            <h3>Safety</h3>
+            <span class="feature-count">2 tools</span>
+          </div>
+          <p>Duress personas for coercion resistance. Alternative identity indistinguishable from a normal persona switch.</p>
+          <div class="feature-tools">
+            <span class="tool-tag">safety-configure</span>
+            <span class="tool-tag">safety-activate</span>
+          </div>
+        </div>
+
+        <div class="feature-card" style="--card-accent: #fb923c;">
+          <div class="feature-header">
+            <h3>Blossom</h3>
+            <span class="feature-count">3 tools</span>
+          </div>
+          <p>Media uploads to Blossom servers. Upload, list, and delete blobs with authenticated requests.</p>
+          <div class="feature-tools">
+            <span class="tool-tag">blossom-upload</span>
+            <span class="tool-tag">blossom-list</span>
+            <span class="tool-tag">blossom-delete</span>
+          </div>
+        </div>
+
+        <div class="feature-card" style="--card-accent: #22d3ee;">
+          <div class="feature-header">
+            <h3>Groups</h3>
+            <span class="feature-count">4 tools</span>
+          </div>
+          <p>NIP-29 group chat. Fetch metadata, read messages, send to groups, list members.</p>
+          <div class="feature-tools">
+            <span class="tool-tag">group-info</span>
+            <span class="tool-tag">group-chat</span>
+            <span class="tool-tag">group-send</span>
+            <span class="tool-tag">group-members</span>
+          </div>
+        </div>
+
+        <div class="feature-card" style="--card-accent: #a3e635;">
+          <div class="feature-header">
+            <h3>NIPs</h3>
+            <span class="feature-count">2 tools</span>
+          </div>
+          <p>Publish and read community-proposed Nostr Implementation Possibilities (kind 30817).</p>
+          <div class="feature-tools">
+            <span class="tool-tag">nip-publish</span>
+            <span class="tool-tag">nip-read</span>
+          </div>
+        </div>
+
+        <div class="feature-card" style="--card-accent: #94a3b8;">
+          <div class="feature-header">
+            <h3>Utility</h3>
+            <span class="feature-count">18 tools</span>
+          </div>
+          <p>Encode, decode, encrypt, verify, filter, fetch. NIP-44 encryption, NIP-49 key encryption, event verification.</p>
+          <div class="feature-tools">
+            <span class="tool-tag">decode</span>
+            <span class="tool-tag">nip44-encrypt</span>
+            <span class="tool-tag">verify-event</span>
+            <span class="tool-tag">key-encrypt</span>
+            <span class="tool-tag">fetch</span>
+            <span class="tool-tag">count</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== HOW IT WORKS ====== -->
+  <section class="how-section" id="how">
+    <div class="container">
+      <div class="section-divider">
+        <span class="section-label">How It Works</span>
+      </div>
+      <h2 class="reveal">Two interfaces.<br>Same 84 tools.</h2>
+      <p class="text-muted reveal" style="max-width:580px;">
+        Use bray as an MCP server for AI agents (Claude, Cursor, Windsurf) or as a standalone CLI. Both share the same handlers, the same identity engine, the same security guarantees.
+      </p>
+      <div class="how-grid reveal">
+        <!-- MCP Server -->
+        <div class="how-mode">
+          <div class="how-mode-header">
+            <span class="mode-badge mcp">MCP</span>
+            <h3>AI Agent Mode</h3>
+          </div>
+          <div class="code-block">
+<pre><span class="comment">// claude_desktop_config.json</span>
+{
+  <span class="key">"mcpServers"</span>: {
+    <span class="key">"nostr"</span>: {
+      <span class="key">"command"</span>: <span class="string">"npx"</span>,
+      <span class="key">"args"</span>: [<span class="string">"nostr-bray"</span>],
+      <span class="key">"env"</span>: {
+        <span class="key">"NOSTR_SECRET_KEY_FILE"</span>: <span class="string">"/path/to/key"</span>,
+        <span class="key">"NOSTR_RELAYS"</span>: <span class="string">"wss://relay.damus.io"</span>
+      }
+    }
+  }
+}</pre>
+          </div>
+        </div>
+        <!-- CLI -->
+        <div class="how-mode">
+          <div class="how-mode-header">
+            <span class="mode-badge cli">CLI</span>
+            <h3>Terminal Mode</h3>
+          </div>
+          <div class="code-block">
+<pre><span class="comment"># set your identity</span>
+<span class="cmd">export</span> <span class="key">NOSTR_SECRET_KEY</span>=<span class="string">"nsec1..."</span>
+<span class="cmd">export</span> <span class="key">NOSTR_RELAYS</span>=<span class="string">"wss://relay.damus.io"</span>
+
+<span class="comment"># go</span>
+<span class="cmd">npx</span> nostr-bray <span class="flag">whoami</span>
+<span class="cmd">npx</span> nostr-bray <span class="flag">post</span> <span class="string">"hello from bray"</span>
+<span class="cmd">npx</span> nostr-bray <span class="flag">persona</span> work
+<span class="cmd">npx</span> nostr-bray <span class="flag">prove</span> blind</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== TRUST & PRIVACY ====== -->
+  <section class="trust-section" id="trust">
+    <div class="container">
+      <div class="section-divider">
+        <span class="section-label">Trust &amp; Privacy</span>
+      </div>
+      <h2 class="reveal">Privacy by default.<br>Not by configuration.</h2>
+      <p class="text-muted reveal" style="max-width:620px;">
+        Bray assumes a hostile environment. Every default is the most private option. Every key operation has a zeroing path. Secrets never appear in tool responses.
+      </p>
+      <div class="trust-grid reveal-stagger">
+        <div class="trust-card">
+          <svg class="trust-icon" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="4" y="16" width="28" height="16" rx="3" stroke="var(--accent-gold)"/>
+            <path d="M10 16V10a8 8 0 1116 0v6" stroke="var(--accent-gold)"/>
+            <circle cx="18" cy="25" r="2" fill="var(--accent-gold)"/>
+          </svg>
+          <h3>NIP-17 by default</h3>
+          <p>Gift-wrapped DMs hide sender, recipient, and metadata. NIP-04 requires explicit opt-in via environment variable.</p>
+        </div>
+        <div class="trust-card">
+          <svg class="trust-icon" viewBox="0 0 36 36" fill="none" stroke="var(--accent-blue)" stroke-width="1.5">
+            <circle cx="18" cy="18" r="14"/>
+            <path d="M18 4a14 14 0 010 28" stroke-dasharray="3 3"/>
+            <circle cx="18" cy="18" r="5"/>
+          </svg>
+          <h3>Tor routing</h3>
+          <p>SOCKS5h proxy support for full Tor integration. When enabled, clearnet relays are blocked by default.</p>
+        </div>
+        <div class="trust-card">
+          <svg class="trust-icon" viewBox="0 0 36 36" fill="none" stroke="var(--accent-green)" stroke-width="1.5">
+            <path d="M6 18l8 8L30 10"/>
+          </svg>
+          <h3>Key zeroisation</h3>
+          <p>Private keys are cryptographically zeroed from memory on LRU eviction and process shutdown. Minimal exposure window.</p>
+        </div>
+        <div class="trust-card">
+          <svg class="trust-icon" viewBox="0 0 36 36" fill="none" stroke="var(--accent-purple)" stroke-width="1.5">
+            <path d="M18 4l12 6v8c0 7-5 13-12 16C11 31 6 25 6 18v-8l12-6z"/>
+          </svg>
+          <h3>No secrets in responses</h3>
+          <p>Tool responses never contain private keys or secret material. Shamir shards are written to files, not returned as text.</p>
+        </div>
+        <div class="trust-card">
+          <svg class="trust-icon" viewBox="0 0 36 36" fill="none" stroke="var(--accent-red)" stroke-width="1.5">
+            <rect x="4" y="4" width="28" height="28" rx="4"/>
+            <line x1="12" y1="12" x2="24" y2="24"/>
+            <line x1="24" y1="12" x2="12" y2="24"/>
+          </svg>
+          <h3>Env cleanup</h3>
+          <p>Secrets loaded from files are scrubbed from process.env immediately after parsing. No lingering plaintext in memory.</p>
+        </div>
+        <div class="trust-card">
+          <svg class="trust-icon" viewBox="0 0 36 36" fill="none" stroke="#fb923c" stroke-width="1.5">
+            <circle cx="12" cy="18" r="4"/>
+            <circle cx="24" cy="18" r="4"/>
+            <path d="M16 18h4" stroke-dasharray="2 2"/>
+            <path d="M8 12l-4-4M28 12l4-4M8 24l-4 4M28 24l4 4"/>
+          </svg>
+          <h3>Signature verification</h3>
+          <p>NIP-65 relay list events are signature-verified before use. Relay information documents are validated against NIP-11.</p>
+        </div>
+      </div>
+      <div class="crypto-deps reveal">
+        <span class="crypto-chip">nsec-tree</span>
+        <span class="crypto-chip">@forgesworn/ring-sig</span>
+        <span class="crypto-chip">@forgesworn/shamir-words</span>
+        <span class="crypto-chip">nostr-attestations</span>
+        <span class="crypto-chip">canary-kit</span>
+        <span class="crypto-chip">spoken-token</span>
+        <span class="crypto-chip">nostr-tools</span>
+        <span class="crypto-chip">NIP-44</span>
+        <span class="crypto-chip">NIP-49</span>
+        <span class="crypto-chip">secp256k1</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== COMPARISON ====== -->
+  <section class="comparison-section" id="compare">
+    <div class="container">
+      <div class="section-divider">
+        <span class="section-label">Comparison</span>
+      </div>
+      <h2 class="reveal">How bray compares</h2>
+      <p class="text-muted reveal" style="max-width:600px;">
+        Bray does not replace nostr-tools or nak. It builds an opinionated identity layer on top. Here is what each tool brings to the table.
+      </p>
+      <div class="comparison-table-wrapper reveal">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Capability</th>
+              <th class="highlight">nostr-bray</th>
+              <th>nak</th>
+              <th>nostr-tools</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>MCP server (AI agents)</td>
+              <td class="highlight"><span class="check">&check;</span></td>
+              <td><span class="check">&check;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+            </tr>
+            <tr>
+              <td>CLI tool</td>
+              <td class="highlight"><span class="check">&check;</span></td>
+              <td><span class="check">&check;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+            </tr>
+            <tr>
+              <td>Hierarchical key derivation</td>
+              <td class="highlight"><span class="check">&check;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+            </tr>
+            <tr>
+              <td>Persona switching</td>
+              <td class="highlight"><span class="check">&check;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+            </tr>
+            <tr>
+              <td>Ring signatures</td>
+              <td class="highlight"><span class="check">&check;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+            </tr>
+            <tr>
+              <td>Shamir backup</td>
+              <td class="highlight"><span class="check">&check;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+            </tr>
+            <tr>
+              <td>Duress detection</td>
+              <td class="highlight"><span class="check">&check;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+            </tr>
+            <tr>
+              <td>Verifiable attestations</td>
+              <td class="highlight"><span class="check">&check;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+            </tr>
+            <tr>
+              <td>Spoken verification</td>
+              <td class="highlight"><span class="check">&check;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+            </tr>
+            <tr>
+              <td>NIP-17 gift-wrap DMs</td>
+              <td class="highlight"><span class="check">&check;</span> default</td>
+              <td><span class="check">&check;</span></td>
+              <td><span class="check">&check;</span> library</td>
+            </tr>
+            <tr>
+              <td>Lightning / NWC</td>
+              <td class="highlight"><span class="check">&check;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+            </tr>
+            <tr>
+              <td>MuSig2 / Cashu / FUSE</td>
+              <td class="highlight"><span class="cross">&mdash;</span></td>
+              <td><span class="check">&check;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+            </tr>
+            <tr>
+              <td>Built-in relay server</td>
+              <td class="highlight"><span class="cross">&mdash;</span></td>
+              <td><span class="check">&check;</span></td>
+              <td><span class="cross">&mdash;</span></td>
+            </tr>
+            <tr>
+              <td>Language</td>
+              <td class="highlight">TypeScript</td>
+              <td>Go</td>
+              <td>TypeScript</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="comparison-note">
+        nak is the definitive Nostr Swiss Army knife by fiatjaf (the protocol creator). nostr-tools is the standard JS library powering most Nostr clients. Bray is narrowly focused on sovereign identity for AI agents.
+      </p>
+    </div>
+  </section>
+
+  <!-- ====== GET STARTED ====== -->
+  <section class="start-section" id="start">
+    <div class="container">
+      <div class="section-divider">
+        <span class="section-label">Get Started</span>
+      </div>
+      <h2 class="reveal">Up and running in&nbsp;60&nbsp;seconds</h2>
+      <div class="start-steps">
+
+        <div class="start-step reveal">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h3>Install</h3>
+            <div class="code-block">
+<pre><span class="comment"># no install needed — npx runs it directly</span>
+<span class="cmd">npx</span> nostr-bray <span class="flag">--help</span>
+
+<span class="comment"># or install globally</span>
+<span class="cmd">npm</span> install -g nostr-bray</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="start-step reveal">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h3>Configure</h3>
+            <div class="code-block">
+<pre><span class="comment"># set your secret key (nsec, hex, or BIP-39 mnemonic)</span>
+<span class="cmd">export</span> <span class="key">NOSTR_SECRET_KEY</span>=<span class="string">"nsec1..."</span>
+
+<span class="comment"># set your relays</span>
+<span class="cmd">export</span> <span class="key">NOSTR_RELAYS</span>=<span class="string">"wss://relay.damus.io,wss://nos.lol"</span>
+
+<span class="comment"># optional: use a file for the secret (recommended)</span>
+<span class="cmd">export</span> <span class="key">NOSTR_SECRET_KEY_FILE</span>=<span class="string">"~/.nostr/secret.key"</span></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="start-step reveal">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h3>Use</h3>
+            <div class="code-block">
+<pre><span class="comment"># check your identity</span>
+<span class="cmd">npx</span> nostr-bray <span class="flag">whoami</span>
+
+<span class="comment"># derive a work persona</span>
+<span class="cmd">npx</span> nostr-bray <span class="flag">persona</span> work
+
+<span class="comment"># post as that persona</span>
+<span class="cmd">npx</span> nostr-bray <span class="flag">post</span> <span class="string">"hello from my work identity"</span>
+
+<span class="comment"># create a shamir backup</span>
+<span class="cmd">npx</span> nostr-bray <span class="flag">backup-shamir</span> <span class="flag">--shares</span> 5 <span class="flag">--threshold</span> 3</pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== FOOTER ====== -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          nostr-<span>bray</span> &middot; MIT Licence
+        </div>
+        <ul class="footer-links">
+          <li><a href="https://github.com/forgesworn/nostr-bray">GitHub</a></li>
+          <li><a href="https://www.npmjs.com/package/nostr-bray">npm</a></li>
+          <li><a href="https://github.com/forgesworn/nostr-bray/blob/main/docs/guide.md">Docs</a></li>
+          <li><a href="https://github.com/forgesworn/nostr-bray/blob/main/CONTRIBUTING.md">Contribute</a></li>
+          <li><a href="https://github.com/forgesworn/nostr-bray/blob/main/LICENSE">Licence</a></li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    /* ========================================
+       NAVIGATION
+       ======================================== */
+    const nav = document.getElementById('nav');
+    const navToggle = document.getElementById('navToggle');
+    const navLinks = document.getElementById('navLinks');
+
+    // Scroll state
+    let lastScrollY = 0;
+    window.addEventListener('scroll', () => {
+      nav.classList.toggle('scrolled', window.scrollY > 40);
+      lastScrollY = window.scrollY;
+    }, { passive: true });
+
+    // Mobile toggle
+    navToggle.addEventListener('click', () => {
+      const isOpen = navLinks.classList.toggle('open');
+      navToggle.textContent = isOpen ? '\u2715' : '\u2630';
+      navToggle.setAttribute('aria-expanded', isOpen);
+    });
+
+    // Close on link click
+    navLinks.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        navLinks.classList.remove('open');
+        navToggle.textContent = '\u2630';
+      });
+    });
+
+    /* ========================================
+       INSTALL COPY
+       ======================================== */
+    const installBlock = document.getElementById('installBlock');
+    installBlock.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText('npx nostr-bray');
+        installBlock.classList.add('copied');
+        installBlock.querySelector('.copy-hint').textContent = 'copied!';
+        setTimeout(() => {
+          installBlock.classList.remove('copied');
+          installBlock.querySelector('.copy-hint').textContent = 'click to copy';
+        }, 2000);
+      } catch (e) {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = 'npx nostr-bray';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        installBlock.classList.add('copied');
+        installBlock.querySelector('.copy-hint').textContent = 'copied!';
+        setTimeout(() => {
+          installBlock.classList.remove('copied');
+          installBlock.querySelector('.copy-hint').textContent = 'click to copy';
+        }, 2000);
+      }
+    });
+
+    /* ========================================
+       SCROLL REVEAL
+       ======================================== */
+    const observerOptions = {
+      root: null,
+      rootMargin: '0px 0px -60px 0px',
+      threshold: 0.1,
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, observerOptions);
+
+    // Observe all reveal elements
+    document.querySelectorAll('.reveal, .reveal-stagger, .solution-item').forEach(el => {
+      observer.observe(el);
+    });
+
+    /* ========================================
+       SMOOTH SCROLL (for browsers that need it)
+       ======================================== */
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
