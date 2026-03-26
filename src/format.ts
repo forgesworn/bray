@@ -97,6 +97,16 @@ export function formatFeed(events: any[]): string {
   }).join('\n')
 }
 
+export function formatConversation(dms: any[]): string {
+  if (dms.length === 0) return 'No messages in this conversation.'
+  return dms.map(dm => {
+    const time = new Date(dm.createdAt * 1000).toLocaleString()
+    const from = dm.from?.slice(0, 12) + '...'
+    if (!dm.decrypted) return `✗ ${from}  Could not decrypt  (${time})`
+    return `${from}  ${time}\n  ${dm.content}`
+  }).join('\n\n')
+}
+
 export function formatDms(dms: any[]): string {
   if (dms.length === 0) return 'No messages.'
   return dms.map(dm => {

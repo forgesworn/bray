@@ -17,7 +17,7 @@ import {
   handleSocialDelete,
   handleSocialRepost,
 } from './handlers.js'
-import { handleDmSend, handleDmRead } from './dm.js'
+import { handleDmSend, handleDmRead, handleDmConversation } from './dm.js'
 import { handleNotifications, handleFeed } from './notifications.js'
 import { handleNipPublish, handleNipRead } from './nips.js'
 import { handleBlossomUpload, handleBlossomList, handleBlossomDelete } from './blossom.js'
@@ -195,6 +195,71 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     return toolResponse(messages, output, fmt.formatDms)
   })
 
+  server.registerTool('dm-by-name', {
+    description: 'Send an encrypted DM to a contact by name — no pubkey needed. Searches your contacts, finds the match, and sends the message. Returns an error if zero or multiple matches are found (use contacts-search to disambiguate).',
+    inputSchema: {
+      name: z.string().describe('Contact name to search for (matches name, display_name, nip05 — case insensitive)'),
+      message: z.string().describe('Message text'),
+      nip04: z.boolean().default(false).describe('Use legacy NIP-04 instead of NIP-17'),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true },
+  }, async ({ name, message, nip04 }) => {
+    // Search contacts for the name
+    const matches = await handleContactsSearch(
+      deps.pool, deps.ctx.activeNpub, deps.ctx.activePublicKeyHex, name,
+    )
+
+    if (matches.length === 0) {
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({
+          error: `No contact found matching "${name}". Use contacts-search to check your contacts.`,
+        }, null, 2) }],
+      }
+    }
+
+    if (matches.length > 1) {
+      const names = matches.map(m => m.displayName || m.name || m.pubkey.slice(0, 12) + '...')
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({
+          error: `Multiple contacts match "${name}": ${names.join(', ')}. Be more specific or use dm-send with the exact pubkey.`,
+          matches: matches.map(m => ({ pubkey: m.pubkey, name: m.name, displayName: m.displayName })),
+        }, null, 2) }],
+      }
+    }
+
+    const recipient = matches[0]
+    const result = await handleDmSend(deps.ctx, deps.pool, {
+      recipientPubkeyHex: recipient.pubkey,
+      message,
+      nip04,
+      nip04Enabled: false,
+      nip65: deps.nip65,
+    })
+
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({
+        sentTo: recipient.displayName || recipient.name || recipient.pubkey.slice(0, 12) + '...',
+        recipientPubkey: recipient.pubkey,
+        protocol: result.protocol,
+        id: result.event.id,
+        publish: result.publish,
+      }, null, 2) }],
+    }
+  })
+
+  server.registerTool('dm-conversation', {
+    description: 'Read DM conversation with a specific person. Filters to messages from one pubkey and shows them in chronological order. Use contacts-search first if you only know the name.',
+    inputSchema: {
+      pubkeyHex: hexId.describe('Hex pubkey to show conversation with'),
+      limit: z.number().int().min(1).max(200).default(50).describe('Max messages to fetch before filtering'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ pubkeyHex, limit, output }) => {
+    const messages = await handleDmConversation(deps.ctx, deps.pool, { withPubkeyHex: pubkeyHex, limit })
+    return toolResponse(messages, output, fmt.formatConversation)
+  })
+
   server.registerTool('social-notifications', {
     description: 'Fetch notifications for the active identity — mentions, replies, reactions, and zap receipts.',
     inputSchema: {
@@ -220,6 +285,91 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   }, async ({ authors, since, limit, output }) => {
     const feed = await handleFeed(deps.ctx, deps.pool, { authors, since, limit })
     return toolResponse(feed, output, fmt.formatFeed)
+  })
+
+  server.registerTool('feed-by-name', {
+    description: 'Fetch recent posts by a contact, searching by name instead of pubkey. Returns an error if zero or multiple contacts match.',
+    inputSchema: {
+      name: z.string().describe('Contact name to search for (case insensitive)'),
+      since: z.number().optional().describe('Unix timestamp — only fetch posts after this time'),
+      limit: z.number().int().min(1).max(100).default(20).describe('Max posts to return'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ name, since, limit, output }) => {
+    const matches = await handleContactsSearch(
+      deps.pool, deps.ctx.activeNpub, deps.ctx.activePublicKeyHex, name,
+    )
+
+    if (matches.length === 0) {
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({
+          error: `No contact found matching "${name}".`,
+        }, null, 2) }],
+      }
+    }
+    if (matches.length > 1) {
+      const names = matches.map(m => m.displayName || m.name || m.pubkey.slice(0, 12) + '...')
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({
+          error: `Multiple contacts match "${name}": ${names.join(', ')}. Be more specific.`,
+          matches: matches.map(m => ({ pubkey: m.pubkey, name: m.name, displayName: m.displayName })),
+        }, null, 2) }],
+      }
+    }
+
+    const contact = matches[0]
+    const feed = await handleFeed(deps.ctx, deps.pool, { authors: [contact.pubkey], since, limit })
+    return toolResponse(
+      { contact: { name: contact.displayName || contact.name, pubkey: contact.pubkey }, posts: feed },
+      output,
+      (data: any) => {
+        const header = `Posts by ${data.contact.name ?? data.contact.pubkey.slice(0, 12) + '...'}:`
+        if (data.posts.length === 0) return `${header}\n  No posts found.`
+        return `${header}\n${fmt.formatFeed(data.posts)}`
+      },
+    )
+  })
+
+  server.registerTool('profile-by-name', {
+    description: 'Look up a contact\'s full profile by name — no pubkey needed. Searches your contacts and returns the kind 0 profile for the match.',
+    inputSchema: {
+      name: z.string().describe('Contact name to search for (case insensitive)'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ name, output }) => {
+    const matches = await handleContactsSearch(
+      deps.pool, deps.ctx.activeNpub, deps.ctx.activePublicKeyHex, name,
+    )
+
+    if (matches.length === 0) {
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({
+          error: `No contact found matching "${name}".`,
+        }, null, 2) }],
+      }
+    }
+    if (matches.length > 1) {
+      const names = matches.map(m => m.displayName || m.name || m.pubkey.slice(0, 12) + '...')
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({
+          error: `Multiple contacts match "${name}": ${names.join(', ')}. Be more specific.`,
+          matches: matches.map(m => ({ pubkey: m.pubkey, name: m.name, displayName: m.displayName })),
+        }, null, 2) }],
+      }
+    }
+
+    const contact = matches[0]
+    const profile = await handleSocialProfileGet(deps.pool, deps.ctx.activeNpub, contact.pubkey)
+    return toolResponse(
+      { ...profile, _pubkey: contact.pubkey },
+      output,
+      (data: any) => {
+        const { _pubkey, ...fields } = data
+        return `Pubkey: ${_pubkey}\n${fmt.formatProfile(fields)}`
+      },
+    )
   })
 
   server.registerTool('contacts-get', {
