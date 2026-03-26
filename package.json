@@ -79,6 +79,7 @@
     "canary-kit": "^2.6.2",
     "nostr-attestations": "^2.2.0",
     "nostr-tools": "^2.23.3",
+    "nostr-veil": "file:../nostr-veil",
     "nsec-tree": "^1.4.1",
     "socks-proxy-agent": "^9.0.0",
     "spoken-token": "^2.0.3",

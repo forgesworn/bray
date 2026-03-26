@@ -42,6 +42,8 @@ export interface BrayConfig {
   readonly torProxy?: string
   readonly allowClearnetWithTor: boolean
   readonly nip04Enabled: boolean
+  readonly veilCacheTtl: number
+  readonly veilCacheMax: number
   readonly transport: 'stdio' | 'http'
   readonly port: number
   readonly bindAddress: string

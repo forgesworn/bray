@@ -87,6 +87,14 @@ export function loadConfig(): BrayConfig {
   // --- NIP-04 ---
   const nip04Enabled = process.env.NIP04_ENABLED === '1'
 
+  // Veil trust cache
+  const veilCacheTtl = process.env.VEIL_CACHE_TTL
+    ? parseInt(process.env.VEIL_CACHE_TTL, 10) * 1000
+    : 300_000 // 5 minutes default
+  const veilCacheMax = process.env.VEIL_CACHE_MAX
+    ? parseInt(process.env.VEIL_CACHE_MAX, 10)
+    : 500
+
   // --- Clean up secrets from process.env ---
   delete process.env.NOSTR_SECRET_KEY
   delete process.env.NOSTR_SECRET_KEY_FILE
@@ -104,6 +112,8 @@ export function loadConfig(): BrayConfig {
     torProxy,
     allowClearnetWithTor,
     nip04Enabled,
+    veilCacheTtl,
+    veilCacheMax,
     transport,
     port,
     bindAddress,
