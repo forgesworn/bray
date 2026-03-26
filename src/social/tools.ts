@@ -11,6 +11,7 @@ import {
   handleSocialProfileGet,
   handleSocialProfileSet,
   handleContactsGet,
+  handleContactsSearch,
   handleContactsFollow,
   handleContactsUnfollow,
   handleSocialDelete,
@@ -230,6 +231,22 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   }, async ({ pubkeyHex, npub, output }) => {
     const contacts = await handleContactsGet(deps.pool, npub ?? deps.ctx.activeNpub, pubkeyHex)
     return toolResponse(contacts, output, fmt.formatContacts)
+  })
+
+  server.registerTool('contacts-search', {
+    description: 'Search your contacts by name, display name, or NIP-05. Resolves profiles in one batch — much faster than fetching each individually. Use this to find a contact when you know their name but not their pubkey.',
+    inputSchema: {
+      query: z.string().describe('Search string (matches name, display_name, nip05, petname — case insensitive)'),
+      pubkeyHex: hexId.optional().describe('Hex pubkey whose contacts to search (defaults to active identity)'),
+      npub: z.string().optional().describe('Bech32 npub for relay routing (defaults to active identity)'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ query, pubkeyHex, npub, output }) => {
+    const resolvedNpub = npub ?? deps.ctx.activeNpub
+    const resolvedPubkey = pubkeyHex ?? deps.ctx.activePublicKeyHex
+    const results = await handleContactsSearch(deps.pool, resolvedNpub, resolvedPubkey, query)
+    return toolResponse(results, output, fmt.formatContactSearch)
   })
 
   server.registerTool('contacts-follow', {

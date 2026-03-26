@@ -202,6 +202,12 @@ export interface Contact {
   petname?: string
 }
 
+export interface EnrichedContact extends Contact {
+  name?: string
+  displayName?: string
+  nip05?: string
+}
+
 /** Fetch the kind 3 contact list for a pubkey */
 export async function handleContactsGet(
   pool: RelayPool,
@@ -226,6 +232,81 @@ export async function handleContactsGet(
       relay: t[2] || undefined,
       petname: t[3] || undefined,
     }))
+}
+
+/** Batch-fetch kind 0 profiles for a list of pubkeys, returning the newest per author */
+async function batchFetchProfiles(
+  pool: RelayPool,
+  npub: string,
+  pubkeys: string[],
+): Promise<Map<string, Record<string, unknown>>> {
+  if (pubkeys.length === 0) return new Map()
+
+  const events = await pool.query(npub, {
+    kinds: [0],
+    authors: pubkeys,
+  })
+
+  // Keep only the newest kind 0 per pubkey
+  const best = new Map<string, NostrEvent>()
+  for (const ev of events) {
+    const prev = best.get(ev.pubkey)
+    if (!prev || ev.created_at > prev.created_at) {
+      best.set(ev.pubkey, ev)
+    }
+  }
+
+  const profiles = new Map<string, Record<string, unknown>>()
+  for (const [pk, ev] of best) {
+    try {
+      profiles.set(pk, JSON.parse(ev.content))
+    } catch { /* skip unparseable */ }
+  }
+  return profiles
+}
+
+/** Search contacts by name/display_name/nip05 — resolves profiles in a single batch query */
+export async function handleContactsSearch(
+  pool: RelayPool,
+  npub: string,
+  pubkeyHex: string,
+  query: string,
+): Promise<EnrichedContact[]> {
+  const contacts = await handleContactsGet(pool, npub, pubkeyHex)
+  if (contacts.length === 0) return []
+
+  const profiles = await batchFetchProfiles(
+    pool,
+    npub,
+    contacts.map(c => c.pubkey),
+  )
+
+  const q = query.toLowerCase()
+  const results: EnrichedContact[] = []
+
+  for (const contact of contacts) {
+    const profile = profiles.get(contact.pubkey)
+    const name = (profile?.name as string) ?? ''
+    const displayName = (profile?.display_name as string) ?? ''
+    const nip05 = (profile?.nip05 as string) ?? ''
+    const petname = contact.petname ?? ''
+
+    if (
+      name.toLowerCase().includes(q) ||
+      displayName.toLowerCase().includes(q) ||
+      nip05.toLowerCase().includes(q) ||
+      petname.toLowerCase().includes(q)
+    ) {
+      results.push({
+        ...contact,
+        name: name || undefined,
+        displayName: displayName || undefined,
+        nip05: nip05 || undefined,
+      })
+    }
+  }
+
+  return results
 }
 
 /** Follow a pubkey — fetches current contacts, adds, publishes new kind 3 */
