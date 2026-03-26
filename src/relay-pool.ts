@@ -126,6 +126,38 @@ export class RelayPool {
     }
   }
 
+  /** Publish event to explicit relay URLs (not identity-bound) */
+  async publishDirect(relays: string[], event: NostrEvent): Promise<PublishResult> {
+    const pool = await this.poolReady
+    if (relays.length === 0) {
+      return { success: false, accepted: [], rejected: [], errors: ['no relays specified'] }
+    }
+
+    const promises = pool.publish(relays, event)
+    const accepted: string[] = []
+    const rejected: string[] = []
+    const errors: string[] = []
+
+    const results = await Promise.allSettled(promises)
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i]
+      const url = relays[i] ?? `relay-${i}`
+      if (result.status === 'fulfilled') {
+        accepted.push(url)
+      } else {
+        rejected.push(url)
+        errors.push(`${url}: ${result.reason}`)
+      }
+    }
+
+    return {
+      success: accepted.length === relays.length,
+      accepted,
+      rejected,
+      errors,
+    }
+  }
+
   /** One-shot query from read relays for the given identity */
   async query(npub: string, filter: Filter): Promise<NostrEvent[]> {
     const pool = await this.poolReady
