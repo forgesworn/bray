@@ -30,19 +30,21 @@ test/workflow/handlers.test.ts — workflow tool tests
 
 ### Modified Files
 ```
-package.json                — add nostr-veil dependency
-src/config.ts               — add VEIL_CACHE_TTL, VEIL_CACHE_MAX env vars
-src/index.ts                — call registerWorkflowTools(), pass veil deps
-src/social/handlers.ts      — trust param on feed/notifications/reply, contacts guard
-src/social/tools.ts         — add trust/confirm params to Zod schemas
-src/social/dm.ts            — relay health warning on send, trust annotation on read
-src/relay/handlers.ts       — handleRelayList becomes async, adds health annotation
-src/relay/tools.ts          — update relay-list registration for async handler
-src/identity/handlers.ts    — identity-derive hint
-src/catalog.ts              — (no change needed, proxy handles routing)
-test/social/handlers.test.ts — extend with trust/contacts guard tests
-test/social/dm.test.ts      — extend with health warning/annotation tests
-test/relay/handlers.test.ts — extend with health annotation tests
+package.json                   — add nostr-veil dependency
+src/types.ts                   — add veilCacheTtl, veilCacheMax to BrayConfig
+src/config.ts                  — load VEIL_CACHE_TTL, VEIL_CACHE_MAX env vars
+src/index.ts                   — call registerWorkflowTools(), pass veil deps
+src/social/notifications.ts    — trust param on handleFeed + handleNotifications
+src/social/handlers.ts         — trust warning on handleSocialReply, contacts guard
+src/social/tools.ts            — add trust/confirm params to Zod schemas
+src/social/dm.ts               — relay health warning on send, trust annotation on read
+src/relay/handlers.ts          — handleRelayList becomes async, adds health annotation
+src/relay/tools.ts             — update relay-list registration for async handler
+src/identity/handlers.ts       — identity-derive hint
+test/social/notifications.test.ts — extend with trust filter tests
+test/social/handlers.test.ts   — extend with reply warning + contacts guard tests
+test/social/dm.test.ts         — extend with health warning/annotation tests
+test/relay/handlers.test.ts    — extend with health annotation tests
 ```
 
 ---
@@ -51,7 +53,8 @@ test/relay/handlers.test.ts — extend with health annotation tests
 
 **Files:**
 - Modify: `package.json`
-- Modify: `src/config.ts`
+- Modify: `src/types.ts` — add veilCacheTtl, veilCacheMax to BrayConfig interface
+- Modify: `src/config.ts` — load env vars and return in config
 
 - [ ] **Step 1: Add nostr-veil to package.json**
 
@@ -76,7 +79,7 @@ const veilCacheMax = process.env.VEIL_CACHE_MAX
   : 500
 ```
 
-Add `veilCacheTtl` and `veilCacheMax` to the returned `BrayConfig` interface and return value.
+Add `veilCacheTtl: number` and `veilCacheMax: number` to the `BrayConfig` interface in `src/types.ts` (line 36), and add the parsed values to the return object in `src/config.ts`.
 
 - [ ] **Step 3: Verify build**
 
@@ -404,7 +407,7 @@ export class VeilScoring {
   constructor(
     private readonly pool: RelayPool,
     private readonly cache: TrustCache,
-    private readonly activeNpub: string,
+    private readonly npub: string, // Captured at call time — create a new instance per tool call to reflect identity switches
   ) {}
 
   async scorePubkey(pubkey: string): Promise<TrustScoreResult> {
@@ -413,7 +416,7 @@ export class VeilScoring {
       return { ...cached, pubkey, flags: [] }
     }
 
-    const events = await this.pool.query(this.activeNpub, {
+    const events = await this.pool.query(this.npub, {
       kinds: [30382],
       '#p': [pubkey],
     })
@@ -608,92 +611,140 @@ git commit -m "feat: add trust-based event filter"
 ## Task 5: Smart defaults — social-feed and social-notifications trust scoring
 
 **Files:**
-- Modify: `src/social/handlers.ts` — `handleFeed` and `handleNotifications`
+- Modify: `src/social/notifications.ts` — `handleFeed` (line 100) and `handleNotifications` (line 28)
 - Modify: `src/social/tools.ts` — add `trust` param to schemas
-- Modify: `test/social/handlers.test.ts` — add trust filter tests
+- Create/Modify: `test/social/notifications.test.ts` — add trust filter tests
+
+**Critical note:** `handleFeed` returns `FeedEntry[]` (mapped from raw events at line 112-118). Trust scoring must happen on raw `NostrEvent[]` from the relay, BEFORE the mapping to `FeedEntry`. The scoring result (`_trustScore`) is then carried into the `FeedEntry`.
 
 - [ ] **Step 1: Write failing tests for trust-filtered feed**
 
-Add to `test/social/handlers.test.ts`:
+Add to `test/social/notifications.test.ts` (create if needed):
 
 ```typescript
-import { VeilScoring } from '../../src/veil/scoring.js'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { IdentityContext } from '../../src/context.js'
+import { handleFeed } from '../../src/social/notifications.js'
 import { TrustCache } from '../../src/veil/cache.js'
+import { VeilScoring } from '../../src/veil/scoring.js'
+
+const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
+
+function mockPool(events: any[] = []) {
+  return {
+    query: vi.fn().mockResolvedValue(events),
+    publish: vi.fn().mockResolvedValue({ success: true, accepted: [], rejected: [], errors: [] }),
+    getRelays: vi.fn().mockReturnValue({ read: ['wss://relay.test'], write: ['wss://relay.test'] }),
+  }
+}
+
+vi.mock('nostr-veil/graph', () => ({
+  buildTrustGraph: vi.fn().mockReturnValue({ nodes: new Map(), edges: [] }),
+  computeTrustRank: vi.fn().mockReturnValue([]),
+}))
+
+vi.mock('nostr-veil/proof', () => ({
+  verifyProof: vi.fn().mockReturnValue({ valid: true, circleSize: 3, threshold: 2, distinctSigners: 2, errors: [] }),
+}))
 
 describe('handleFeed with trust scoring', () => {
+  let ctx: IdentityContext
+
+  beforeEach(() => {
+    ctx = new IdentityContext(TEST_NSEC, 'nsec')
+  })
+
   it('filters events by trust score in strict mode', async () => {
-    // Create events from two authors — one trusted, one not
-    const trustedEvent = createMockEvent({ pubkey: 'trusted'.padEnd(64, '0'), kind: 1 })
-    const untrustedEvent = createMockEvent({ pubkey: 'untrusted'.padEnd(64, '0'), kind: 1 })
-    const pool = mockPool([trustedEvent, untrustedEvent])
+    const trustedPubkey = 'trusted0'.padEnd(64, '0')
+    const untrustedPubkey = 'untrust0'.padEnd(64, '0')
+    const pool = mockPool([
+      { id: 'e1', pubkey: trustedPubkey, kind: 1, content: 'hi', created_at: 1, tags: [], sig: 's1' },
+      { id: 'e2', pubkey: untrustedPubkey, kind: 1, content: 'spam', created_at: 2, tags: [], sig: 's2' },
+    ])
 
-    // Mock scoring: trusted author gets score 50, untrusted gets 0
     const cache = new TrustCache({ ttl: 300_000, maxEntries: 500 })
-    cache.set('trusted'.padEnd(64, '0'), { score: 50, endorsements: 5, ringEndorsements: 0 })
-    cache.set('untrusted'.padEnd(64, '0'), { score: 0, endorsements: 0, ringEndorsements: 0 })
+    cache.set(trustedPubkey, { score: 50, endorsements: 5, ringEndorsements: 0 })
+    cache.set(untrustedPubkey, { score: 0, endorsements: 0, ringEndorsements: 0 })
 
-    const result = await handleFeed(ctx, pool as any, {
-      limit: 20,
-      trust: 'strict',
-      _scoring: new VeilScoring(pool as any, cache, ctx.activeNpub),
-    })
+    const scoring = new VeilScoring(pool as any, cache, ctx.activeNpub)
+    const result = await handleFeed(ctx, pool as any, { limit: 20, trust: 'strict', _scoring: scoring })
 
     expect(result.length).toBe(1)
-    expect(result[0].pubkey).toBe('trusted'.padEnd(64, '0'))
+    expect(result[0].pubkey).toBe(trustedPubkey)
+    expect(result[0]).toHaveProperty('trustScore')
   })
 
   it('returns all events with trust off', async () => {
-    const events = [
-      createMockEvent({ pubkey: 'a'.padEnd(64, '0'), kind: 1 }),
-      createMockEvent({ pubkey: 'b'.padEnd(64, '0'), kind: 1 }),
-    ]
-    const pool = mockPool(events)
+    const pool = mockPool([
+      { id: 'e1', pubkey: 'a'.padEnd(64, '0'), kind: 1, content: 'a', created_at: 1, tags: [], sig: 's1' },
+      { id: 'e2', pubkey: 'b'.padEnd(64, '0'), kind: 1, content: 'b', created_at: 2, tags: [], sig: 's2' },
+    ])
     const result = await handleFeed(ctx, pool as any, { limit: 20, trust: 'off' })
     expect(result.length).toBe(2)
   })
 })
 ```
 
-Note: `createMockEvent` helper may need to be added to the test file. `_scoring` is an optional internal dep passed from tools.ts.
-
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-npx vitest run test/social/handlers.test.ts
+npx vitest run test/social/notifications.test.ts
 ```
 
 Expected: FAIL — `trust` param not recognised.
 
-- [ ] **Step 3: Add trust param to handleFeed signature**
+- [ ] **Step 3: Add trust param to handleFeed in notifications.ts**
 
-In `src/social/handlers.ts`, update `handleFeed` to accept optional trust params:
+In `src/social/notifications.ts`, update `handleFeed`:
 
 ```typescript
 import type { VeilScoring } from '../veil/scoring.js'
-import { filterByTrust, type TrustMode } from '../veil/filter.js'
+import type { TrustMode } from '../veil/filter.js'
+import { filterByTrust } from '../veil/filter.js'
 
 export async function handleFeed(
   ctx: IdentityContext,
   pool: RelayPool,
-  args: {
+  opts: {
     authors?: string[]
     since?: number
     limit?: number
     trust?: TrustMode
     _scoring?: VeilScoring
   },
-): Promise<any[]> {
-  // ... existing relay query logic ...
+): Promise<FeedEntry[]> {
+  const events = await pool.query(ctx.activeNpub, {
+    kinds: [1],
+    ...(opts.authors ? { authors: opts.authors } : {}),
+    ...(opts.since ? { since: opts.since } : {}),
+    limit: opts.limit ?? 20,
+  })
 
-  // If scoring available and trust not off, score and filter
-  if (args._scoring && args.trust !== 'off') {
-    const scored = await args._scoring.scoreEvents(events)
-    return filterByTrust(scored, { mode: args.trust ?? 'strict' })
+  // Score raw events BEFORE mapping to FeedEntry
+  if (opts._scoring && opts.trust !== 'off') {
+    const scored = await opts._scoring.scoreEvents(events)
+    const filtered = filterByTrust(scored, { mode: opts.trust ?? 'strict' })
+    return filtered.map(e => ({
+      id: e.id,
+      pubkey: e.pubkey,
+      content: e.content,
+      createdAt: e.created_at,
+      tags: e.tags,
+      trustScore: e._trustScore,
+    }))
   }
 
-  return events
+  return events.map(e => ({
+    id: e.id,
+    pubkey: e.pubkey,
+    content: e.content,
+    createdAt: e.created_at,
+    tags: e.tags,
+  }))
 }
 ```
+
+Add `trustScore?: number` to the `FeedEntry` interface.
 
 - [ ] **Step 4: Add trust param to social-feed Zod schema in tools.ts**
 
@@ -704,19 +755,25 @@ trust: z.enum(['strict', 'annotate', 'off']).default('strict')
   .describe('Trust filter mode: strict (hide untrusted), annotate (show scores), off (no filtering)'),
 ```
 
-Pass `trust` and the `_scoring` instance (from deps) to `handleFeed`.
+Pass `trust` and the scoring instance to `handleFeed`. Create scoring per-call:
 
-- [ ] **Step 5: Apply same pattern to social-notifications**
+```typescript
+const scoring = new VeilScoring(deps.pool, cache, deps.ctx.activeNpub)
+```
 
-Same change: add `trust` param, pass scoring, filter results.
+This ensures `activeNpub` is captured at call time, not registration time, so identity switches are reflected.
+
+- [ ] **Step 5: Apply same pattern to handleNotifications in notifications.ts**
+
+Same change: add `trust` param, score raw events, filter before mapping.
 
 - [ ] **Step 6: Run tests to verify they pass**
 
 ```bash
-npx vitest run test/social/handlers.test.ts
+npx vitest run test/social/notifications.test.ts
 ```
 
-Expected: All tests PASS (existing + new).
+Expected: All tests PASS.
 
 - [ ] **Step 7: Run full test suite**
 
@@ -729,7 +786,7 @@ Expected: All 329+ tests PASS.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/social/handlers.ts src/social/tools.ts test/social/handlers.test.ts
+git add src/social/notifications.ts src/social/tools.ts test/social/notifications.test.ts
 git commit -m "feat: add trust scoring to social-feed and social-notifications"
 ```
 
@@ -858,14 +915,13 @@ describe('contacts safety guard', () => {
     const result = await handleContactsFollow(ctx, pool as any, {
       pubkeyHex: 'newcontact'.padEnd(64, '0'),
     })
-    // Normal follow — list grows, no warning
-    expect(result.published).not.toBe(false)
+    // Normal follow — list grows by 1, no guard triggered
+    expect('guarded' in result).toBe(false)
+    expect(result).toHaveProperty('event') // PostResult shape
   })
 
-  it('blocks contacts-unfollow when result is >20% smaller and no confirm', async () => {
-    // Start with 5 contacts, unfollow 2 = 40% reduction
-    // This tests the guard on a mass-unfollow scenario
-    // Note: single unfollow from 5 is 20% exactly — at the boundary
+  it('allows contacts-unfollow when shrinkage is at boundary', async () => {
+    // Start with 5 contacts, unfollow 1 = 20% exactly — at boundary, should pass
     const existingContacts = Array.from({ length: 5 }, (_, i) => ({
       pubkey: `contact${i}`.padEnd(64, '0'),
     }))
@@ -875,36 +931,50 @@ describe('contacts safety guard', () => {
     const result = await handleContactsUnfollow(ctx, pool as any, {
       pubkeyHex: 'contact0'.padEnd(64, '0'),
     })
-    // Single unfollow from 5 is exactly 20% — should pass
-    expect(result.published).not.toBe(false)
+    // Single unfollow from 5 is exactly 20% — should pass (guard triggers >20% not >=)
+    expect('guarded' in result).toBe(false)
   })
 })
 ```
 
 - [ ] **Step 2: Implement contacts guard**
 
-In `src/social/handlers.ts`, modify `handleContactsFollow` and `handleContactsUnfollow`:
+In `src/social/handlers.ts`, add the guard type and update both handlers:
 
 ```typescript
-export type ContactGuardWarning = {
-  published: false
+export interface ContactGuardWarning {
+  guarded: true
   warning: string
   previousCount: number
   proposedCount: number
 }
 
-// In handleContactsFollow:
-// After building new contact list but before publishing:
-const shrinkage = 1 - (newList.length / oldList.length)
-if (shrinkage > 0.2 && !args.confirm) {
-  return {
-    published: false,
-    warning: `Contact list would shrink by ${Math.round(shrinkage * 100)}% (${oldList.length} → ${newList.length}). Pass confirm: true to proceed.`,
-    previousCount: oldList.length,
-    proposedCount: newList.length,
+// Update return type signatures:
+export async function handleContactsFollow(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: { pubkeyHex: string; relay?: string; petname?: string; confirm?: boolean },
+): Promise<PostResult | ContactGuardWarning> {
+  // ... existing logic to fetch current contacts and build new list ...
+
+  // Guard: check if list shrank unexpectedly
+  if (oldList.length > 0) {
+    const shrinkage = 1 - (newList.length / oldList.length)
+    if (shrinkage > 0.2 && !args.confirm) {
+      return {
+        guarded: true,
+        warning: `Contact list would shrink by ${Math.round(shrinkage * 100)}% (${oldList.length} → ${newList.length}). Pass confirm: true to proceed.`,
+        previousCount: oldList.length,
+        proposedCount: newList.length,
+      }
+    }
   }
+
+  // ... proceed with publish ...
 }
 ```
+
+Note: Uses `guarded: true` discriminant instead of `published: false` since `PostResult` has no `published` field. The tool registration checks `'guarded' in result` to format the response differently.
 
 - [ ] **Step 3: Add confirm param to Zod schemas**
 
@@ -1518,8 +1588,9 @@ export async function handleVerifyPerson(
     const { computeConversationKey } = await import('nostr-tools/nip44')
     const sharedSecret = computeConversationKey(ctx.activePrivateKey, args.pubkey)
     const { generateToken } = await import('spoken-token')
-    const token = generateToken(Buffer.from(sharedSecret).toString('hex'), 'verify-person', 0)
-    spokenChallenge = { token: String(token), expiresIn: '5 minutes' }
+    const counter = Math.floor(Date.now() / 300_000) // 5-minute windows
+    const token = generateToken(Buffer.from(sharedSecret).toString('hex'), 'verify-person', counter)
+    spokenChallenge = { token: String(token), expiresIn: '5 minutes', counter }
   }
 
   // Confidence
@@ -1599,20 +1670,36 @@ Add to `test/workflow/handlers.test.ts`:
 
 ```typescript
 describe('handleIdentitySetup', () => {
+  let tmpDir: string
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'bray-test-'))
+  })
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true })
+  })
+
   it('derives personas and creates Shamir shards', async () => {
     const pool = mockPool()
+    // Override homedir for testing — pass shardDir explicitly or mock homedir
     const result = await handleIdentitySetup(ctx, pool as any, {
       personas: ['main', 'anonymous'],
       shamirThreshold: { shares: 3, threshold: 2 },
       relays: ['wss://relay.test'],
       confirm: true,
+      _shardDir: tmpDir, // internal override for testing
     })
 
     expect(result.personas).toHaveLength(2)
     expect(result.personas[0]).toHaveProperty('npub')
     expect(result.personas[0]).toHaveProperty('purpose')
-    expect(result.shardPaths).toHaveLength(3) // 3 shares
+    expect(result.shardPaths).toHaveLength(3)
     expect(result.published).toBe(true)
+    // Verify shard files exist
+    for (const p of result.shardPaths) {
+      expect(existsSync(p)).toBe(true)
+    }
   })
 
   it('returns preview without confirm', async () => {
@@ -1628,17 +1715,27 @@ describe('handleIdentitySetup', () => {
 })
 
 describe('handleIdentityRecover', () => {
+  let tmpDir: string
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'bray-test-'))
+  })
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true })
+  })
+
   it('recovers from Shamir shards and verifies', async () => {
-    // First create shards
     const pool = mockPool()
     const setup = await handleIdentitySetup(ctx, pool as any, {
       personas: ['main'],
       shamirThreshold: { shares: 3, threshold: 2 },
       relays: ['wss://relay.test'],
       confirm: true,
+      _shardDir: tmpDir,
     })
 
-    // Now recover using 2 of 3 shards
+    // Recover using 2 of 3 shards
     const result = await handleIdentityRecover(pool as any, {
       shardPaths: setup.shardPaths.slice(0, 2),
     })
@@ -1660,7 +1757,7 @@ npx vitest run test/workflow/handlers.test.ts
 Add to `src/workflow/handlers.ts`:
 
 ```typescript
-import { writeFileSync } from 'node:fs'
+import { writeFileSync, readFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 
@@ -1672,13 +1769,14 @@ export async function handleIdentitySetup(
     shamirThreshold?: { shares: number; threshold: number }
     relays?: string[]
     confirm?: boolean
+    _shardDir?: string // internal: override shard directory for testing
   },
 ): Promise<any> {
   const personas = args.personas ?? ['main', 'anonymous']
   const shamir = args.shamirThreshold ?? { shares: 5, threshold: 3 }
   const relays = args.relays ?? ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.nostr.band']
 
-  // Build preview
+  // Build preview — ctx.derive() returns PublicIdentity with npub
   const derivedPersonas = personas.map((name, i) => {
     const derived = ctx.derive(name, i)
     return { purpose: name, npub: derived.npub, index: i }
@@ -1697,15 +1795,24 @@ export async function handleIdentitySetup(
     }
   }
 
-  // Create Shamir backup
-  const shardDir = join(homedir(), '.nostr-bray', 'shards')
-  const shardPaths = ctx.backupShamir(shamir.shares, shamir.threshold, shardDir)
+  // Create Shamir backup using @forgesworn/shamir-words directly
+  const { split } = await import('@forgesworn/shamir-words')
+  const secretHex = Buffer.from(ctx.activePrivateKey).toString('hex')
+  const shards = split(secretHex, shamir.shares, shamir.threshold)
+
+  const shardDir = args._shardDir ?? join(homedir(), '.nostr-bray', 'shards')
+  mkdirSync(shardDir, { recursive: true })
+  const shardPaths = shards.map((shard: string, i: number) => {
+    const path = join(shardDir, `shard-${i + 1}.txt`)
+    writeFileSync(path, shard, { mode: 0o600 })
+    return path
+  })
 
   // Configure relay sets and publish NIP-65
+  // ctx.switch(purpose, index) is the actual API (not switchTo)
   for (const persona of derivedPersonas) {
-    ctx.switchTo(persona.purpose, persona.index)
+    ctx.switch(persona.purpose, persona.index)
     pool.reconfigure(ctx.activeNpub, { read: relays, write: relays })
-    // Publish kind 10002
     const sign = ctx.getSigningFunction()
     const event = await sign({
       kind: 10002,
@@ -1716,8 +1823,8 @@ export async function handleIdentitySetup(
     await pool.publish(ctx.activeNpub, event)
   }
 
-  // Switch back to master
-  ctx.switchToMaster()
+  // Switch back to master — ctx.switch('master') is the actual API
+  ctx.switch('master')
 
   return {
     published: true,
