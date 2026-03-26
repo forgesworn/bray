@@ -2,6 +2,9 @@ import { decode } from 'nostr-tools/nip19'
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
+import type { VeilScoring } from '../veil/scoring.js'
+import type { TrustMode } from '../veil/filter.js'
+import { filterByTrust } from '../veil/filter.js'
 
 export interface Notification {
   id: string
@@ -14,6 +17,7 @@ export interface Notification {
   amountMsats?: number
   zapSender?: string
   zapMessage?: string
+  trustScore?: number
 }
 
 export interface FeedEntry {
@@ -22,13 +26,19 @@ export interface FeedEntry {
   content: string
   createdAt: number
   tags: string[][]
+  trustScore?: number
 }
 
 /** Fetch notifications (mentions, replies, reactions, zaps) for the active identity */
 export async function handleNotifications(
   ctx: IdentityContext,
   pool: RelayPool,
-  opts?: { since?: number; limit?: number },
+  opts?: {
+    since?: number
+    limit?: number
+    trust?: TrustMode
+    _scoring?: VeilScoring
+  },
 ): Promise<Notification[]> {
   const activeHex = decode(ctx.activeNpub).data as string
   const events = await pool.query(ctx.activeNpub, {
@@ -38,8 +48,17 @@ export async function handleNotifications(
     ...(opts?.since ? { since: opts.since } : {}),
   })
 
-  return events
-    .filter(e => e.kind !== 3) // exclude follows
+  const filtered = events.filter(e => e.kind !== 3) // exclude follows
+
+  if (opts?._scoring && opts.trust !== 'off') {
+    const scored = await opts._scoring.scoreEvents(filtered)
+    const trustFiltered = filterByTrust(scored, { mode: opts.trust ?? 'strict' })
+    return trustFiltered
+      .map(event => ({ ...classifyNotification(event, ctx.activeNpub), trustScore: event._trustScore }))
+      .sort((a, b) => b.createdAt - a.createdAt)
+  }
+
+  return filtered
     .map(event => classifyNotification(event, ctx.activeNpub))
     .sort((a, b) => b.createdAt - a.createdAt)
 }
@@ -100,7 +119,13 @@ function parseZapReceipt(event: NostrEvent, base: Omit<Notification, 'type'>): N
 export async function handleFeed(
   ctx: IdentityContext,
   pool: RelayPool,
-  opts: { authors?: string[]; since?: number; limit?: number },
+  opts: {
+    authors?: string[]
+    since?: number
+    limit?: number
+    trust?: TrustMode
+    _scoring?: VeilScoring
+  },
 ): Promise<FeedEntry[]> {
   const events = await pool.query(ctx.activeNpub, {
     kinds: [1],
@@ -108,6 +133,19 @@ export async function handleFeed(
     ...(opts.since ? { since: opts.since } : {}),
     limit: opts.limit ?? 20,
   })
+
+  if (opts._scoring && opts.trust !== 'off') {
+    const scored = await opts._scoring.scoreEvents(events)
+    const filtered = filterByTrust(scored, { mode: opts.trust ?? 'strict' })
+    return filtered.map(e => ({
+      id: e.id,
+      pubkey: e.pubkey,
+      content: e.content,
+      createdAt: e.created_at,
+      tags: e.tags,
+      trustScore: e._trustScore,
+    }))
+  }
 
   return events.map(e => ({
     id: e.id,

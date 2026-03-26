@@ -22,6 +22,8 @@ export interface ToolDeps {
   pool: RelayPool
   nip65: Nip65Manager
   nwcUri?: string
+  veilCacheTtl?: number
+  veilCacheMax?: number
 }
 
 export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
