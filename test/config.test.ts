@@ -35,7 +35,7 @@ describe('loadConfig', () => {
     const { loadConfig } = await import('../src/config.js')
     process.env.NOSTR_SECRET_KEY = TEST_NSEC
     process.env.NOSTR_RELAYS = 'wss://relay.example.com'
-    const config = loadConfig()
+    const config = await loadConfig()
     expect(config.secretKey).toBe(TEST_NSEC)
     expect(config.secretFormat).toBe('nsec')
   })
@@ -44,7 +44,7 @@ describe('loadConfig', () => {
     const { loadConfig } = await import('../src/config.js')
     process.env.NOSTR_SECRET_KEY = TEST_HEX
     process.env.NOSTR_RELAYS = 'wss://relay.example.com'
-    const config = loadConfig()
+    const config = await loadConfig()
     expect(config.secretKey).toBe(TEST_HEX)
     expect(config.secretFormat).toBe('hex')
   })
@@ -53,7 +53,7 @@ describe('loadConfig', () => {
     const { loadConfig } = await import('../src/config.js')
     process.env.NOSTR_SECRET_KEY = TEST_MNEMONIC
     process.env.NOSTR_RELAYS = 'wss://relay.example.com'
-    const config = loadConfig()
+    const config = await loadConfig()
     expect(config.secretKey).toBe(TEST_MNEMONIC)
     expect(config.secretFormat).toBe('mnemonic')
   })
@@ -67,7 +67,7 @@ describe('loadConfig', () => {
     process.env.NOSTR_SECRET_KEY = TEST_HEX
     process.env.NOSTR_SECRET_KEY_FILE = keyFile
     process.env.NOSTR_RELAYS = 'wss://relay.example.com'
-    const config = loadConfig()
+    const config = await loadConfig()
     expect(config.secretKey).toBe(TEST_NSEC)
     expect(config.secretFormat).toBe('nsec')
 
@@ -79,7 +79,7 @@ describe('loadConfig', () => {
     process.env.NOSTR_SECRET_KEY = TEST_NSEC
     process.env.NOSTR_RELAYS = 'wss://relay.example.com'
     process.env.NWC_URI = 'nostr+walletconnect://test'
-    loadConfig()
+    await loadConfig()
     expect(process.env.NOSTR_SECRET_KEY).toBeUndefined()
     expect(process.env.NWC_URI).toBeUndefined()
   })
@@ -87,21 +87,21 @@ describe('loadConfig', () => {
   it('errors if neither NOSTR_SECRET_KEY nor NOSTR_SECRET_KEY_FILE provided', async () => {
     const { loadConfig } = await import('../src/config.js')
     process.env.NOSTR_RELAYS = 'wss://relay.example.com'
-    expect(() => loadConfig()).toThrow(/secret key/i)
+    await expect(loadConfig()).rejects.toThrow(/secret key/i)
   })
 
   it('errors on invalid key format', async () => {
     const { loadConfig } = await import('../src/config.js')
     process.env.NOSTR_SECRET_KEY = 'not-a-valid-key-format'
     process.env.NOSTR_RELAYS = 'wss://relay.example.com'
-    expect(() => loadConfig()).toThrow(/invalid.*key/i)
+    await expect(loadConfig()).rejects.toThrow(/invalid.*key/i)
   })
 
   it('parses NOSTR_RELAYS as comma-separated URLs', async () => {
     const { loadConfig } = await import('../src/config.js')
     process.env.NOSTR_SECRET_KEY = TEST_NSEC
     process.env.NOSTR_RELAYS = 'wss://relay1.example.com, wss://relay2.example.com, wss://relay3.example.com'
-    const config = loadConfig()
+    const config = await loadConfig()
     expect(config.relays).toEqual([
       'wss://relay1.example.com',
       'wss://relay2.example.com',
@@ -113,7 +113,7 @@ describe('loadConfig', () => {
     const { loadConfig } = await import('../src/config.js')
     process.env.NOSTR_SECRET_KEY = TEST_NSEC
     process.env.NOSTR_RELAYS = 'wss://relay.example.com'
-    const config = loadConfig()
+    const config = await loadConfig()
     expect(config.transport).toBe('stdio')
     expect(config.port).toBe(3000)
     expect(config.bindAddress).toBe('127.0.0.1')
@@ -129,7 +129,7 @@ describe('loadConfig', () => {
     process.env.NOSTR_SECRET_KEY = TEST_NSEC
     process.env.NOSTR_RELAYS = 'wss://relay.example.com'
     process.env.NWC_URI_FILE = nwcFile
-    const config = loadConfig()
+    const config = await loadConfig()
     expect(config.nwcUri).toBe(nwcUri)
     expect(process.env.NWC_URI_FILE).toBeUndefined()
 
@@ -141,7 +141,7 @@ describe('loadConfig', () => {
     process.env.NOSTR_SECRET_KEY = TEST_NSEC
     process.env.NOSTR_RELAYS = 'wss://relay.example.com'
     process.env.TOR_PROXY = 'socks5h://127.0.0.1:9050'
-    expect(() => loadConfig()).toThrow(/clearnet.*tor/i)
+    await expect(loadConfig()).rejects.toThrow(/clearnet.*tor/i)
   })
 
   it('allows .onion relays when TOR_PROXY is set', async () => {
@@ -149,7 +149,7 @@ describe('loadConfig', () => {
     process.env.NOSTR_SECRET_KEY = TEST_NSEC
     process.env.NOSTR_RELAYS = 'ws://abc123def456.onion'
     process.env.TOR_PROXY = 'socks5h://127.0.0.1:9050'
-    const config = loadConfig()
+    const config = await loadConfig()
     expect(config.relays).toEqual(['ws://abc123def456.onion'])
     expect(config.torProxy).toBe('socks5h://127.0.0.1:9050')
   })
@@ -160,7 +160,7 @@ describe('loadConfig', () => {
     process.env.NOSTR_RELAYS = 'wss://relay.example.com'
     process.env.TOR_PROXY = 'socks5h://127.0.0.1:9050'
     process.env.ALLOW_CLEARNET_WITH_TOR = '1'
-    const config = loadConfig()
+    const config = await loadConfig()
     expect(config.allowClearnetWithTor).toBe(true)
   })
 })
