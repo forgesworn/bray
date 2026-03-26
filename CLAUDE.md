@@ -1,6 +1,6 @@
 # CLAUDE.md — nostr-bray
 
-MCP server giving AI agents sovereign Nostr identities. 77 tools across 10 groups.
+MCP server giving AI agents sovereign Nostr identities. 90 tools across 11 groups.
 
 ## Commands
 
@@ -24,7 +24,7 @@ Single-process MCP server. Entry points:
 - `src/<group>/tools.ts` — Zod schemas + `server.registerTool()` wiring
 - `test/<group>/handlers.test.ts` — unit tests for handlers
 
-Tool groups: `identity/`, `social/` (includes blossom, dm, groups, nips, notifications), `trust/`, `relay/`, `zap/`, `safety/`, `util/`
+Tool groups: `identity/`, `social/` (includes blossom, dm, groups, nips, notifications), `trust/`, `relay/`, `zap/`, `safety/`, `util/`, `workflow/` (trust-score, feed-discover, verify-person, identity-setup, identity-recover, relay-health)
 
 **Shared modules:**
 - `src/config.ts` — env var + file secret loading, format detection
