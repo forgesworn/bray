@@ -5,6 +5,10 @@ import type { LinkageProof } from 'nsec-tree'
 import type { IdentityContext } from '../context.js'
 import type { PublicIdentity } from '../types.js'
 
+export interface DeriveResult extends PublicIdentity {
+  hint?: string
+}
+
 /** Generate a fresh identity — returns mnemonic + master npub, no raw private keys */
 export function handleIdentityCreate(): { npub: string; mnemonic: string } {
   const mnemonic = generateMnemonic(wordlist, 256) // 24 words
@@ -18,8 +22,19 @@ export function handleIdentityCreate(): { npub: string; mnemonic: string } {
 export function handleIdentityDerive(
   ctx: IdentityContext,
   args: { purpose: string; index: number },
-): PublicIdentity {
-  return ctx.derive(args.purpose, args.index)
+): DeriveResult {
+  // Check before deriving — if only master exists, this is the first derivation
+  const identitiesBefore = ctx.listIdentities()
+  const isFirstDerivation = identitiesBefore.length <= 1
+
+  const identity = ctx.derive(args.purpose, args.index)
+  const result: DeriveResult = { ...identity }
+
+  if (isFirstDerivation) {
+    result.hint = 'Consider running identity-setup for guided safe identity creation with backup and relay configuration.'
+  }
+
+  return result
 }
 
 /** Derive a named persona */

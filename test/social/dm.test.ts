@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { IdentityContext } from '../../src/context.js'
 import { handleDmSend, handleDmRead } from '../../src/social/dm.js'
+import type { VeilScoring } from '../../src/veil/scoring.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
 const VALID_PUBKEY = '818b1ff78425c45464e7400d764ffc980dfdf522787e0c0309036b52933fece4'
@@ -17,6 +18,59 @@ describe('DM module', () => {
 
   beforeEach(() => {
     ctx = new IdentityContext(TEST_NSEC, 'nsec')
+  })
+
+  describe('handleDmSend — relay warning', () => {
+    it('adds relayWarning when recipient relays all rejected', async () => {
+      const pool = {
+        query: vi.fn().mockResolvedValue([]),
+        publish: vi.fn().mockResolvedValue({ success: false, accepted: [], rejected: ['wss://relay.example.com'], errors: [] }),
+        publishDirect: vi.fn().mockResolvedValue({ success: false, accepted: [], rejected: ['wss://recipient.relay.com'], errors: [] }),
+        getRelays: vi.fn().mockReturnValue({ read: [], write: [] }),
+      }
+      const mockNip65 = {
+        loadForIdentity: vi.fn().mockResolvedValue({ read: ['wss://recipient.relay.com'], write: [] }),
+      }
+      const result = await handleDmSend(ctx, pool as any, {
+        recipientPubkeyHex: VALID_PUBKEY,
+        message: 'test relay warning',
+        nip65: mockNip65 as any,
+      })
+      expect(result.relayWarning).toBeDefined()
+      expect(result.relayWarning).toMatch(/inbox relays/)
+    })
+
+    it('does not add relayWarning when no recipient relays were used', async () => {
+      const pool = {
+        query: vi.fn().mockResolvedValue([]),
+        publish: vi.fn().mockResolvedValue({ success: true, accepted: ['wss://relay.example.com'], rejected: [], errors: [] }),
+        getRelays: vi.fn().mockReturnValue({ read: [], write: [] }),
+      }
+      const result = await handleDmSend(ctx, pool as any, {
+        recipientPubkeyHex: VALID_PUBKEY,
+        message: 'test no warning',
+        // no nip65 — no recipient relays resolved
+      })
+      expect(result.relayWarning).toBeUndefined()
+    })
+
+    it('does not add relayWarning when at least one relay accepted', async () => {
+      const pool = {
+        query: vi.fn().mockResolvedValue([]),
+        publish: vi.fn().mockResolvedValue({ success: true, accepted: ['wss://relay.example.com'], rejected: [], errors: [] }),
+        publishDirect: vi.fn().mockResolvedValue({ success: true, accepted: ['wss://recipient.relay.com'], rejected: [], errors: [] }),
+        getRelays: vi.fn().mockReturnValue({ read: [], write: [] }),
+      }
+      const mockNip65 = {
+        loadForIdentity: vi.fn().mockResolvedValue({ read: ['wss://recipient.relay.com'], write: [] }),
+      }
+      const result = await handleDmSend(ctx, pool as any, {
+        recipientPubkeyHex: VALID_PUBKEY,
+        message: 'test accepted',
+        nip65: mockNip65 as any,
+      })
+      expect(result.relayWarning).toBeUndefined()
+    })
   })
 
   describe('handleDmSend — NIP-17', () => {
@@ -157,6 +211,60 @@ describe('DM module', () => {
       const pool = mockPool([kind4Event])
       const result = await handleDmRead(ctx, pool as any)
       expect(result[0].protocol).toBe('nip04-deprecated')
+    })
+  })
+
+  describe('handleDmRead — trust annotation', () => {
+    it('annotates each entry with senderTrustScore when scoring is provided', async () => {
+      const kind4Event = {
+        kind: 4,
+        pubkey: 'somepub',
+        created_at: 1000,
+        tags: [],
+        content: 'encrypted',
+        id: 'dm3',
+        sig: 'sig3',
+      }
+      const pool = mockPool([kind4Event])
+      const mockScoring = {
+        scorePubkey: vi.fn().mockResolvedValue({ pubkey: 'somepub', score: 0.5, endorsements: 2, ringEndorsements: 0, flags: [] }),
+      } as unknown as VeilScoring
+      const result = await handleDmRead(ctx, pool as any, { _scoring: mockScoring })
+      expect(result[0].senderTrustScore).toBe(0.5)
+      expect(mockScoring.scorePubkey).toHaveBeenCalledWith('somepub')
+    })
+
+    it('does not annotate when no scoring provided', async () => {
+      const kind4Event = {
+        kind: 4,
+        pubkey: 'somepub',
+        created_at: 1000,
+        tags: [],
+        content: 'encrypted',
+        id: 'dm4',
+        sig: 'sig4',
+      }
+      const pool = mockPool([kind4Event])
+      const result = await handleDmRead(ctx, pool as any)
+      expect(result[0].senderTrustScore).toBeUndefined()
+    })
+
+    it('annotates score 0 for untrusted senders', async () => {
+      const kind4Event = {
+        kind: 4,
+        pubkey: 'unknownpub',
+        created_at: 1000,
+        tags: [],
+        content: 'encrypted',
+        id: 'dm5',
+        sig: 'sig5',
+      }
+      const pool = mockPool([kind4Event])
+      const mockScoring = {
+        scorePubkey: vi.fn().mockResolvedValue({ pubkey: 'unknownpub', score: 0, endorsements: 0, ringEndorsements: 0, flags: [] }),
+      } as unknown as VeilScoring
+      const result = await handleDmRead(ctx, pool as any, { _scoring: mockScoring })
+      expect(result[0].senderTrustScore).toBe(0)
     })
   })
 })

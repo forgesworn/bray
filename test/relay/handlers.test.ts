@@ -29,24 +29,69 @@ describe('relay handlers', () => {
   })
 
   describe('handleRelayList', () => {
-    it('returns relay list for active identity', () => {
+    it('returns relay list for active identity', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200 }))
       const pool = mockPool()
-      const result = handleRelayList(ctx, pool as any)
+      const result = await handleRelayList(ctx, pool as any)
       expect(result.read).toBeDefined()
       expect(result.write).toBeDefined()
+      vi.unstubAllGlobals()
     })
 
-    it('warns if two personas share relays', () => {
+    it('warns if two personas share relays', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200 }))
       const pool = mockPool()
       pool.checkSharedRelays = vi.fn().mockReturnValue(['wss://shared.example.com'])
       ctx.derive('alt', 0)
-      const masterNpub = ctx.activeNpub
       ctx.switch('alt', 0)
       const altNpub = ctx.activeNpub
       ctx.switch('master')
-      const result = handleRelayList(ctx, pool as any, altNpub)
+      const result = await handleRelayList(ctx, pool as any, altNpub)
       expect(result.sharedWarning).toBeDefined()
       expect(result.sharedWarning).toContain('wss://shared.example.com')
+      vi.unstubAllGlobals()
+    })
+
+    it('includes health array with reachability for each relay', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({ ok: true, status: 200 })
+      vi.stubGlobal('fetch', mockFetch)
+      const pool = mockPool()
+      const result = await handleRelayList(ctx, pool as any)
+      expect(result.health).toBeDefined()
+      expect(Array.isArray(result.health)).toBe(true)
+      expect(result.health!.length).toBeGreaterThan(0)
+      for (const entry of result.health!) {
+        expect(entry.url).toBeDefined()
+        expect(typeof entry.reachable).toBe('boolean')
+        expect(typeof entry.responseTime).toBe('number')
+      }
+      vi.unstubAllGlobals()
+    })
+
+    it('marks unreachable relays when fetch fails', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('connection refused')))
+      const pool = mockPool()
+      const result = await handleRelayList(ctx, pool as any)
+      expect(result.health).toBeDefined()
+      for (const entry of result.health!) {
+        expect(entry.reachable).toBe(false)
+        expect(entry.responseTime).toBe(-1)
+      }
+      vi.unstubAllGlobals()
+    })
+
+    it('deduplicates relay URLs across read and write', async () => {
+      const sharedRelay = 'wss://shared.example.com'
+      const pool = {
+        ...mockPool(),
+        getRelays: vi.fn().mockReturnValue({ read: [sharedRelay], write: [sharedRelay] }),
+        checkSharedRelays: vi.fn().mockReturnValue([]),
+      }
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200 }))
+      const result = await handleRelayList(ctx, pool as any)
+      const urls = result.health!.map(h => h.url)
+      expect(urls.filter(u => u === sharedRelay).length).toBe(1)
+      vi.unstubAllGlobals()
     })
   })
 

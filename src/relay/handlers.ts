@@ -3,10 +3,17 @@ import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { RelaySet, PublishResult } from '../types.js'
 
+export interface RelayHealthEntry {
+  url: string
+  reachable: boolean
+  responseTime: number
+}
+
 export interface RelayListResult {
   read: string[]
   write: string[]
   sharedWarning?: string
+  health?: RelayHealthEntry[]
 }
 
 export interface RelayEntry {
@@ -15,11 +22,11 @@ export interface RelayEntry {
 }
 
 /** Get relay list for the active identity, optionally checking for shared relays with another identity */
-export function handleRelayList(
+export async function handleRelayList(
   ctx: IdentityContext,
   pool: RelayPool,
   compareWithNpub?: string,
-): RelayListResult {
+): Promise<RelayListResult> {
   const relays = pool.getRelays(ctx.activeNpub)
   const result: RelayListResult = {
     read: relays.read,
@@ -32,6 +39,23 @@ export function handleRelayList(
       result.sharedWarning = `Shared relays with ${compareWithNpub}: ${shared.join(', ')}. This may link identities.`
     }
   }
+
+  const health = await Promise.all(
+    [...new Set([...relays.read, ...relays.write])].map(async (url) => {
+      try {
+        const httpUrl = url.replace('wss://', 'https://').replace('ws://', 'http://')
+        const start = Date.now()
+        const resp = await fetch(httpUrl, {
+          headers: { Accept: 'application/nostr+json' },
+          signal: AbortSignal.timeout(3000),
+        })
+        return { url, reachable: resp.ok, responseTime: Date.now() - start }
+      } catch {
+        return { url, reachable: false, responseTime: -1 }
+      }
+    }),
+  )
+  result.health = health
 
   return result
 }

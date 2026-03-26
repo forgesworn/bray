@@ -15,7 +15,7 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: true },
   }, async ({ compareWithNpub, output }) => {
-    const result = handleRelayList(deps.ctx, deps.pool, compareWithNpub)
+    const result = await handleRelayList(deps.ctx, deps.pool, compareWithNpub)
     return toolResponse(result, output, fmt.formatRelays)
   })
 

@@ -2,10 +2,23 @@ import type { Event as NostrEvent } from 'nostr-tools'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
+import type { VeilScoring } from '../veil/scoring.js'
 
 export interface PostResult {
   event: NostrEvent
   publish: PublishResult
+}
+
+export interface ReplyResult extends PostResult {
+  trustWarning?: string
+  authorTrustScore?: number
+}
+
+export interface ContactGuardWarning {
+  guarded: true
+  warning: string
+  previousCount: number
+  proposedCount: number
 }
 
 /** Create and publish a kind 1 text note */
@@ -29,8 +42,8 @@ export async function handleSocialPost(
 export async function handleSocialReply(
   ctx: IdentityContext,
   pool: RelayPool,
-  args: { content: string; replyTo: string; replyToPubkey: string; relay?: string },
-): Promise<PostResult> {
+  args: { content: string; replyTo: string; replyToPubkey: string; relay?: string; _scoring?: VeilScoring },
+): Promise<ReplyResult> {
   const tags: string[][] = [
     ['e', args.replyTo, args.relay ?? '', 'reply'],
     ['p', args.replyToPubkey],
@@ -43,7 +56,18 @@ export async function handleSocialReply(
     content: args.content,
   })
   const publish = await pool.publish(ctx.activeNpub, event)
-  return { event, publish }
+  const result: ReplyResult = { event, publish }
+
+  if (args._scoring) {
+    const score = await args._scoring.scorePubkey(args.replyToPubkey)
+    if (score.score === 0) {
+      result.trustWarning = 'This author has no trust endorsements in your network.'
+    } else {
+      result.authorTrustScore = score.score
+    }
+  }
+
+  return result
 }
 
 /** Create and publish a reaction (kind 7) */
@@ -313,8 +337,8 @@ export async function handleContactsSearch(
 export async function handleContactsFollow(
   ctx: IdentityContext,
   pool: RelayPool,
-  args: { pubkeyHex: string; relay?: string; petname?: string },
-): Promise<PostResult> {
+  args: { pubkeyHex: string; relay?: string; petname?: string; confirm?: boolean },
+): Promise<PostResult | ContactGuardWarning> {
   // Fetch existing contacts
   const existing = await pool.query(ctx.activeNpub, {
     kinds: [3],
@@ -329,12 +353,28 @@ export async function handleContactsFollow(
     tags = best.tags.filter(t => t[0] === 'p')
   }
 
+  const oldList = tags.slice()
+
   // Don't duplicate
   if (!tags.some(t => t[1] === args.pubkeyHex)) {
     const newTag = ['p', args.pubkeyHex]
     if (args.relay) newTag.push(args.relay)
     if (args.petname) { if (!args.relay) newTag.push(''); newTag.push(args.petname) }
     tags.push(newTag)
+  }
+
+  const newList = tags
+
+  if (oldList.length > 0) {
+    const shrinkage = 1 - (newList.length / oldList.length)
+    if (shrinkage > 0.2 && !args.confirm) {
+      return {
+        guarded: true,
+        warning: `Contact list would shrink by ${Math.round(shrinkage * 100)}% (${oldList.length} → ${newList.length}). Pass confirm: true to proceed.`,
+        previousCount: oldList.length,
+        proposedCount: newList.length,
+      }
+    }
   }
 
   const sign = ctx.getSigningFunction()
@@ -352,19 +392,35 @@ export async function handleContactsFollow(
 export async function handleContactsUnfollow(
   ctx: IdentityContext,
   pool: RelayPool,
-  args: { pubkeyHex: string },
-): Promise<PostResult> {
+  args: { pubkeyHex: string; confirm?: boolean },
+): Promise<PostResult | ContactGuardWarning> {
   const existing = await pool.query(ctx.activeNpub, {
     kinds: [3],
     authors: [ctx.activePublicKeyHex],
   })
 
-  let tags: string[][] = []
+  let oldTags: string[][] = []
   if (existing.length > 0) {
     const best = existing.reduce((a: NostrEvent, b: NostrEvent) =>
       b.created_at > a.created_at ? b : a
     )
-    tags = best.tags.filter(t => t[0] === 'p' && t[1] !== args.pubkeyHex)
+    oldTags = best.tags.filter(t => t[0] === 'p')
+  }
+
+  const tags = oldTags.filter(t => t[1] !== args.pubkeyHex)
+  const oldList = oldTags
+  const newList = tags
+
+  if (oldList.length > 0) {
+    const shrinkage = 1 - (newList.length / oldList.length)
+    if (shrinkage > 0.2 && !args.confirm) {
+      return {
+        guarded: true,
+        warning: `Contact list would shrink by ${Math.round(shrinkage * 100)}% (${oldList.length} → ${newList.length}). Pass confirm: true to proceed.`,
+        previousCount: oldList.length,
+        proposedCount: newList.length,
+      }
+    }
   }
 
   const sign = ctx.getSigningFunction()

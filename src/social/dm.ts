@@ -6,6 +6,7 @@ import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { Nip65Manager } from '../nip65.js'
 import type { PublishResult } from '../types.js'
+import type { VeilScoring } from '../veil/scoring.js'
 
 export interface DmSendResult {
   event: NostrEvent
@@ -13,6 +14,7 @@ export interface DmSendResult {
   protocol: 'nip17' | 'nip04-deprecated'
   publish: PublishResult
   senderCopyPublish?: PublishResult
+  relayWarning?: string
 }
 
 export interface DmReadEntry {
@@ -23,6 +25,7 @@ export interface DmReadEntry {
   protocol: 'nip17' | 'nip04-deprecated'
   decrypted: boolean
   error?: string
+  senderTrustScore?: number
 }
 
 /** Send a DM. Uses NIP-17 gift wrap by default. NIP-04 only if explicitly requested and enabled. */
@@ -99,14 +102,20 @@ export async function handleDmSend(
   )
   const senderCopyPublish = await pool.publish(ctx.activeNpub, senderCopy)
 
-  return { event, senderCopy, protocol: 'nip17', publish, senderCopyPublish }
+  const result: DmSendResult = { event, senderCopy, protocol: 'nip17', publish, senderCopyPublish }
+
+  if (recipientRelays.length > 0 && publish.accepted.length === 0) {
+    result.relayWarning = "None of recipient's inbox relays accepted the message. It may not be delivered."
+  }
+
+  return result
 }
 
 /** Read DMs addressed to the active identity */
 export async function handleDmRead(
   ctx: IdentityContext,
   pool: RelayPool,
-  args?: { limit?: number },
+  args?: { limit?: number; _scoring?: VeilScoring },
 ): Promise<DmReadEntry[]> {
   // Fetch gift wraps (kind 1059) and legacy DMs (kind 4) addressed to us
   const activeHex = decode(ctx.activeNpub).data as string
@@ -116,16 +125,25 @@ export async function handleDmRead(
     limit: args?.limit ?? 50,
   })
 
-  return decryptDmEvents(ctx, events)
+  const entries = await decryptDmEvents(ctx, events)
+
+  if (args?._scoring) {
+    for (const entry of entries) {
+      const score = await args._scoring.scorePubkey(entry.from)
+      entry.senderTrustScore = score.score
+    }
+  }
+
+  return entries
 }
 
 /** Read DM conversation with a specific pubkey — filters to messages from that person only */
 export async function handleDmConversation(
   ctx: IdentityContext,
   pool: RelayPool,
-  args: { withPubkeyHex: string; limit?: number },
+  args: { withPubkeyHex: string; limit?: number; _scoring?: VeilScoring },
 ): Promise<DmReadEntry[]> {
-  const allMessages = await handleDmRead(ctx, pool, { limit: args.limit ?? 100 })
+  const allMessages = await handleDmRead(ctx, pool, { limit: args.limit ?? 100, _scoring: args._scoring })
   return allMessages
     .filter(m => m.from === args.withPubkeyHex)
     .sort((a, b) => a.createdAt - b.createdAt) // chronological for conversation view
