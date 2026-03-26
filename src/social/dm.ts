@@ -1,15 +1,18 @@
 import { wrapEvent } from 'nostr-tools/nip17'
 import * as nip04 from 'nostr-tools/nip04'
-import { decode } from 'nostr-tools/nip19'
+import { decode, npubEncode } from 'nostr-tools/nip19'
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
+import type { Nip65Manager } from '../nip65.js'
 import type { PublishResult } from '../types.js'
 
 export interface DmSendResult {
   event: NostrEvent
+  senderCopy?: NostrEvent
   protocol: 'nip17' | 'nip04-deprecated'
   publish: PublishResult
+  senderCopyPublish?: PublishResult
 }
 
 export interface DmReadEntry {
@@ -32,6 +35,7 @@ export async function handleDmSend(
     nip04?: boolean
     nip04Enabled?: boolean
     recipientRelay?: string
+    nip65?: Nip65Manager
   },
 ): Promise<DmSendResult> {
   if (args.nip04) {
@@ -54,13 +58,48 @@ export async function handleDmSend(
   }
 
   // NIP-17 gift-wrapped DM (default)
+  // Look up recipient's inbox relays via NIP-65 for proper delivery
+  let recipientRelays: string[] = []
+  if (args.nip65) {
+    try {
+      const recipientNpub = npubEncode(args.recipientPubkeyHex)
+      const relaySet = await args.nip65.loadForIdentity(recipientNpub, args.recipientPubkeyHex)
+      recipientRelays = relaySet.read // recipient reads from their read relays
+    } catch { /* fall back to sender's relays */ }
+  }
+
+  const recipientRelayHint = args.recipientRelay ?? recipientRelays[0]
+
+  // Wrap for recipient
   const event = wrapEvent(
     ctx.activePrivateKey,
-    { publicKey: args.recipientPubkeyHex, relayUrl: args.recipientRelay },
+    { publicKey: args.recipientPubkeyHex, relayUrl: recipientRelayHint },
     args.message,
   )
-  const publish = await pool.publish(ctx.activeNpub, event)
-  return { event, protocol: 'nip17', publish }
+
+  // Publish to recipient's relays (primary) and sender's relays (fallback)
+  let publish: PublishResult
+  if (recipientRelays.length > 0) {
+    // Merge recipient read relays with sender write relays for best coverage
+    const senderRelays = pool.getRelays(ctx.activeNpub).write
+    const allRelays = [...new Set([...recipientRelays, ...senderRelays])]
+    publish = await pool.publishDirect(allRelays, event)
+  } else {
+    publish = await pool.publish(ctx.activeNpub, event)
+  }
+
+  // Sender copy — wrap the same message addressed to ourselves so our client shows sent DMs.
+  // The inner rumor's p-tag (set by wrapEvent) points to us, but clients use the
+  // outer gift-wrap's p-tag to route, and the inner content to display.
+  const senderHex = (decode(ctx.activeNpub).data as string)
+  const senderCopy = wrapEvent(
+    ctx.activePrivateKey,
+    { publicKey: senderHex, relayUrl: recipientRelayHint },
+    args.message,
+  )
+  const senderCopyPublish = await pool.publish(ctx.activeNpub, senderCopy)
+
+  return { event, senderCopy, protocol: 'nip17', publish, senderCopyPublish }
 }
 
 /** Read DMs addressed to the active identity */

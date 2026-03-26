@@ -172,12 +172,14 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       nip04,
       nip04Enabled: false, // TODO: wire from config
       recipientRelay,
+      nip65: deps.nip65,
     })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({
         protocol: result.protocol,
         id: result.event.id,
         publish: result.publish,
+        senderCopyPublish: result.senderCopyPublish,
       }, null, 2) }],
     }
   })
