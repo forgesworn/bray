@@ -332,7 +332,7 @@ describe('workflow handlers', () => {
       const origFetch = globalThis.fetch
       globalThis.fetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ names: { alice: ALICE } }),
+        text: async () => JSON.stringify({ names: { alice: ALICE } }),
       }) as any
 
       try {
