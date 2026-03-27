@@ -22,7 +22,19 @@ import {
 import { handleDmSend, handleDmRead, handleDmConversation } from './dm.js'
 import { handleNotifications, handleFeed } from './notifications.js'
 import { handleNipPublish, handleNipRead } from './nips.js'
-import { handleBlossomUpload, handleBlossomList, handleBlossomDelete } from './blossom.js'
+import {
+  handleBlossomUpload,
+  handleBlossomList,
+  handleBlossomDelete,
+  handleBlossomMirror,
+  handleBlossomCheck,
+  handleBlossomDiscover,
+  handleBlossomVerify,
+  handleBlossomRepair,
+  handleBlossomUsage,
+  handleBlossomServersGet,
+  handleBlossomServersSet,
+} from './blossom.js'
 import { handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers } from './groups.js'
 
 export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
@@ -533,6 +545,96 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ server, sha256 }) => {
     const result = await handleBlossomDelete(deps.ctx, { server, sha256 })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('blossom-mirror', {
+    description: 'Upload a file to multiple blossom servers for redundancy. Provide a source URL (existing blob), file path, or data. Uploads to each server in parallel and returns per-server results with verified SHA-256 hash.',
+    inputSchema: {
+      servers: z.array(z.string()).min(1).max(10).describe('Target blossom server URLs to mirror to'),
+      sourceUrl: z.string().optional().describe('URL of an existing blob to mirror (fetched and re-uploaded)'),
+      filePath: z.string().optional().describe('Path to a local file to mirror'),
+      contentType: z.string().optional().describe('MIME type (default: application/octet-stream)'),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true },
+  }, async ({ servers, sourceUrl, filePath, contentType }) => {
+    const result = await handleBlossomMirror(deps.ctx, { servers, sourceUrl, filePath, contentType })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('blossom-check', {
+    description: 'Verify a blob exists and is intact on a blossom server. HEAD request to check existence, optionally downloads and verifies SHA-256 hash matches.',
+    inputSchema: {
+      server: z.string().describe('Blossom server URL'),
+      sha256: z.string().describe('Expected SHA-256 hash of the blob'),
+      verify: z.boolean().default(false).describe('Download and verify hash integrity (slower but thorough)'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ server, sha256, verify }) => {
+    const result = await handleBlossomCheck({ server, sha256, verify })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('blossom-discover', {
+    description: 'Discover blossom servers used by contacts. Fetches kind 10063 (NIP-B7 server list) events from the given pubkeys and aggregates unique server URLs. Use contacts-get first to get pubkeys.',
+    inputSchema: {
+      pubkeys: z.array(hexId).min(1).describe('Hex pubkeys to discover servers from (e.g. your contacts)'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ pubkeys }) => {
+    const result = await handleBlossomDiscover(deps.pool, deps.ctx.activeNpub, { pubkeys })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('blossom-verify', {
+    description: 'Verify all media URLs in a note are still accessible. Pass the note content and get back alive/broken status per URL. Optionally verifies SHA-256 hash integrity for blossom URLs.',
+    inputSchema: {
+      content: z.string().describe('Note content containing media URLs to verify'),
+      verifyHash: z.boolean().default(false).describe('Also verify SHA-256 hashes for blossom URLs (slower)'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ content, verifyHash }) => {
+    const result = await handleBlossomVerify({ content, verifyHash })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('blossom-repair', {
+    description: 'Find a broken blob on other blossom servers by SHA-256 hash and optionally re-upload to a target server. Searches each server, verifies hash integrity, and re-uploads if found.',
+    inputSchema: {
+      sha256: z.string().describe('SHA-256 hash of the missing/broken blob'),
+      searchServers: z.array(z.string()).min(1).max(20).describe('Blossom servers to search for the blob'),
+      targetServer: z.string().optional().describe('Server to re-upload to if found (omit to just locate)'),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true },
+  }, async ({ sha256, searchServers, targetServer }) => {
+    const result = await handleBlossomRepair(deps.ctx, { sha256, searchServers, targetServer })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('blossom-usage', {
+    description: 'Check storage usage across blossom servers for a pubkey. Returns per-server blob count and total size, plus aggregate totals.',
+    inputSchema: {
+      servers: z.array(z.string()).min(1).max(20).describe('Blossom server URLs to check'),
+      pubkeyHex: hexId.describe('Hex pubkey to check usage for'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ servers, pubkeyHex }) => {
+    const result = await handleBlossomUsage({ servers, pubkeyHex })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('blossom-servers', {
+    description: 'Read or update your preferred blossom server list (kind 10063). Without servers parameter, reads the current list. With servers parameter, publishes a new list.',
+    inputSchema: {
+      servers: z.array(z.string()).optional().describe('New server list to publish (omit to read current list)'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ servers }) => {
+    if (servers && servers.length > 0) {
+      const result = await handleBlossomServersSet(deps.ctx, deps.pool, { servers })
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+    }
+    const result = await handleBlossomServersGet(deps.pool, deps.ctx.activeNpub, deps.ctx.activePublicKeyHex)
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 
