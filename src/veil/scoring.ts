@@ -1,4 +1,4 @@
-import { buildTrustGraph, computeTrustRank } from 'nostr-veil/graph'
+import { parseAssertion } from 'nostr-veil/nip85'
 import { verifyProof } from 'nostr-veil/proof'
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { RelayPool } from '../relay-pool.js'
@@ -40,18 +40,23 @@ export class VeilScoring {
       return { pubkey, ...entry, flags: ['no endorsements found'] }
     }
 
-    // 4. Build trust graph via buildTrustGraph + computeTrustRank
-    const graph = buildTrustGraph(events as any[])
-    const ranks = computeTrustRank(graph)
-
     const flags: string[] = []
+    let endorsements = 0
+    let ringEndorsements = 0
 
-    // 5. Check for veil-sig tags and verify ring proofs via verifyProof
+    // 4. Parse assertions and count endorsements
     for (const event of events) {
-      const hasVeilSig = event.tags.some(t => t[0] === 'veil-sig')
+      const parsed = parseAssertion(event)
+      if (parsed.subject === pubkey) {
+        endorsements++
+      }
+
+      // 5. Check for veil-sig tags and verify ring proofs
+      const hasVeilSig = event.tags.some((t: string[]) => t[0] === 'veil-sig')
       if (hasVeilSig) {
         const verification = verifyProof(event)
         if (verification.valid) {
+          ringEndorsements += verification.distinctSigners
           if (!flags.includes('ring proof verified')) {
             flags.push('ring proof verified')
           }
@@ -63,13 +68,10 @@ export class VeilScoring {
       }
     }
 
-    // Find rank entry for the target pubkey
-    const rankEntry = ranks.find(r => r.pubkey === pubkey)
-    const score = rankEntry?.rank ?? 0
-    const endorsements = rankEntry?.endorsements ?? 0
-    const ringEndorsements = rankEntry?.ringEndorsements ?? 0
+    // 6. Compute score: endorsements + ring endorsements weighted higher
+    const score = endorsements + (ringEndorsements * 3)
 
-    // 6. Cache result and return
+    // 7. Cache result and return
     const entry: TrustCacheEntry = { score, endorsements, ringEndorsements }
     this.cache.set(pubkey, entry)
 
