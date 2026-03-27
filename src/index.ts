@@ -16,6 +16,9 @@ import { registerWorkflowTools } from './workflow/tools.js'
 import { registerMarketplaceTools } from './marketplace/tools.js'
 import { registerPrivacyTools } from './privacy/tools.js'
 import { registerModerationTools } from './moderation/tools.js'
+import { TrustContext } from './trust-context.js'
+import { registerSignetTools } from './signet/tools.js'
+import { registerVaultTools } from './vault/tools.js'
 import { ActionCatalog, createCatalogProxy } from './catalog.js'
 
 const config = await loadConfig()
@@ -36,7 +39,13 @@ if (config.bunkerUri) {
   ctx = new IdentityContext(config.secretKey, config.secretFormat)
 }
 
-export const deps = { ctx: ctx as any, pool, nip65, nwcUri: config.nwcUri }
+const trust = new TrustContext(ctx as any, pool, {
+  cacheTtl: config.trustCacheTtl,
+  cacheMax: config.trustCacheMax,
+  trustMode: config.trustMode,
+})
+
+export const deps = { ctx: ctx as any, pool, nip65, trust, nwcUri: config.nwcUri }
 
 ;(config as any).secretKey = ''
 ;(config as any).nwcUri = undefined
@@ -48,7 +57,7 @@ nip65.loadForIdentity(ctx.activeNpub).then(masterRelays => {
 }).catch(e => console.error('NIP-65 relay load failed:', e.message))
 
 const server = new McpServer({ name: 'nostr-bray', version: '0.1.0' }, {
-  instructions: 'Always check whoami before posting or signing. Use social-feed or social-notifications to get event IDs and author pubkeys before calling social-reply or social-react. DMs default to NIP-17 gift wrap (most private); only use NIP-04 if the recipient requires it. For less common actions (encoding, encryption, ring signatures, blossom, groups, NIPs, key management, safety), use search-actions to discover them, then execute-action to run them.',
+  instructions: 'Always check whoami before posting or signing. Use signet-badge to check trust before interacting with unfamiliar pubkeys. Use trust-score for the full three-dimensional view (verification + proximity + access). Use social-feed or social-notifications to get event IDs and author pubkeys before calling social-reply or social-react. DMs default to NIP-17 gift wrap (most private); only use NIP-04 if the recipient requires it. Respect vault tiers -- do not share decrypted content outside its intended audience. For less common actions, use search-actions to discover them, then execute-action to run them.',
 })
 
 // Promoted tools are registered directly with the server (always visible to Claude).
@@ -57,6 +66,7 @@ const PROMOTED = new Set([
   'whoami', 'social-post', 'social-reply', 'social-feed',
   'dm-send', 'dm-read', 'zap-send', 'zap-balance',
   'identity-switch', 'relay-query',
+  'signet-badge', 'trust-score', 'vault-read',
 ])
 const catalog = new ActionCatalog()
 const proxy = createCatalogProxy(server, catalog, PROMOTED)
@@ -80,6 +90,8 @@ registerWorkflowTools(proxy, {
 registerMarketplaceTools(proxy, deps)
 registerPrivacyTools(proxy, deps)
 registerModerationTools(proxy, deps)
+registerSignetTools(proxy, deps)
+registerVaultTools(proxy, deps)
 
 // Add search-actions and execute-action meta-tools to the real server
 catalog.registerMetaTools(server)
