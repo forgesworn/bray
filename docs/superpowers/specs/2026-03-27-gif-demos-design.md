@@ -10,9 +10,9 @@ The bray marketing site and README need visual demos showing each tool in action
 
 ## Approach
 
-**Semi-automated recordings using `claude -p` + `asciinema` + `agg`.**
+**Semi-automated recordings using VHS + `claude -p`.**
 
-Each tool gets a one-line prompt. A shell script loops through all prompts, runs each via `claude -p` (non-interactive Claude Code), records the terminal session with `asciinema`, and converts to GIF with `agg`.
+Each demo gets a `.tape` file (VHS script) that runs `claude -p` with a specific prompt. VHS handles terminal recording, theming, and GIF output in one step. No separate recorder or converter needed.
 
 Tools are organised into two categories:
 - **Story demos** (26 groupings of 2-4 tools chained into workflows)
@@ -20,18 +20,17 @@ Tools are organised into two categories:
 
 Story demos record a single session where Claude uses multiple tools in sequence. Solo demos record one tool call each.
 
-### Why not VHS scripted simulations?
+### Why VHS with real Claude Code (not scripted simulations)?
 
-Simulations are easier to control but lack authenticity. Real Claude Code sessions show the actual MCP tool call flow, status line, thinking indicators, and formatted output. This is what users will see when they use bray themselves.
+VHS can simulate terminal sessions with `Type`/`Output` commands, but we use it to run real `claude -p` commands instead. Real Claude Code sessions show the actual MCP tool call flow, status line, thinking indicators, and formatted output. This is what users will see when they use bray themselves.
 
 ### Why not manual recording?
 
-185 individual manual recordings would take days and be impossible to maintain as the tool set evolves. The semi-automated approach lets us reshoot any demo by re-running a single prompt.
+185 individual manual recordings would take days and be impossible to maintain as the tool set evolves. The semi-automated approach lets us reshoot any demo by re-running `vhs <name>.tape`.
 
 ## Prerequisites
 
-- `asciinema` (terminal recorder): `brew install asciinema`
-- `agg` (asciinema-to-GIF converter): `brew install agg`
+- `vhs` (terminal recorder + GIF generator): already installed (`vhs 0.11.0`)
 - `claude` CLI with bray MCP server configured
 - A dedicated demo identity (fresh nsec, test persona)
 - Public test relays configured
@@ -40,17 +39,16 @@ Simulations are easier to control but lack authenticity. Real Claude Code sessio
 
 ```
 site/demos/
-  record.sh              # Main orchestrator
-  prompts/
-    stories/             # Multi-tool workflow prompts
-      01-identity-onboarding.txt
-      02-identity-backup.txt
+  record.sh              # Main orchestrator (loops through all tapes)
+  tapes/
+    stories/             # Multi-tool workflow tapes
+      01-identity-onboarding.tape
+      02-identity-backup.tape
       ...
-    solo/                # Single-tool prompts
-      encode-npub.txt
-      verify-event.txt
+    solo/                # Single-tool tapes
+      encode-npub.tape
+      verify-event.tape
       ...
-  casts/                 # Raw asciinema recordings (.cast)
   gifs/                  # Final GIF output
   gallery.html           # Browsable gallery page
 ```
@@ -59,17 +57,34 @@ site/demos/
 
 Per-demo flow:
 
-1. `asciinema rec` starts capturing the terminal
-2. `claude -p "$(cat prompts/stories/01-identity-onboarding.txt)"` runs in the recorded shell
-3. Claude Code executes, calls bray MCP tools, shows output
-4. `asciinema rec` stops when the command exits
-5. `agg` converts the `.cast` file to a GIF
+1. VHS reads the `.tape` file
+2. VHS opens a virtual terminal with configured dimensions and theme
+3. The tape runs `claude -p "<prompt>"` inside the terminal
+4. Claude Code executes, calls bray MCP tools, shows output
+5. VHS renders the session directly to GIF
+
+Example tape file:
+
+```tape
+# 01-identity-onboarding.tape
+Set Shell "zsh"
+Set Width 100
+Set Height 30
+Set Theme "Catppuccin Mocha"
+Set FontSize 14
+Set Padding 20
+
+Output ../gifs/01-identity-onboarding.gif
+
+Type "claude -p 'Create a new Nostr identity, derive a persona called demo, switch to it, then confirm with whoami'"
+Enter
+Sleep 15s
+```
 
 The orchestrator script (`record.sh`) handles:
-- Looping through all prompt files
-- Naming output files consistently
+- Looping through all tape files (or recording a single one by name)
 - Skipping already-recorded demos (unless `--force`)
-- Setting terminal width/height for consistency
+- Reporting progress
 
 ## GIF Specifications
 
@@ -178,8 +193,8 @@ Before recording:
 ## Maintenance
 
 When new tools are added:
-1. Write a prompt file in `prompts/solo/` or add to a story group
-2. Run `record.sh <name>` to record just that demo
+1. Write a `.tape` file in `tapes/solo/` or add to a story group
+2. Run `vhs tapes/solo/<name>.tape` or `./record.sh <name>` to record
 3. The gallery page auto-discovers GIFs from the `gifs/` directory
 
 ## Out of Scope
