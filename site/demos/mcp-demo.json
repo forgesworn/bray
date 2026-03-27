@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "nostr-bray": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "./dist/index.js"
+      ],
+      "env": {
+        "NOSTR_SECRET_KEY_FILE": "~/.nostr/secret.key",
+        "NOSTR_RELAYS": "wss://relay.damus.io,wss://nos.lol"
+      }
+    }
+  }
+}
