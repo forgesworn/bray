@@ -15,6 +15,7 @@ import { registerUtilTools } from './util/tools.js'
 import { registerWorkflowTools } from './workflow/tools.js'
 import { registerMarketplaceTools } from './marketplace/tools.js'
 import { registerPrivacyTools } from './privacy/tools.js'
+import { registerModerationTools } from './moderation/tools.js'
 import { ActionCatalog, createCatalogProxy } from './catalog.js'
 
 const config = await loadConfig()
@@ -78,6 +79,7 @@ registerWorkflowTools(proxy, {
 })
 registerMarketplaceTools(proxy, deps)
 registerPrivacyTools(proxy, deps)
+registerModerationTools(proxy, deps)
 
 // Add search-actions and execute-action meta-tools to the real server
 catalog.registerMetaTools(server)
