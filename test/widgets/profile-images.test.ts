@@ -120,10 +120,9 @@ describe('profile-images', () => {
       const imageBytes = new Uint8Array([0xFF, 0xD8]) // JPEG magic
       const mockResponse = {
         ok: true,
-        headers: new Map([['content-type', 'image/jpeg']]),
+        headers: new Headers({ 'content-type': 'image/jpeg' }),
         arrayBuffer: () => Promise.resolve(imageBytes.buffer),
       }
-      ;(mockResponse.headers as any).get = (k: string) => mockResponse.headers.get(k)
 
       const fetchSpy = vi.spyOn(globalThis, 'fetch')
       fetchSpy.mockResolvedValue(mockResponse as any)
@@ -145,10 +144,9 @@ describe('profile-images', () => {
       const imageBytes = new Uint8Array([0x89, 0x50])
       const mockResponse = {
         ok: true,
-        headers: new Map([['content-type', 'image/png']]),
+        headers: new Headers({ 'content-type': 'image/png' }),
         arrayBuffer: () => Promise.resolve(imageBytes.buffer),
       }
-      ;(mockResponse.headers as any).get = (k: string) => mockResponse.headers.get(k)
 
       vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse as any)
 
@@ -168,10 +166,9 @@ describe('profile-images', () => {
       const imageBytes = new Uint8Array([0x89, 0x50])
       const mockResponse = {
         ok: true,
-        headers: new Map([['content-type', 'image/png']]),
+        headers: new Headers({ 'content-type': 'image/png' }),
         arrayBuffer: () => Promise.resolve(imageBytes.buffer),
       }
-      ;(mockResponse.headers as any).get = (k: string) => mockResponse.headers.get(k)
 
       vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse as any)
 
