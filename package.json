@@ -73,6 +73,7 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@forgesworn/range-proof": "^1.0.3",
     "@forgesworn/ring-sig": "^1.0.2",
     "@forgesworn/shamir-words": "^1.0.4",
     "@modelcontextprotocol/sdk": "^1.27.1",
