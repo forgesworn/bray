@@ -8,6 +8,7 @@ import { registerIdentityTools } from './identity/tools.js'
 import { registerSocialTools } from './social/tools.js'
 import { registerTrustTools } from './trust/tools.js'
 import { registerRelayTools } from './relay/tools.js'
+import { registerRelayIntelligenceTools } from './relay/intelligence-tools.js'
 import { registerZapTools } from './zap/tools.js'
 import { registerSafetyTools } from './safety/tools.js'
 import { registerUtilTools } from './util/tools.js'
@@ -64,6 +65,7 @@ registerIdentityTools(proxy, deps)
 registerSocialTools(proxy, deps)
 registerTrustTools(proxy, deps)
 registerRelayTools(proxy, deps)
+registerRelayIntelligenceTools(proxy, deps)
 registerZapTools(proxy, deps)
 registerSafetyTools(proxy, deps)
 registerUtilTools(proxy, deps)
