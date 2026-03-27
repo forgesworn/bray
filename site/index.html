@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>nostr-bray | Trust-aware Nostr for AI and humans</title>
-  <meta name="description" content="Three dimensions of trust: verification, proximity, and access. 180+ tools for identity, social, payments, moderation, and encrypted access control.">
+  <meta name="description" content="Three dimensions of trust: verification, proximity, and access. 185 tools for identity, social, payments, moderation, and encrypted access control.">
   <meta name="theme-color" content="#0a0a0f">
   <meta property="og:title" content="nostr-bray | Trust-aware Nostr for AI and humans">
-  <meta property="og:description" content="Three dimensions of trust: verification, proximity, and access. 180+ tools for identity, social, payments, moderation, and encrypted access control.">
+  <meta property="og:description" content="Three dimensions of trust: verification, proximity, and access. 185 tools for identity, social, payments, moderation, and encrypted access control.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://bray.forgesworn.dev">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="nostr-bray | Trust-aware Nostr for AI and humans">
-  <meta name="twitter:description" content="Three dimensions of trust: verification, proximity, and access. 180+ tools for identity, social, payments, moderation, and encrypted access control.">
+  <meta name="twitter:description" content="Three dimensions of trust: verification, proximity, and access. 185 tools for identity, social, payments, moderation, and encrypted access control.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a0f'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='%23e8a838' font-family='serif'>b</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1066,7 +1066,7 @@
         <div class="hero-badge">MCP Server + CLI</div>
         <h1>Trust-aware Nostr for <em>AI and humans</em></h1>
         <p class="hero-sub">
-          Verification, proximity, and access: three dimensions of trust, woven into every interaction. 106&nbsp;tools for identity, social, payments, moderation, and encrypted access control.
+          Verification, proximity, and access: three dimensions of trust, woven into every interaction. 185&nbsp;tools for identity, social, payments, moderation, and encrypted access control.
         </p>
         <div class="hero-actions">
           <div class="install-block" id="installBlock" title="Click to copy">
@@ -1081,11 +1081,11 @@
         </div>
         <div class="hero-stats">
           <div class="stat">
-            <span class="stat-value">106</span>
+            <span class="stat-value">185</span>
             <span class="stat-label">Tools</span>
           </div>
           <div class="stat">
-            <span class="stat-value">13</span>
+            <span class="stat-value">17</span>
             <span class="stat-label">Groups</span>
           </div>
           <div class="stat">
@@ -1196,7 +1196,7 @@
           <div style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent-purple); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.4rem;">Access</div>
           <h3 style="margin-bottom: 0.35rem;">What can they see?</h3>
           <p style="margin-bottom: 0.75rem;">Epoch-based encrypted content tiers via the Dominion protocol. Share with members, subscribers, or a trusted crew, without a server or a database. Keys rotate on epoch change. Revocation is instant.</p>
-          <span class="solution-tag" style="background: rgba(167, 139, 250, 0.1); color: var(--accent-purple);">Vault · 8 tools</span>
+          <span class="solution-tag" style="background: rgba(167, 139, 250, 0.1); color: var(--accent-purple);">Vault · 9 tools</span>
         </div>
 
       </div>
@@ -1288,7 +1288,7 @@
       <div class="section-divider">
         <span class="section-label">Tool Groups</span>
       </div>
-      <h2 class="reveal">180+ tools. 17 groups.<br>One coherent surface.</h2>
+      <h2 class="reveal">185 tools. 17 groups.<br>One coherent surface.</h2>
       <p class="text-muted reveal" style="max-width:620px;">
         Every tool operates as the active identity. Switch persona, and your posts, DMs, attestations, and payments all follow. No configuration changes needed.
       </p>
@@ -1297,9 +1297,9 @@
         <div class="feature-card" style="--card-accent: var(--accent-gold);">
           <div class="feature-header">
             <h3>Identity</h3>
-            <span class="feature-count">12 tools</span>
+            <span class="feature-count">15 tools</span>
           </div>
-          <p>Create, derive, switch, prove, backup, and migrate Nostr identities. Hierarchical key tree with Shamir recovery.</p>
+          <p>Create, derive, switch, prove, backup, and migrate Nostr identities. Hierarchical key tree with Shamir recovery. NIP-05 lookup and verification.</p>
           <div class="feature-tools">
             <span class="tool-tag">whoami</span>
             <span class="tool-tag">identity-derive-persona</span>
@@ -1307,6 +1307,9 @@
             <span class="tool-tag">identity-prove</span>
             <span class="tool-tag">identity-backup-shamir</span>
             <span class="tool-tag">identity-migrate</span>
+            <span class="tool-tag">nip05-lookup</span>
+            <span class="tool-tag">nip05-verify</span>
+            <span class="tool-tag">nip05-relays</span>
           </div>
         </div>
 
@@ -1315,7 +1318,7 @@
             <h3>Social</h3>
             <span class="feature-count">19 tools</span>
           </div>
-          <p>Post, reply, react, repost, DM by name, read feeds and conversations. Name-based lookups across your contact graph.</p>
+          <p>Post, reply, react, repost, send and read DMs, manage contacts and profiles, read feeds and notifications. Name-based lookups across your contact graph.</p>
           <div class="feature-tools">
             <span class="tool-tag">social-post</span>
             <span class="tool-tag">dm-send</span>
@@ -1329,15 +1332,18 @@
         <div class="feature-card" style="--card-accent: var(--accent-green);">
           <div class="feature-header">
             <h3>Trust</h3>
-            <span class="feature-count">12 tools</span>
+            <span class="feature-count">22 tools</span>
           </div>
-          <p>Verifiable attestations, ring signatures for anonymous proofs, spoken verification tokens, linkage proofs.</p>
+          <p>Verifiable attestations, ring signatures for anonymous proofs, spoken verification tokens, linkage proofs, deep attestation and ring analysis.</p>
           <div class="feature-tools">
             <span class="tool-tag">trust-attest</span>
             <span class="tool-tag">trust-ring-prove</span>
             <span class="tool-tag">trust-spoken-challenge</span>
             <span class="tool-tag">trust-verify</span>
             <span class="tool-tag">trust-revoke</span>
+            <span class="tool-tag">trust-score</span>
+            <span class="tool-tag">trust-attest-deep</span>
+            <span class="tool-tag">trust-ring-prove-deep</span>
           </div>
         </div>
 
@@ -1358,39 +1364,55 @@
         <div class="feature-card" style="--card-accent: #f472b6;">
           <div class="feature-header">
             <h3>Relay</h3>
-            <span class="feature-count">5 tools</span>
+            <span class="feature-count">12 tools</span>
           </div>
-          <p>Per-identity relay lists with NIP-65 management. Query events, fetch relay info, health monitoring.</p>
+          <p>Per-identity relay lists with NIP-65 management. Query events with NIP-50 search, NIP-45 counting, NIP-42 authentication, relay intelligence and health monitoring.</p>
           <div class="feature-tools">
             <span class="tool-tag">relay-list</span>
             <span class="tool-tag">relay-set</span>
             <span class="tool-tag">relay-query</span>
             <span class="tool-tag">relay-info</span>
+            <span class="tool-tag">relay-count</span>
+            <span class="tool-tag">relay-auth</span>
+            <span class="tool-tag">relay-discover</span>
+            <span class="tool-tag">relay-compare</span>
+            <span class="tool-tag">relay-diversity</span>
           </div>
         </div>
 
         <div class="feature-card" style="--card-accent: var(--accent-red);">
           <div class="feature-header">
             <h3>Safety</h3>
-            <span class="feature-count">2 tools</span>
+            <span class="feature-count">14 tools</span>
           </div>
-          <p>Duress personas for coercion resistance. Alternative identity indistinguishable from a normal persona switch.</p>
+          <p>Duress personas for coercion resistance, plus CANARY liveness proofs for dead-man's-switch assurance.</p>
           <div class="feature-tools">
             <span class="tool-tag">safety-configure</span>
             <span class="tool-tag">safety-activate</span>
+            <span class="tool-tag">canary-create</span>
+            <span class="tool-tag">canary-check</span>
+            <span class="tool-tag">canary-renew</span>
+            <span class="tool-tag">canary-revoke</span>
           </div>
         </div>
 
         <div class="feature-card" style="--card-accent: #fb923c;">
           <div class="feature-header">
             <h3>Blossom</h3>
-            <span class="feature-count">3 tools</span>
+            <span class="feature-count">10 tools</span>
           </div>
-          <p>Media uploads to Blossom servers. Upload, list, and delete blobs with authenticated requests.</p>
+          <p>Media uploads to Blossom servers. Upload, list, delete, mirror, verify, repair, discover servers, and manage storage.</p>
           <div class="feature-tools">
             <span class="tool-tag">blossom-upload</span>
             <span class="tool-tag">blossom-list</span>
             <span class="tool-tag">blossom-delete</span>
+            <span class="tool-tag">blossom-mirror</span>
+            <span class="tool-tag">blossom-verify</span>
+            <span class="tool-tag">blossom-discover</span>
+            <span class="tool-tag">blossom-repair</span>
+            <span class="tool-tag">blossom-servers-get</span>
+            <span class="tool-tag">blossom-usage</span>
+            <span class="tool-tag">blossom-check</span>
           </div>
         </div>
 
@@ -1423,7 +1445,7 @@
         <div class="feature-card" style="--card-accent: #94a3b8;">
           <div class="feature-header">
             <h3>Utility</h3>
-            <span class="feature-count">18 tools</span>
+            <span class="feature-count">19 tools</span>
           </div>
           <p>Encode, decode, encrypt, verify, filter, fetch. NIP-44 encryption, NIP-49 key encryption, event verification.</p>
           <div class="feature-tools">
@@ -1456,7 +1478,7 @@
         <div class="feature-card" style="--card-accent: var(--accent-purple);">
           <div class="feature-header">
             <h3>Vault</h3>
-            <span class="feature-count">8 tools</span>
+            <span class="feature-count">9 tools</span>
           </div>
           <p>Epoch-based encrypted access control via Dominion. Create content tiers, manage members, rotate keys, and revoke access, all without a server or a database.</p>
           <div class="feature-tools">
@@ -1468,6 +1490,52 @@
             <span class="tool-tag">vault-members</span>
             <span class="tool-tag">vault-config</span>
             <span class="tool-tag">vault-rotate</span>
+          </div>
+        </div>
+
+
+        <div class="feature-card" style="--card-accent: #f59e0b;">
+          <div class="feature-header">
+            <h3>Moderation</h3>
+            <span class="feature-count">16 tools</span>
+          </div>
+          <p>Labels, mute lists, pin lists, follow sets, and bookmarks. Content moderation building blocks for agents that need to curate, filter, or organise.</p>
+          <div class="feature-tools">
+            <span class="tool-tag">label-create</span>
+            <span class="tool-tag">label-search</span>
+            <span class="tool-tag">mute-add</span>
+            <span class="tool-tag">mute-list</span>
+            <span class="tool-tag">pin-add</span>
+            <span class="tool-tag">bookmark-add</span>
+            <span class="tool-tag">followset-create</span>
+          </div>
+        </div>
+
+        <div class="feature-card" style="--card-accent: #8b5cf6;">
+          <div class="feature-header">
+            <h3>Privacy</h3>
+            <span class="feature-count">10 tools</span>
+          </div>
+          <p>Pedersen commitments and zero-knowledge range proofs. Prove properties about values (age, balance, reputation) without revealing the values themselves.</p>
+          <div class="feature-tools">
+            <span class="tool-tag">privacy-commit</span>
+            <span class="tool-tag">privacy-range-prove</span>
+            <span class="tool-tag">privacy-age-verify</span>
+            <span class="tool-tag">privacy-range-verify</span>
+          </div>
+        </div>
+
+        <div class="feature-card" style="--card-accent: #06b6d4;">
+          <div class="feature-header">
+            <h3>Marketplace</h3>
+            <span class="feature-count">12 tools</span>
+          </div>
+          <p>Discover, probe, call, and publish L402/x402 paid services. Lightning-gated API access with automatic payment negotiation.</p>
+          <div class="feature-tools">
+            <span class="tool-tag">marketplace-discover</span>
+            <span class="tool-tag">marketplace-probe</span>
+            <span class="tool-tag">marketplace-call</span>
+            <span class="tool-tag">marketplace-publish</span>
           </div>
         </div>
 
@@ -1483,7 +1551,7 @@
       </div>
       <h2 class="reveal">Two interfaces.<br>Same engine.</h2>
       <p class="text-muted reveal" style="max-width:580px;">
-        Use bray as an MCP server for AI agents (Claude, Cursor, Windsurf) or as a standalone CLI. The MCP server exposes the full 180+ tools; the CLI surfaces the most common operations. Both share the same handlers, identity engine, and security guarantees.
+        Use bray as an MCP server for AI agents (Claude, Cursor, Windsurf) or as a standalone CLI. The MCP server exposes the full 185 tools; the CLI surfaces the most common operations. Both share the same handlers, identity engine, and security guarantees.
       </p>
       <div class="how-grid reveal">
         <!-- MCP Server -->
@@ -1666,7 +1734,7 @@
           <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">NIP-46 bunker auth <span style="color: var(--text-muted); font-size: 0.75rem;">(key never leaves signer)</span></div>
         </div>
         <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1.5rem; line-height: 1.6;">
-          All bundled into a single MCP server with 180+ tools, so an AI agent gets a complete trust-aware Nostr identity out of the box without stitching together multiple tools.
+          All bundled into a single MCP server with 185 tools, so an AI agent gets a complete trust-aware Nostr identity out of the box without stitching together multiple tools.
         </p>
       </div>
     </div>
