@@ -1562,7 +1562,7 @@
           </div>
           <div class="code-block">
 <pre><span class="comment">// claude_desktop_config.json</span>
-<span class="comment">// Option A: bunker (safest — key stays in bunker)</span>
+<span class="comment">// Option A: bunker (safest; key stays in bunker)</span>
 {
   <span class="key">"mcpServers"</span>: {
     <span class="key">"nostr"</span>: {
@@ -1754,7 +1754,7 @@
           <div class="step-content">
             <h3>Install</h3>
             <div class="code-block">
-<pre><span class="comment"># no install needed — npx runs it directly</span>
+<pre><span class="comment"># no install needed, npx runs it directly</span>
 <span class="cmd">npx</span> nostr-bray <span class="flag">--help</span>
 
 <span class="comment"># or install globally</span>
@@ -1770,10 +1770,10 @@
             <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">Three options, safest first:</p>
             <div class="code-block" style="margin-bottom: 1rem;">
 <pre><span class="comment"># RECOMMENDED: NIP-46 bunker (key never touches bray)</span>
-<span class="comment"># Terminal 1 — start the bunker with your key</span>
+<span class="comment"># Terminal 1: start the bunker with your key</span>
 <span class="cmd">npx</span> nostr-bray <span class="flag">bunker</span>
 
-<span class="comment"># Terminal 2 — connect to it</span>
+<span class="comment"># Terminal 2: connect to it</span>
 <span class="cmd">export</span> <span class="key">BUNKER_URI</span>=<span class="string">"bunker://&lt;pubkey&gt;?relay=wss://relay.damus.io"</span>
 <span class="cmd">npx</span> nostr-bray <span class="flag">whoami</span></pre>
             </div>
