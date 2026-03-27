@@ -17,14 +17,14 @@ Single-process MCP server. Entry points:
 - `src/index.ts` — MCP server (config → IdentityContext → RelayPool → tool registration → transport)
 - `src/cli.ts` — CLI wrapper (same handlers, no MCP)
 
-**Central spine:** `IdentityContext` in `src/context.ts` manages the nsec-tree root, LRU identity cache with cryptographic zeroing, and signing.
+**Central spine:** `IdentityContext` in `src/context.ts` manages the nsec-tree root, LRU identity cache with cryptographic zeroing, and signing. `TrustContext` in `src/trust-context.ts` aggregates trust signals across verification (Signet), proximity (WoT), and access (Dominion) dimensions.
 
 **Handler extraction pattern:** Each tool group has:
 - `src/<group>/handlers.ts` — pure logic functions (testable without MCP)
 - `src/<group>/tools.ts` — Zod schemas + `server.registerTool()` wiring
 - `test/<group>/handlers.test.ts` — unit tests for handlers
 
-Tool groups: `identity/`, `social/` (includes blossom, dm, groups, nips, notifications), `trust/`, `relay/`, `zap/`, `safety/`, `util/`, `workflow/` (trust-score, feed-discover, verify-person, identity-setup, identity-recover, relay-health)
+Tool groups: `identity/`, `social/` (includes blossom, dm, groups, nips, notifications), `trust/`, `relay/`, `zap/`, `safety/`, `signet/`, `vault/`, `util/`, `workflow/` (trust-score, feed-discover, verify-person, identity-setup, identity-recover, relay-health)
 
 **Shared modules:**
 - `src/config.ts` — env var + file secret loading, format detection
@@ -42,6 +42,8 @@ Tool groups: `identity/`, `social/` (includes blossom, dm, groups, nips, notific
 - `nostr-attestations` — NIP-VA kind 31000 attestation builders/validators
 - `spoken-token` — HMAC-based spoken verification tokens
 - `canary-kit` — duress detection (imported via spoken-token)
+- `signet-protocol` — identity verification protocol (Signet badge and credential types)
+- `dominion-protocol` — epoch-based encrypted access control (Shamir, HKDF vault keys)
 
 ## Conventions
 
@@ -59,3 +61,6 @@ Be extra careful when modifying:
 - `src/relay-pool.ts` — Tor policy enforcement
 - `src/nip65.ts` — event signature verification
 - `src/index.ts` — HTTP auth, rate limiting, body size limits
+- `src/trust-context.ts` — trust signal aggregation across verification, proximity, and access dimensions
+- `src/signet/` — Signet badge fetching, credential validation, policy enforcement
+- `src/vault/` — Dominion vault key derivation, epoch rotation, access tier management

@@ -1,6 +1,14 @@
 # nostr-bray
 
-> Sovereign Nostr identities for AI agents
+**Trust-aware Nostr for AI and humans.**
+
+Three dimensions of trust -- verification, proximity, and access -- woven into every interaction. 106 tools for identity, social, payments, moderation, privacy, and encrypted access control.
+
+| Dimension | Source | Question |
+|-----------|--------|----------|
+| **Verification** | Signet | Are they real? |
+| **Proximity** | Web of Trust | Do I know them? |
+| **Access** | Dominion | What can they see? |
 
 [![CI](https://github.com/forgesworn/bray/actions/workflows/ci.yml/badge.svg)](https://github.com/forgesworn/bray/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/nostr-bray)](https://www.npmjs.com/package/nostr-bray)
@@ -8,7 +16,7 @@
 [![licence](https://img.shields.io/npm/l/nostr-bray)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-ESM-blue)](./tsconfig.json)
 
-An MCP server that gives AI agents a full Nostr identity — not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, and duress detection. 90 tools across 11 groups.
+An MCP server that gives AI agents a full Nostr identity -- not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, duress detection, identity verification via Signet, and epoch-based encrypted access control via Dominion. 106 tools across 13 groups.
 
 ## The Problem
 
@@ -209,6 +217,31 @@ Auth tier progression (safest to least safe): **bunker** > **ncryptsec** > **fil
 |------|-------------|
 | `safety-configure` | Configure an alternative identity persona |
 | `safety-activate` | Switch to alternative identity |
+
+### Signet (7 tools) — identity verification and credential checks
+
+| Tool | Description |
+|------|-------------|
+| `signet-badge` | Fetch the Signet verification badge for a pubkey |
+| `signet-vouch` | Vouch for another identity's Signet credential |
+| `signet-credentials` | List credentials associated with a Signet identity |
+| `signet-policy-check` | Check whether a pubkey satisfies a verification policy |
+| `signet-policy-set` | Set a verification policy for an interaction context |
+| `signet-verifiers` | List trusted verifiers in the Signet network |
+| `signet-challenge` | Issue a Signet verification challenge |
+
+### Vault (8 tools) — epoch-based encrypted access control via Dominion
+
+| Tool | Description |
+|------|-------------|
+| `vault-create` | Create an encrypted vault with Dominion epoch key |
+| `vault-encrypt` | Encrypt content into a vault |
+| `vault-share` | Share vault access with a pubkey at a given tier |
+| `vault-read` | Decrypt and read vault content |
+| `vault-revoke` | Revoke a pubkey's vault access |
+| `vault-members` | List members and their access tiers |
+| `vault-config` | View or update vault configuration |
+| `vault-rotate` | Rotate the vault epoch key |
 
 ### Blossom (3 tools) — media uploads and management
 
