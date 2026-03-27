@@ -70,7 +70,7 @@ export function registerWidgets(server: McpServer, deps: WidgetDeps): void {
       annotations: { readOnlyHint: true },
       _meta: { ui: { resourceUri: 'ui://bray/social-feed.html' } },
     },
-    async ({ authors, since, limit }) => {
+    async ({ authors, since, limit }: { authors?: string[]; since?: number; limit: number }) => {
       const result = await handleFeedWidget(deps.ctx, deps.pool, { authors, since, limit })
       return {
         content: [{ type: 'text' as const, text: JSON.stringify(result) }],
@@ -143,7 +143,7 @@ export function registerWidgets(server: McpServer, deps: WidgetDeps): void {
       annotations: { readOnlyHint: true },
       _meta: { ui: { resourceUri: 'ui://bray/dm-thread.html' } },
     },
-    async ({ withPubkeyHex }) => {
+    async ({ withPubkeyHex }: { withPubkeyHex: string }) => {
       const result = await handleDmThreadWidget(deps.ctx, deps.pool, { withPubkeyHex })
       return {
         content: [{ type: 'text' as const, text: JSON.stringify(result) }],
