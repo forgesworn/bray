@@ -1,0 +1,121 @@
+<!doctype html>
+<meta charset="utf-8" />
+<style>
+  :root { --ink:#0f1111; --bg:#fff; --card-bg:#f8f9fa; --border:#e0e0e0; --accent:#6366f1; --active:#22c55e; --muted:#666; color-scheme:light; }
+  :root.dark { --ink:#e6e6e6; --bg:#1a1a2e; --card-bg:#252540; --border:#3a3a5a; --accent:#818cf8; --active:#4ade80; --muted:#9ca3af; color-scheme:dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font: 16px/1.5 system-ui, sans-serif; background: var(--bg); color: var(--ink); padding: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  .id-card { background: var(--card-bg); border: 2px solid var(--border); border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; transition: border-color 0.15s; }
+  .id-card:hover { border-color: var(--accent); }
+  .id-card.active { border-color: var(--active); }
+  .avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; margin: 0 auto 8px; display: block; background: #666; }
+  .display-name { font-weight: 600; font-size: 15px; margin-bottom: 2px; }
+  .persona { color: var(--accent); font-size: 13px; margin-bottom: 4px; }
+  .npub-truncated { color: var(--muted); font-size: 11px; font-family: monospace; word-break: break-all; }
+  .badge { display: inline-block; background: var(--active); color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-top: 6px; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 12px; }
+</style>
+<div id="root"><div class="empty">Loading identities...</div></div>
+<script type="module">
+/*__EXT_APPS_BUNDLE__*/
+const { App } = globalThis.ExtApps;
+
+(async () => {
+  const app = new App({ name: "IdentityPicker", version: "1.0.0" }, {});
+  const root = document.getElementById("root");
+
+  const PLACEHOLDER = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><circle cx="24" cy="24" r="24" fill="#666"/></svg>');
+
+  const applyTheme = (t) => document.documentElement.classList.toggle("dark", t === "dark");
+  app.onhostcontextchanged = (ctx) => applyTheme(ctx.theme);
+
+  app.ontoolresult = ({ content }) => {
+    try {
+      const data = JSON.parse(content[0].text);
+      render(data);
+    } catch (e) {
+      clearAndShowMessage("Failed to parse identity data.");
+    }
+  };
+
+  await app.connect();
+  const hostCtx = app.getHostContext();
+  if (hostCtx) applyTheme(hostCtx.theme);
+
+  function clearAndShowMessage(msg) {
+    while (root.firstChild) root.removeChild(root.firstChild);
+    const el = document.createElement("div");
+    el.className = "empty";
+    el.textContent = msg;
+    root.appendChild(el);
+  }
+
+  function truncateNpub(npub) {
+    if (!npub || npub.length < 20) return npub;
+    return npub.slice(0, 10) + "\u2026" + npub.slice(-6);
+  }
+
+  function render(data) {
+    if (!data.identities || data.identities.length === 0) {
+      clearAndShowMessage("No identities found.");
+      return;
+    }
+
+    while (root.firstChild) root.removeChild(root.firstChild);
+
+    const grid = document.createElement("div");
+    grid.className = "grid";
+
+    for (const id of data.identities) {
+      const card = document.createElement("div");
+      card.className = "id-card" + (id.isActive ? " active" : "");
+
+      const avatar = document.createElement("img");
+      avatar.className = "avatar";
+      avatar.src = id.pictureDataUri || PLACEHOLDER;
+      avatar.alt = "";
+
+      const nameEl = document.createElement("div");
+      nameEl.className = "display-name";
+      nameEl.textContent = id.displayName || id.personaName || "Identity";
+
+      card.appendChild(avatar);
+      card.appendChild(nameEl);
+
+      if (id.personaName) {
+        const personaEl = document.createElement("div");
+        personaEl.className = "persona";
+        personaEl.textContent = id.personaName;
+        card.appendChild(personaEl);
+      }
+
+      const npubEl = document.createElement("div");
+      npubEl.className = "npub-truncated";
+      npubEl.textContent = truncateNpub(id.npub);
+      card.appendChild(npubEl);
+
+      if (id.isActive) {
+        const badge = document.createElement("span");
+        badge.className = "badge";
+        badge.textContent = "Active";
+        card.appendChild(badge);
+      }
+
+      card.addEventListener("click", () => {
+        if (id.isActive) return;
+        const target = id.personaName || "master";
+        app.callServerTool("identity-switch", { target: target });
+        // Re-fetch identities after switch
+        setTimeout(() => {
+          app.callServerTool("identity-picker-widget", {});
+        }, 500);
+      });
+
+      grid.appendChild(card);
+    }
+
+    root.appendChild(grid);
+  }
+})();
+</script>
