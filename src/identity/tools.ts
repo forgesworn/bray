@@ -17,6 +17,7 @@ import {
 import { handleBackupShamir, handleRestoreShamir } from './shamir.js'
 import { hexId } from '../validation.js'
 import { handleIdentityBackup, handleIdentityRestore, handleIdentityMigrate } from './migration.js'
+import { handleNip05Lookup, handleNip05Verify, handleNip05Relays } from './nip05.js'
 
 export interface ToolDeps {
   ctx: IdentityContext
@@ -213,6 +214,46 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
     annotations: { readOnlyHint: false },
   }, async ({ oldPubkeyHex, oldNpub, confirm }) => {
     const result = await handleIdentityMigrate(deps.ctx, deps.pool, { oldPubkeyHex, oldNpub, confirm })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    }
+  })
+
+  server.registerTool('nip05-lookup', {
+    description: 'Resolve a NIP-05 identifier (user@domain) to a Nostr pubkey. Also returns relay hints if the server provides them. Use this to find someone\'s pubkey from their human-readable address.',
+    inputSchema: {
+      identifier: z.string().describe('NIP-05 identifier (e.g. bob@example.com)'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ identifier }) => {
+    const result = await handleNip05Lookup(identifier)
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    }
+  })
+
+  server.registerTool('nip05-verify', {
+    description: 'Verify that a NIP-05 identifier (user@domain) resolves to the expected pubkey. Returns { verified: true/false }. Use this to confirm someone\'s claimed NIP-05 identity.',
+    inputSchema: {
+      pubkey: hexId.describe('Hex pubkey to verify against'),
+      identifier: z.string().describe('NIP-05 identifier (e.g. bob@example.com)'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ pubkey, identifier }) => {
+    const result = await handleNip05Verify(pubkey, identifier)
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    }
+  })
+
+  server.registerTool('nip05-relays', {
+    description: 'Fetch relay hints from a NIP-05 identifier. The NIP-05 server can suggest preferred relays for each pubkey. Returns a map of pubkey to relay URLs. Useful for relay discovery before messaging someone.',
+    inputSchema: {
+      identifier: z.string().describe('NIP-05 identifier (e.g. bob@example.com)'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ identifier }) => {
+    const result = await handleNip05Relays(identifier)
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }
