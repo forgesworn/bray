@@ -1,17 +1,22 @@
 # nostr-bray — Full Documentation for AI Assistants
 
-> MCP server giving AI agents sovereign Nostr identities — key derivation, personas, attestations, ring signatures, duress detection, and Lightning zaps.
+> MCP server giving AI agents sovereign Nostr identities — key derivation, personas, attestations, ring signatures, duress detection, Lightning zaps, and web-of-trust scoring.
 
 ## Architecture
 
-Single-process MCP server (stdio or HTTP transport) with 77 tools in 10 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction.
+Single-process MCP server (stdio or HTTP transport) with 90 tools in 11 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction.
 
 ## Configuration
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| NOSTR_SECRET_KEY | Yes* | nsec bech32, 64-char hex, or BIP-39 mnemonic |
-| NOSTR_SECRET_KEY_FILE | Yes* | Path to file containing the secret key |
+| BUNKER_URI | Tier 1* | NIP-46 bunker URI (keys never leave the signer) |
+| BUNKER_URI_FILE | Tier 1* | Path to file containing bunker URI |
+| NOSTR_NCRYPTSEC | Tier 2* | NIP-49 password-encrypted key (ncryptsec1...) |
+| NOSTR_NCRYPTSEC_FILE | Tier 2* | Path to file containing ncryptsec |
+| NOSTR_NCRYPTSEC_PASSWORD | Tier 2* | Password for ncryptsec decryption |
+| NOSTR_SECRET_KEY_FILE | Tier 3* | Path to file containing the secret key |
+| NOSTR_SECRET_KEY | Tier 4* | nsec bech32, 64-char hex, or BIP-39 mnemonic |
 | NOSTR_RELAYS | Yes | Comma-separated relay WebSocket URLs |
 | NWC_URI | No | Nostr Wallet Connect URI for zap operations |
 | NWC_URI_FILE | No | Path to file containing NWC URI |
@@ -21,14 +26,20 @@ Single-process MCP server (stdio or HTTP transport) with 77 tools in 10 groups. 
 | TRANSPORT | No | "stdio" (default) or "http" |
 | PORT | No | HTTP port (default 3000) |
 | BIND_ADDRESS | No | HTTP bind address (default 127.0.0.1) |
+| VEIL_CACHE_TTL | No | Trust cache TTL in seconds (default 300) |
+| VEIL_CACHE_MAX | No | Trust cache max entries (default 500) |
 
-*One of NOSTR_SECRET_KEY or NOSTR_SECRET_KEY_FILE is required. File takes precedence.
+*Authentication tiers (use exactly one):
+1. **Bunker** (NIP-46) — most secure, keys never leave the signer
+2. **ncryptsec** (NIP-49) — password-encrypted key, decrypted at startup
+3. **File** — secret read from disk, deleted from process.env after parsing
+4. **Env var** — quickest start, lowest security
 
 Secret env vars are deleted from process.env after parsing.
 
 ## Tool Reference
 
-### Identity Tools
+### Identity Tools (12)
 
 #### whoami
 Returns the active identity's npub. The simplest way to check which identity is currently in use.
@@ -57,6 +68,7 @@ Switch the active Nostr identity. All subsequent tools operate as the new identi
 
 #### identity-list
 List all known Nostr identities. Returns public info only, never private keys.
+- Input: output ("json" | "human", default "human")
 - Returns: Array of { npub, purpose, index, personaName }
 
 #### identity-prove
@@ -92,15 +104,18 @@ Full migration from old identity to active. Shows preview first — set confirm:
 - Input: oldPubkeyHex, oldNpub, confirm (default false)
 - Publishes linkage proof connecting old to new identity
 
-### Social Tools
+### Social Tools (11)
 
 #### social-post
 Post a text note (kind 1) as the active identity.
 - Input: content (string)
+- Returns: { id, pubkey, publish }
 
 #### social-reply
 Reply to a Nostr event (kind 1 with e-tag and p-tag).
 - Input: content, replyTo (event ID), replyToPubkey, relay (optional)
+- Returns: { id, publish, trustWarning?, authorTrustScore? }
+- Smart default: includes trustWarning and authorTrustScore when replying to an untrusted author (via nostr-veil WoT scoring)
 
 #### social-react
 React to a Nostr event (kind 7). Default reaction is "+".
@@ -114,22 +129,9 @@ Request deletion of an event you published (kind 5). Relays may or may not honou
 Repost/boost a Nostr event (kind 6) as the active identity.
 - Input: eventId, eventPubkey, relay (optional)
 
-#### contacts-get
-Fetch the contact list (kind 3 follows) for a pubkey.
-- Input: pubkeyHex, npub (optional)
-- Returns: Array of { pubkey, relay, petname }
-
-#### contacts-follow
-Follow a Nostr pubkey. Fetches current contact list, adds the pubkey, publishes updated kind 3.
-- Input: pubkeyHex, relay (optional), petname (optional)
-
-#### contacts-unfollow
-Unfollow a Nostr pubkey. Removes from contact list and publishes updated kind 3.
-- Input: pubkeyHex
-
 #### social-profile-get
 Fetch kind 0 profile for a pubkey.
-- Input: pubkeyHex, npub (optional)
+- Input: pubkeyHex, npub (optional), output ("json" | "human", default "human")
 - Returns: Parsed profile fields
 
 #### social-profile-set
@@ -137,32 +139,88 @@ Set kind 0 profile for the active identity. Warns if profile exists.
 - Input: name, about, picture, nip05, banner, lud16, confirm (default false)
 - Safety guard: returns diff + warning if existing profile found
 
-#### dm-send
-Send a direct message via NIP-17 (default) or NIP-04 (legacy).
-- Input: recipientPubkeyHex, message, nip04 (default false)
-- NIP-04 requires NIP04_ENABLED=1
-
-#### dm-read
-Read direct messages addressed to the active identity.
-- Decrypts NIP-17 and NIP-04 messages
-- Returns metadata with "could not decrypt" flag on failure (no throw)
+#### profile-by-name
+Look up a contact's full profile by name — no pubkey needed.
+- Input: name (string), output ("json" | "human", default "human")
+- Searches contacts, returns kind 0 profile for the match
+- Returns error if zero or multiple matches
 
 #### social-notifications
 Fetch notifications — mentions, replies, reactions, zap receipts.
-- Input: since (optional timestamp), limit (default 50)
+- Input: since (optional timestamp), limit (default 50), trust ("strict" | "annotate" | "off", default "strict"), output ("json" | "human", default "human")
+- Smart default: trust: "strict" hides notifications from untrusted authors; "annotate" shows trust scores; "off" disables filtering
 - Excludes kind 3 (follows)
 - Zap receipts parsed with amount in msats
 
 #### social-feed
 Fetch kind 1 text note feed.
-- Input: authors (optional hex pubkeys), since (optional), limit (default 20)
+- Input: authors (optional hex pubkeys), since (optional), limit (default 20), trust ("strict" | "annotate" | "off", default "strict"), output ("json" | "human", default "human")
+- Smart default: trust: "strict" hides posts from untrusted authors; "annotate" shows trust scores; "off" disables filtering
 
-### Trust Tools
+#### feed-by-name
+Fetch recent posts by a contact, searching by name instead of pubkey.
+- Input: name (string), since (optional), limit (default 20), output ("json" | "human", default "human")
+- Returns error if zero or multiple contacts match
+
+### DM Tools (4)
+
+#### dm-send
+Send a direct message via NIP-17 (default) or NIP-04 (legacy).
+- Input: recipientPubkeyHex, message, nip04 (default false), recipientRelay (optional)
+- NIP-04 requires NIP04_ENABLED=1
+- Returns: { protocol, id, publish, senderCopyPublish, relayWarning? }
+
+#### dm-read
+Read direct messages addressed to the active identity.
+- Decrypts NIP-17 and NIP-04 messages
+- Input: output ("json" | "human", default "human")
+- Returns metadata with "could not decrypt" flag on failure (no throw)
+- Smart default: each message includes senderTrustScore (via nostr-veil WoT scoring)
+
+#### dm-by-name
+Send an encrypted DM to a contact by name — no pubkey needed.
+- Input: name (string), message (string), nip04 (default false)
+- Searches contacts, sends to the match
+- Returns error if zero or multiple matches
+
+#### dm-conversation
+Read DM conversation with a specific person in chronological order.
+- Input: pubkeyHex, limit (default 50), output ("json" | "human", default "human")
+
+### Contacts Tools (4)
+
+#### contacts-get
+Fetch the contact list (kind 3 follows) for a pubkey.
+- Input: pubkeyHex, npub (optional), output ("json" | "human", default "human")
+- Returns: Array of { pubkey, relay, petname }
+
+#### contacts-search
+Search your contacts by name, display name, or NIP-05.
+- Input: query (string), pubkeyHex (optional), npub (optional), output ("json" | "human", default "human")
+- Resolves profiles in one batch — much faster than fetching each individually
+
+#### contacts-follow
+Follow a Nostr pubkey. Fetches current contact list, adds the pubkey, publishes updated kind 3.
+- Input: pubkeyHex, relay (optional), petname (optional), confirm (optional boolean)
+- Smart default: if the contact list would shrink by >20%, returns a guarded warning — pass confirm: true to proceed
+
+#### contacts-unfollow
+Unfollow a Nostr pubkey. Removes from contact list and publishes updated kind 3.
+- Input: pubkeyHex, confirm (optional boolean)
+- Smart default: if the contact list would shrink by >20%, returns a guarded warning — pass confirm: true to proceed
+
+### Trust Tools (12)
 
 #### trust-attest
-Create and publish a kind 31000 verifiable attestation.
-- Input: type, identifier, subject, summary, content, expiration
+Verify someone else's claim by attesting to their assertion event.
+- Input: assertionId (event ID hex), subject (optional hex pubkey), type (optional), summary (optional), content (optional), expiration (optional timestamp), assertionRelay (optional)
+- The subject publishes their claim as a Nostr event; you reference it and say "I verify this"
 - Warns when attesting as derived persona
+
+#### trust-claim
+Make a direct statement about another identity — endorsement, review, vouch, or any attestor-originated claim.
+- Input: type (string), subject (optional hex pubkey), identifier (optional), summary (optional), content (optional), expiration (optional timestamp)
+- Use trust-attest instead if the subject has published their own assertion event
 
 #### trust-read
 Read kind 31000 attestations from relays.
@@ -213,11 +271,11 @@ Verify a spoken token response.
 - Input: secret, context, counter, input, tolerance (default 1)
 - Returns: { valid, identity }
 
-### Relay Tools
+### Relay Tools (5)
 
 #### relay-list
 List relay set for the active identity.
-- Input: compareWithNpub (optional — warns about shared relays)
+- Input: compareWithNpub (optional — warns about shared relays), output ("json" | "human", default "human")
 
 #### relay-set
 Publish kind 10002 relay list.
@@ -238,11 +296,12 @@ Fetch the NIP-11 relay information document.
 - Input: url (wss:// relay URL)
 - Returns: Parsed relay info (name, description, supported NIPs, etc.)
 
-### Zap Tools
+### Zap Tools (7)
 
 #### zap-send
 Pay a Lightning invoice via Nostr Wallet Connect (NIP-47).
-- Input: invoice (bolt11 string)
+- Input: invoice (bolt11 string), confirm (default false)
+- Smart default: decodes invoice and shows amount first — set confirm: true to execute
 - Requires NWC_URI configured. Signs with NWC client key, encrypts via NIP-44.
 
 #### zap-balance
@@ -271,7 +330,7 @@ Decode basic fields from a bolt11 Lightning invoice.
 - Input: bolt11 string
 - Returns: { amountMsats }
 
-### Blossom Tools (Media)
+### Blossom Tools — Media (3)
 
 #### blossom-upload
 Upload a file to a blossom media server. Signs a kind 24242 auth event.
@@ -286,7 +345,7 @@ List blobs uploaded by a pubkey on a blossom server.
 Delete a blob from a blossom server by SHA-256 hash.
 - Input: server (URL), sha256
 
-### Group Tools (NIP-29)
+### Group Tools — NIP-29 (4)
 
 #### group-info
 Fetch group metadata (kind 39000) — name, about, picture, open status.
@@ -304,7 +363,7 @@ Send a message to a group (kind 9 with h-tag).
 List group members (kind 39002).
 - Input: groupId
 
-### Community NIP Tools
+### Community NIP Tools (2)
 
 #### nip-publish
 Publish a community NIP (kind 30817) — custom protocol spec on Nostr.
@@ -314,7 +373,7 @@ Publish a community NIP (kind 30817) — custom protocol spec on Nostr.
 Fetch community NIPs from relays.
 - Input: author (optional), identifier (optional), kind (optional)
 
-### Utility Tools
+### Utility Tools (18)
 
 #### decode
 Decode any nip19 entity (npub, nsec, note, nevent, nprofile, naddr) or nostr: URI.
@@ -364,7 +423,7 @@ List all official Nostr NIPs from the protocol repository.
 Fetch and display the full content of an official NIP by number.
 - Input: NIP number
 
-### Safety Tools
+### Safety Tools (2)
 
 #### safety-configure
 Configure an alternative identity persona.
@@ -374,6 +433,59 @@ Configure an alternative identity persona.
 Switch to an alternative identity configuration.
 - Input: personaName (default "anonymous")
 - Response structure identical to identity-switch
+
+### Workflow Tools (6)
+
+#### trust-score
+Compute a trust score for a Nostr pubkey using the web-of-trust graph (NIP-85 kind 30382 events) and kind 31000 attestations. Returns endorsement counts, attestation summary, social distance from active identity, and any trust flags.
+- Input: pubkey (hex), depth (1–3, default 2, optional)
+- Returns: { pubkey, npub, score, endorsements, ringEndorsements, attestations: [{ type, attestor, content, expires? }], socialDistance, flags }
+- Social distance: 0 = self, 1 = direct contact, 2 = contact-of-contact, -1 = unreachable
+- Read-only
+
+#### feed-discover
+Discover new accounts worth following, ranked by trust score. Three strategies: trust-adjacent (contacts-of-contacts), topic (hashtag search), active (recent posters in your network).
+- Input: strategy ("trust-adjacent" | "topic" | "active", default "trust-adjacent"), limit (1–100, default 20), query (string, for topic strategy)
+- Returns: Array of { pubkey, npub, name?, nip05?, trustScore, mutualFollows, reason }
+- Read-only
+
+#### verify-person
+Verify a Nostr identity: checks NIP-05, trust score, kind 31000 attestations, linkage proofs, and (in full mode) ring endorsements and a spoken challenge token.
+- Input: pubkey (hex), method ("quick" | "full", default "quick")
+- Quick mode: NIP-05, trust score, attestations, linkage proofs
+- Full mode: also checks ring endorsement proofs and generates a spoken challenge (5-minute expiry)
+- Returns: { pubkey, npub, name?, nip05: { verified, handle? }, trustScore, attestations, linkageProofs, ringEndorsements, spokenChallenge?, confidence: "high" | "medium" | "low" | "unknown" }
+- Confidence: high = score >= 50 + attestation + NIP-05; medium = score >= 20 or attestation or NIP-05; low = score >= 1; unknown = no signal
+- Read-only
+
+#### identity-setup
+Set up a multi-persona identity from the current master secret. Derives named persona sub-identities, optionally creates a Shamir backup and configures relays. Preview mode (confirm: false) shows what would be created without any side effects.
+- Input: personas (string[], default ["social", "commerce"]), shamirThreshold ({ shares, threshold }, optional), relays (string[], optional), confirm (boolean, default false)
+- Preview (confirm: false) returns: { confirmed: false, masterNpub, personas: [{ name, index, npub }], shamirConfig?, message }
+- Confirmed (confirm: true) returns: { confirmed: true, masterNpub, personas, shardFiles?, relaysConfigured }
+- Destructive: creates shard files and publishes kind 10002 relay lists when confirmed
+
+#### identity-recover
+Recover a master identity from Shamir word-list shard files. Reconstructs the secret, derives the master npub, and optionally configures new relays. This operation is destructive — use only when the original identity is inaccessible.
+- Input: shardPaths (string[], absolute file paths to shard files), newRelays (string[], optional)
+- Returns: { masterNpub, recovered: true, relaysConfigured }
+- Destructive: secret is reconstructed, then zeroised after use
+
+#### relay-health
+Check health of the active identity's configured relays. Reports NIP-11 metadata, response time, whether the user has events on the relay, and optionally write access (publishes a short-lived test event).
+- Input: pubkey (hex, optional — defaults to active identity), checkWrite (boolean, default false)
+- Returns: Array of { url, reachable, responseTimeMs, nip11?, hasUserEvents, writeAccess?, error? }
+- checkWrite: publishes a kind 30078 test event with 60-second expiration to verify write access
+
+## Smart Defaults
+
+nostr-bray includes trust-aware defaults to protect agents from interacting with spam, impersonation, and low-quality content:
+
+- **Trust-filtered feeds**: social-feed and social-notifications default to `trust: "strict"`, which hides content from authors outside your web of trust. Set to `"annotate"` to see everything with trust scores, or `"off"` to disable.
+- **Contact safety guards**: contacts-follow and contacts-unfollow detect when the updated contact list would shrink by >20% (a sign of data corruption) and return a guarded warning. Pass `confirm: true` to proceed.
+- **DM trust scores**: dm-read annotates each message with `senderTrustScore` so agents can prioritise messages from trusted contacts.
+- **Reply trust warnings**: social-reply computes `authorTrustScore` for the parent event's author and includes a `trustWarning` if the score is low — helping agents avoid engaging with impersonators.
+- **Payment preview**: zap-send decodes the bolt11 invoice and shows the amount before executing — set `confirm: true` to pay.
 
 ## Example Workflow
 
@@ -386,6 +498,27 @@ Switch to an alternative identity configuration.
 6. identity-switch("master")        → back to master
 7. trust-attest(type: "endorsement", subject: workPubkeyHex)
 8. identity-prove(mode: "blind")    → prove without revealing path
+```
+
+## Trust Workflow
+
+```
+1. trust-score(pubkey: "abc...")        → check WoT score + attestations
+2. verify-person(pubkey: "abc...")      → NIP-05, attestations, proofs, confidence
+3. feed-discover(strategy: "trust-adjacent")  → find trusted accounts to follow
+4. social-feed(trust: "annotate")       → read feed with trust scores shown
+5. relay-health()                       → check relay liveness + write access
+```
+
+## Identity Setup Workflow
+
+```
+1. identity-setup(confirm: false)                → preview personas + Shamir config
+2. identity-setup(personas: ["work", "social"],   → create with Shamir backup
+     shamirThreshold: { shares: 5, threshold: 3 },
+     relays: ["wss://relay.damus.io"],
+     confirm: true)
+3. relay-health()                                 → verify relay connectivity
 ```
 
 ## Security Model
@@ -403,3 +536,4 @@ Switch to an alternative identity configuration.
 - Hex pubkey and relay URL input validation via Zod across all tools
 - Shamir shard files written with 0o600 permissions via atomic rename
 - Migration verifies backup event signatures before re-signing
+- Four-tier auth progression: bunker (NIP-46) > ncryptsec (NIP-49) > file > env var
