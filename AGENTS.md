@@ -51,6 +51,13 @@ Tests mirror at `test/<group>/handlers.test.ts`.
 - Security: never return private keys in tool responses, zeroise buffers in finally blocks
 - Use `ctx.activePublicKeyHex` (not `ctx.activeNpub`) in relay filter fields
 
+## Trust
+
+- Check `signet-badge` before interacting with unfamiliar pubkeys
+- Use `trust-score` for the full composite view (verification + proximity + access)
+- Respect vault tiers -- do not share decrypted vault content outside its intended audience
+- In strict trust mode, content from unknown pubkeys is filtered out automatically
+
 ## Key dependencies
 
-nostr-tools, nsec-tree, @forgesworn/ring-sig, @forgesworn/shamir-words, nostr-attestations, spoken-token, canary-kit, zod
+nostr-tools, nsec-tree, @forgesworn/ring-sig, @forgesworn/shamir-words, nostr-attestations, spoken-token, canary-kit, signet-protocol, dominion-protocol, zod
