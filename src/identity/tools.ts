@@ -5,6 +5,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { Nip65Manager } from '../nip65.js'
+import type { TrustContext } from '../trust-context.js'
 import {
   handleIdentityCreate,
   handleIdentityDerive,
@@ -24,6 +25,7 @@ export interface ToolDeps {
   nwcUri?: string
   veilCacheTtl?: number
   veilCacheMax?: number
+  trust?: TrustContext
 }
 
 export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {

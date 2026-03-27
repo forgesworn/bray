@@ -13,7 +13,7 @@ import type { TrustScoreResult } from './veil/scoring.js'
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type TrustLevel = 'trusted' | 'known' | 'verified-stranger' | 'stranger' | 'unknown'
-export type TrustMode = 'annotate' | 'filter' | 'off'
+export type TrustMode = 'annotate' | 'strict' | 'off'
 
 export interface TrustContextOptions {
   cacheTtl: number
