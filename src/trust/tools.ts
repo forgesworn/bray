@@ -13,6 +13,15 @@ import {
 } from './handlers.js'
 import { handleTrustRingProve, handleTrustRingVerify } from './ring.js'
 import { handleTrustSpokenChallenge, handleTrustSpokenVerify } from './spoken.js'
+import {
+  handleTrustAttestParse,
+  handleTrustAttestFilter,
+  handleTrustAttestTemporal,
+  handleTrustAttestChain,
+  handleTrustAttestCheckRevoked,
+} from './attestation-deep-handlers.js'
+import { handleTrustRingLsagSign, handleTrustRingLsagVerify, handleTrustRingKeyImage } from './ring-deep-handlers.js'
+import { handleTrustSpokenDirectional, handleTrustSpokenEncode } from './spoken-deep-handlers.js'
 
 export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('trust-attest', {
@@ -221,6 +230,197 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
     annotations: { readOnlyHint: true },
   }, async ({ secret, context, counter, input, tolerance }) => {
     const result = handleTrustSpokenVerify({ secret, context, counter, input, tolerance })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    }
+  })
+
+  // --- Deep attestation tools ---
+
+  server.registerTool('trust-attest-parse', {
+    description: 'Parse a kind 31000 attestation event into a fully typed object with all metadata fields: type, subject, assertion references, temporal fields (occurredAt, validFrom, validTo), expiration, schema, revocation status, and content.',
+    inputSchema: {
+      event: z.record(z.string(), z.unknown()).describe('The attestation event object to parse'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ event }) => {
+    const result = handleTrustAttestParse(event as any)
+    if (!result) {
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Not a valid kind 31000 attestation event' }, null, 2) }] }
+    }
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    }
+  })
+
+  server.registerTool('trust-attest-filter', {
+    description: 'Build a Nostr relay filter for attestation queries. Returns a filter object suitable for relay subscriptions. Supports filtering by type, subject, attestor, schema, and time range.',
+    inputSchema: {
+      type: z.string().optional().describe('Attestation type to filter by'),
+      subject: hexId.optional().describe('Subject hex pubkey to filter by'),
+      attestor: hexId.optional().describe('Attestor hex pubkey to filter by'),
+      schema: z.string().optional().describe('Schema URI to filter by'),
+      since: z.number().int().optional().describe('Unix timestamp — only events after this time'),
+      until: z.number().int().optional().describe('Unix timestamp — only events before this time'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ type, subject, attestor, schema, since, until }) => {
+    const filter = handleTrustAttestFilter({ type, subject, attestor, schema, since, until })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(filter, null, 2) }],
+    }
+  })
+
+  server.registerTool('trust-attest-temporal', {
+    description: 'Create and publish an attestation with occurredAt field — records when the attested event actually happened, which may differ from the publication time. Also supports validFrom/validTo for deferred activation and validity windows.',
+    inputSchema: {
+      type: z.string().optional().describe('Attestation type (required unless assertionId provided)'),
+      identifier: z.string().optional().describe('D-tag identifier'),
+      subject: hexId.optional().describe('Subject hex pubkey'),
+      assertionId: hexId.optional().describe('Event ID of the assertion to verify'),
+      assertionRelay: z.string().optional().describe('Relay hint for the assertion event'),
+      summary: z.string().optional().describe('Human-readable summary'),
+      content: z.string().optional().describe('Evidence payload (text or JSON)'),
+      expiration: z.number().optional().describe('Unix timestamp for attestation expiry'),
+      occurredAt: z.number().describe('Unix timestamp when the attested event actually occurred'),
+      validFrom: z.number().optional().describe('Unix timestamp for deferred activation'),
+      validTo: z.number().optional().describe('Unix timestamp for validity window end'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ type, identifier, subject, assertionId, assertionRelay, summary, content, expiration, occurredAt, validFrom, validTo }) => {
+    const result = await handleTrustAttestTemporal(deps.ctx, deps.pool, {
+      type, identifier, subject, assertionId, assertionRelay, summary, content, expiration, occurredAt, validFrom, validTo,
+    })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({
+        id: result.event.id,
+        occurredAt,
+        publish: result.publish,
+      }, null, 2) }],
+    }
+  })
+
+  server.registerTool('trust-attest-chain', {
+    description: 'Follow endorsement references to build a transitive trust chain. Starting from a subject, queries attestations about that subject, then follows each attestor as a new subject up to maxDepth. Returns the full chain with validity status for each link.',
+    inputSchema: {
+      startSubject: hexId.describe('Hex pubkey of the initial subject to trace from'),
+      type: z.string().optional().describe('Filter by attestation type (narrows the chain)'),
+      maxDepth: z.number().int().min(1).max(10).default(3).describe('Maximum chain depth to traverse (default 3, max 10)'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ startSubject, type, maxDepth }) => {
+    const result = await handleTrustAttestChain(deps.pool, deps.ctx.activeNpub, {
+      startSubject, type, maxDepth,
+    })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    }
+  })
+
+  server.registerTool('trust-attest-check-revoked', {
+    description: 'Check if a specific attestation has been revoked. Queries relays for the latest version of the attestation and checks its revocation status. Provide either (type + identifier) for typed attestations or (assertionId | assertionAddress) for assertion-only attestations.',
+    inputSchema: {
+      type: z.string().optional().describe('Attestation type (for typed attestations)'),
+      identifier: z.string().optional().describe('D-tag identifier (for typed attestations)'),
+      assertionId: hexId.optional().describe('Event ID of the referenced assertion (for assertion-only attestations)'),
+      assertionAddress: z.string().optional().describe('Addressable coordinate of the referenced assertion'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ type, identifier, assertionId, assertionAddress }) => {
+    const result = await handleTrustAttestCheckRevoked(deps.pool, deps.ctx.activeNpub, {
+      type, identifier, assertionId, assertionAddress,
+    })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    }
+  })
+
+  // --- Deep ring signature tools ---
+
+  server.registerTool('trust-ring-lsag-sign', {
+    description: 'Create an LSAG (Linkable SAG) signature with a key image tied to an election ID. If the same signer signs twice in the same election, the duplicate key image reveals double-action without revealing identity. Use for anonymous voting, one-per-person actions, or fair resource allocation.',
+    inputSchema: {
+      ring: z.array(hexId).describe('Hex x-only public keys of ring members (must include active identity)'),
+      electionId: z.string().min(1).describe('Election/context identifier — key image is bound to this (e.g. "vote-2026-q1")'),
+      message: z.string().describe('Message to sign'),
+      domain: z.string().optional().describe('Domain separator (defaults to "lsag-v1")'),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true },
+  }, async ({ ring, electionId, message, domain }) => {
+    const result = await handleTrustRingLsagSign(deps.ctx, deps.pool, { ring, electionId, message, domain })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({
+        id: result.event.id,
+        keyImage: result.signature.keyImage,
+        ringSize: ring.length,
+        electionId,
+      }, null, 2) }],
+    }
+  })
+
+  server.registerTool('trust-ring-lsag-verify', {
+    description: 'Verify an LSAG signature and check the key image against a list of known images to detect double-signing. Returns validity, key image, and duplicate status.',
+    inputSchema: {
+      signature: z.record(z.string(), z.unknown()).describe('LSAG signature object or Nostr event containing one'),
+      existingKeyImages: z.array(z.string()).optional().describe('Known key images to check for duplicates'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ signature, existingKeyImages }) => {
+    const result = handleTrustRingLsagVerify(signature as any, existingKeyImages)
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    }
+  })
+
+  server.registerTool('trust-ring-key-image', {
+    description: 'Compute the key image for the active identity in a specific election context. Use this to pre-check whether the active identity has already signed in an election without creating a full signature. The key image is deterministic: same key + same electionId always produces the same image.',
+    inputSchema: {
+      electionId: z.string().min(1).describe('Election/context identifier'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ electionId }) => {
+    const result = handleTrustRingKeyImage(deps.ctx, { electionId })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    }
+  })
+
+  // --- Deep spoken token tools ---
+
+  server.registerTool('trust-spoken-directional', {
+    description: 'Generate a directional token pair where each role gets a different token. Prevents the "echo problem" where the second speaker could parrot the first. Both parties need the shared secret, but each says a different word. Ideal for caller/agent, buyer/seller, or any two-party verification.',
+    inputSchema: {
+      secret: z.string().regex(/^[0-9a-f]{32,}$/, 'Hex string, min 32 chars').describe('Shared secret'),
+      namespace: z.string().min(1).describe('Namespace for domain separation (e.g. "dispatch", "trade")'),
+      roles: z.tuple([z.string().min(1), z.string().min(1)]).describe('Exactly two distinct role names (e.g. ["caller", "agent"])'),
+      counter: z.number().int().describe('Time-based or usage counter'),
+      format: z.enum(['words', 'pin', 'hex']).default('words').describe('Token encoding format'),
+      wordCount: z.number().int().min(1).max(16).optional().describe('Number of words (for words format, default 1)'),
+      pinDigits: z.number().int().min(1).max(10).optional().describe('Number of digits (for PIN format, default 4)'),
+      hexLength: z.number().int().min(1).max(64).optional().describe('Number of hex chars (for hex format, default 8)'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ secret, namespace, roles, counter, format, wordCount, pinDigits, hexLength }) => {
+    const result = handleTrustSpokenDirectional({ secret, namespace, roles, counter, format, wordCount, pinDigits, hexLength })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    }
+  })
+
+  server.registerTool('trust-spoken-encode', {
+    description: 'Generate a spoken token in an alternative encoding: PIN digits for phone keypads, hex for technical contexts, or multi-word for higher entropy. Same HMAC derivation as trust-spoken-challenge but with configurable output format.',
+    inputSchema: {
+      secret: z.string().regex(/^[0-9a-f]{32,}$/, 'Hex string, min 32 chars').describe('Shared secret'),
+      context: z.string().describe('Context string for domain separation'),
+      counter: z.number().int().describe('Time-based or usage counter'),
+      format: z.enum(['words', 'pin', 'hex']).describe('Token encoding format'),
+      wordCount: z.number().int().min(1).max(16).optional().describe('Number of words (for words format, default 1)'),
+      pinDigits: z.number().int().min(1).max(10).optional().describe('Number of digits (for PIN format, default 4)'),
+      hexLength: z.number().int().min(1).max(64).optional().describe('Number of hex chars (for hex format, default 8)'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ secret, context, counter, format, wordCount, pinDigits, hexLength }) => {
+    const result = handleTrustSpokenEncode({ secret, context, counter, format, wordCount, pinDigits, hexLength })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }
