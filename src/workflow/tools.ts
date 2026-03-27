@@ -5,6 +5,7 @@ import { TrustCache } from '../veil/cache.js'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { Nip65Manager } from '../nip65.js'
+import type { TrustContext } from '../trust-context.js'
 import { hexId } from '../validation.js'
 import {
   handleTrustScore,
@@ -13,6 +14,7 @@ import {
   handleIdentitySetup,
   handleIdentityRecover,
   handleRelayHealth,
+  handleOnboardVerified,
 } from './handlers.js'
 
 export interface WorkflowDeps {
@@ -21,6 +23,7 @@ export interface WorkflowDeps {
   nip65: Nip65Manager
   veilCacheTtl: number
   veilCacheMax: number
+  trust?: TrustContext
 }
 
 export function registerWorkflowTools(server: McpServer, deps: WorkflowDeps): void {
@@ -36,7 +39,7 @@ export function registerWorkflowTools(server: McpServer, deps: WorkflowDeps): vo
     annotations: { readOnlyHint: true },
   }, async ({ pubkey, depth }) => {
     const scoring = new VeilScoring(deps.pool, trustCache, deps.ctx.activeNpub)
-    const result = await handleTrustScore(deps.ctx, deps.pool, scoring, { pubkey, depth })
+    const result = await handleTrustScore(deps.ctx, deps.pool, scoring, { pubkey, depth }, deps.trust)
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 
@@ -50,7 +53,7 @@ export function registerWorkflowTools(server: McpServer, deps: WorkflowDeps): vo
     annotations: { readOnlyHint: true },
   }, async ({ strategy, limit, query }) => {
     const scoring = new VeilScoring(deps.pool, trustCache, deps.ctx.activeNpub)
-    const result = await handleFeedDiscover(deps.ctx, deps.pool, scoring, { strategy, limit, query })
+    const result = await handleFeedDiscover(deps.ctx, deps.pool, scoring, { strategy, limit, query }, deps.trust)
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 
@@ -63,7 +66,7 @@ export function registerWorkflowTools(server: McpServer, deps: WorkflowDeps): vo
     annotations: { readOnlyHint: true },
   }, async ({ pubkey, method }) => {
     const scoring = new VeilScoring(deps.pool, trustCache, deps.ctx.activeNpub)
-    const result = await handleVerifyPerson(deps.ctx, deps.pool, scoring, { pubkey, method })
+    const result = await handleVerifyPerson(deps.ctx, deps.pool, scoring, { pubkey, method }, deps.trust)
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 
@@ -107,4 +110,16 @@ export function registerWorkflowTools(server: McpServer, deps: WorkflowDeps): vo
     const result = await handleRelayHealth(deps.ctx, deps.pool, { pubkey, checkWrite })
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
+
+  if (deps.trust) {
+    const trust = deps.trust
+    server.registerTool('onboard-verified', {
+      description: 'Guided workflow to build a verified trust profile. Shows your current Signet tier, what steps remain (self-declaration, vouches, professional verification, vault setup), and lists contacts who could vouch for you.',
+      inputSchema: {},
+      annotations: { readOnlyHint: true },
+    }, async () => {
+      const result = await handleOnboardVerified(deps.ctx, deps.pool, trust, {})
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+    })
+  }
 }

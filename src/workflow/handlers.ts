@@ -6,6 +6,7 @@ import type { ProofVerification } from 'nostr-veil/proof'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { VeilScoring } from '../veil/scoring.js'
+import type { TrustContext, TrustAssessment } from '../trust-context.js'
 
 // ---------------------------------------------------------------------------
 // 1. trust-score
@@ -14,6 +15,11 @@ import type { VeilScoring } from '../veil/scoring.js'
 export interface TrustScoreResponse {
   pubkey: string
   npub: string
+  verification?: TrustAssessment['verification']
+  proximity?: TrustAssessment['proximity']
+  access?: TrustAssessment['access']
+  composite?: TrustAssessment['composite']
+  // Legacy VeilScoring fields (kept for backwards compatibility)
   score: number
   endorsements: number
   ringEndorsements: number
@@ -27,10 +33,11 @@ export async function handleTrustScore(
   pool: RelayPool,
   scoring: VeilScoring,
   args: { pubkey: string; depth?: number },
+  trust?: TrustContext,
 ): Promise<TrustScoreResponse> {
   const maxDepth = Math.min(args.depth ?? 2, 3)
 
-  // 1. WoT score via scoring module
+  // 1. WoT score via scoring module (always run for backwards compatibility)
   const wot = await scoring.scorePubkey(args.pubkey)
 
   // 2. Query kind 31000 attestations about this pubkey
@@ -52,9 +59,21 @@ export async function handleTrustScore(
   // 3. Social distance via follow graph traversal
   const socialDistance = await computeSocialDistance(ctx, pool, args.pubkey, maxDepth)
 
+  // 4. Full three-dimensional assessment via TrustContext (if available)
+  let assessment: TrustAssessment | undefined
+  if (trust) {
+    assessment = await trust.assess(args.pubkey)
+  }
+
   return {
     pubkey: args.pubkey,
     npub: npubEncode(args.pubkey),
+    ...(assessment && {
+      verification: assessment.verification,
+      proximity: assessment.proximity,
+      access: assessment.access,
+      composite: assessment.composite,
+    }),
     score: wot.score,
     endorsements: wot.endorsements,
     ringEndorsements: wot.ringEndorsements,
@@ -135,16 +154,17 @@ export async function handleFeedDiscover(
   pool: RelayPool,
   scoring: VeilScoring,
   args: { strategy?: 'trust-adjacent' | 'topic' | 'active'; limit?: number; query?: string },
+  trust?: TrustContext,
 ): Promise<FeedSuggestion[]> {
   const strategy = args.strategy ?? 'trust-adjacent'
   const limit = args.limit ?? 20
 
   if (strategy === 'topic') {
-    return discoverByTopic(ctx, pool, scoring, args.query ?? '', limit)
+    return discoverByTopic(ctx, pool, scoring, args.query ?? '', limit, trust)
   }
 
   // trust-adjacent and active share the same initial logic
-  const candidates = await discoverTrustAdjacent(ctx, pool, scoring, limit, strategy === 'active')
+  const candidates = await discoverTrustAdjacent(ctx, pool, scoring, limit, strategy === 'active', trust)
   return candidates
 }
 
@@ -154,6 +174,7 @@ async function discoverTrustAdjacent(
   scoring: VeilScoring,
   limit: number,
   activeOnly: boolean,
+  trust?: TrustContext,
 ): Promise<FeedSuggestion[]> {
   const myHex = ctx.activePublicKeyHex
 
@@ -219,12 +240,21 @@ async function discoverTrustAdjacent(
   for (const [pk, mutualFollows] of toScore) {
     const wot = await scoring.scorePubkey(pk)
     const profile = profiles.get(pk)
+
+    // Signet ranking boost: Tier 3+ adds +30 to the trust score for sorting
+    let signetBoost = 0
+    if (trust) {
+      const assessment = await trust.assess(pk)
+      const tier = assessment.verification.tier
+      if (tier !== null && tier >= 3) signetBoost = 30
+    }
+
     scored.push({
       pubkey: pk,
       npub: npubEncode(pk),
       name: profile?.name as string | undefined,
       nip05: profile?.nip05 as string | undefined,
-      trustScore: wot.score,
+      trustScore: wot.score + signetBoost,
       mutualFollows,
       reason: activeOnly ? 'active and trusted in your network' : 'followed by people you trust',
     })
@@ -241,6 +271,7 @@ async function discoverByTopic(
   scoring: VeilScoring,
   query: string,
   limit: number,
+  trust?: TrustContext,
 ): Promise<FeedSuggestion[]> {
   if (!query) return []
 
@@ -264,12 +295,21 @@ async function discoverByTopic(
   for (const [pk, count] of authorSet) {
     const wot = await scoring.scorePubkey(pk)
     const profile = profiles.get(pk)
+
+    // Signet ranking boost: Tier 3+ adds +30 to the trust score for sorting
+    let signetBoost = 0
+    if (trust) {
+      const assessment = await trust.assess(pk)
+      const tier = assessment.verification.tier
+      if (tier !== null && tier >= 3) signetBoost = 30
+    }
+
     scored.push({
       pubkey: pk,
       npub: npubEncode(pk),
       name: profile?.name as string | undefined,
       nip05: profile?.nip05 as string | undefined,
-      trustScore: wot.score,
+      trustScore: wot.score + signetBoost,
       mutualFollows: 0,
       reason: `${count} post${count > 1 ? 's' : ''} tagged #${query}`,
     })
@@ -317,6 +357,8 @@ export interface VerificationResult {
   name?: string
   nip05: { verified: boolean; handle?: string }
   trustScore: number
+  signetTier?: number | null
+  signetScore?: number
   attestations: Array<{ type: string; by: string; content: string }>
   linkageProofs: Array<{ mode: string; linkedTo: string }>
   ringEndorsements: Array<{ circleSize: number; threshold: number; verified: boolean }>
@@ -329,11 +371,21 @@ export async function handleVerifyPerson(
   pool: RelayPool,
   scoring: VeilScoring,
   args: { pubkey: string; method?: 'quick' | 'full' },
+  trust?: TrustContext,
 ): Promise<VerificationResult> {
   const method = args.method ?? 'quick'
 
   // Trust score
   const wot = await scoring.scorePubkey(args.pubkey)
+
+  // Signet assessment (if TrustContext available)
+  let signetTier: number | null | undefined
+  let signetScore: number | undefined
+  if (trust) {
+    const assessment = await trust.assess(args.pubkey)
+    signetTier = assessment.verification.tier
+    signetScore = assessment.verification.score
+  }
 
   // Profile and NIP-05
   const profileEvents = await pool.query(ctx.activeNpub, {
@@ -425,7 +477,7 @@ export async function handleVerifyPerson(
   }
 
   // Confidence
-  const confidence = computeConfidence(wot.score, attestations.length, nip05Verified)
+  const confidence = computeConfidence(wot.score, attestations.length, nip05Verified, signetTier)
 
   return {
     pubkey: args.pubkey,
@@ -433,6 +485,8 @@ export async function handleVerifyPerson(
     name,
     nip05: { verified: nip05Verified, handle: nip05Handle },
     trustScore: wot.score,
+    ...(signetTier !== undefined && { signetTier }),
+    ...(signetScore !== undefined && { signetScore }),
     attestations,
     linkageProofs,
     ringEndorsements,
@@ -445,7 +499,10 @@ function computeConfidence(
   score: number,
   attestationCount: number,
   nip05Verified: boolean,
+  signetTier?: number | null,
 ): 'high' | 'medium' | 'low' | 'unknown' {
+  // Tier 3+ signet verification counts as high confidence on its own
+  if (signetTier !== null && signetTier !== undefined && signetTier >= 3) return 'high'
   if (score >= 50 && attestationCount >= 1 && nip05Verified) return 'high'
   if (score >= 20 || attestationCount >= 1 || nip05Verified) return 'medium'
   if (score >= 1) return 'low'
@@ -731,4 +788,95 @@ async function checkRelayHealth(
   }
 
   return report
+}
+
+// ---------------------------------------------------------------------------
+// 7. onboard-verified
+// ---------------------------------------------------------------------------
+
+export interface OnboardStep {
+  step: number
+  title: string
+  action: string
+  completed: boolean
+  optional?: boolean
+}
+
+export interface OnboardVerifiedResult {
+  currentTier: number | null
+  currentScore: number
+  steps: OnboardStep[]
+  potentialVouchers: Array<{ pubkey: string; npub: string; tier: number }>
+}
+
+export async function handleOnboardVerified(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  trust: TrustContext,
+  _args: Record<string, never>,
+): Promise<OnboardVerifiedResult> {
+  const myHex = ctx.activePublicKeyHex
+
+  // 1. Assess current tier and score
+  const assessment = await trust.assess(myHex)
+  const currentTier = assessment.verification.tier
+  const currentScore = assessment.verification.score
+
+  // 2. Build onboarding steps
+  const steps: OnboardStep[] = [
+    {
+      step: 1,
+      title: 'Self-declaration (Tier 1)',
+      action: 'Publish a self-declared profile attestation so others can find and vouch for you',
+      completed: currentTier !== null && currentTier >= 1,
+    },
+    {
+      step: 2,
+      title: 'Get vouches (Tier 2)',
+      action: 'Ask trusted contacts to issue kind 31000 attestations for your identity',
+      completed: currentTier !== null && currentTier >= 2,
+    },
+    {
+      step: 3,
+      title: 'Professional verification (Tier 3)',
+      action: 'Complete Signet professional verification to achieve the highest trust tier',
+      completed: currentTier !== null && currentTier >= 3,
+    },
+    {
+      step: 4,
+      title: 'Set up vault (optional)',
+      action: 'Configure an encrypted vault to share private data with trusted contacts',
+      completed: assessment.access.vaultTiers.length > 0,
+      optional: true,
+    },
+  ]
+
+  // 3. Find potential vouchers from follow graph (contacts who are Tier 2+)
+  const myContactEvents = await pool.query(ctx.activeNpub, {
+    kinds: [3],
+    authors: [myHex],
+  })
+  const myContacts = extractContactPubkeys(myContactEvents)
+
+  const potentialVouchers: OnboardVerifiedResult['potentialVouchers'] = []
+  const contactSlice = [...myContacts].slice(0, 100)
+
+  for (const contactPk of contactSlice) {
+    const contactAssessment = await trust.assess(contactPk)
+    const tier = contactAssessment.verification.tier
+    if (tier !== null && tier >= 2) {
+      potentialVouchers.push({
+        pubkey: contactPk,
+        npub: npubEncode(contactPk),
+        tier,
+      })
+    }
+  }
+
+  return {
+    currentTier,
+    currentScore,
+    steps,
+    potentialVouchers,
+  }
 }
