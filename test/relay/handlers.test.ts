@@ -199,6 +199,18 @@ describe('relay handlers', () => {
         relays: ['wss://127.0.0.1'],
       })).rejects.toThrow(/private/)
     })
+
+    it('adds NIP-50 search parameter to filter', async () => {
+      const pool = mockPool()
+      await handleRelayQuery(pool as any, ctx.activeNpub, {
+        kinds: [1],
+        search: 'hello world',
+      })
+      expect(pool.query).toHaveBeenCalledWith(
+        ctx.activeNpub,
+        expect.objectContaining({ search: 'hello world' }),
+      )
+    })
   })
 
   describe('handleRelayInfo', () => {

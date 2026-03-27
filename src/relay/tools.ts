@@ -63,11 +63,12 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
       until: z.number().int().optional().describe('Unix timestamp — only events created before this time'),
       limit: z.number().int().min(1).max(500).default(50).describe('Maximum number of events to return (default 50, max 500)'),
       relays: z.array(relayUrl).optional().describe('Explicit relay URLs to query (overrides identity relay set)'),
+      search: z.string().optional().describe('Full-text search query (NIP-50). Only works on relays that support NIP-50; others will ignore it.'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ kinds, authors, tags, since, until, limit, relays }) => {
+  }, async ({ kinds, authors, tags, since, until, limit, relays, search }) => {
     const events = await handleRelayQuery(deps.pool, deps.ctx.activeNpub, {
-      kinds, authors, tags, since, until, limit, relays,
+      kinds, authors, tags, since, until, limit, relays, search,
     })
     const summary = events.map(e => ({
       id: e.id,
