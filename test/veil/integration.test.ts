@@ -5,12 +5,14 @@ import { VeilScoring } from '../../src/veil/scoring.js'
 import { handleFeed, handleNotifications } from '../../src/social/notifications.js'
 import { mockAssertionEvent } from '../helpers/mock-veil.js'
 
-// Must be a string literal — vi.mock factories are hoisted before variable declarations
+// Must be a string literal -- vi.mock factories are hoisted before variable declarations
 const ACTIVE_HEX = 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
 
-vi.mock('nostr-veil/graph', () => ({
-  buildTrustGraph: vi.fn(),
-  computeTrustRank: vi.fn(),
+vi.mock('nostr-veil/nip85', () => ({
+  parseAssertion: vi.fn((event: any) => {
+    const dTag = event.tags.find((t: string[]) => t[0] === 'd')
+    return { kind: event.kind, subject: dTag?.[1] ?? '', metrics: {} }
+  }),
 }))
 
 vi.mock('nostr-veil/proof', () => ({
@@ -20,11 +22,6 @@ vi.mock('nostr-veil/proof', () => ({
 vi.mock('nostr-tools/nip19', () => ({
   decode: vi.fn(() => ({ data: 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc', type: 'npub' })),
 }))
-
-import { buildTrustGraph, computeTrustRank } from 'nostr-veil/graph'
-
-const mockBuildTrustGraph = vi.mocked(buildTrustGraph)
-const mockComputeTrustRank = vi.mocked(computeTrustRank)
 
 const TEST_NPUB = 'npub1test'
 const TRUSTED_PUBKEY = 'a'.padEnd(64, 'a')
@@ -45,7 +42,7 @@ function makeEvent(id: string, pubkey: string, kind = 1): NostrEvent {
 function mockPool(feedEvents: NostrEvent[], assertionEvents: NostrEvent[] = []) {
   return {
     query: vi.fn().mockImplementation((_npub: string, filter: { kinds: number[] }) => {
-      // Return assertion events for trust graph queries (kind 30382)
+      // Return assertion events for NIP-85 queries (kind 30382)
       if (filter.kinds?.includes(30382)) {
         return Promise.resolve(assertionEvents)
       }
@@ -80,18 +77,6 @@ describe('handleFeed trust scoring integration', () => {
     const assertionForTrusted = mockAssertionEvent({ subject: TRUSTED_PUBKEY })
     const pool = mockPool(feedEvents, [assertionForTrusted])
 
-    // TRUSTED_PUBKEY has rank 80; UNTRUSTED_PUBKEY gets no assertions (score 0)
-    mockBuildTrustGraph
-      .mockReturnValueOnce({
-        nodes: new Map([[TRUSTED_PUBKEY, { pubkey: TRUSTED_PUBKEY, metrics: {}, endorsements: 1, ringEndorsements: 0, providers: ['p'.padEnd(64, 'p')] }]]),
-        edges: [],
-      })
-      .mockReturnValueOnce({ nodes: new Map(), edges: [] })
-
-    mockComputeTrustRank
-      .mockReturnValueOnce([{ pubkey: TRUSTED_PUBKEY, rank: 80, endorsements: 1, ringEndorsements: 0, providers: 1 }])
-      .mockReturnValueOnce([])
-
     const scoring = new VeilScoring(pool as any, cache, TEST_NPUB)
     const ctx = mockCtx()
 
@@ -102,7 +87,7 @@ describe('handleFeed trust scoring integration', () => {
 
     expect(feed).toHaveLength(1)
     expect(feed[0].pubkey).toBe(TRUSTED_PUBKEY)
-    expect(feed[0].trustScore).toBe(80)
+    expect(feed[0].trustScore).toBe(1) // 1 endorsement
   })
 
   it('returns all events with scores in annotate mode', async () => {
@@ -113,17 +98,6 @@ describe('handleFeed trust scoring integration', () => {
 
     const assertionForTrusted = mockAssertionEvent({ subject: TRUSTED_PUBKEY })
     const pool = mockPool(feedEvents, [assertionForTrusted])
-
-    mockBuildTrustGraph
-      .mockReturnValueOnce({
-        nodes: new Map([[TRUSTED_PUBKEY, { pubkey: TRUSTED_PUBKEY, metrics: {}, endorsements: 1, ringEndorsements: 0, providers: [] }]]),
-        edges: [],
-      })
-      .mockReturnValueOnce({ nodes: new Map(), edges: [] })
-
-    mockComputeTrustRank
-      .mockReturnValueOnce([{ pubkey: TRUSTED_PUBKEY, rank: 60, endorsements: 1, ringEndorsements: 0, providers: 1 }])
-      .mockReturnValueOnce([])
 
     const scoring = new VeilScoring(pool as any, cache, TEST_NPUB)
     const ctx = mockCtx()
@@ -136,7 +110,7 @@ describe('handleFeed trust scoring integration', () => {
     expect(feed).toHaveLength(2)
     const trusted = feed.find(f => f.pubkey === TRUSTED_PUBKEY)!
     const untrusted = feed.find(f => f.pubkey === UNTRUSTED_PUBKEY)!
-    expect(trusted.trustScore).toBe(60)
+    expect(trusted.trustScore).toBe(1) // 1 endorsement
     expect(untrusted.trustScore).toBe(0)
   })
 
@@ -156,8 +130,6 @@ describe('handleFeed trust scoring integration', () => {
     })
 
     expect(feed).toHaveLength(2)
-    // No scoring calls should have been made for trust graph
-    expect(mockComputeTrustRank).not.toHaveBeenCalled()
     // trustScore should be absent
     feed.forEach(f => expect(f.trustScore).toBeUndefined())
   })
@@ -198,17 +170,6 @@ describe('handleNotifications trust scoring integration', () => {
     const assertionForTrusted = mockAssertionEvent({ subject: TRUSTED_PUBKEY })
     const pool = mockPool(notifEvents, [assertionForTrusted])
 
-    mockBuildTrustGraph
-      .mockReturnValueOnce({
-        nodes: new Map([[TRUSTED_PUBKEY, { pubkey: TRUSTED_PUBKEY, metrics: {}, endorsements: 1, ringEndorsements: 0, providers: [] }]]),
-        edges: [],
-      })
-      .mockReturnValueOnce({ nodes: new Map(), edges: [] })
-
-    mockComputeTrustRank
-      .mockReturnValueOnce([{ pubkey: TRUSTED_PUBKEY, rank: 50, endorsements: 1, ringEndorsements: 0, providers: 1 }])
-      .mockReturnValueOnce([])
-
     const scoring = new VeilScoring(pool as any, cache, TEST_NPUB)
     const ctx = {
       activeNpub: TEST_NPUB,
@@ -222,7 +183,7 @@ describe('handleNotifications trust scoring integration', () => {
 
     expect(notifications).toHaveLength(1)
     expect(notifications[0].from).toBe(TRUSTED_PUBKEY)
-    expect(notifications[0].trustScore).toBe(50)
+    expect(notifications[0].trustScore).toBe(1)
   })
 
   it('annotates notifications with trust scores in annotate mode', async () => {
@@ -233,17 +194,6 @@ describe('handleNotifications trust scoring integration', () => {
 
     const assertionForTrusted = mockAssertionEvent({ subject: TRUSTED_PUBKEY })
     const pool = mockPool(notifEvents, [assertionForTrusted])
-
-    mockBuildTrustGraph
-      .mockReturnValueOnce({
-        nodes: new Map([[TRUSTED_PUBKEY, { pubkey: TRUSTED_PUBKEY, metrics: {}, endorsements: 1, ringEndorsements: 0, providers: [] }]]),
-        edges: [],
-      })
-      .mockReturnValueOnce({ nodes: new Map(), edges: [] })
-
-    mockComputeTrustRank
-      .mockReturnValueOnce([{ pubkey: TRUSTED_PUBKEY, rank: 75, endorsements: 1, ringEndorsements: 0, providers: 1 }])
-      .mockReturnValueOnce([])
 
     const scoring = new VeilScoring(pool as any, cache, TEST_NPUB)
     const ctx = {
@@ -259,7 +209,7 @@ describe('handleNotifications trust scoring integration', () => {
     expect(notifications).toHaveLength(2)
     const trusted = notifications.find(n => n.from === TRUSTED_PUBKEY)!
     const untrusted = notifications.find(n => n.from === UNTRUSTED_PUBKEY)!
-    expect(trusted.trustScore).toBe(75)
+    expect(trusted.trustScore).toBe(1)
     expect(untrusted.trustScore).toBe(0)
   })
 })

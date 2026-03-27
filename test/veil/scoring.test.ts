@@ -4,20 +4,19 @@ import { TrustCache } from '../../src/veil/cache.js'
 import { VeilScoring } from '../../src/veil/scoring.js'
 import { mockAssertionEvent } from '../helpers/mock-veil.js'
 
-vi.mock('nostr-veil/graph', () => ({
-  buildTrustGraph: vi.fn(),
-  computeTrustRank: vi.fn(),
+vi.mock('nostr-veil/nip85', () => ({
+  parseAssertion: vi.fn((event: any) => {
+    const dTag = event.tags.find((t: string[]) => t[0] === 'd')
+    return { kind: event.kind, subject: dTag?.[1] ?? '', metrics: {} }
+  }),
 }))
 
 vi.mock('nostr-veil/proof', () => ({
   verifyProof: vi.fn(),
 }))
 
-import { buildTrustGraph, computeTrustRank } from 'nostr-veil/graph'
 import { verifyProof } from 'nostr-veil/proof'
 
-const mockBuildTrustGraph = vi.mocked(buildTrustGraph)
-const mockComputeTrustRank = vi.mocked(computeTrustRank)
 const mockVerifyProof = vi.mocked(verifyProof)
 
 function mockPool(events: NostrEvent[] = []) {
@@ -42,10 +41,6 @@ describe('VeilScoring', () => {
   describe('scorePubkey', () => {
     it('returns score 0 with no-endorsements flag when pool returns no assertions', async () => {
       const pool = mockPool([])
-
-      mockBuildTrustGraph.mockReturnValue({ nodes: new Map(), edges: [] })
-      mockComputeTrustRank.mockReturnValue([])
-
       const scoring = new VeilScoring(pool as any, cache, TEST_NPUB)
       const result = await scoring.scorePubkey(TEST_PUBKEY)
 
@@ -57,26 +52,6 @@ describe('VeilScoring', () => {
     it('caches results so pool.query is only called once for two calls', async () => {
       const events = [mockAssertionEvent({ subject: TEST_PUBKEY })]
       const pool = mockPool(events)
-
-      const fakeNode = {
-        pubkey: TEST_PUBKEY,
-        metrics: {},
-        endorsements: 1,
-        ringEndorsements: 0,
-        providers: ['a'.padEnd(64, 'a')],
-      }
-      mockBuildTrustGraph.mockReturnValue({
-        nodes: new Map([[TEST_PUBKEY, fakeNode]]),
-        edges: [{ from: 'a'.padEnd(64, 'a'), to: TEST_PUBKEY, kind: 30382, anonymous: false, metrics: {} }],
-      })
-      mockComputeTrustRank.mockReturnValue([{
-        pubkey: TEST_PUBKEY,
-        rank: 100,
-        endorsements: 1,
-        ringEndorsements: 0,
-        providers: 1,
-      }])
-
       const scoring = new VeilScoring(pool as any, cache, TEST_NPUB)
 
       const first = await scoring.scorePubkey(TEST_PUBKEY)
@@ -89,29 +64,10 @@ describe('VeilScoring', () => {
 
     it('returns ring-endorsement flag when event has veil-sig tags and proof is valid', async () => {
       const ringEvent = mockAssertionEvent({ subject: TEST_PUBKEY, ringEndorsement: true })
-      // Add a veil-sig tag to trigger proof verification
       ringEvent.tags.push(['veil-sig', '{}', 'keyimage123'])
 
       const pool = mockPool([ringEvent])
 
-      const fakeNode = {
-        pubkey: TEST_PUBKEY,
-        metrics: {},
-        endorsements: 0,
-        ringEndorsements: 1,
-        providers: [],
-      }
-      mockBuildTrustGraph.mockReturnValue({
-        nodes: new Map([[TEST_PUBKEY, fakeNode]]),
-        edges: [{ from: '', to: TEST_PUBKEY, kind: 30382, anonymous: true, metrics: {} }],
-      })
-      mockComputeTrustRank.mockReturnValue([{
-        pubkey: TEST_PUBKEY,
-        rank: 50,
-        endorsements: 0,
-        ringEndorsements: 1,
-        providers: 0,
-      }])
       mockVerifyProof.mockReturnValue({
         valid: true,
         circleSize: 3,
@@ -125,6 +81,7 @@ describe('VeilScoring', () => {
 
       expect(mockVerifyProof).toHaveBeenCalledWith(ringEvent)
       expect(result.flags).toContain('ring proof verified')
+      expect(result.ringEndorsements).toBe(2)
     })
 
     it('adds ring-proof-invalid flag when verifyProof returns invalid', async () => {
@@ -133,24 +90,6 @@ describe('VeilScoring', () => {
 
       const pool = mockPool([ringEvent])
 
-      const fakeNode = {
-        pubkey: TEST_PUBKEY,
-        metrics: {},
-        endorsements: 0,
-        ringEndorsements: 1,
-        providers: [],
-      }
-      mockBuildTrustGraph.mockReturnValue({
-        nodes: new Map([[TEST_PUBKEY, fakeNode]]),
-        edges: [],
-      })
-      mockComputeTrustRank.mockReturnValue([{
-        pubkey: TEST_PUBKEY,
-        rank: 30,
-        endorsements: 0,
-        ringEndorsements: 1,
-        providers: 0,
-      }])
       mockVerifyProof.mockReturnValue({
         valid: false,
         circleSize: 3,
@@ -185,26 +124,15 @@ describe('VeilScoring', () => {
         getRelays: vi.fn().mockReturnValue({ read: ['wss://relay.test'], write: ['wss://relay.test'] }),
       }
 
-      // First call (authorA): has endorsements
-      const nodeA = { pubkey: authorA, metrics: {}, endorsements: 2, ringEndorsements: 0, providers: ['p'.padEnd(64, 'p')] }
-      // Second call (authorB): no endorsements
-      mockBuildTrustGraph
-        .mockReturnValueOnce({ nodes: new Map([[authorA, nodeA]]), edges: [{ from: 'p'.padEnd(64, 'p'), to: authorA, kind: 30382, anonymous: false, metrics: {} }, { from: 'p'.padEnd(64, 'p'), to: authorA, kind: 30382, anonymous: false, metrics: {} }] })
-        .mockReturnValueOnce({ nodes: new Map(), edges: [] })
-
-      mockComputeTrustRank
-        .mockReturnValueOnce([{ pubkey: authorA, rank: 80, endorsements: 2, ringEndorsements: 0, providers: 1 }])
-        .mockReturnValueOnce([])
-
       const scoring = new VeilScoring(pool as any, cache, TEST_NPUB)
       const scored = await scoring.scoreEvents(events)
 
       expect(scored).toHaveLength(3)
 
       const [evA1, evB, evA2] = scored
-      expect(evA1._trustScore).toBe(80)
+      expect(evA1._trustScore).toBe(1) // 1 endorsement
       expect(evB._trustScore).toBe(0)
-      expect(evA2._trustScore).toBe(80)   // second event from authorA uses cached result
+      expect(evA2._trustScore).toBe(1) // cached result
 
       // Pool queried once per unique author
       expect(pool.query).toHaveBeenCalledTimes(2)
