@@ -7,6 +7,8 @@ import type { RelayPool } from '../relay-pool.js'
 import type { Nip65Manager } from '../nip65.js'
 import type { PublishResult } from '../types.js'
 import type { VeilScoring } from '../veil/scoring.js'
+import type { TrustContext, TrustAnnotation } from '../trust-context.js'
+import { toAnnotation } from '../trust-context.js'
 
 export interface DmSendResult {
   event: NostrEvent
@@ -26,6 +28,7 @@ export interface DmReadEntry {
   decrypted: boolean
   error?: string
   senderTrustScore?: number
+  _trust?: TrustAnnotation
 }
 
 /** Send a DM. Uses NIP-17 gift wrap by default. NIP-04 only if explicitly requested and enabled. */
@@ -115,7 +118,7 @@ export async function handleDmSend(
 export async function handleDmRead(
   ctx: IdentityContext,
   pool: RelayPool,
-  args?: { limit?: number; _scoring?: VeilScoring },
+  args?: { limit?: number; _scoring?: VeilScoring; _trustCtx?: TrustContext },
 ): Promise<DmReadEntry[]> {
   // Fetch gift wraps (kind 1059) and legacy DMs (kind 4) addressed to us
   const activeHex = decode(ctx.activeNpub).data as string
@@ -134,6 +137,13 @@ export async function handleDmRead(
     }
   }
 
+  if (args?._trustCtx && args._trustCtx.mode !== 'off') {
+    for (const entry of entries) {
+      const assessment = await args._trustCtx.assess(entry.from)
+      entry._trust = toAnnotation(assessment)
+    }
+  }
+
   return entries
 }
 
@@ -141,9 +151,9 @@ export async function handleDmRead(
 export async function handleDmConversation(
   ctx: IdentityContext,
   pool: RelayPool,
-  args: { withPubkeyHex: string; limit?: number; _scoring?: VeilScoring },
+  args: { withPubkeyHex: string; limit?: number; _scoring?: VeilScoring; _trustCtx?: TrustContext },
 ): Promise<DmReadEntry[]> {
-  const allMessages = await handleDmRead(ctx, pool, { limit: args.limit ?? 100, _scoring: args._scoring })
+  const allMessages = await handleDmRead(ctx, pool, { limit: args.limit ?? 100, _scoring: args._scoring, _trustCtx: args._trustCtx })
   return allMessages
     .filter(m => m.from === args.withPubkeyHex)
     .sort((a, b) => a.createdAt - b.createdAt) // chronological for conversation view

@@ -4,6 +4,7 @@ import type { Event as NostrEvent, Filter } from 'nostr-tools'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
+import type { TrustContext } from '../trust-context.js'
 
 // ---------------------------------------------------------------------------
 // NIP-32 Labels (kind 1985)
@@ -571,7 +572,7 @@ export async function handleListBookmarkRead(
 export async function handleModerationFilter(
   pool: RelayPool,
   npub: string,
-  args: { events: Array<{ id: string; pubkey: string; content: string; tags: string[][] }> },
+  args: { events: Array<{ id: string; pubkey: string; content: string; tags: string[][] }>; trust?: TrustContext },
 ): Promise<{
   allowed: typeof args.events
   blocked: Array<{ id: string; reason: string }>
@@ -583,7 +584,7 @@ export async function handleModerationFilter(
   const mutedKeywords = entries.filter(e => e.type === 'keyword').map(e => e.value.toLowerCase())
   const mutedHashtags = new Set(entries.filter(e => e.type === 'hashtag').map(e => e.value.toLowerCase()))
 
-  const allowed: typeof args.events = []
+  let allowed: typeof args.events = []
   const blocked: Array<{ id: string; reason: string }> = []
 
   for (const ev of args.events) {
@@ -613,6 +614,19 @@ export async function handleModerationFilter(
     }
 
     allowed.push(ev)
+  }
+
+  if (args.trust && args.trust.mode === 'strict') {
+    const strictAllowed: typeof args.events = []
+    for (const ev of allowed) {
+      const assessment = await args.trust.assess(ev.pubkey)
+      if (assessment.composite.level !== 'unknown') {
+        strictAllowed.push(ev)
+      } else {
+        blocked.push({ id: ev.id, reason: `unknown trust level: ${ev.pubkey}` })
+      }
+    }
+    allowed = strictAllowed
   }
 
   return { allowed, blocked }
