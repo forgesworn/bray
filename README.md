@@ -8,7 +8,7 @@
 [![licence](https://img.shields.io/npm/l/nostr-bray)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-ESM-blue)](./tsconfig.json)
 
-An MCP server that gives AI agents a full Nostr identity — not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, and duress detection. 77 tools across 10 groups.
+An MCP server that gives AI agents a full Nostr identity — not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, and duress detection. 90 tools across 11 groups.
 
 ## The Problem
 
@@ -49,14 +49,17 @@ nostr-bray stands on the shoulders of the existing Nostr tooling:
 | Verifiable attestations | NIP-VA kind 31000 creation, verification, and revocation |
 | Linkage proofs | Prove (or selectively hide) links between personas |
 | Spoken verification | HMAC-based spoken word tokens for in-person identity checks |
+| WoT-scored feeds | Trust-filtered social feeds via nostr-veil integration |
+| Relay health monitoring | Detect dead or unreliable relays before they lose your data |
+| Contact list protection | Safety guard against accidental follow list destruction |
 
-It also bundles NWC Lightning payments, Tor routing (SOCKS5h), NIP-29 groups, and a full social toolkit (post, reply, DM, follow, feed) into a single MCP server with 77 tools, so an AI agent can get a complete Nostr identity out of the box without stitching together multiple tools.
+It also bundles NWC Lightning payments, Tor routing (SOCKS5h), NIP-29 groups, and a full social toolkit (post, reply, DM, follow, feed) into a single MCP server with 90 tools, so an AI agent can get a complete Nostr identity out of the box without stitching together multiple tools.
 
 ## Quick Start — CLI
 
 ```bash
 # Post a note to Nostr from your terminal
-export NOSTR_SECRET_KEY="nsec1..."
+export NOSTR_SECRET_KEY="nsec1..."      # env var (least safe — bunker or file preferred)
 export NOSTR_RELAYS="wss://relay.damus.io,wss://nos.lol"
 
 npx nostr-bray whoami                    # show your npub
@@ -70,6 +73,8 @@ npx nostr-bray --help                    # see all commands
 
 Add to your Claude/Cursor/Windsurf MCP config:
 
+**Recommended — NIP-46 bunker (safest: key never leaves your device):**
+
 ```json
 {
   "mcpServers": {
@@ -77,7 +82,7 @@ Add to your Claude/Cursor/Windsurf MCP config:
       "command": "npx",
       "args": ["nostr-bray"],
       "env": {
-        "NOSTR_SECRET_KEY": "nsec1...",
+        "NOSTR_BUNKER_URL": "bunker://...",
         "NOSTR_RELAYS": "wss://relay.damus.io,wss://nos.lol"
       }
     }
@@ -85,7 +90,25 @@ Add to your Claude/Cursor/Windsurf MCP config:
 }
 ```
 
-Or with a secret file (recommended):
+**Or with an NIP-49 encrypted key (ncryptsec):**
+
+```json
+{
+  "mcpServers": {
+    "nostr": {
+      "command": "npx",
+      "args": ["nostr-bray"],
+      "env": {
+        "NOSTR_NCRYPTSEC": "ncryptsec1...",
+        "NOSTR_NCRYPTSEC_PASSWORD": "your-password",
+        "NOSTR_RELAYS": "wss://relay.damus.io,wss://nos.lol"
+      }
+    }
+  }
+}
+```
+
+**Or with a secret file:**
 
 ```json
 {
@@ -101,6 +124,8 @@ Or with a secret file (recommended):
   }
 }
 ```
+
+Auth tier progression (safest to least safe): **bunker** > **ncryptsec** > **file** > **env var**
 
 ## Tool Groups
 
@@ -232,12 +257,27 @@ Or with a secret file (recommended):
 | `nip-list` | List all official NIPs |
 | `nip-show` | Show a specific NIP's content |
 
+### Workflow (6 tools) — trust scoring, discovery, verification, identity setup, relay health
+
+| Tool | Description |
+|------|-------------|
+| `trust-score` | Compute WoT trust score for any pubkey — combines NIP-85 assertions, NIP-VA attestations, and social distance |
+| `feed-discover` | Discover accounts to follow via trust-adjacent, topic, or activity strategies |
+| `verify-person` | Verify identity with attestations, NIP-05, linkage proofs, ring endorsements, and spoken challenges |
+| `identity-setup` | Guided safe identity creation — derives personas, creates Shamir backup, configures relays |
+| `identity-recover` | Recover identity from Shamir backup shards with verification |
+| `relay-health` | Check relay set health — reachability, NIP support, event presence, write access |
+
 ## Configuration
 
 | Variable | Description |
 |----------|-------------|
+| `NOSTR_BUNKER_URL` | NIP-46 bunker URL — safest option, key stays on your device |
 | `NOSTR_SECRET_KEY` | nsec bech32, 64-char hex, or BIP-39 mnemonic |
-| `NOSTR_SECRET_KEY_FILE` | Path to secret key file (takes precedence) |
+| `NOSTR_SECRET_KEY_FILE` | Path to secret key file (takes precedence over env var) |
+| `NOSTR_NCRYPTSEC` | NIP-49 encrypted key (requires `NOSTR_NCRYPTSEC_PASSWORD`) |
+| `NOSTR_NCRYPTSEC_FILE` | Path to NIP-49 encrypted key file (requires `NOSTR_NCRYPTSEC_PASSWORD`) |
+| `NOSTR_NCRYPTSEC_PASSWORD` | Password to decrypt an ncryptsec key |
 | `NOSTR_RELAYS` | Comma-separated relay URLs |
 | `TOR_PROXY` | SOCKS5h proxy for Tor (blocks clearnet relays by default) |
 | `NIP04_ENABLED` | Set `1` to enable legacy NIP-04 DMs |
