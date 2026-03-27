@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Compare two marketplace services side by side'"
+Type "claude -p 'Search for marketplace services and compare the first two side by side'"
 Enter
 Sleep 15s

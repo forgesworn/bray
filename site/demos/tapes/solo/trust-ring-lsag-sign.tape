@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Describe what trust-ring-lsag-sign does for linkable ring signatures'"
+Type "claude -p 'Create a linkable ring signature over the message bray demo with a 3-member ring'"
 Enter
-Sleep 12s
+Sleep 15s

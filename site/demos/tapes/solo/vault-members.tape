@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'List members with access to the current vault'"
+Type "claude -p 'List members with access to the default vault'"
 Enter
-Sleep 12s
+Sleep 15s

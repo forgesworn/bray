@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Create a threshold proof that a committed value exceeds 1000'"
+Type "claude -p 'Create a commitment for value 500 and prove it exceeds 100'"
 Enter
-Sleep 12s
+Sleep 15s

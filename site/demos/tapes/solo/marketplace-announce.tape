@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Describe what marketplace-announce does for publishing service listings'"
+Type "claude -p 'Announce a new marketplace service offering translation for 100 sats per request'"
 Enter
-Sleep 12s
+Sleep 15s

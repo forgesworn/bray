@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Describe what the tombstone tool does for marking content as deleted'"
+Type "claude -p 'Create a tombstone deletion event for event ID d4ea1b7ffb77c1fba9b84fda4e8d838db7a39c63a9bde3962a1cb13b2c4d50e3'"
 Enter
-Sleep 12s
+Sleep 15s

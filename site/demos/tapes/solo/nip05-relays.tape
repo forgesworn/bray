@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Look up the relay list for NIP-05 address fiatjaf@fiatjaf.com'"
 Enter
-Sleep 12s
+Sleep 15s

@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Describe what dm-by-name does for sending DMs using display names'"
+Type "claude -p 'Send a DM to fiatjaf saying hello from the bray demo'"
 Enter
-Sleep 12s
+Sleep 15s

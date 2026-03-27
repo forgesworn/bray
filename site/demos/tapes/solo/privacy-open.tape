@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Open and reveal a privacy commitment given the original value and blinding factor'"
+Type "claude -p 'Create a privacy commitment for value 42, then open it to reveal the original value'"
 Enter
-Sleep 12s
+Sleep 15s

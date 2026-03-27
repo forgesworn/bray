@@ -1,6 +1,6 @@
 Set Shell "zsh"
 Set Width 1200
-Set Height 400
+Set Height 500
 Set Theme "Catppuccin Mocha"
 Set FontSize 16
 Set Padding 20
@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Describe what privacy-verify-range does for checking range proofs'"
+Type "claude -p 'Create a commitment for value 42, prove it is between 0 and 100, then verify the proof'"
 Enter
-Sleep 12s
+Sleep 20s

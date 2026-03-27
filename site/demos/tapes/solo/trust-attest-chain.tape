@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Describe what trust-attest-chain does for creating attestation chains'"
+Type "claude -p 'Build an attestation chain starting from the active identity through npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6'"
 Enter
-Sleep 12s
+Sleep 15s

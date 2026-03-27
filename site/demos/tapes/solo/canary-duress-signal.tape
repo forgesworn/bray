@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Describe what canary-duress-signal does for sending a silent duress alert'"
+Type "claude -p 'Send a test duress signal from the active identity'"
 Enter
-Sleep 12s
+Sleep 15s

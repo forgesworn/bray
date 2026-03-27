@@ -1,6 +1,6 @@
 Set Shell "zsh"
 Set Width 1200
-Set Height 400
+Set Height 500
 Set Theme "Catppuccin Mocha"
 Set FontSize 16
 Set Padding 20
@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Describe what trust-revoke does for revoking attestations'"
+Type "claude -p 'Create a trust attestation for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 as a tester, then revoke it'"
 Enter
-Sleep 12s
+Sleep 20s

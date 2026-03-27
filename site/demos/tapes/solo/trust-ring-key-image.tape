@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Describe what trust-ring-key-image does for computing key images'"
+Type "claude -p 'Compute the key image for the active identity'"
 Enter
 Sleep 12s

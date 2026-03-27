@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Create a range proof that a committed value is between 0 and 100'"
+Type "claude -p 'Create a commitment for value 42 and prove it is between 0 and 100'"
 Enter
-Sleep 12s
+Sleep 15s

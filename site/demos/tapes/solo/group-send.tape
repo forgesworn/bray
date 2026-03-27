@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Describe what group-send does for posting to NIP-29 groups'"
+Type "claude -p 'Send a message saying hello from bray demo to a NIP-29 group'"
 Enter
-Sleep 12s
+Sleep 15s
