@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Read the contents of the current vault'"
+Type "claude -p 'Read the contents of the default vault for the active identity'"
 Enter
-Sleep 12s
+Sleep 15s

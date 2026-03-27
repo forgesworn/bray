@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Create a standard backup of the current identity'"
+Type "claude -p 'Create a standard backup of the current identity including profile and contacts'"
 Enter
 Sleep 12s

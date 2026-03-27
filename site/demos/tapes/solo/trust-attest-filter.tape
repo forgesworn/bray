@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Describe what trust-attest-filter does for filtering attestations by criteria'"
+Type "claude -p 'Filter trust attestations for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 by type developer'"
 Enter
-Sleep 12s
+Sleep 15s

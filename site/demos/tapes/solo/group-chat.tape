@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'View recent messages in a NIP-29 group'"
+Type "claude -p 'View recent messages in a NIP-29 group on wss://groups.fiatjaf.com'"
 Enter
 Sleep 15s

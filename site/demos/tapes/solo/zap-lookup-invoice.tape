@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Look up the status of a lightning invoice'"
+Type "claude -p 'Create a lightning invoice for 100 sats and look up its status'"
 Enter
-Sleep 12s
+Sleep 15s

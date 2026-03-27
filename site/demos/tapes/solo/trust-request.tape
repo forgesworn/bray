@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Describe what trust-request does for requesting attestations from others'"
+Type "claude -p 'Send a trust attestation request to npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 asking for a developer attestation'"
 Enter
-Sleep 12s
+Sleep 15s

@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Describe what blossom-repair does for fixing missing blobs'"
+Type "claude -p 'Check for missing or corrupted blobs and attempt repair'"
 Enter
-Sleep 12s
+Sleep 15s

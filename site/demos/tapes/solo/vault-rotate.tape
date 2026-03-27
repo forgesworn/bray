@@ -1,6 +1,6 @@
 Set Shell "zsh"
 Set Width 1200
-Set Height 400
+Set Height 500
 Set Theme "Catppuccin Mocha"
 Set FontSize 16
 Set Padding 20
@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Describe what vault-rotate does for rotating vault keys'"
+Type "claude -p 'Create a vault and rotate its encryption keys to a new epoch'"
 Enter
-Sleep 12s
+Sleep 20s

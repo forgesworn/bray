@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Decode a lightning invoice to show its amount and destination'"
+Type "claude -p 'Create a lightning invoice for 50 sats and then decode it'"
 Enter
 Sleep 12s

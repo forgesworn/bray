@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Describe what identity-migrate does for moving to a new key'"
+Type "claude -p 'Generate a NIP-41 key migration event from the current identity to a new target pubkey 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d'"
 Enter
-Sleep 12s
+Sleep 15s
