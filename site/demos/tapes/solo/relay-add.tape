@@ -1,12 +1,12 @@
 Set Shell "zsh"
 Set Width 1200
-Set Height 600
+Set Height 400
 Set Theme "Catppuccin Mocha"
 Set FontSize 16
 Set Padding 20
 Set TypingSpeed 40ms
 
-Output gifs/01-identity-onboarding.gif
+Output gifs/relay-add.gif
 
 Hide
 Type "export PS1='user@bray:bray $ '"
@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Create a new Nostr identity, derive a persona called demo, switch to it, then check whoami'"
+Type "claude -p 'Add relay wss://relay.snort.social to the relay list'"
 Enter
-Sleep 25s
+Sleep 12s

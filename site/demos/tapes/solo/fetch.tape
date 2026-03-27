@@ -1,12 +1,12 @@
 Set Shell "zsh"
 Set Width 1200
-Set Height 600
+Set Height 400
 Set Theme "Catppuccin Mocha"
 Set FontSize 16
 Set Padding 20
 Set TypingSpeed 40ms
 
-Output gifs/01-identity-onboarding.gif
+Output gifs/fetch.gif
 
 Hide
 Type "export PS1='user@bray:bray $ '"
@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Create a new Nostr identity, derive a persona called demo, switch to it, then check whoami'"
+Type "claude -p 'Fetch the latest kind-0 profile event for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6'"
 Enter
-Sleep 25s
+Sleep 12s

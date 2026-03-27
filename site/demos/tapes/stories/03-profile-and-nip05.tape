@@ -6,7 +6,7 @@ Set FontSize 16
 Set Padding 20
 Set TypingSpeed 40ms
 
-Output gifs/01-identity-onboarding.gif
+Output gifs/03-profile-and-nip05.gif
 
 Hide
 Type "export PS1='user@bray:bray $ '"
@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Create a new Nostr identity, derive a persona called demo, switch to it, then check whoami'"
+Type "claude -p 'Set the profile display name to Demo Agent, then look up the NIP-05 address fiatjaf@fiatjaf.com and verify it'"
 Enter
 Sleep 25s

@@ -6,7 +6,7 @@ Set FontSize 16
 Set Padding 20
 Set TypingSpeed 40ms
 
-Output gifs/01-identity-onboarding.gif
+Output gifs/20-canary-session.gif
 
 Hide
 Type "export PS1='user@bray:bray $ '"
@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Create a new Nostr identity, derive a persona called demo, switch to it, then check whoami'"
+Type "claude -p 'Create a canary session for phone-based liveness verification, check the current session status, then verify the session'"
 Enter
 Sleep 25s
