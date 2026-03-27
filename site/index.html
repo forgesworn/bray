@@ -1971,8 +1971,90 @@
     const demoBody = document.getElementById('demoBody');
     const demoClose = document.getElementById('demoClose');
 
+    // Map tool tags to GIF filenames (story tools -> story GIFs, name fixes)
+    const gifMap = {
+      // Story 1: Identity Onboarding
+      'whoami': '01-identity-onboarding',
+      'identity-derive-persona': '01-identity-onboarding',
+      'identity-switch': '01-identity-onboarding',
+      // Story 2: Identity Backup
+      'identity-backup-shamir': '02-identity-backup',
+      // Story 3: Profile & NIP-05
+      'social-profile-set': '03-profile-and-nip05',
+      'nip05-lookup': '03-profile-and-nip05',
+      'nip05-verify': '03-profile-and-nip05',
+      // Story 4: Feed & Discovery
+      'social-notifications': '04-feed-and-discovery',
+      'contacts-follow': '04-feed-and-discovery',
+      // Story 5: Direct Messaging
+      'contacts-search': '05-direct-messaging',
+      'dm-send': '05-direct-messaging',
+      // Story 6: Public Engagement
+      'social-post': '06-public-engagement',
+      // Story 7: Trust Check
+      'signet-badge': '07-trust-check',
+      'trust-score': '07-trust-check',
+      // Story 8: Attestation
+      'signet-vouch': '08-attestation-and-vouching',
+      'trust-attest': '08-attestation-and-vouching',
+      // Story 9: Professional Verification
+      'signet-verifiers': '09-professional-verification',
+      'signet-policy-set': '09-professional-verification',
+      'signet-policy-check': '09-professional-verification',
+      // Story 10: Ring Signatures
+      'trust-ring-prove': '10-ring-signatures',
+      // Story 11: Spoken Verification
+      'trust-spoken-challenge': '11-spoken-verification',
+      // Story 12: Privacy Proofs
+      'privacy-commit': '12-privacy-proofs',
+      // Story 13: Vault Setup
+      'vault-create': '13-vault-setup',
+      'vault-encrypt': '13-vault-setup',
+      'vault-share': '13-vault-setup',
+      // Story 14: Relay Management
+      'relay-list': '14-relay-management',
+      'relay-set': '14-relay-management',
+      // Story 15: Relay Discovery
+      'relay-discover': '15-relay-discovery',
+      // Story 16: Content Moderation
+      'label-create': '16-content-moderation',
+      // Story 17: Marketplace
+      'marketplace-discover': '17-marketplace',
+      'marketplace-call': '17-marketplace',
+      // Story 18: Zap Workflow
+      'zap-balance': '18-zap-workflow',
+      'zap-make-invoice': '18-zap-workflow',
+      'zap-send': '18-zap-workflow',
+      // Story 25: Blossom Files
+      'blossom-upload': '25-blossom-files',
+      'blossom-list': '25-blossom-files',
+      'blossom-mirror': '25-blossom-files',
+      // Story 26: Relay Operator
+      'relay-info': '26-relay-operator',
+      'relay-count': '26-relay-operator',
+      'relay-auth': '26-relay-operator',
+      // Site name -> actual tool name fixes
+      'blossom-servers-get': 'blossom-servers',
+      'canary-create': 'canary-session-create',
+      'canary-check': 'canary-beacon-check',
+      'canary-renew': 'canary-session-verify',
+      'canary-revoke': 'canary-duress-signal',
+      'bookmark-add': 'list-bookmark',
+      'mute-add': 'list-mute-read',
+      'mute-list': 'list-mute-read',
+      'pin-add': 'list-pin-read',
+      'followset-create': 'list-followset-create',
+      'marketplace-publish': 'marketplace-announce',
+      'privacy-range-prove': 'privacy-prove-range',
+      'privacy-age-verify': '12-privacy-proofs',
+      'privacy-range-verify': 'privacy-verify-range',
+      'trust-attest-deep': 'trust-attest-chain',
+      'trust-ring-prove-deep': 'trust-ring-lsag-sign',
+    };
+
     function showDemo(toolName) {
-      const gifPath = 'demos/gifs/' + toolName + '.gif';
+      const gifName = gifMap[toolName] || toolName;
+      const gifPath = 'demos/gifs/' + gifName + '.gif';
       demoTitle.textContent = toolName;
       demoBody.innerHTML = '<div class="demo-modal-loading">loading demo...</div>';
       demoOverlay.classList.add('active');
