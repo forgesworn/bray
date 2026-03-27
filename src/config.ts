@@ -118,6 +118,26 @@ export async function loadConfig(): Promise<BrayConfig> {
     ? parseInt(process.env.VEIL_CACHE_MAX, 10)
     : 500
 
+  // Trust context cache
+  const trustCacheTtl = process.env.TRUST_CACHE_TTL
+    ? parseInt(process.env.TRUST_CACHE_TTL, 10) * 1000
+    : 300_000 // 5 minutes default
+  const trustCacheMax = process.env.TRUST_CACHE_MAX
+    ? parseInt(process.env.TRUST_CACHE_MAX, 10)
+    : 500
+
+  // Trust mode
+  const trustModeRaw = process.env.TRUST_MODE ?? 'annotate'
+  const trustMode = ['strict', 'annotate', 'off'].includes(trustModeRaw)
+    ? trustModeRaw as 'strict' | 'annotate' | 'off'
+    : 'annotate'
+
+  // Vault epoch length
+  const vaultEpochRaw = process.env.VAULT_EPOCH_LENGTH ?? 'weekly'
+  const vaultEpochLength = ['daily', 'weekly', 'monthly'].includes(vaultEpochRaw)
+    ? vaultEpochRaw as 'daily' | 'weekly' | 'monthly'
+    : 'weekly'
+
   // --- Clean up secrets from process.env ---
   delete process.env.NOSTR_SECRET_KEY
   delete process.env.NOSTR_SECRET_KEY_FILE
@@ -140,6 +160,10 @@ export async function loadConfig(): Promise<BrayConfig> {
     nip04Enabled,
     veilCacheTtl,
     veilCacheMax,
+    trustCacheTtl,
+    trustCacheMax,
+    trustMode,
+    vaultEpochLength,
     transport,
     port,
     bindAddress,
