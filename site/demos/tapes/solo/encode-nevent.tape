@@ -1,0 +1,23 @@
+Set Shell "zsh"
+Set Width 1200
+Set Height 400
+Set Theme "Catppuccin Mocha"
+Set FontSize 16
+Set Padding 20
+Set TypingSpeed 40ms
+
+Output gifs/encode-nevent.gif
+
+Hide
+Type "export PS1='darren@ForgeSworn.dev:bray $ '"
+Enter
+Type "alias claude=/Users/darren/WebstormProjects/bray/site/demos/bray-demo.sh"
+Enter
+Type "clear"
+Enter
+Sleep 0.5s
+Show
+
+Type "claude -p 'Encode hex event ID d4ea1b7ffb77c1fba9b84fda4e8d838db7a39c63a9bde3962a1cb13b2c4d50e3 with relay wss://relay.damus.io as an nevent'"
+Enter
+Sleep 12s

@@ -610,12 +610,130 @@
       color: var(--text-muted);
       padding: 0.2rem 0.5rem;
       border-radius: 3px;
-      transition: color 0.2s, border-color 0.2s;
+      transition: color 0.2s, border-color 0.2s, background 0.2s;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .tool-tag:hover {
+      color: var(--accent-gold) !important;
+      border-color: var(--accent-gold-dim) !important;
+      background: var(--accent-gold-glow);
+    }
+
+    .tool-tag::after {
+      content: '\25B6';
+      position: absolute;
+      right: -0.1rem;
+      top: -0.4rem;
+      font-size: 0.45rem;
+      color: var(--accent-gold);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .tool-tag:hover::after {
+      opacity: 1;
     }
 
     .feature-card:hover .tool-tag {
       color: var(--text-secondary);
       border-color: var(--border-medium);
+    }
+
+    /* Demo modal */
+    .demo-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      background: rgba(6, 6, 11, 0.92);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .demo-overlay.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .demo-modal {
+      position: relative;
+      max-width: 90vw;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .demo-modal-title {
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--accent-gold);
+      letter-spacing: 0.02em;
+    }
+
+    .demo-modal-gif {
+      border-radius: 8px;
+      border: 1px solid var(--border-medium);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+      max-width: 100%;
+      max-height: 70vh;
+      background: var(--bg-card);
+    }
+
+    .demo-modal-hint {
+      font-family: var(--font-body);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .demo-modal-close {
+      position: absolute;
+      top: -0.5rem;
+      right: -2rem;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.25rem;
+      cursor: pointer;
+      padding: 0.5rem;
+      transition: color 0.2s;
+    }
+
+    .demo-modal-close:hover {
+      color: var(--text-primary);
+    }
+
+    .demo-modal-loading {
+      width: 600px;
+      height: 250px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      border: 1px solid var(--border-medium);
+      background: var(--bg-card);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+    }
+
+    @media (max-width: 768px) {
+      .demo-modal-close {
+        right: 0;
+        top: -2rem;
+      }
+      .demo-modal-loading {
+        width: 90vw;
+        height: 200px;
+      }
     }
 
     /* ========================================
@@ -1834,7 +1952,58 @@
     </div>
   </footer>
 
+  <!-- Demo GIF modal -->
+  <div class="demo-overlay" id="demoOverlay">
+    <div class="demo-modal">
+      <button class="demo-modal-close" id="demoClose" aria-label="Close">&times;</button>
+      <span class="demo-modal-title" id="demoTitle"></span>
+      <div id="demoBody"></div>
+      <span class="demo-modal-hint">click anywhere to close</span>
+    </div>
+  </div>
+
   <script>
+    /* ========================================
+       DEMO GIF MODAL
+       ======================================== */
+    const demoOverlay = document.getElementById('demoOverlay');
+    const demoTitle = document.getElementById('demoTitle');
+    const demoBody = document.getElementById('demoBody');
+    const demoClose = document.getElementById('demoClose');
+
+    function showDemo(toolName) {
+      const gifPath = 'demos/gifs/' + toolName + '.gif';
+      demoTitle.textContent = toolName;
+      demoBody.innerHTML = '<div class="demo-modal-loading">loading demo...</div>';
+      demoOverlay.classList.add('active');
+
+      const img = new Image();
+      img.className = 'demo-modal-gif';
+      img.alt = toolName + ' demo';
+      img.onload = () => { demoBody.innerHTML = ''; demoBody.appendChild(img); };
+      img.onerror = () => { demoBody.innerHTML = '<div class="demo-modal-loading">no demo recorded yet</div>'; };
+      img.src = gifPath;
+    }
+
+    function closeDemo() {
+      demoOverlay.classList.remove('active');
+    }
+
+    demoOverlay.addEventListener('click', (e) => {
+      if (e.target === demoOverlay) closeDemo();
+    });
+    demoClose.addEventListener('click', closeDemo);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeDemo();
+    });
+
+    document.querySelectorAll('.tool-tag').forEach(tag => {
+      tag.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showDemo(tag.textContent.trim());
+      });
+    });
+
     /* ========================================
        NAVIGATION
        ======================================== */

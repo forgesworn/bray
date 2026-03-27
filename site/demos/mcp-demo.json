@@ -7,7 +7,7 @@
         "/Users/darren/WebstormProjects/bray/dist/index.js"
       ],
       "env": {
-        "NOSTR_SECRET_KEY_FILE": "/Users/darren/.nostr/secret.key",
+        "NOSTR_SECRET_KEY_FILE": "/Users/darren/.nostr/demo-bray.key",
         "NOSTR_RELAYS": "wss://relay.damus.io,wss://nos.lol"
       }
     }

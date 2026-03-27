@@ -4,17 +4,20 @@ Set Height 600
 Set Theme "Catppuccin Mocha"
 Set FontSize 16
 Set Padding 20
-Set TypingSpeed 50ms
+Set TypingSpeed 40ms
 
-Output whoami4.gif
+Output gifs/01-identity-onboarding.gif
 
 Hide
-Type "claude --bare --dangerously-skip-permissions --mcp-config /Users/darren/WebstormProjects/bray/site/demos/mcp-demo.json --system-prompt 'You are demonstrating the bray MCP server. Never mention the users name or any personal information. Be concise. Use only nostr-bray MCP tools.'"
+Type "export PS1='darren@ForgeSworn.dev:bray $ '"
 Enter
-Sleep 10s
+Type "alias claude=/Users/darren/WebstormProjects/bray/site/demos/bray-demo.sh"
+Enter
+Type "clear"
+Enter
+Sleep 0.5s
 Show
-Type "Use the whoami tool to check which identity is active"
+
+Type "claude -p 'Create a new Nostr identity, derive a persona called demo, switch to it, then check whoami'"
 Enter
-Sleep 20s
-Ctrl+C
-Sleep 2s
+Sleep 25s

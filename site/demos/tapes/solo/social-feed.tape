@@ -1,0 +1,23 @@
+Set Shell "zsh"
+Set Width 1200
+Set Height 400
+Set Theme "Catppuccin Mocha"
+Set FontSize 16
+Set Padding 20
+Set TypingSpeed 40ms
+
+Output gifs/social-feed.gif
+
+Hide
+Type "export PS1='darren@ForgeSworn.dev:bray $ '"
+Enter
+Type "alias claude=/Users/darren/WebstormProjects/bray/site/demos/bray-demo.sh"
+Enter
+Type "clear"
+Enter
+Sleep 0.5s
+Show
+
+Type "claude -p 'Show the global social feed with the 5 most recent notes'"
+Enter
+Sleep 15s
