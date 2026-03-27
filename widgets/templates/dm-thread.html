@@ -1,0 +1,203 @@
+<!doctype html>
+<meta charset="utf-8" />
+<style>
+  :root { --ink:#0f1111; --bg:#fff; --card-bg:#f8f9fa; --border:#e0e0e0; --accent:#6366f1; --self-bg:#e0e7ff; --partner-bg:#f8f9fa; --muted:#666; --warn:#f59e0b; color-scheme:light; }
+  :root.dark { --ink:#e6e6e6; --bg:#1a1a2e; --card-bg:#252540; --border:#3a3a5a; --accent:#818cf8; --self-bg:#312e81; --partner-bg:#252540; --muted:#9ca3af; --warn:#fbbf24; color-scheme:dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font: 16px/1.5 system-ui, sans-serif; background: var(--bg); color: var(--ink); padding: 0; display: flex; flex-direction: column; height: 100vh; }
+  .header { display: flex; align-items: center; gap: 10px; padding: 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .header .avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #666; }
+  .header .name { font-weight: 600; font-size: 15px; }
+  .header .npub { color: var(--muted); font-size: 11px; font-family: monospace; }
+  .messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .bubble { max-width: 80%; padding: 10px 14px; border-radius: 16px; font-size: 15px; line-height: 1.5; word-break: break-word; white-space: pre-wrap; }
+  .bubble.self { align-self: flex-end; background: var(--self-bg); border-bottom-right-radius: 4px; }
+  .bubble.partner { align-self: flex-start; background: var(--partner-bg); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .bubble-meta { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+  .bubble-time { color: var(--muted); font-size: 11px; }
+  .protocol-badge { font-size: 10px; padding: 1px 6px; border-radius: 6px; font-weight: 600; }
+  .protocol-badge.nip17 { background: var(--accent); color: #fff; }
+  .protocol-badge.nip04 { background: var(--warn); color: #000; }
+  .reply-bar { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .reply-bar input { flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); color: var(--ink); font-size: 15px; outline: none; }
+  .reply-bar input:focus { border-color: var(--accent); }
+  .reply-bar button { padding: 10px 18px; border: none; border-radius: 10px; background: var(--accent); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .reply-bar button:hover { opacity: 0.9; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 12px; flex: 1; display: flex; align-items: center; justify-content: center; }
+  .warning { background: var(--warn); color: #000; font-size: 12px; padding: 6px 12px; text-align: center; flex-shrink: 0; }
+</style>
+<div class="warning">Decrypted messages are processed by the hosting AI platform</div>
+<div id="header" class="header" style="display:none"></div>
+<div id="messages" class="messages"><div class="empty">Loading conversation...</div></div>
+<div id="reply-bar" class="reply-bar" style="display:none">
+  <input id="reply-input" type="text" placeholder="Type a message..." />
+  <button id="reply-send">Send</button>
+</div>
+<script type="module">
+/*__EXT_APPS_BUNDLE__*/
+const { App } = globalThis.ExtApps;
+
+(async () => {
+  const app = new App({ name: "DmThread", version: "1.0.0" }, {});
+  const headerEl = document.getElementById("header");
+  const messagesEl = document.getElementById("messages");
+  const replyBar = document.getElementById("reply-bar");
+  const replyInput = document.getElementById("reply-input");
+  const replyBtn = document.getElementById("reply-send");
+
+  let partnerPubkeyHex = null;
+
+  const PLACEHOLDER = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><circle cx="24" cy="24" r="24" fill="#666"/></svg>');
+
+  const applyTheme = (t) => document.documentElement.classList.toggle("dark", t === "dark");
+  app.onhostcontextchanged = (ctx) => applyTheme(ctx.theme);
+
+  app.ontoolresult = ({ content }) => {
+    try {
+      const data = JSON.parse(content[0].text);
+      if (data.messages !== undefined && data.partnerProfile !== undefined) {
+        render(data);
+      }
+    } catch (e) {
+      showMessage("Failed to parse message data.");
+    }
+  };
+
+  await app.connect();
+  const hostCtx = app.getHostContext();
+  if (hostCtx) applyTheme(hostCtx.theme);
+
+  function showMessage(msg) {
+    while (messagesEl.firstChild) messagesEl.removeChild(messagesEl.firstChild);
+    const el = document.createElement("div");
+    el.className = "empty";
+    el.textContent = msg;
+    messagesEl.appendChild(el);
+  }
+
+  function truncateNpub(npub) {
+    if (!npub || npub.length < 20) return npub;
+    return npub.slice(0, 10) + "\u2026" + npub.slice(-6);
+  }
+
+  function formatTime(ts) {
+    const d = new Date(ts * 1000);
+    const now = new Date();
+    if (d.toDateString() === now.toDateString()) {
+      return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    }
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
+      " " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function render(data) {
+    // Render header
+    while (headerEl.firstChild) headerEl.removeChild(headerEl.firstChild);
+    headerEl.style.display = "flex";
+
+    const partner = data.partnerProfile;
+    const avatar = document.createElement("img");
+    avatar.className = "avatar";
+    avatar.src = partner.pictureDataUri || PLACEHOLDER;
+    avatar.alt = "";
+
+    const info = document.createElement("div");
+    const nameEl = document.createElement("div");
+    nameEl.className = "name";
+    nameEl.textContent = partner.name || "Unknown";
+    const npubEl = document.createElement("div");
+    npubEl.className = "npub";
+    npubEl.textContent = truncateNpub(partner.npub);
+    info.appendChild(nameEl);
+    info.appendChild(npubEl);
+
+    headerEl.appendChild(avatar);
+    headerEl.appendChild(info);
+
+    // Render messages
+    while (messagesEl.firstChild) messagesEl.removeChild(messagesEl.firstChild);
+
+    if (data.messages.length === 0) {
+      showMessage("No messages yet.");
+      replyBar.style.display = "flex";
+      return;
+    }
+
+    for (const msg of data.messages) {
+      const bubble = document.createElement("div");
+      bubble.className = "bubble " + (msg.fromSelf ? "self" : "partner");
+      bubble.textContent = msg.content || "[could not decrypt]";
+
+      const meta = document.createElement("div");
+      meta.className = "bubble-meta";
+
+      const time = document.createElement("span");
+      time.className = "bubble-time";
+      time.textContent = formatTime(msg.createdAt);
+
+      const badge = document.createElement("span");
+      badge.className = "protocol-badge " + (msg.protocol === "nip17" ? "nip17" : "nip04");
+      badge.textContent = msg.protocol === "nip17" ? "NIP-17" : "NIP-04";
+      badge.title = msg.protocol === "nip17" ? "Gift-wrapped (private)" : "Legacy encryption (deprecated)";
+
+      meta.appendChild(time);
+      meta.appendChild(badge);
+
+      const wrapper = document.createElement("div");
+      wrapper.style.display = "flex";
+      wrapper.style.flexDirection = "column";
+      wrapper.style.alignItems = msg.fromSelf ? "flex-end" : "flex-start";
+      wrapper.appendChild(bubble);
+      wrapper.appendChild(meta);
+
+      messagesEl.appendChild(wrapper);
+    }
+
+    // Scroll to bottom
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    // Show reply bar
+    replyBar.style.display = "flex";
+  }
+
+  function sendReply() {
+    const message = replyInput.value.trim();
+    if (!message || !partnerPubkeyHex) return;
+    app.callServerTool("dm-send", { recipientPubkeyHex: partnerPubkeyHex, message: message });
+    replyInput.value = "";
+    // Refresh conversation after short delay
+    setTimeout(() => {
+      app.callServerTool("dm-thread-widget", { withPubkeyHex: partnerPubkeyHex });
+    }, 1500);
+  }
+
+  replyBtn.addEventListener("click", sendReply);
+  replyInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendReply();
+    }
+  });
+
+  // Extract partner pubkey from initial tool result for reply functionality
+  const origOntoolresult = app.ontoolresult;
+  app.ontoolresult = ({ content }) => {
+    try {
+      const data = JSON.parse(content[0].text);
+      if (data.partnerProfile && data.partnerProfile.npub) {
+        // We need hex, but we only have npub in the data. The tool was called with hex,
+        // so we store the npub and derive hex isn't possible client-side without nostr-tools.
+        // Instead, we store it from the tool arguments if we can parse them.
+      }
+      if (data._partnerPubkeyHex) {
+        partnerPubkeyHex = data._partnerPubkeyHex;
+      }
+      if (data.messages !== undefined && data.partnerProfile !== undefined) {
+        render(data);
+      }
+    } catch (e) {
+      showMessage("Failed to parse message data.");
+    }
+  };
+})();
+</script>
