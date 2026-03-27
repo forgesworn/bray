@@ -192,7 +192,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       recipientPubkeyHex,
       message,
       nip04,
-      nip04Enabled: false, // TODO: wire from config
+      nip04Enabled: deps.nip04Enabled ?? false,
       recipientRelay,
       nip65: deps.nip65,
     })
@@ -255,7 +255,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       recipientPubkeyHex: recipient.pubkey,
       message,
       nip04,
-      nip04Enabled: false,
+      nip04Enabled: deps.nip04Enabled ?? false,
       nip65: deps.nip65,
     })
 

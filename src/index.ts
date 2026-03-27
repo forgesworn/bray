@@ -45,7 +45,7 @@ const trust = new TrustContext(ctx as any, pool, {
   trustMode: config.trustMode,
 })
 
-export const deps = { ctx: ctx as any, pool, nip65, trust, nwcUri: config.nwcUri }
+export const deps = { ctx: ctx as any, pool, nip65, trust, nwcUri: config.nwcUri, nip04Enabled: config.nip04Enabled }
 
 ;(config as any).secretKey = ''
 ;(config as any).nwcUri = undefined
