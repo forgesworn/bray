@@ -6,6 +6,7 @@ import { toolResponse } from '../tool-response.js'
 import * as fmt from '../format.js'
 import { handleRelayList, handleRelaySet, handleRelayAdd, handleRelayInfo, handleRelayQuery } from './handlers.js'
 import { handleRelayCount } from './count.js'
+import { handleRelayAuth } from './auth.js'
 
 export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('relay-list', {
@@ -129,6 +130,19 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
     }
 
     const result = await handleRelayCount(relays, filter, poolQuery)
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    }
+  })
+
+  server.registerTool('relay-auth', {
+    description: 'Authenticate to a relay that requires NIP-42 AUTH. Connects to the relay, waits for an AUTH challenge, signs a kind 22242 event, and sends it back. Returns { authenticated: true/false }. Use this when a relay-query fails due to AUTH requirements, then retry the query.',
+    inputSchema: {
+      relay: relayUrl.describe('Relay WebSocket URL to authenticate with'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ relay }) => {
+    const result = await handleRelayAuth(deps.ctx, relay)
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }
