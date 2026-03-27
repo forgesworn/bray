@@ -217,6 +217,52 @@ export async function handleNipList(): Promise<Array<{ number: number; title: st
 }
 
 /** Fetch a specific NIP's content from GitHub */
+// --- Tombstone ---
+
+export interface TombstoneResult {
+  kind: number
+  dTag: string
+  published: boolean
+  eventId?: string
+  message: string
+}
+
+/**
+ * Overwrite an addressable event (kind 30000-39999) with empty content.
+ * This effectively deletes it from relays that support NIP-01 replaceable semantics.
+ */
+export async function handleTombstone(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: { kind: number; dTag: string },
+): Promise<TombstoneResult> {
+  if (args.kind < 30000 || args.kind > 39999) {
+    throw new Error(`Tombstone only works for addressable events (kind 30000-39999), got ${args.kind}`)
+  }
+
+  const sign = ctx.getSigningFunction()
+  const event = await sign({
+    kind: args.kind,
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [['d', args.dTag]],
+    content: '',
+  })
+
+  const result = await pool.publish(ctx.activeNpub, event)
+
+  return {
+    kind: args.kind,
+    dTag: args.dTag,
+    published: result.success,
+    eventId: event.id,
+    message: result.success
+      ? `Tombstoned kind ${args.kind} d:${args.dTag} -- relays will replace the old event with empty content`
+      : `Failed to publish tombstone: ${result.errors.join(', ')}`,
+  }
+}
+
+// --- NIP Show ---
+
 export async function handleNipShow(number: number): Promise<{ number: number; content: string }> {
   const padded = String(number).padStart(2, '0')
   const response = await fetch(`https://raw.githubusercontent.com/nostr-protocol/nips/master/${padded}.md`, {

@@ -336,4 +336,35 @@ describe('util handlers', () => {
       vi.unstubAllGlobals()
     })
   })
+
+  describe('handleTombstone', () => {
+    it('publishes an empty replacement event for addressable kinds', async () => {
+      const { handleTombstone } = await import('../../src/util/handlers.js')
+      const { IdentityContext } = await import('../../src/context.js')
+      const ctx = new IdentityContext('nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8', 'nsec')
+      const pool = {
+        publish: vi.fn().mockResolvedValue({ success: true, accepted: ['wss://relay.test'], rejected: [], errors: [] }),
+      }
+
+      const result = await handleTombstone(ctx, pool as any, { kind: 30817, dTag: 'nip-broken' })
+      expect(result.published).toBe(true)
+      expect(result.kind).toBe(30817)
+      expect(result.dTag).toBe('nip-broken')
+      expect(result.message).toContain('Tombstoned')
+
+      const publishedEvent = pool.publish.mock.calls[0][1]
+      expect(publishedEvent.kind).toBe(30817)
+      expect(publishedEvent.content).toBe('')
+      expect(publishedEvent.tags).toEqual([['d', 'nip-broken']])
+    })
+
+    it('rejects non-addressable kinds', async () => {
+      const { handleTombstone } = await import('../../src/util/handlers.js')
+      const { IdentityContext } = await import('../../src/context.js')
+      const ctx = new IdentityContext('nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8', 'nsec')
+      const pool = { publish: vi.fn() }
+
+      await expect(handleTombstone(ctx, pool as any, { kind: 1, dTag: 'test' })).rejects.toThrow(/addressable/)
+    })
+  })
 })

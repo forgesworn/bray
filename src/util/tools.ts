@@ -20,6 +20,7 @@ import {
   handleFilter,
   handleNipList,
   handleNipShow,
+  handleTombstone,
 } from './handlers.js'
 
 export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
@@ -222,6 +223,18 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     annotations: { readOnlyHint: true },
   }, async ({ ncryptsec, password }) => {
     const result = handleKeyDecrypt(ncryptsec, password)
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('tombstone', {
+    description: 'Overwrite an addressable event (kind 30000-39999) with empty content, effectively deleting it from relays. Use this to clean up broken or stale replaceable events.',
+    inputSchema: {
+      kind: z.number().min(30000).max(39999).describe('Event kind (must be addressable: 30000-39999)'),
+      dTag: z.string().describe('The d-tag value of the event to tombstone'),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true },
+  }, async ({ kind, dTag }) => {
+    const result = await handleTombstone(deps.ctx, deps.pool, { kind, dTag })
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 }
