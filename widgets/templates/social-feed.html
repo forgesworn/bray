@@ -1,0 +1,142 @@
+<!doctype html>
+<meta charset="utf-8" />
+<style>
+  :root { --ink:#0f1111; --bg:#fff; --card-bg:#f8f9fa; --border:#e0e0e0; --accent:#6366f1; --muted:#666; color-scheme:light; }
+  :root.dark { --ink:#e6e6e6; --bg:#1a1a2e; --card-bg:#252540; --border:#3a3a5a; --accent:#818cf8; --muted:#9ca3af; color-scheme:dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font: 16px/1.5 system-ui, sans-serif; background: var(--bg); color: var(--ink); padding: 12px; }
+  .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+  .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #666; }
+  .author-name { font-weight: 600; font-size: 15px; }
+  .timestamp { color: var(--muted); font-size: 13px; margin-left: auto; flex-shrink: 0; }
+  .card-content { font-size: 15px; line-height: 1.6; word-break: break-word; white-space: pre-wrap; }
+  .actions { display: flex; gap: 12px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .actions button { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 4px 12px; color: var(--ink); font-size: 13px; cursor: pointer; }
+  .actions button:hover { border-color: var(--accent); color: var(--accent); }
+  .load-more { display: block; width: 100%; padding: 10px; margin-top: 8px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; color: var(--accent); font-size: 14px; font-weight: 600; cursor: pointer; text-align: center; }
+  .load-more:hover { background: var(--accent); color: #fff; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 12px; }
+  .pubkey { color: var(--muted); font-size: 12px; font-family: monospace; }
+</style>
+<div id="root"><div class="empty">Loading feed...</div></div>
+<script type="module">
+/*__EXT_APPS_BUNDLE__*/
+const { App } = globalThis.ExtApps;
+
+(async () => {
+  const app = new App({ name: "SocialFeed", version: "1.0.0" }, {});
+  const root = document.getElementById("root");
+  let lastSince = undefined;
+
+  const PLACEHOLDER = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><circle cx="24" cy="24" r="24" fill="#666"/></svg>');
+
+  const applyTheme = (t) => document.documentElement.classList.toggle("dark", t === "dark");
+  app.onhostcontextchanged = (ctx) => applyTheme(ctx.theme);
+
+  app.ontoolresult = ({ content }) => {
+    try {
+      const data = JSON.parse(content[0].text);
+      render(data);
+    } catch (e) {
+      clearAndShowMessage("Failed to parse feed data.");
+    }
+  };
+
+  await app.connect();
+  const hostCtx = app.getHostContext();
+  if (hostCtx) applyTheme(hostCtx.theme);
+
+  function clearAndShowMessage(msg) {
+    while (root.firstChild) root.removeChild(root.firstChild);
+    const el = document.createElement("div");
+    el.className = "empty";
+    el.textContent = msg;
+    root.appendChild(el);
+  }
+
+  function relativeTime(ts) {
+    const diff = Math.floor(Date.now() / 1000) - ts;
+    if (diff < 60) return "just now";
+    if (diff < 3600) return Math.floor(diff / 60) + "m";
+    if (diff < 86400) return Math.floor(diff / 3600) + "h";
+    return Math.floor(diff / 86400) + "d";
+  }
+
+  function truncate(s, len) {
+    return s && s.length > len ? s.slice(0, len) + "\u2026" : s;
+  }
+
+  function render(data) {
+    if (!data.entries || data.entries.length === 0) {
+      clearAndShowMessage("No posts found.");
+      return;
+    }
+
+    while (root.firstChild) root.removeChild(root.firstChild);
+
+    for (const entry of data.entries) {
+      const card = document.createElement("div");
+      card.className = "card";
+
+      const header = document.createElement("div");
+      header.className = "card-header";
+
+      const avatar = document.createElement("img");
+      avatar.className = "avatar";
+      avatar.src = entry.authorPictureDataUri || PLACEHOLDER;
+      avatar.alt = "";
+
+      const nameEl = document.createElement("span");
+      nameEl.className = "author-name";
+      nameEl.textContent = entry.authorName || truncate(entry.pubkey, 16);
+
+      const timeEl = document.createElement("span");
+      timeEl.className = "timestamp";
+      timeEl.textContent = relativeTime(entry.createdAt);
+
+      header.appendChild(avatar);
+      header.appendChild(nameEl);
+      header.appendChild(timeEl);
+
+      const content = document.createElement("div");
+      content.className = "card-content";
+      content.textContent = entry.content;
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+
+      const replyBtn = document.createElement("button");
+      replyBtn.textContent = "Reply";
+      replyBtn.addEventListener("click", () => {
+        app.updateModelContext({ intent: "reply", eventId: entry.id, pubkey: entry.pubkey });
+      });
+
+      const zapBtn = document.createElement("button");
+      zapBtn.textContent = "Zap";
+      zapBtn.addEventListener("click", () => {
+        app.updateModelContext({ intent: "zap", eventId: entry.id, pubkey: entry.pubkey });
+      });
+
+      actions.appendChild(replyBtn);
+      actions.appendChild(zapBtn);
+
+      card.appendChild(header);
+      card.appendChild(content);
+      card.appendChild(actions);
+      root.appendChild(card);
+    }
+
+    if (data.pagination && data.pagination.nextSince) {
+      lastSince = data.pagination.nextSince;
+      const loadMore = document.createElement("button");
+      loadMore.className = "load-more";
+      loadMore.textContent = "Load more";
+      loadMore.addEventListener("click", () => {
+        app.callServerTool("social-feed-widget", { since: lastSince });
+      });
+      root.appendChild(loadMore);
+    }
+  }
+})();
+</script>
