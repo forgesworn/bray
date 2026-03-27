@@ -5,6 +5,8 @@ import { relayUrl } from '../validation.js'
 import { toolResponse } from '../tool-response.js'
 import * as fmt from '../format.js'
 import { handleRelayList, handleRelaySet, handleRelayAdd, handleRelayInfo, handleRelayQuery } from './handlers.js'
+import { handleRelayCount } from './count.js'
+import { handleRelayAuth } from './auth.js'
 
 export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('relay-list', {
@@ -63,11 +65,12 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
       until: z.number().int().optional().describe('Unix timestamp — only events created before this time'),
       limit: z.number().int().min(1).max(500).default(50).describe('Maximum number of events to return (default 50, max 500)'),
       relays: z.array(relayUrl).optional().describe('Explicit relay URLs to query (overrides identity relay set)'),
+      search: z.string().optional().describe('Full-text search query (NIP-50). Only works on relays that support NIP-50; others will ignore it.'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ kinds, authors, tags, since, until, limit, relays }) => {
+  }, async ({ kinds, authors, tags, since, until, limit, relays, search }) => {
     const events = await handleRelayQuery(deps.pool, deps.ctx.activeNpub, {
-      kinds, authors, tags, since, until, limit, relays,
+      kinds, authors, tags, since, until, limit, relays, search,
     })
     const summary = events.map(e => ({
       id: e.id,
@@ -95,6 +98,53 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
     const info = await handleRelayInfo(url)
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(info, null, 2) }],
+    }
+  })
+
+  server.registerTool('relay-count', {
+    description: 'Count events matching a filter without fetching them (NIP-45). Sends a COUNT request to each relay. Falls back to fetch-and-count (capped at 1000) if the relay does not support NIP-45. Results show per-relay counts with fallback/estimated flags.',
+    inputSchema: {
+      relays: z.array(relayUrl).describe('Relay URLs to count from'),
+      kinds: z.array(z.number().int()).optional().describe('Event kinds to filter by'),
+      authors: z.array(z.string()).optional().describe('Hex pubkeys of event authors'),
+      tags: z.record(z.string(), z.array(z.string())).optional().describe('Tag filters as key-value pairs'),
+      since: z.number().int().optional().describe('Unix timestamp lower bound'),
+      until: z.number().int().optional().describe('Unix timestamp upper bound'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ relays, kinds, authors, tags, since, until }) => {
+    const filter: Record<string, unknown> = {}
+    if (kinds?.length) filter.kinds = kinds
+    if (authors?.length) filter.authors = authors
+    if (since) filter.since = since
+    if (until) filter.until = until
+    if (tags) {
+      for (const [key, values] of Object.entries(tags)) {
+        const tagKey = key.startsWith('#') ? key : `#${key}`
+        filter[tagKey] = values
+      }
+    }
+
+    const poolQuery = async (urls: string[], f: Record<string, unknown>) => {
+      return deps.pool.queryDirect(urls, f as any)
+    }
+
+    const result = await handleRelayCount(relays, filter, poolQuery)
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    }
+  })
+
+  server.registerTool('relay-auth', {
+    description: 'Authenticate to a relay that requires NIP-42 AUTH. Connects to the relay, waits for an AUTH challenge, signs a kind 22242 event, and sends it back. Returns { authenticated: true/false }. Use this when a relay-query fails due to AUTH requirements, then retry the query.',
+    inputSchema: {
+      relay: relayUrl.describe('Relay WebSocket URL to authenticate with'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ relay }) => {
+    const result = await handleRelayAuth(deps.ctx, relay)
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }
   })
 }

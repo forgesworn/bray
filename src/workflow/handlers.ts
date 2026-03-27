@@ -1,4 +1,5 @@
 import { npubEncode } from 'nostr-tools/nip19'
+import { verifyNip05 } from '../identity/nip05.js'
 import { parseAttestation, attestationFilter } from 'nostr-attestations'
 import { verifyProof } from 'nostr-veil/proof'
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
@@ -509,22 +510,6 @@ function computeConfidence(
   return 'unknown'
 }
 
-/** Verify NIP-05 identifier against a pubkey */
-async function verifyNip05(pubkeyHex: string, nip05: string): Promise<boolean> {
-  try {
-    const [localPart, domain] = nip05.split('@')
-    if (!localPart || !domain) return false
-
-    const url = `https://${domain}/.well-known/nostr.json?name=${encodeURIComponent(localPart)}`
-    const resp = await fetch(url, { signal: AbortSignal.timeout(5_000) })
-    if (!resp.ok) return false
-
-    const json = await resp.json() as { names?: Record<string, string> }
-    return json.names?.[localPart] === pubkeyHex
-  } catch {
-    return false
-  }
-}
 
 // ---------------------------------------------------------------------------
 // 4. identity-setup

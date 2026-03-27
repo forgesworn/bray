@@ -133,6 +133,7 @@ export interface RelayQueryArgs {
   until?: number
   limit?: number
   relays?: string[]
+  search?: string
 }
 
 /** Query events from relays by arbitrary filter. Uses explicit relays if provided, otherwise the active identity's read relays. */
@@ -154,6 +155,11 @@ export async function handleRelayQuery(
       const tagKey = key.startsWith('#') ? key : `#${key}`
       ;(filter as Record<string, unknown>)[tagKey] = values
     }
+  }
+
+  // NIP-50 full-text search (only works on relays that support it)
+  if (args.search) {
+    ;(filter as Record<string, unknown>).search = args.search
   }
 
   if (args.relays?.length) {
