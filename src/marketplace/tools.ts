@@ -191,10 +191,11 @@ export function registerMarketplaceTools(server: McpServer, deps: ToolDeps): voi
       }
     }
 
-    // Pay via NWC (same as zap-send)
+    // Pay via NWC (same as zap-send) — resolve per-identity wallet
+    const { resolveNwcUri } = await import('../zap/handlers.js')
     const payResult = await handleZapSend(deps.ctx, deps.pool, {
       invoice,
-      nwcUri: deps.nwcUri,
+      nwcUri: resolveNwcUri(deps.ctx, deps.walletsFile, deps.nwcUri),
     })
 
     // Store credentials keyed by event ID (opaque to caller)

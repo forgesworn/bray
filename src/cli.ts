@@ -17,7 +17,7 @@ import { handleTrustAttest, handleTrustRead, handleTrustVerify, handleTrustRevok
 import { handleTrustRingProve, handleTrustRingVerify } from './trust/ring.js'
 import { handleTrustSpokenChallenge, handleTrustSpokenVerify } from './trust/spoken.js'
 import { handleDuressConfigure, handleDuressActivate } from './safety/handlers.js'
-import { handleZapSend, handleZapBalance, handleZapMakeInvoice, handleZapLookupInvoice, handleZapListTransactions, handleZapReceipts, handleZapDecode } from './zap/handlers.js'
+import { handleZapSend, handleZapBalance, handleZapMakeInvoice, handleZapLookupInvoice, handleZapListTransactions, handleZapReceipts, handleZapDecode, resolveNwcUri } from './zap/handlers.js'
 import { handleDecode, handleEncodeNpub, handleEncodeNote, handleEncodeNprofile, handleEncodeNevent, handleVerify, handleEncrypt, handleDecrypt, handleCount, handleFetch, handleKeyPublic, handleEncodeNsec, handleFilter, handleNipList, handleNipShow } from './util/handlers.js'
 import { handleKeyEncrypt, handleKeyDecrypt } from './util/ncryptsec.js'
 
@@ -251,7 +251,8 @@ if (config.bunkerUri) {
 } else {
   ctx = new IdentityContext(config.secretKey, config.secretFormat)
 }
-const nwcUri = config.nwcUri
+const globalNwcUri = config.nwcUri
+const walletsFile = config.walletsFile
 
 ;(config as any).secretKey = ''
 ;(config as any).nwcUri = undefined
@@ -620,29 +621,29 @@ async function run(cmdArgs: string[]): Promise<void> {
     // === Zap ===
 
     case 'zap-send':
-      out(await handleZapSend(ctx, pool, { invoice: req(1, 'zap-send <bolt11>'), nwcUri }))
+      out(await handleZapSend(ctx, pool, { invoice: req(1, 'zap-send <bolt11>'), nwcUri: resolveNwcUri(ctx, walletsFile, globalNwcUri) }))
       break
 
     case 'zap-balance':
-      out(await handleZapBalance(ctx, pool, { nwcUri }))
+      out(await handleZapBalance(ctx, pool, { nwcUri: resolveNwcUri(ctx, walletsFile, globalNwcUri) }))
       break
 
     case 'zap-invoice':
       out(await handleZapMakeInvoice(ctx, pool, {
         amountMsats: parseInt(req(1, 'zap-invoice <msats> [description]'), 10),
         description: cmdArgs[2],
-        nwcUri,
+        nwcUri: resolveNwcUri(ctx, walletsFile, globalNwcUri),
       }))
       break
 
     case 'zap-lookup':
-      out(await handleZapLookupInvoice(ctx, pool, { paymentHash: req(1, 'zap-lookup <payment-hash>'), nwcUri }))
+      out(await handleZapLookupInvoice(ctx, pool, { paymentHash: req(1, 'zap-lookup <payment-hash>'), nwcUri: resolveNwcUri(ctx, walletsFile, globalNwcUri) }))
       break
 
     case 'zap-transactions':
       out(await handleZapListTransactions(ctx, pool, {
         limit: parseInt(flag('limit', '10')!, 10),
-        nwcUri,
+        nwcUri: resolveNwcUri(ctx, walletsFile, globalNwcUri),
       }))
       break
 

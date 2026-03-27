@@ -138,6 +138,10 @@ export async function loadConfig(): Promise<BrayConfig> {
     ? vaultEpochRaw as 'daily' | 'weekly' | 'monthly'
     : 'weekly'
 
+  // --- Wallets file ---
+  const walletsFile = process.env.BRAY_WALLETS_FILE
+    ?? (process.env.HOME ? `${process.env.HOME}/.nostr/bray-wallets.json` : '')
+
   // --- Clean up secrets from process.env ---
   delete process.env.NOSTR_SECRET_KEY
   delete process.env.NOSTR_SECRET_KEY_FILE
@@ -155,6 +159,7 @@ export async function loadConfig(): Promise<BrayConfig> {
     relays,
     bunkerUri: bunkerUri ?? undefined,
     nwcUri,
+    walletsFile,
     torProxy,
     allowClearnetWithTor,
     nip04Enabled,

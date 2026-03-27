@@ -1,9 +1,52 @@
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { getConversationKey, encrypt, decrypt } from 'nostr-tools/nip44'
 import { finalizeEvent } from 'nostr-tools/pure'
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
+
+// --- Per-Identity Wallet Store ---
+
+interface WalletsData {
+  wallets: Record<string, string>
+}
+
+/** Load the wallets map from the JSON file. Returns empty map if file missing. */
+export function loadWallets(walletsFile: string): Record<string, string> {
+  if (!walletsFile || !existsSync(walletsFile)) return {}
+  try {
+    const data: WalletsData = JSON.parse(readFileSync(walletsFile, 'utf-8'))
+    return data.wallets ?? {}
+  } catch {
+    return {}
+  }
+}
+
+/** Save the wallets map to the JSON file. Creates parent dirs and sets 0600. */
+export function saveWallets(walletsFile: string, wallets: Record<string, string>): void {
+  const dir = dirname(walletsFile)
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 })
+  const data: WalletsData = { wallets }
+  writeFileSync(walletsFile, JSON.stringify(data, null, 2) + '\n', { mode: 0o600 })
+}
+
+/**
+ * Resolve the NWC URI for the active identity.
+ * 1. Per-identity wallet from wallets file
+ * 2. Global NWC URI (fallback)
+ * 3. undefined (no wallet configured)
+ */
+export function resolveNwcUri(
+  ctx: IdentityContext,
+  walletsFile: string,
+  globalNwcUri?: string,
+): string | undefined {
+  const pubkey = ctx.activePublicKeyHex
+  const wallets = loadWallets(walletsFile)
+  return wallets[pubkey] ?? globalNwcUri
+}
 
 // --- NWC Connection ---
 

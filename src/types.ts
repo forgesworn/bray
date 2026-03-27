@@ -39,6 +39,7 @@ export interface BrayConfig {
   readonly relays: string[]
   readonly bunkerUri?: string
   readonly nwcUri?: string
+  readonly walletsFile: string
   readonly torProxy?: string
   readonly allowClearnetWithTor: boolean
   readonly nip04Enabled: boolean

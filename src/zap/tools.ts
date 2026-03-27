@@ -9,9 +9,61 @@ import {
   handleZapMakeInvoice,
   handleZapLookupInvoice,
   handleZapListTransactions,
+  resolveNwcUri,
+  loadWallets,
+  saveWallets,
+  parseNwcUri,
 } from './handlers.js'
 
+/** Resolve the NWC URI for the active identity, with per-identity and global fallback */
+function getNwcUri(deps: ToolDeps): string | undefined {
+  return resolveNwcUri(deps.ctx, deps.walletsFile, deps.nwcUri)
+}
+
 export function registerZapTools(server: McpServer, deps: ToolDeps): void {
+  server.registerTool('zap-wallet-set', {
+    description: 'Set the NWC wallet URI for the active identity. Each persona can have its own Lightning wallet.',
+    inputSchema: {
+      nwcUri: z.string().describe('nostr+walletconnect:// URI for this identity'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ nwcUri }) => {
+    // Validate URI format
+    parseNwcUri(nwcUri)
+    const pubkey = deps.ctx.activePublicKeyHex
+    const npub = deps.ctx.activeNpub
+    const wallets = loadWallets(deps.walletsFile)
+    wallets[pubkey] = nwcUri
+    saveWallets(deps.walletsFile, wallets)
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({
+        ok: true,
+        identity: npub,
+        message: `Wallet configured for ${npub}`,
+      }, null, 2) }],
+    }
+  })
+
+  server.registerTool('zap-wallet-clear', {
+    description: 'Remove the NWC wallet for the active identity. Falls back to the global NWC_URI if set.',
+    annotations: { readOnlyHint: false },
+  }, async () => {
+    const pubkey = deps.ctx.activePublicKeyHex
+    const npub = deps.ctx.activeNpub
+    const wallets = loadWallets(deps.walletsFile)
+    const had = pubkey in wallets
+    delete wallets[pubkey]
+    saveWallets(deps.walletsFile, wallets)
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({
+        ok: true,
+        identity: npub,
+        removed: had,
+        message: had ? `Wallet removed for ${npub}` : `No wallet was set for ${npub}`,
+      }, null, 2) }],
+    }
+  })
+
   server.registerTool('zap-send', {
     description: 'Pay a Lightning invoice via Nostr Wallet Connect (NWC). SPENDS REAL SATS. Decodes the invoice and shows amount first — set confirm: true to execute payment.',
     inputSchema: {
@@ -32,7 +84,7 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
         }, null, 2) }],
       }
     }
-    const result = await handleZapSend(deps.ctx, deps.pool, { invoice, nwcUri: deps.nwcUri })
+    const result = await handleZapSend(deps.ctx, deps.pool, { invoice, nwcUri: getNwcUri(deps) })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({
         paid: true,
@@ -47,7 +99,7 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
     description: 'Request wallet balance via NWC. Sends a get_balance request to the wallet service.',
     annotations: { readOnlyHint: true },
   }, async () => {
-    const result = await handleZapBalance(deps.ctx, deps.pool, { nwcUri: deps.nwcUri })
+    const result = await handleZapBalance(deps.ctx, deps.pool, { nwcUri: getNwcUri(deps) })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({ id: result.event.id, publish: result.publish }, null, 2) }],
     }
@@ -62,7 +114,7 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
     annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ amountMsats, description }) => {
     const result = await handleZapMakeInvoice(deps.ctx, deps.pool, {
-      amountMsats, description, nwcUri: deps.nwcUri,
+      amountMsats, description, nwcUri: getNwcUri(deps),
     })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({ id: result.event.id, publish: result.publish }, null, 2) }],
@@ -78,7 +130,7 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
     annotations: { readOnlyHint: true },
   }, async ({ paymentHash, invoice }) => {
     const result = await handleZapLookupInvoice(deps.ctx, deps.pool, {
-      paymentHash, invoice, nwcUri: deps.nwcUri,
+      paymentHash, invoice, nwcUri: getNwcUri(deps),
     })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({ id: result.event.id, publish: result.publish }, null, 2) }],
@@ -94,7 +146,7 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
     annotations: { readOnlyHint: true },
   }, async ({ limit, offset }) => {
     const result = await handleZapListTransactions(deps.ctx, deps.pool, {
-      limit, offset, nwcUri: deps.nwcUri,
+      limit, offset, nwcUri: getNwcUri(deps),
     })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({ id: result.event.id, publish: result.publish }, null, 2) }],

@@ -24,6 +24,7 @@ export interface ToolDeps {
   pool: RelayPool
   nip65: Nip65Manager
   nwcUri?: string
+  walletsFile: string
   nip04Enabled?: boolean
   veilCacheTtl?: number
   veilCacheMax?: number
