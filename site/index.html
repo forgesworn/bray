@@ -1258,8 +1258,8 @@
           <span class="solution-number">6</span>
           <div>
             <h3>Gift-wrapped DMs by default</h3>
-            <p>NIP-17 gift wrapping hides sender, recipient, and conversation metadata. Optional Tor routing via SOCKS5h proxy for network-layer anonymity.</p>
-            <span class="solution-tag">NIP-17 + Tor</span>
+            <p>NIP-17 gift wrapping hides sender, recipient, and conversation metadata. No opt-in required; it is the default for every DM.</p>
+            <span class="solution-tag">NIP-17</span>
           </div>
         </div>
         <div class="solution-item">
@@ -1558,12 +1558,12 @@
         </div>
         <div class="trust-card">
           <svg class="trust-icon" viewBox="0 0 36 36" fill="none" stroke="var(--accent-blue)" stroke-width="1.5">
-            <circle cx="18" cy="18" r="14"/>
-            <path d="M18 4a14 14 0 010 28" stroke-dasharray="3 3"/>
-            <circle cx="18" cy="18" r="5"/>
+            <rect x="6" y="4" width="24" height="28" rx="3"/>
+            <path d="M12 14h12M12 19h8" stroke-linecap="round"/>
+            <circle cx="18" cy="27" r="2" fill="var(--accent-blue)"/>
           </svg>
-          <h3>Tor routing</h3>
-          <p>SOCKS5h proxy support for full Tor integration. When enabled, clearnet relays are blocked by default.</p>
+          <h3>NIP-46 bunker auth</h3>
+          <p>Your private key never leaves your signer. Bray connects via NIP-46 remote signing so the agent signs events without ever seeing the nsec.</p>
         </div>
         <div class="trust-card">
           <svg class="trust-icon" viewBox="0 0 36 36" fill="none" stroke="var(--accent-green)" stroke-width="1.5">
@@ -1663,7 +1663,7 @@
           <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Linkage proofs <span style="color: var(--text-muted); font-size: 0.75rem;">(blind + full)</span></div>
           <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">NWC Lightning payments</div>
           <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Test relay server + NIP-46 bunker</div>
-          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Tor routing <span style="color: var(--text-muted); font-size: 0.75rem;">(SOCKS5h)</span></div>
+          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">NIP-46 bunker auth <span style="color: var(--text-muted); font-size: 0.75rem;">(key never leaves signer)</span></div>
         </div>
         <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1.5rem; line-height: 1.6;">
           All bundled into a single MCP server with 106 tools, so an AI agent gets a complete trust-aware Nostr identity out of the box without stitching together multiple tools.
