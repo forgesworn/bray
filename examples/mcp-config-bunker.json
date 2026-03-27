@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "nostr": {
+      "command": "npx",
+      "args": ["nostr-bray"],
+      "env": {
+        "BUNKER_URI": "bunker://pubkey?relay=wss://relay.nsecbunker.com&secret=...",
+        "NOSTR_RELAYS": "wss://relay.damus.io,wss://nos.lol"
+      }
+    }
+  }
+}

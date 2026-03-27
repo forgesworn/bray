@@ -61,7 +61,7 @@ nostr-bray stands on the shoulders of the existing Nostr tooling:
 | Relay health monitoring | Detect dead or unreliable relays before they lose your data |
 | Contact list protection | Safety guard against accidental follow list destruction |
 
-It also bundles NWC Lightning payments, Tor routing (SOCKS5h), NIP-29 groups, and a full social toolkit (post, reply, DM, follow, feed) into a single MCP server with 90 tools, so an AI agent can get a complete Nostr identity out of the box without stitching together multiple tools.
+It also bundles NIP-46 bunker auth (your key never leaves the signer), NWC Lightning payments, NIP-29 groups, and a full social toolkit (post, reply, DM, follow, feed) into a single MCP server with 90 tools, so an AI agent can get a complete Nostr identity out of the box without stitching together multiple tools.
 
 ## Quick Start — CLI
 
@@ -319,8 +319,8 @@ Auth tier progression (safest to least safe): **bunker** > **ncryptsec** > **fil
 
 ## Documentation
 
-- **[Usage Guide](./docs/guide.md)** — walkthroughs for identity management, DMs, attestations, NWC payments, Tor, and duress
-- **[Examples](./examples/)** — MCP config files (basic, NWC, Tor) and a CLI workflow script
+- **[Usage Guide](./docs/guide.md)** — walkthroughs for identity management, DMs, attestations, NWC payments, and duress
+- **[Examples](./examples/)** — MCP config files (basic, NWC, bunker) and a CLI workflow script
 - **[Contributing](./CONTRIBUTING.md)** — setup, architecture, testing, and conventions
 
 ## For AI Assistants
