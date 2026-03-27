@@ -5,6 +5,7 @@ import { relayUrl } from '../validation.js'
 import { toolResponse } from '../tool-response.js'
 import * as fmt from '../format.js'
 import { handleRelayList, handleRelaySet, handleRelayAdd, handleRelayInfo, handleRelayQuery } from './handlers.js'
+import { handleRelayCount } from './count.js'
 
 export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('relay-list', {
@@ -96,6 +97,40 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
     const info = await handleRelayInfo(url)
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(info, null, 2) }],
+    }
+  })
+
+  server.registerTool('relay-count', {
+    description: 'Count events matching a filter without fetching them (NIP-45). Sends a COUNT request to each relay. Falls back to fetch-and-count (capped at 1000) if the relay does not support NIP-45. Results show per-relay counts with fallback/estimated flags.',
+    inputSchema: {
+      relays: z.array(relayUrl).describe('Relay URLs to count from'),
+      kinds: z.array(z.number().int()).optional().describe('Event kinds to filter by'),
+      authors: z.array(z.string()).optional().describe('Hex pubkeys of event authors'),
+      tags: z.record(z.string(), z.array(z.string())).optional().describe('Tag filters as key-value pairs'),
+      since: z.number().int().optional().describe('Unix timestamp lower bound'),
+      until: z.number().int().optional().describe('Unix timestamp upper bound'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ relays, kinds, authors, tags, since, until }) => {
+    const filter: Record<string, unknown> = {}
+    if (kinds?.length) filter.kinds = kinds
+    if (authors?.length) filter.authors = authors
+    if (since) filter.since = since
+    if (until) filter.until = until
+    if (tags) {
+      for (const [key, values] of Object.entries(tags)) {
+        const tagKey = key.startsWith('#') ? key : `#${key}`
+        filter[tagKey] = values
+      }
+    }
+
+    const poolQuery = async (urls: string[], f: Record<string, unknown>) => {
+      return deps.pool.queryDirect(urls, f as any)
+    }
+
+    const result = await handleRelayCount(relays, filter, poolQuery)
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }
   })
 }
