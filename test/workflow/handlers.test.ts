@@ -10,6 +10,7 @@ import {
   handleIdentitySetup,
   handleIdentityRecover,
   handleRelayHealth,
+  handleOnboardVerified,
 } from '../../src/workflow/handlers.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
@@ -18,6 +19,23 @@ const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364
 const ALICE = 'a'.padEnd(64, 'a')
 const BOB = 'b'.padEnd(64, 'b')
 const CAROL = 'c'.padEnd(64, 'c')
+
+function mockTrustContext() {
+  return {
+    assess: vi.fn().mockResolvedValue({
+      pubkey: BOB, npub: 'npub1test',
+      verification: { tier: null, score: 0, credentials: 0, expired: false },
+      proximity: { distance: -1, wotScore: 0, endorsements: 0, ringEndorsements: 0, mutualFollows: 0 },
+      access: { vaultTiers: [], theirVaultTiers: [], canDecrypt: false, currentEpoch: '2026-W13', revoked: false },
+      composite: { level: 'unknown', summary: 'no trust signals', flags: [] },
+    }),
+    mode: 'annotate',
+    signet: { assess: vi.fn(), clear: vi.fn() },
+    vault: { resolve: vi.fn(), clear: vi.fn() },
+    veil: { scorePubkey: vi.fn().mockResolvedValue({ score: 0, endorsements: 0, ringEndorsements: 0, flags: [] }) },
+    invalidate: vi.fn(),
+  }
+}
 
 function mockPool(overrides: Record<string, any> = {}) {
   return {
@@ -465,6 +483,38 @@ describe('workflow handlers', () => {
       } finally {
         rmSync(tmpDir, { recursive: true, force: true })
       }
+    })
+  })
+
+  // -----------------------------------------------------------------
+  // onboard-verified
+  // -----------------------------------------------------------------
+  describe('handleOnboardVerified', () => {
+    it('returns steps and current tier', async () => {
+      const pool = mockPool()
+      const trust = mockTrustContext()
+      const result = await handleOnboardVerified(ctx, pool as any, trust as any, {})
+      expect(result.currentTier).toBeNull()
+      expect(result.steps.length).toBeGreaterThanOrEqual(4)
+      expect(result.steps[0].action).toContain('self-declared')
+    })
+
+    it('marks steps as completed when tier is set', async () => {
+      const pool = mockPool()
+      const trust = mockTrustContext()
+      trust.assess.mockResolvedValue({
+        pubkey: BOB, npub: 'npub1test',
+        verification: { tier: 2, score: 40, credentials: 2, expired: false },
+        proximity: { distance: 1, wotScore: 20, endorsements: 2, ringEndorsements: 0, mutualFollows: true },
+        access: { vaultTiers: [], theirVaultTiers: [], canDecrypt: false, currentEpoch: '2026-W13', revoked: false },
+        composite: { level: 'known', summary: 'within follow graph', flags: [] },
+      })
+      const result = await handleOnboardVerified(ctx, pool as any, trust as any, {})
+      expect(result.currentTier).toBe(2)
+      expect(result.currentScore).toBe(40)
+      expect(result.steps[0].completed).toBe(true)  // Tier 1 done
+      expect(result.steps[1].completed).toBe(true)  // Tier 2 done
+      expect(result.steps[2].completed).toBe(false) // Tier 3 not yet
     })
   })
 
