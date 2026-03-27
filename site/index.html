@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>nostr-bray — Sovereign Nostr Identities for AI Agents</title>
-  <meta name="description" content="MCP server giving AI agents sovereign Nostr identities. 84 tools across 10 groups: hierarchical key derivation, personas, attestations, ring signatures, duress detection, Lightning zaps.">
+  <title>nostr-bray -- Trust-aware Nostr for AI and humans</title>
+  <meta name="description" content="Three dimensions of trust -- verification, proximity, and access -- woven into every interaction. 106 tools for identity, social, payments, moderation, and encrypted access control.">
   <meta name="theme-color" content="#0a0a0f">
-  <meta property="og:title" content="nostr-bray -- Sovereign Nostr Identities for AI Agents">
-  <meta property="og:description" content="MCP server giving AI agents sovereign Nostr identities. 84 tools: key derivation, personas, attestations, ring signatures, duress detection, Lightning zaps.">
+  <meta property="og:title" content="nostr-bray -- Trust-aware Nostr for AI and humans">
+  <meta property="og:description" content="Three dimensions of trust -- verification, proximity, and access -- woven into every interaction. 106 tools for identity, social, payments, moderation, and encrypted access control.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://github.com/forgesworn/nostr-bray">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="nostr-bray -- Sovereign Nostr Identities for AI Agents">
-  <meta name="twitter:description" content="84 tools for AI agents on Nostr. Hierarchical identities, ring signatures, Shamir recovery, duress personas, Lightning zaps.">
+  <meta name="twitter:title" content="nostr-bray -- Trust-aware Nostr for AI and humans">
+  <meta name="twitter:description" content="Three dimensions of trust -- verification, proximity, and access -- woven into every interaction. 106 tools for identity, social, payments, moderation, and encrypted access control.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a0f'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='%23e8a838' font-family='serif'>b</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -962,6 +962,9 @@
     .reveal-stagger.visible > *:nth-child(8) { transition-delay: 0.4s; }
     .reveal-stagger.visible > *:nth-child(9) { transition-delay: 0.45s; }
     .reveal-stagger.visible > *:nth-child(10) { transition-delay: 0.5s; }
+    .reveal-stagger.visible > *:nth-child(11) { transition-delay: 0.55s; }
+    .reveal-stagger.visible > *:nth-child(12) { transition-delay: 0.6s; }
+    .reveal-stagger.visible > *:nth-child(13) { transition-delay: 0.65s; }
 
     /* ========================================
        RESPONSIVE
@@ -1061,9 +1064,9 @@
     <div class="container">
       <div class="hero-content">
         <div class="hero-badge">MCP Server + CLI</div>
-        <h1>Sovereign Nostr identities for <em>AI&nbsp;agents</em></h1>
+        <h1>Trust-aware Nostr for <em>AI and humans</em></h1>
         <p class="hero-sub">
-          One master secret. Unlimited derived personas. Ring signatures, attestations, duress detection, Lightning zaps, gift-wrapped DMs &mdash; 84&nbsp;tools your agent wields as naturally as language.
+          Verification, proximity, and access -- three dimensions of trust, woven into every interaction. 106&nbsp;tools for identity, social, payments, moderation, and encrypted access control.
         </p>
         <div class="hero-actions">
           <div class="install-block" id="installBlock" title="Click to copy">
@@ -1078,16 +1081,16 @@
         </div>
         <div class="hero-stats">
           <div class="stat">
-            <span class="stat-value">84</span>
+            <span class="stat-value">106</span>
             <span class="stat-label">Tools</span>
           </div>
           <div class="stat">
-            <span class="stat-value">10</span>
+            <span class="stat-value">13</span>
             <span class="stat-label">Groups</span>
           </div>
           <div class="stat">
-            <span class="stat-value">338</span>
-            <span class="stat-label">Tests</span>
+            <span class="stat-value">3</span>
+            <span class="stat-label">Trust Layers</span>
           </div>
           <div class="stat">
             <span class="stat-value">96%</span>
@@ -1104,30 +1107,30 @@
       <div class="section-divider">
         <span class="section-label">The Problem</span>
       </div>
-      <h2 class="reveal">Nostr is powerful.<br>Using it <em style="font-family:var(--font-display);color:var(--accent-red);">safely</em> is not.</h2>
+      <h2 class="reveal">Nostr has no <em style="font-family:var(--font-display);color:var(--accent-red);">trust layer</em>.</h2>
       <p class="text-muted reveal" style="max-width:640px;">
-        Every Nostr user &mdash; human or AI &mdash; faces the same structural risks. Most tools ignore them. Bray was built to solve them.
+        Pubkeys prove ownership. They do not prove identity, reputation, or intent. Every Nostr user -- human or AI -- runs into the same three gaps.
       </p>
       <div class="problem-grid reveal-stagger">
         <div class="problem-card">
-          <span class="problem-icon">&#x1F5DD;</span>
-          <h3>Key loss is permanent</h3>
-          <p>Lose your nsec, lose your identity forever. No recovery, no recourse. Your entire social graph, reputation, and history &mdash; gone.</p>
-        </div>
-        <div class="problem-card">
-          <span class="problem-icon">&#x1F4E8;</span>
-          <h3>DMs leak metadata</h3>
-          <p>Legacy NIP-04 DMs expose who is talking to whom. Relay operators see your social graph even if they cannot read the content.</p>
-        </div>
-        <div class="problem-card">
           <span class="problem-icon">&#x1F3AD;</span>
-          <h3>Impersonation is trivial</h3>
-          <p>Anyone can claim to be anyone. Without verifiable attestations, there is no way to prove identity claims are legitimate.</p>
+          <h3>Who is this person?</h3>
+          <p>Anyone can claim to be anyone. Impersonation is trivial. Without verifiable attestations, there is no way to tell a real person from a bot or an impostor.</p>
+        </div>
+        <div class="problem-card">
+          <span class="problem-icon">&#x1F4E1;</span>
+          <h3>Spam drowns everything</h3>
+          <p>Your Web of Trust lives in your head. There is no machine-readable social graph distance -- so every feed is a flood, and moderation is all-or-nothing.</p>
         </div>
         <div class="problem-card">
           <span class="problem-icon">&#x1F4CB;</span>
-          <h3>Contact lists get destroyed</h3>
-          <p>A malformed kind 3 event overwrites your entire follow list. One buggy client can erase years of curation in a single publish.</p>
+          <h3>No middle ground between public and private</h3>
+          <p>You can post publicly or encrypt to one person. There is no way to share content with a trusted tier -- members, subscribers, crew -- without bespoke infrastructure.</p>
+        </div>
+        <div class="problem-card">
+          <span class="problem-icon">&#x1F5DD;</span>
+          <h3>Key loss is permanent</h3>
+          <p>Lose your nsec, lose your identity forever. No recovery, no recourse. Your entire social graph, reputation, and history -- gone.</p>
         </div>
         <div class="problem-card">
           <span class="problem-icon">&#x1F6E1;</span>
@@ -1135,10 +1138,67 @@
           <p>If forced to hand over your key, the attacker gets everything. There is no way to comply under duress while signalling the situation.</p>
         </div>
         <div class="problem-card">
-          <span class="problem-icon">&#x1F4E1;</span>
-          <h3>Single-key architecture</h3>
-          <p>One key for all contexts. Your anonymous political posts are cryptographically linked to your professional identity.</p>
+          <span class="problem-icon">&#x1F4E8;</span>
+          <h3>AI agents have no identity</h3>
+          <p>AI agents share your key or generate throwaway ones. No hierarchy, no recovery, no context separation. The agent's actions are indistinguishable from yours.</p>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== THREE DIMENSIONS ====== -->
+  <section id="dimensions" style="background: var(--bg-deep);">
+    <div class="container">
+      <div class="section-divider">
+        <span class="section-label">The Answer</span>
+      </div>
+      <h2 class="reveal">Three dimensions of trust,<br>woven into every interaction.</h2>
+      <p class="text-muted reveal" style="max-width:640px;">
+        Bray combines three independent trust signals into a single, unified surface. Each dimension answers a different question.
+      </p>
+      <div class="trust-grid reveal-stagger" style="margin-top: 2.5rem;">
+
+        <div class="trust-card" style="border-color: rgba(232, 168, 56, 0.3); position: relative; overflow: hidden;">
+          <div style="position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--accent-gold); opacity: 0.8;"></div>
+          <svg class="trust-icon" viewBox="0 0 36 36" fill="none" stroke="var(--accent-gold)" stroke-width="1.5">
+            <circle cx="18" cy="12" r="6"/>
+            <path d="M6 30c0-6.627 5.373-12 12-12s12 5.373 12 12"/>
+            <path d="M26 8l2 2 4-4" stroke="var(--accent-green)" stroke-width="2"/>
+          </svg>
+          <div style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent-gold); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.4rem;">Verification</div>
+          <h3 style="margin-bottom: 0.35rem;">Are they real?</h3>
+          <p style="margin-bottom: 0.75rem;">Four-tier progressive identity verification via the Signet protocol. From simple self-declaration through peer vouches up to cryptographic attestation. Every claim is machine-verifiable, revocable, and auditable.</p>
+          <span class="solution-tag">Signet -- 7 tools</span>
+        </div>
+
+        <div class="trust-card" style="border-color: rgba(74, 158, 255, 0.3); position: relative; overflow: hidden;">
+          <div style="position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--accent-blue); opacity: 0.8;"></div>
+          <svg class="trust-icon" viewBox="0 0 36 36" fill="none" stroke="var(--accent-blue)" stroke-width="1.5">
+            <circle cx="10" cy="18" r="4"/>
+            <circle cx="26" cy="10" r="4"/>
+            <circle cx="26" cy="26" r="4"/>
+            <line x1="14" y1="16" x2="22" y2="12"/>
+            <line x1="14" y1="20" x2="22" y2="24"/>
+          </svg>
+          <div style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent-blue); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.4rem;">Proximity</div>
+          <h3 style="margin-bottom: 0.35rem;">Do I know them?</h3>
+          <p style="margin-bottom: 0.75rem;">Web of Trust graph distance and endorsement weight, computed from your follow graph. Filter feeds, weight replies, and make moderation decisions based on social proximity -- not platform policy.</p>
+          <span class="solution-tag" style="background: rgba(74, 158, 255, 0.1); color: var(--accent-blue);">WoT -- Trust group</span>
+        </div>
+
+        <div class="trust-card" style="border-color: rgba(167, 139, 250, 0.3); position: relative; overflow: hidden;">
+          <div style="position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--accent-purple); opacity: 0.8;"></div>
+          <svg class="trust-icon" viewBox="0 0 36 36" fill="none" stroke="var(--accent-purple)" stroke-width="1.5">
+            <rect x="4" y="16" width="28" height="16" rx="3"/>
+            <path d="M10 16V10a8 8 0 1116 0v6"/>
+            <circle cx="18" cy="25" r="2" fill="var(--accent-purple)"/>
+          </svg>
+          <div style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent-purple); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.4rem;">Access</div>
+          <h3 style="margin-bottom: 0.35rem;">What can they see?</h3>
+          <p style="margin-bottom: 0.75rem;">Epoch-based encrypted content tiers via the Dominion protocol. Share with members, subscribers, or a trusted crew -- without a server or a database. Keys rotate on epoch change. Revocation is instant.</p>
+          <span class="solution-tag" style="background: rgba(167, 139, 250, 0.1); color: var(--accent-purple);">Vault -- 8 tools</span>
+        </div>
+
       </div>
     </div>
   </section>
@@ -1149,21 +1209,45 @@
       <div class="section-divider">
         <span class="section-label">The Solution</span>
       </div>
-      <h2 class="reveal">Bray fixes each one</h2>
+      <h2 class="reveal">Three dimensions of trust</h2>
       <p class="text-muted reveal" style="max-width:600px;">
-        Not with workarounds &mdash; with proper cryptographic primitives, sane defaults, and an architecture built for hostile environments.
+        Not workarounds -- proper cryptographic primitives across three axes: who you are, how close you are, and what you can see.
       </p>
       <div class="solution-list">
         <div class="solution-item">
           <span class="solution-number">1</span>
           <div>
-            <h3>Hierarchical identity derivation</h3>
-            <p>One master secret generates unlimited child key pairs via nsec-tree. Derive personas for work, personal, anonymous use &mdash; each cryptographically independent.</p>
-            <span class="solution-tag">nsec-tree</span>
+            <h3>Progressive identity verification</h3>
+            <p>Seven Signet tools let any agent fetch, vouch, challenge, and enforce identity claims. Policy checks gate access by verification tier -- no hand-rolled logic required.</p>
+            <span class="solution-tag">Signet</span>
           </div>
         </div>
         <div class="solution-item">
           <span class="solution-number">2</span>
+          <div>
+            <h3>WoT-scored feeds and moderation</h3>
+            <p>Trust scores derived from your social graph weight every interaction. Filter spam by graph distance. Endorse peers. Surface content from people you actually know.</p>
+            <span class="solution-tag">trust-wot-score</span>
+          </div>
+        </div>
+        <div class="solution-item">
+          <span class="solution-number">3</span>
+          <div>
+            <h3>Encrypted access tiers</h3>
+            <p>Eight Vault tools create Dominion-encrypted content channels. Tiered keys are derived per epoch. Revoke a member's access and their old keys cannot decrypt new content.</p>
+            <span class="solution-tag">Vault</span>
+          </div>
+        </div>
+        <div class="solution-item">
+          <span class="solution-number">4</span>
+          <div>
+            <h3>Hierarchical identity derivation</h3>
+            <p>One master secret generates unlimited child key pairs via nsec-tree. Derive personas for work, personal, anonymous use -- each cryptographically independent.</p>
+            <span class="solution-tag">nsec-tree</span>
+          </div>
+        </div>
+        <div class="solution-item">
+          <span class="solution-number">5</span>
           <div>
             <h3>Shamir Secret Sharing recovery</h3>
             <p>Split your master secret into BIP-39 word shards. Distribute them to trusted parties. Any threshold subset reconstructs the original. No single point of failure.</p>
@@ -1171,7 +1255,7 @@
           </div>
         </div>
         <div class="solution-item">
-          <span class="solution-number">3</span>
+          <span class="solution-number">6</span>
           <div>
             <h3>Gift-wrapped DMs by default</h3>
             <p>NIP-17 gift wrapping hides sender, recipient, and conversation metadata. Optional Tor routing via SOCKS5h proxy for network-layer anonymity.</p>
@@ -1179,35 +1263,11 @@
           </div>
         </div>
         <div class="solution-item">
-          <span class="solution-number">4</span>
-          <div>
-            <h3>Verifiable attestations</h3>
-            <p>NIP-VA kind 31000 attestations let any pubkey vouch for claims about another. Machine-verifiable, revocable, and queryable. Ring signatures for anonymous group proofs.</p>
-            <span class="solution-tag">nostr-attestations</span>
-          </div>
-        </div>
-        <div class="solution-item">
-          <span class="solution-number">5</span>
-          <div>
-            <h3>Contact list snapshots</h3>
-            <p>Before any mutation to your follow list, bray fetches the current state. No more accidental overwrites. Your social graph is treated as precious data.</p>
-            <span class="solution-tag">contacts-get</span>
-          </div>
-        </div>
-        <div class="solution-item">
-          <span class="solution-number">6</span>
+          <span class="solution-number">7</span>
           <div>
             <h3>Duress personas</h3>
             <p>Configure an alternative identity that activates under coercion. Indistinguishable from a normal persona switch. The attacker cannot tell you have complied under duress.</p>
             <span class="solution-tag">canary-kit</span>
-          </div>
-        </div>
-        <div class="solution-item">
-          <span class="solution-number">7</span>
-          <div>
-            <h3>Per-persona relay isolation</h3>
-            <p>Each derived identity maintains its own relay set. Your anonymous persona never touches the same relays as your professional one. Context separation at the network layer.</p>
-            <span class="solution-tag">NIP-65</span>
           </div>
         </div>
         <div class="solution-item">
@@ -1228,9 +1288,9 @@
       <div class="section-divider">
         <span class="section-label">Tool Groups</span>
       </div>
-      <h2 class="reveal">84 tools. 10 groups.<br>One coherent surface.</h2>
+      <h2 class="reveal">106 tools. 13 groups.<br>One coherent surface.</h2>
       <p class="text-muted reveal" style="max-width:620px;">
-        Every tool operates as the active identity. Switch persona, and your posts, DMs, attestations, and payments all follow &mdash; no configuration changes needed.
+        Every tool operates as the active identity. Switch persona, and your posts, DMs, attestations, and payments all follow -- no configuration changes needed.
       </p>
       <div class="features-grid reveal-stagger">
 
@@ -1376,6 +1436,41 @@
           </div>
         </div>
 
+        <div class="feature-card" style="--card-accent: var(--accent-gold);">
+          <div class="feature-header">
+            <h3>Signet</h3>
+            <span class="feature-count">7 tools</span>
+          </div>
+          <p>Progressive identity verification. Fetch badges, issue vouches, run challenges, enforce policy. Four tiers from self-declaration to cryptographic attestation.</p>
+          <div class="feature-tools">
+            <span class="tool-tag">signet-badge</span>
+            <span class="tool-tag">signet-vouch</span>
+            <span class="tool-tag">signet-credentials</span>
+            <span class="tool-tag">signet-policy-check</span>
+            <span class="tool-tag">signet-policy-set</span>
+            <span class="tool-tag">signet-verifiers</span>
+            <span class="tool-tag">signet-challenge</span>
+          </div>
+        </div>
+
+        <div class="feature-card" style="--card-accent: var(--accent-purple);">
+          <div class="feature-header">
+            <h3>Vault</h3>
+            <span class="feature-count">8 tools</span>
+          </div>
+          <p>Epoch-based encrypted access control via Dominion. Create content tiers, manage members, rotate keys, revoke access -- without a server or a database.</p>
+          <div class="feature-tools">
+            <span class="tool-tag">vault-create</span>
+            <span class="tool-tag">vault-encrypt</span>
+            <span class="tool-tag">vault-share</span>
+            <span class="tool-tag">vault-read</span>
+            <span class="tool-tag">vault-revoke</span>
+            <span class="tool-tag">vault-members</span>
+            <span class="tool-tag">vault-config</span>
+            <span class="tool-tag">vault-rotate</span>
+          </div>
+        </div>
+
       </div>
     </div>
   </section>
@@ -1386,7 +1481,7 @@
       <div class="section-divider">
         <span class="section-label">How It Works</span>
       </div>
-      <h2 class="reveal">Two interfaces.<br>Same 84 tools.</h2>
+      <h2 class="reveal">Two interfaces.<br>Same 106 tools.</h2>
       <p class="text-muted reveal" style="max-width:580px;">
         Use bray as an MCP server for AI agents (Claude, Cursor, Windsurf) or as a standalone CLI. Both share the same handlers, the same identity engine, the same security guarantees.
       </p>
@@ -1505,6 +1600,8 @@
         </div>
       </div>
       <div class="crypto-deps reveal">
+        <span class="crypto-chip">signet-protocol</span>
+        <span class="crypto-chip">dominion-protocol</span>
         <span class="crypto-chip">nsec-tree</span>
         <span class="crypto-chip">@forgesworn/ring-sig</span>
         <span class="crypto-chip">@forgesworn/shamir-words</span>
@@ -1527,7 +1624,7 @@
       </div>
       <h2 class="reveal">Standing on shoulders</h2>
       <p class="text-muted reveal" style="max-width:700px;">
-        Bray stands on existing Nostr tooling &mdash; it does not replace nostr-tools or nak. It adds a narrow, opinionated identity layer on top.
+        Bray stands on existing Nostr tooling -- it does not replace nostr-tools or nak. It adds a narrow, opinionated identity layer on top.
       </p>
 
       <div class="ecosystem-cards reveal" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 2.5rem;">
@@ -1552,8 +1649,11 @@
 
       <div style="background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 2rem; margin-top: 1.5rem;" class="reveal">
         <h3 style="font-family: var(--font-display); font-size: 1.4rem; margin-bottom: 1rem; color: var(--accent-gold);">What bray adds</h3>
-        <p style="color: var(--text-secondary); line-height: 1.7; margin-bottom: 1.5rem;">A narrow set of capabilities that revolve around one theme: <strong style="color: var(--text-primary);">sovereign identity for AI agents.</strong></p>
+        <p style="color: var(--text-secondary); line-height: 1.7; margin-bottom: 1.5rem;">A narrow set of capabilities that revolve around one theme: <strong style="color: var(--text-primary);">trust-aware Nostr for AI and humans.</strong></p>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem;">
+          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Progressive identity verification <span style="color: var(--text-muted); font-size: 0.75rem;">(Signet)</span></div>
+          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Encrypted access tiers <span style="color: var(--text-muted); font-size: 0.75rem;">(Dominion Vault)</span></div>
+          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">WoT-scored feeds and moderation</div>
           <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Hierarchical identity derivation <span style="color: var(--text-muted); font-size: 0.75rem;">(nsec-tree)</span></div>
           <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Persona switching mid-session</div>
           <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Ring signatures <span style="color: var(--text-muted); font-size: 0.75rem;">(anonymous group proofs)</span></div>
@@ -1561,14 +1661,12 @@
           <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Duress detection <span style="color: var(--text-muted); font-size: 0.75rem;">(canary-kit)</span></div>
           <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Verifiable attestations <span style="color: var(--text-muted); font-size: 0.75rem;">(NIP-VA kind 31000)</span></div>
           <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Linkage proofs <span style="color: var(--text-muted); font-size: 0.75rem;">(blind + full)</span></div>
-          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Spoken verification tokens</div>
-          <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">WoT-scored feeds <span style="color: var(--text-muted); font-size: 0.75rem;">(nostr-veil)</span></div>
           <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">NWC Lightning payments</div>
           <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Test relay server + NIP-46 bunker</div>
           <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">Tor routing <span style="color: var(--text-muted); font-size: 0.75rem;">(SOCKS5h)</span></div>
         </div>
         <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1.5rem; line-height: 1.6;">
-          All bundled into a single MCP server with 90 tools, so an AI agent gets a complete Nostr identity out of the box without stitching together multiple tools.
+          All bundled into a single MCP server with 106 tools, so an AI agent gets a complete trust-aware Nostr identity out of the box without stitching together multiple tools.
         </p>
       </div>
     </div>
