@@ -44,6 +44,10 @@ export interface BrayConfig {
   readonly nip04Enabled: boolean
   readonly veilCacheTtl: number
   readonly veilCacheMax: number
+  readonly trustCacheTtl: number
+  readonly trustCacheMax: number
+  readonly trustMode: 'strict' | 'annotate' | 'off'
+  readonly vaultEpochLength: 'daily' | 'weekly' | 'monthly'
   readonly transport: 'stdio' | 'http'
   readonly port: number
   readonly bindAddress: string
