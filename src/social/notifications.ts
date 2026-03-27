@@ -5,6 +5,8 @@ import type { RelayPool } from '../relay-pool.js'
 import type { VeilScoring } from '../veil/scoring.js'
 import type { TrustMode } from '../veil/filter.js'
 import { filterByTrust } from '../veil/filter.js'
+import type { TrustContext, TrustAnnotation } from '../trust-context.js'
+import { toAnnotation } from '../trust-context.js'
 
 export interface Notification {
   id: string
@@ -27,6 +29,7 @@ export interface FeedEntry {
   createdAt: number
   tags: string[][]
   trustScore?: number
+  _trust?: TrustAnnotation
 }
 
 /** Fetch notifications (mentions, replies, reactions, zaps) for the active identity */
@@ -125,6 +128,7 @@ export async function handleFeed(
     limit?: number
     trust?: TrustMode
     _scoring?: VeilScoring
+    _trustCtx?: TrustContext
   },
 ): Promise<FeedEntry[]> {
   const events = await pool.query(ctx.activeNpub, {
@@ -134,10 +138,12 @@ export async function handleFeed(
     limit: opts.limit ?? 20,
   })
 
+  let results: FeedEntry[]
+
   if (opts._scoring && opts.trust !== 'off') {
     const scored = await opts._scoring.scoreEvents(events)
     const filtered = filterByTrust(scored, { mode: opts.trust ?? 'strict' })
-    return filtered.map(e => ({
+    results = filtered.map(e => ({
       id: e.id,
       pubkey: e.pubkey,
       content: e.content,
@@ -145,13 +151,22 @@ export async function handleFeed(
       tags: e.tags,
       trustScore: e._trustScore,
     }))
+  } else {
+    results = events.map(e => ({
+      id: e.id,
+      pubkey: e.pubkey,
+      content: e.content,
+      createdAt: e.created_at,
+      tags: e.tags,
+    }))
   }
 
-  return events.map(e => ({
-    id: e.id,
-    pubkey: e.pubkey,
-    content: e.content,
-    createdAt: e.created_at,
-    tags: e.tags,
-  }))
+  if (opts._trustCtx && opts._trustCtx.mode !== 'off') {
+    for (const item of results) {
+      const assessment = await opts._trustCtx.assess(item.pubkey)
+      item._trust = toAnnotation(assessment)
+    }
+  }
+
+  return results
 }
