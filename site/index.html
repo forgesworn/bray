@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>nostr-bray | Trust-aware Nostr for AI and humans</title>
-  <meta name="description" content="Three dimensions of trust: verification, proximity, and access. 106 tools for identity, social, payments, moderation, and encrypted access control.">
+  <meta name="description" content="Three dimensions of trust: verification, proximity, and access. 180+ tools for identity, social, payments, moderation, and encrypted access control.">
   <meta name="theme-color" content="#0a0a0f">
   <meta property="og:title" content="nostr-bray | Trust-aware Nostr for AI and humans">
-  <meta property="og:description" content="Three dimensions of trust: verification, proximity, and access. 106 tools for identity, social, payments, moderation, and encrypted access control.">
+  <meta property="og:description" content="Three dimensions of trust: verification, proximity, and access. 180+ tools for identity, social, payments, moderation, and encrypted access control.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://bray.forgesworn.dev">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="nostr-bray | Trust-aware Nostr for AI and humans">
-  <meta name="twitter:description" content="Three dimensions of trust: verification, proximity, and access. 106 tools for identity, social, payments, moderation, and encrypted access control.">
+  <meta name="twitter:description" content="Three dimensions of trust: verification, proximity, and access. 180+ tools for identity, social, payments, moderation, and encrypted access control.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a0f'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='%23e8a838' font-family='serif'>b</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1227,7 +1227,7 @@
           <div>
             <h3>WoT-scored feeds and moderation</h3>
             <p>Trust scores derived from your social graph weight every interaction. Filter spam by graph distance. Endorse peers. Surface content from people you actually know.</p>
-            <span class="solution-tag">trust-wot-score</span>
+            <span class="solution-tag">trust-score</span>
           </div>
         </div>
         <div class="solution-item">
@@ -1288,7 +1288,7 @@
       <div class="section-divider">
         <span class="section-label">Tool Groups</span>
       </div>
-      <h2 class="reveal">106 tools. 13 groups.<br>One coherent surface.</h2>
+      <h2 class="reveal">180+ tools. 17 groups.<br>One coherent surface.</h2>
       <p class="text-muted reveal" style="max-width:620px;">
         Every tool operates as the active identity. Switch persona, and your posts, DMs, attestations, and payments all follow. No configuration changes needed.
       </p>
@@ -1481,9 +1481,9 @@
       <div class="section-divider">
         <span class="section-label">How It Works</span>
       </div>
-      <h2 class="reveal">Two interfaces.<br>Same 106 tools.</h2>
+      <h2 class="reveal">Two interfaces.<br>Same engine.</h2>
       <p class="text-muted reveal" style="max-width:580px;">
-        Use bray as an MCP server for AI agents (Claude, Cursor, Windsurf) or as a standalone CLI. Both share the same handlers, the same identity engine, the same security guarantees.
+        Use bray as an MCP server for AI agents (Claude, Cursor, Windsurf) or as a standalone CLI. The MCP server exposes the full 180+ tools; the CLI surfaces the most common operations. Both share the same handlers, identity engine, and security guarantees.
       </p>
       <div class="how-grid reveal">
         <!-- MCP Server -->
@@ -1576,8 +1576,8 @@
           <svg class="trust-icon" viewBox="0 0 36 36" fill="none" stroke="var(--accent-purple)" stroke-width="1.5">
             <path d="M18 4l12 6v8c0 7-5 13-12 16C11 31 6 25 6 18v-8l12-6z"/>
           </svg>
-          <h3>No secrets in responses</h3>
-          <p>Tool responses never contain private keys or secret material. Shamir shards are written to files, not returned as text.</p>
+          <h3>Minimal secret exposure</h3>
+          <p>Tool responses never return raw private keys. Mnemonics are returned only during identity creation (store securely). Shamir shards are written to files, not returned as text.</p>
         </div>
         <div class="trust-card">
           <svg class="trust-icon" viewBox="0 0 36 36" fill="none" stroke="var(--accent-red)" stroke-width="1.5">
@@ -1666,7 +1666,7 @@
           <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">NIP-46 bunker auth <span style="color: var(--text-muted); font-size: 0.75rem;">(key never leaves signer)</span></div>
         </div>
         <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1.5rem; line-height: 1.6;">
-          All bundled into a single MCP server with 106 tools, so an AI agent gets a complete trust-aware Nostr identity out of the box without stitching together multiple tools.
+          All bundled into a single MCP server with 180+ tools, so an AI agent gets a complete trust-aware Nostr identity out of the box without stitching together multiple tools.
         </p>
       </div>
     </div>

@@ -7,8 +7,10 @@ import {
   defaultConfig,
   revokePubkey as dominionRevoke,
   addToTier,
+  KIND_VAULT_SHARE,
 } from 'dominion-protocol'
-import { buildVaultConfigEvent, buildVaultShareEvent } from 'dominion-protocol/nostr'
+import { buildVaultConfigEvent, buildVaultShareEvent, parseVaultShare } from 'dominion-protocol/nostr'
+import { getConversationKey, encrypt as nip44Encrypt, decrypt as nip44Decrypt } from 'nostr-tools/nip44'
 import { npubEncode, decode } from 'nostr-tools/nip19'
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { DominionConfig } from 'dominion-protocol'
@@ -41,6 +43,13 @@ export interface VaultReadResult {
   plaintext: string
   tier: string
   epoch: string
+}
+
+export interface VaultReadSharedResult {
+  plaintext: string
+  tier: string
+  epoch: string
+  sharedBy: string
 }
 
 export interface VaultRevokeResult {
@@ -178,6 +187,7 @@ export async function handleVaultShare(
   args: { tier: string; recipients: string[]; epoch?: string },
 ): Promise<VaultShareResult> {
   const privkeyHex = Buffer.from(ctx.activePrivateKey).toString('hex')
+  const privkeyBytes = Buffer.from(privkeyHex, 'hex')
   const epoch = args.epoch ?? getCurrentEpochId()
   const authorPubkeyHex = ctx.activePublicKeyHex
   const ck = deriveContentKey(privkeyHex, epoch, args.tier)
@@ -192,13 +202,17 @@ export async function handleVaultShare(
       const recipientHex = toHexPubkey(recipient)
 
       try {
+        // NIP-44 encrypt the content key to the recipient
+        const conversationKey = getConversationKey(privkeyBytes, recipientHex)
+        const encryptedCkHex = nip44Encrypt(ckHex, conversationKey)
+
         const template = buildVaultShareEvent(authorPubkeyHex, recipientHex, ckHex, epoch, args.tier)
         const sign = ctx.getSigningFunction()
         const event = await sign({
           kind: template.kind,
           created_at: template.created_at,
           tags: template.tags,
-          content: template.content,
+          content: encryptedCkHex, // encrypted, not the raw ckHex from the template
         })
 
         const result = await pool.publish(ctx.activeNpub, event)
@@ -214,6 +228,7 @@ export async function handleVaultShare(
     }
   } finally {
     ck.fill(0)
+    privkeyBytes.fill(0)
   }
 
   return { published, failed, recipients: successfulRecipients }
@@ -231,6 +246,57 @@ export function handleVaultRead(
     return { plaintext, tier: args.tier, epoch: args.epoch }
   } finally {
     ck.fill(0)
+  }
+}
+
+/** Fetch a shared vault key from relays, decrypt it, and use it to decrypt ciphertext. */
+export async function handleVaultReadShared(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: { ciphertext: string; authorPubkey: string; tier: string; epoch: string },
+): Promise<VaultReadSharedResult> {
+  const recipientHex = ctx.activePublicKeyHex
+  const authorHex = toHexPubkey(args.authorPubkey)
+  const privkeyHex = Buffer.from(ctx.activePrivateKey).toString('hex')
+  const privkeyBytes = Buffer.from(privkeyHex, 'hex')
+
+  try {
+    // Query for vault share events from the author for this tier+epoch addressed to us
+    const events = await pool.query(ctx.activeNpub, {
+      kinds: [KIND_VAULT_SHARE],
+      authors: [authorHex],
+      '#d': [`${args.epoch}:${args.tier}`],
+      '#p': [recipientHex],
+    } as any)
+
+    if (events.length === 0) {
+      throw new Error(`No vault share found from ${args.authorPubkey} for tier "${args.tier}" epoch "${args.epoch}"`)
+    }
+
+    // Use the most recent share event
+    const newest = (events as NostrEvent[]).reduce((a, b) =>
+      b.created_at > a.created_at ? b : a,
+    )
+
+    // NIP-44 decrypt the content key from the share event
+    const conversationKey = getConversationKey(privkeyBytes, authorHex)
+    const ckHex = nip44Decrypt(newest.content, conversationKey)
+
+    // Reconstruct the content key buffer and decrypt the ciphertext
+    const ck = Buffer.from(ckHex, 'hex')
+    try {
+      const plaintext = decrypt(args.ciphertext, ck)
+      return {
+        plaintext,
+        tier: args.tier,
+        epoch: args.epoch,
+        sharedBy: npubEncode(authorHex),
+      }
+    } finally {
+      ck.fill(0)
+    }
+  } finally {
+    privkeyBytes.fill(0)
   }
 }
 

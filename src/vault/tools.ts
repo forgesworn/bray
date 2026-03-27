@@ -6,6 +6,7 @@ import {
   handleVaultEncrypt,
   handleVaultShare,
   handleVaultRead,
+  handleVaultReadShared,
   handleVaultRevoke,
   handleVaultMembers,
   handleVaultConfig,
@@ -64,6 +65,20 @@ export function registerVaultTools(server: McpServer, deps: ToolDeps): void {
     annotations: { title: 'Vault Read', readOnlyHint: true },
   }, async (args) => {
     const result = handleVaultRead(deps.ctx, args)
+    return jsonResponse(result)
+  })
+
+  server.registerTool('vault-read-shared', {
+    description: 'Decrypt ciphertext using a vault key that was shared with you by another identity. Fetches the encrypted share event from relays, decrypts the content key via NIP-44, then decrypts the ciphertext. Use this when you are a recipient of vault-share, not the vault owner.',
+    inputSchema: {
+      ciphertext: z.string().describe('Encrypted ciphertext to decrypt'),
+      authorPubkey: z.string().describe('Pubkey (hex or npub) of the identity that shared the vault key'),
+      tier: z.string().describe('Access tier name the content was encrypted for'),
+      epoch: z.string().describe('Epoch ID that was used when encrypting'),
+    },
+    annotations: { title: 'Read Shared Vault', readOnlyHint: true, openWorldHint: true },
+  }, async (args) => {
+    const result = await handleVaultReadShared(deps.ctx, deps.pool, args)
     return jsonResponse(result)
   })
 

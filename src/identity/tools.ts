@@ -23,6 +23,7 @@ export interface ToolDeps {
   pool: RelayPool
   nip65: Nip65Manager
   nwcUri?: string
+  nip04Enabled?: boolean
   veilCacheTtl?: number
   veilCacheMax?: number
   trust?: TrustContext
@@ -85,6 +86,12 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
     annotations: { readOnlyHint: false },
   }, async ({ target, index }) => {
     const result = handleIdentitySwitch(deps.ctx, { target, index })
+
+    // Reload NIP-65 relay list for the new identity so the pool routes correctly
+    deps.nip65.loadForIdentity(result.npub).then(relays => {
+      deps.pool.reconfigure(result.npub, relays)
+    }).catch(e => console.error(`NIP-65 relay load failed for ${result.npub}:`, e.message))
+
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }

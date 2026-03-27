@@ -2,7 +2,7 @@
 
 **Trust-aware Nostr for AI and humans.**
 
-Three dimensions of trust -- verification, proximity, and access -- woven into every interaction. 106 tools for identity, social, payments, moderation, privacy, and encrypted access control.
+Three dimensions of trust -- verification, proximity, and access -- woven into every interaction. 180+ tools for identity, social, payments, moderation, privacy, and encrypted access control.
 
 | Dimension | Source | Question |
 |-----------|--------|----------|
@@ -16,7 +16,7 @@ Three dimensions of trust -- verification, proximity, and access -- woven into e
 [![licence](https://img.shields.io/npm/l/nostr-bray)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-ESM-blue)](./tsconfig.json)
 
-An MCP server that gives AI agents a full Nostr identity -- not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, duress detection, identity verification via Signet, and epoch-based encrypted access control via Dominion. 106 tools across 13 groups.
+An MCP server that gives AI agents a full Nostr identity -- not just a key pair, but a hierarchical identity tree with personas, attestations, ring signatures, encrypted DMs, duress detection, identity verification via Signet, and epoch-based encrypted access control via Dominion. 180+ tools across 17 groups.
 
 ## The Problem
 
@@ -36,7 +36,7 @@ identity-switch("master")          → back to master
 social-post("Back to main")       → signed by master npub
 ```
 
-This is not just key management — it is context isolation. Each persona has its own relay set, its own contact list, and its own attestation chain. Compromise one and the others remain intact.
+This is not just key management -- it is context isolation. Each persona loads its own NIP-65 relay list on switch, signs with its own key, and maintains its own attestation chain. Compromise one and the others remain intact.
 
 ## Relationship to the Nostr Ecosystem
 
@@ -61,7 +61,7 @@ nostr-bray stands on the shoulders of the existing Nostr tooling:
 | Relay health monitoring | Detect dead or unreliable relays before they lose your data |
 | Contact list protection | Safety guard against accidental follow list destruction |
 
-It also bundles NIP-46 bunker auth (your key never leaves the signer), NWC Lightning payments, NIP-29 groups, and a full social toolkit (post, reply, DM, follow, feed) into a single MCP server with 90 tools, so an AI agent can get a complete Nostr identity out of the box without stitching together multiple tools.
+It also bundles NIP-46 bunker auth (your key never leaves the signer), NWC Lightning payments, NIP-29 groups, and a full social toolkit (post, reply, DM, follow, feed) into a single MCP server, so an AI agent can get a complete Nostr identity out of the box without stitching together multiple tools.
 
 ## Quick Start — CLI
 
@@ -90,7 +90,7 @@ Add to your Claude/Cursor/Windsurf MCP config:
       "command": "npx",
       "args": ["nostr-bray"],
       "env": {
-        "NOSTR_BUNKER_URL": "bunker://...",
+        "BUNKER_URI": "bunker://...",
         "NOSTR_RELAYS": "wss://relay.damus.io,wss://nos.lol"
       }
     }
@@ -230,14 +230,15 @@ Auth tier progression (safest to least safe): **bunker** > **ncryptsec** > **fil
 | `signet-verifiers` | List trusted verifiers in the Signet network |
 | `signet-challenge` | Issue a Signet verification challenge |
 
-### Vault (8 tools) — epoch-based encrypted access control via Dominion
+### Vault (9 tools) — epoch-based encrypted access control via Dominion
 
 | Tool | Description |
 |------|-------------|
 | `vault-create` | Create an encrypted vault with Dominion epoch key |
 | `vault-encrypt` | Encrypt content into a vault |
 | `vault-share` | Share vault access with a pubkey at a given tier |
-| `vault-read` | Decrypt and read vault content |
+| `vault-read` | Decrypt and read vault content (own vault) |
+| `vault-read-shared` | Decrypt content using a vault key shared by another identity |
 | `vault-revoke` | Revoke a pubkey's vault access |
 | `vault-members` | List members and their access tiers |
 | `vault-config` | View or update vault configuration |
@@ -305,7 +306,7 @@ Auth tier progression (safest to least safe): **bunker** > **ncryptsec** > **fil
 
 | Variable | Description |
 |----------|-------------|
-| `NOSTR_BUNKER_URL` | NIP-46 bunker URL — safest option, key stays on your device |
+| `BUNKER_URI` | NIP-46 bunker URL — safest option, key stays on your device |
 | `NOSTR_SECRET_KEY` | nsec bech32, 64-char hex, or BIP-39 mnemonic |
 | `NOSTR_SECRET_KEY_FILE` | Path to secret key file (takes precedence over env var) |
 | `NOSTR_NCRYPTSEC` | NIP-49 encrypted key (requires `NOSTR_NCRYPTSEC_PASSWORD`) |

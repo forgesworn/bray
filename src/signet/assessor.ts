@@ -61,7 +61,7 @@ export class SignetAssessor {
       return empty
     }
 
-    const badge = await computeBadge(pubkey, events, { verifySignatures: false })
+    const badge = await computeBadge(pubkey, events, { verifySignatures: true })
     const credentials = events.filter(e => parseCredential(e) !== null)
     const vouches = events.filter(e => e.tags.some(t => t[0] === 'type' && t[1] === 'vouch'))
     const breakdown = computeTrustScore(pubkey, credentials, vouches)

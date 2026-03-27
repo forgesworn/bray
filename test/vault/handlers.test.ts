@@ -13,7 +13,7 @@ import {
 } from '../../src/vault/handlers.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
-const BOB = 'b'.padEnd(64, 'b')
+const BOB = '68680737c76dabb801cb2204f57dbe4e4579e4f710cd67dc1b4227592c81e9b5' // valid secp256k1 pubkey
 
 function mockPool(queryEvents: any[] = []) {
   return {
@@ -159,7 +159,7 @@ describe('vault handlers', () => {
 
     it('handles multiple recipients', async () => {
       const pool = mockPool()
-      const charlie = 'c'.padEnd(64, 'c')
+      const charlie = 'b95c249d84f417e3e395a127425428b540671cc15881eb828c17b722a53fc599'
       const result = await handleVaultShare(ctx, pool as any, {
         tier: 'family',
         recipients: [BOB, charlie],
@@ -242,7 +242,7 @@ describe('vault handlers', () => {
     })
 
     it('lists members from all tiers in the vault config', async () => {
-      const charlie = 'c'.padEnd(64, 'c')
+      const charlie = 'b95c249d84f417e3e395a127425428b540671cc15881eb828c17b722a53fc599'
       const config = {
         tiers: { friends: [BOB], family: [charlie] },
         individualGrants: [],
