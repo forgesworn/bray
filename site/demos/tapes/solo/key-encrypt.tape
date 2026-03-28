@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Encrypt the current identity private key with password demopassword using NIP-49'"
 Enter
-Sleep 12s
+Sleep 25s

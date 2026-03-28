@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Show details about NIP-17 private direct messages'"
 Enter
-Sleep 12s
+Sleep 25s

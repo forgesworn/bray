@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Derive a child identity with purpose payments from the root key'"
 Enter
-Sleep 12s
+Sleep 25s

@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Fetch a recent kind-1 event from relay wss://relay.damus.io and verify its signature'"
 Enter
-Sleep 15s
+Sleep 25s

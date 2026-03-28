@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Encrypt the message secret demo message using NIP-44 for our own pubkey, then decrypt the ciphertext back'"
 Enter
-Sleep 20s
+Sleep 25s

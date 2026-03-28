@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Create a self-label tagging the active identity as a developer'"
 Enter
-Sleep 12s
+Sleep 25s

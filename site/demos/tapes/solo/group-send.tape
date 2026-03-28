@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Send a message saying hello from bray demo to a NIP-29 group'"
 Enter
-Sleep 15s
+Sleep 25s

@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Create a linkable ring signature over a message, then verify it'"
 Enter
-Sleep 20s
+Sleep 25s

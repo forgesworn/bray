@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Generate an identity ownership proof for the active identity'"
 Enter
-Sleep 12s
+Sleep 25s

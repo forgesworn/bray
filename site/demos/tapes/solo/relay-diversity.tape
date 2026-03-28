@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Analyse relay diversity for the current relay set'"
 Enter
-Sleep 15s
+Sleep 25s

@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Generate a Signet verification challenge'"
 Enter
-Sleep 12s
+Sleep 25s

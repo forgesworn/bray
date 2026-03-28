@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Look up the profile for fiatjaf by name'"
 Enter
-Sleep 15s
+Sleep 25s

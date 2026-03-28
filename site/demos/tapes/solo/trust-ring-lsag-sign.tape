@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Create a linkable ring signature over the message bray demo with a 3-member ring'"
 Enter
-Sleep 15s
+Sleep 25s

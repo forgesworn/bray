@@ -14,6 +14,7 @@ echo "$PROMPT" | claude -p \
   --bare \
   --dangerously-skip-permissions \
   --mcp-config "$SCRIPT_DIR/mcp-demo.json" \
-  --system-prompt 'Be concise. No personal details.' \
+  --system-prompt 'Be concise. No personal details. Do not use markdown bold (**text**) in your responses.' \
   --allowedTools 'mcp__nostr-bray__*' \
-  2>/dev/null
+  2>/dev/null \
+  | sed 's/\*\*\([^*]*\)\*\*/\1/g'

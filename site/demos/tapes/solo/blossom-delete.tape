@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Upload a test blob to Blossom, then delete it'"
 Enter
-Sleep 20s
+Sleep 25s

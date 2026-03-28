@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'List all supported Nostr NIPs'"
 Enter
-Sleep 12s
+Sleep 25s

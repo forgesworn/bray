@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Check storage usage on Blossom servers'"
 Enter
-Sleep 12s
+Sleep 25s

@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Announce a new marketplace service offering translation for 100 sats per request'"
 Enter
-Sleep 15s
+Sleep 25s

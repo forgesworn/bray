@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Publish a kind-1 event with content hello from bray demo to wss://relay.damus.io'"
 Enter
-Sleep 15s
+Sleep 25s

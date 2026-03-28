@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Add relay wss://relay.snort.social to the relay list'"
 Enter
-Sleep 12s
+Sleep 25s

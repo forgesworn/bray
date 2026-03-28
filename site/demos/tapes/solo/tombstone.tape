@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Create a tombstone deletion event for event ID d4ea1b7ffb77c1fba9b84fda4e8d838db7a39c63a9bde3962a1cb13b2c4d50e3'"
 Enter
-Sleep 15s
+Sleep 25s

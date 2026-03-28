@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Count kind-1 events from the last hour on relay wss://relay.damus.io'"
 Enter
-Sleep 12s
+Sleep 25s

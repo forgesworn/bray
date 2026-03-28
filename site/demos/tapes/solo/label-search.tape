@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Search for events labelled as spam'"
 Enter
-Sleep 15s
+Sleep 25s

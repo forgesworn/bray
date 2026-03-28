@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Query relay wss://relay.damus.io for the 3 most recent kind-1 events'"
 Enter
-Sleep 15s
+Sleep 25s

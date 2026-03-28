@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'List members with access to the default vault'"
 Enter
-Sleep 15s
+Sleep 25s

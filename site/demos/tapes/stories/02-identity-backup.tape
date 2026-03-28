@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Restore an identity from these two Shamir shares: share 1 is cactus avoid frame machine next siren urge seven forest despair item miracle entry mountain shrimp whip trouble appear bulk improve ring mosquito speak item picture advance length and share 2 is cactus avoid pull grass inject runway matter unusual transfer zone cat spirit fly despair coil capital culture glance laptop middle group thank estate jelly obscure write abandon'"
+Type "claude -p 'Back up the current identity using Shamir secret sharing with a 2-of-3 threshold, then restore it from 2 shares'"
 Enter
 Sleep 25s

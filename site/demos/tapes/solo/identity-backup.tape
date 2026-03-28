@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Create a standard backup of the current identity including profile and contacts'"
 Enter
-Sleep 12s
+Sleep 25s

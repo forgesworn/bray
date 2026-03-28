@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Show the current safety configuration settings'"
 Enter
-Sleep 12s
+Sleep 25s

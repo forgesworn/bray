@@ -1,0 +1,5 @@
+FROM node:22-slim
+WORKDIR /app
+RUN npm install nostr-tools@2
+COPY nwc-bridge.mjs .
+CMD ["node", "nwc-bridge.mjs"]

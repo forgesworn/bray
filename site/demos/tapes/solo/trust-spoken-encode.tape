@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Encode a verification challenge as spoken words'"
 Enter
-Sleep 12s
+Sleep 25s

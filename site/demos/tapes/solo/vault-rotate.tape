@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Create a vault and rotate its encryption keys to a new epoch'"
 Enter
-Sleep 20s
+Sleep 25s

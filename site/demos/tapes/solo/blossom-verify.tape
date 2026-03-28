@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'List blobs on Blossom and verify their integrity'"
 Enter
-Sleep 15s
+Sleep 25s

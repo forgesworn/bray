@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Search for marketplace services and compare the first two side by side'"
 Enter
-Sleep 15s
+Sleep 25s

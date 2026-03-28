@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Build a Nostr filter for kind 1 events with limit 5 from the last 24 hours'"
 Enter
-Sleep 12s
+Sleep 25s

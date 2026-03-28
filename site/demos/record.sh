@@ -8,6 +8,7 @@
 #   ./record.sh <name>          Record a single demo by name (partial match)
 #   ./record.sh --list          List all tapes with recording status
 #   ./record.sh --optimise      Optimise existing GIFs with gifsicle
+#   ./record.sh --postprocess   Post-process GIFs (remove wait, add 5s hold)
 
 set -euo pipefail
 
@@ -28,6 +29,7 @@ while [[ $# -gt 0 ]]; do
     --solo)    MODE="solo"; shift ;;
     --list)    MODE="list"; shift ;;
     --optimise|--optimize) MODE="optimise"; shift ;;
+    --postprocess) MODE="postprocess"; shift ;;
     --help|-h)
       head -8 "$0" | tail -7 | sed 's/^# //'
       exit 0
@@ -74,7 +76,7 @@ collect_tapes() {
       tapes+=($(find "$TAPES_DIR" -name "*${FILTER}*.tape" 2>/dev/null | sort))
       ;;
   esac
-  echo "${tapes[@]}"
+  echo "${tapes[@]+"${tapes[@]}"}"
 }
 
 # Extract GIF name from tape path: tapes/stories/01-foo.tape -> 01-foo
@@ -154,6 +156,8 @@ record_tape() {
   # Run VHS (it reads Output directive from the tape)
   if vhs "$tape" 2>/dev/null; then
     if [[ -f "$GIFS_DIR/${name}.gif" ]]; then
+      # Post-process: remove wait frames, add 5s hold
+      "$SCRIPT_DIR/postprocess.sh" "$name" 2>/dev/null
       local size
       size=$(ls -lh "$GIFS_DIR/${name}.gif" | awk '{print $5}')
       echo -e "  ${GREEN}Done${NC} ${DIM}(${size})${NC}"
@@ -214,7 +218,8 @@ record_all() {
 
 # Dispatch
 case "$MODE" in
-  list)     list_tapes ;;
-  optimise) optimise_gifs ;;
-  *)        record_all ;;
+  list)        list_tapes ;;
+  optimise)    optimise_gifs ;;
+  postprocess) "$SCRIPT_DIR/postprocess.sh" "$FILTER" ;;
+  *)           record_all ;;
 esac

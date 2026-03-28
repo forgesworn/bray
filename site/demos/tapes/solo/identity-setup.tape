@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Run the identity-setup workflow to initialise a new identity'"
 Enter
-Sleep 15s
+Sleep 25s
