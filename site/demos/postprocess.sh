@@ -1,15 +1,15 @@
 #!/bin/bash
-# postprocess.sh -- Remove wait-for-response dead time from demo GIFs
+# postprocess.sh -- Trim demo GIFs for a smooth viewing experience
 #
-# Pattern: typing -> [long cursor blink wait] -> response -> [trailing idle]
-# Result:  typing -> 0.5s pause -> response -> 5s hold on last frame
+# What it does:
+#   1. Trim trailing idle frames after the response ends (keep 2s buffer)
+#   2. Compress any wait gap between typing and response
+#   3. Set 0.3s transition after Enter, 5s hold on last frame
 #
 # Usage:
 #   ./postprocess.sh                  Process all GIFs in gifs/
 #   ./postprocess.sh <name>           Process a single GIF by name
-#   ./postprocess.sh --dry-run        Show what would be done without changing files
-
-set -euo pipefail
+#   ./postprocess.sh --dry-run        Show what would be done
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GIFS_DIR="$SCRIPT_DIR/gifs"
@@ -25,133 +25,138 @@ while [[ $# -gt 0 ]]; do
 done
 
 GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-RED='\033[0;31m'
 DIM='\033[0;90m'
 BOLD='\033[1m'
 NC='\033[0m'
 
 if ! command -v gifsicle &>/dev/null; then
-  echo -e "${RED}Error: gifsicle not found. Install with: brew install gifsicle${NC}"
+  echo -e "\033[0;31mError: gifsicle not found. Install with: brew install gifsicle\033[0m"
   exit 1
 fi
-
-# Analyse a GIF and find the first response frame (first large content frame after typing)
-# Returns: "typing_end response_start last_frame" or "SKIP" if structure not detected
-analyse_gif() {
-  local gif="$1"
-  local info
-  info=$(gifsicle --info "$gif" 2>&1)
-
-  local total_frames
-  total_frames=$(echo "$info" | head -1 | grep -o '[0-9]* images' | awk '{print $1}')
-
-  if [[ -z "$total_frames" || "$total_frames" -lt 10 ]]; then
-    echo "SKIP"
-    return
-  fi
-
-  # Extract frame data: frame_num width height x y
-  # Frame 0 has no "at X,Y" (full canvas), others do. Filter to only "at" lines.
-  local frame_data
-  frame_data=$(echo "$info" | grep 'image #' | grep ' at ' | sed 's/.*image #\([0-9]*\) \([0-9]*\)x\([0-9]*\) at \([0-9]*\),\([0-9]*\) .*/\1 \2 \3 \4 \5/')
-
-  # Find typing end: last frame where content appears at y <= 30 (command line area)
-  # and the frame has substantial width (not just cursor)
-  local typing_end=-1
-  while IFS=' ' read -r n w h x y; do
-    # Typing frames are at y ~= 24, with progressive x positions
-    if [[ "$y" -le 30 && "$w" -gt 20 ]]; then
-      typing_end=$n
-    fi
-  done <<< "$frame_data"
-
-  if [[ "$typing_end" -lt 5 ]]; then
-    echo "SKIP"
-    return
-  fi
-
-  # Find response start: first frame with area > 500 at y > 30 after typing_end
-  local response_start=-1
-  while IFS=' ' read -r n w h x y; do
-    if [[ "$n" -gt "$typing_end" && "$y" -gt 30 && $((w * h)) -gt 500 ]]; then
-      response_start=$n
-      break
-    fi
-  done <<< "$frame_data"
-
-  if [[ "$response_start" -lt 0 ]]; then
-    echo "SKIP"
-    return
-  fi
-
-  local last_frame=$((total_frames - 1))
-  local wait_frames=$((response_start - typing_end - 1))
-
-  echo "$typing_end $response_start $last_frame $wait_frames"
-}
 
 process_gif() {
   local gif="$1"
   local name
   name=$(basename "$gif" .gif)
 
-  local result
-  result=$(analyse_gif "$gif")
+  local info
+  info=$(gifsicle --info "$gif" 2>&1)
 
-  if [[ "$result" == "SKIP" ]]; then
+  local total
+  total=$(echo "$info" | head -1 | grep -o '[0-9]* images' | awk '{print $1}')
+
+  if [[ -z "$total" ]] || [[ "$total" -lt 20 ]]; then
+    echo -e "  ${DIM}skip${NC}  ${name} (too few frames)"
+    return 0
+  fi
+
+  # Parse frames with positions
+  local frame_data
+  frame_data=$(echo "$info" | grep 'image #' | grep ' at ' | \
+    sed 's/.*image #\([0-9]*\) \([0-9]*\)x\([0-9]*\) at \([0-9]*\),\([0-9]*\) .*/\1 \2 \3 \4 \5/' || true)
+
+  if [[ -z "$frame_data" ]]; then
+    echo -e "  ${DIM}skip${NC}  ${name} (no frame data)"
+    return 0
+  fi
+
+  # Find Enter frame: biggest frame at y<=30
+  local enter_frame
+  enter_frame=$(echo "$frame_data" | awk '$5 <= 30 && $2*$3 > 5000 {last=$1} END {print last+0}')
+
+  # Find last content frame: last frame with area > 400
+  local last_content
+  last_content=$(echo "$frame_data" | awk '$2*$3 > 400 {last=$1} END {print last+0}')
+
+  # Find first response frame after Enter
+  local first_response
+  first_response=$(echo "$frame_data" | awk -v ef="$enter_frame" '$1 > ef && $5 > 30 && $2*$3 > 50 {print $1; exit}')
+  first_response=${first_response:-0}
+
+  if [[ "$enter_frame" -lt 5 ]] || [[ "$last_content" -lt "$enter_frame" ]]; then
     echo -e "  ${DIM}skip${NC}  ${name} (structure not detected)"
-    return
+    return 0
   fi
 
-  local typing_end response_start last_frame wait_frames
-  read -r typing_end response_start last_frame wait_frames <<< "$result"
-
-  if [[ "$wait_frames" -lt 5 ]]; then
-    echo -e "  ${DIM}skip${NC}  ${name} (only ${wait_frames} wait frames)"
-    return
+  # Calculate trims
+  local wait_gap=0
+  if [[ "$first_response" -gt 0 ]]; then
+    wait_gap=$((first_response - enter_frame - 1))
   fi
 
-  local delete_from=$((typing_end + 1))
-  local delete_to=$((response_start - 1))
+  local keep_until=$((last_content + 50))
+  if [[ "$keep_until" -ge "$((total - 1))" ]]; then
+    keep_until=$((total - 1))
+  fi
+  local trailing_cut=$((total - 1 - keep_until))
+
+  # Even if nothing to trim, still set delays for transition + hold
+  local needs_trim=false
+  if [[ "$wait_gap" -gt 10 ]] || [[ "$trailing_cut" -gt 10 ]]; then
+    needs_trim=true
+  fi
 
   if $DRY_RUN; then
-    echo -e "  ${YELLOW}would${NC} ${name}: delete #${delete_from}-${delete_to} (${wait_frames} wait frames)"
-    return
+    echo -e "  \033[0;33mwould\033[0m ${name}: cut ${trailing_cut} trailing, ${wait_gap} wait (frames: enter=#${enter_frame} resp=#${first_response} last=#${last_content}/${total})"
+    return 0
   fi
 
-  # Step 1: delete wait frames, then set transition pause and end hold
-  # After deletion, response is at typing_end+1. Output all frames with selective delays.
-  local tmp1
-  tmp1=$(mktemp /tmp/gif-pp-XXXXXX).gif
-  gifsicle "$gif" --delete "#${delete_from}-${delete_to}" -o "$tmp1" 2>/dev/null
+  local tmp
+  tmp=$(mktemp).gif
 
+  # Step 1: delete wait gap if > 10 frames
+  local shift=0
+  if $needs_trim && [[ "$wait_gap" -gt 10 ]] && [[ "$first_response" -gt 0 ]]; then
+    local gap_start=$((enter_frame + 1))
+    local gap_end=$((first_response - 1))
+    gifsicle "$gif" --delete "#${gap_start}-${gap_end}" -o "$tmp" 2>/dev/null || true
+    shift=$((gap_end - gap_start + 1))
+    cp "$tmp" "$gif"
+    total=$((total - shift))
+    last_content=$((last_content - shift))
+    keep_until=$((last_content + 50))
+    if [[ "$keep_until" -ge "$((total - 1))" ]]; then
+      keep_until=$((total - 1))
+    fi
+  fi
+
+  # Step 2: trim trailing idle
+  if $needs_trim && [[ "$keep_until" -lt "$((total - 2))" ]]; then
+    local del_start=$((keep_until + 1))
+    local del_end=$((total - 1))
+    gifsicle "$gif" --delete "#${del_start}-${del_end}" -o "$tmp" 2>/dev/null || true
+    cp "$tmp" "$gif"
+  fi
+
+  # Step 3: set delays
   local new_total
-  new_total=$(gifsicle --info "$tmp1" 2>&1 | head -1 | grep -o '[0-9]* images' | awk '{print $1}')
+  new_total=$(gifsicle --info "$gif" 2>&1 | head -1 | grep -o '[0-9]* images' | awk '{print $1}')
   local new_last=$((new_total - 1))
-  local response_idx=$((typing_end + 1))
 
-  # Output all frames: typing at original speed, transition pause, response at original, 5s hold
-  if [[ "$new_last" -gt "$response_idx" ]]; then
-    gifsicle "$tmp1" \
-      -d4 "#0-${typing_end}" \
-      -d50 "#${typing_end}" \
-      -d4 "#${response_idx}-$((new_last - 1))" \
-      -d500 "#${new_last}" \
-      -o "$gif" 2>/dev/null
-  else
-    gifsicle "$tmp1" \
-      -d4 "#0-${typing_end}" \
-      -d50 "#${typing_end}" \
-      -d500 "#${new_last}" \
-      -o "$gif" 2>/dev/null
+  if [[ "$enter_frame" -ge "$new_total" ]]; then
+    enter_frame=$((new_total - 2))
+  fi
+  local ef_next=$((enter_frame + 1))
+  if [[ "$ef_next" -gt "$((new_last - 1))" ]]; then
+    ef_next=$((new_last - 1))
   fi
 
-  rm -f "$tmp1"
+  if [[ "$new_last" -gt "$ef_next" ]]; then
+    gifsicle "$gif" \
+      -d4 "#0-${enter_frame}" \
+      -d30 "#${enter_frame}" \
+      -d4 "#${ef_next}-$((new_last - 1))" \
+      -d500 "#${new_last}" \
+      -o "$tmp" 2>/dev/null || true
+    mv "$tmp" "$gif"
+  fi
+
+  rm -f "$tmp"
 
   local new_size
   new_size=$(ls -lh "$gif" | awk '{print $5}')
-  echo -e "  ${GREEN}done${NC}  ${name}  ${DIM}(-${wait_frames} frames, ${new_size})${NC}"
+  echo -e "  ${GREEN}done${NC}  ${name}  ${DIM}(${new_size})${NC}"
+  return 0
 }
 
 # Collect GIFs
@@ -167,22 +172,15 @@ else
 fi
 
 if [[ ${#gifs[@]} -eq 0 ]]; then
-  echo -e "${RED}No GIFs found matching '${FILTER}'${NC}"
+  echo "No GIFs found matching '${FILTER}'"
   exit 1
 fi
 
-echo -e "${BOLD}Post-processing ${#gifs[@]} GIFs...${NC}\n"
+echo -e "${BOLD}Post-processing ${#gifs[@]} GIFs...${NC}"
+echo ""
 
-processed=0
-skipped=0
 for gif in "${gifs[@]}"; do
-  result=$(analyse_gif "$gif")
-  if [[ "$result" == "SKIP" ]]; then
-    ((skipped++))
-  else
-    ((processed++))
-  fi
   process_gif "$gif"
 done
 
-echo -e "\n${BOLD}Summary:${NC} ${GREEN}${processed}${NC} processed, ${DIM}${skipped}${NC} skipped"
+echo ""
