@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Use nip05-relays to look up the relay list for fiatjaf@fiatjaf.com'"
+Type "claude -p 'Use the nip05-relays tool to look up relays for the identifier fiatjaf@fiatjaf.com'"
 Enter
 Sleep 25s

@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Read published privacy proofs for the active identity'"
+Type "claude -p 'Use the privacy-read-proof tool to read published privacy proofs for the active identity'"
 Enter
 Sleep 25s

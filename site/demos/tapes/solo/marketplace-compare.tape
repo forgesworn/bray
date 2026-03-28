@@ -1,6 +1,6 @@
 Set Shell "zsh"
 Set Width 1200
-Set Height 400
+Set Height 600
 Set Theme "Catppuccin Mocha"
 Set FontSize 16
 Set Padding 20
@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Use marketplace-compare to compare marketplace services side by side'"
+Type "claude -p 'Use marketplace-announce to create two services: first with identifier demo-basic-translate, name Basic Translate, url https://api.example.com/basic, about Basic translation, pricing capability translate at 5 sats currency SAT, payment method l402. Second with identifier demo-pro-translate, name Pro Translate, url https://api.example.com/pro, about Premium translation, pricing capability translate at 15 sats currency SAT, payment method l402. Then use marketplace-compare to compare them side by side.'"
 Enter
-Sleep 25s
+Sleep 30s

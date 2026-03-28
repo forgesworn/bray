@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Create a commitment for value 42 and prove it is between 0 and 100'"
+Type "claude -p 'Use the privacy-prove-range tool to create a range proof that the value 42 is between 0 and 100'"
 Enter
 Sleep 25s
