@@ -177,7 +177,7 @@ tape solo "nip44-decrypt" 500 25 \
   "Encrypt the message secret demo message using NIP-44 for our own pubkey, then decrypt the ciphertext back"
 
 tape solo "key-public" 400 25 \
-  "Get the public key for the current active identity"
+  "Use the key-public tool to get the public key for the current active identity"
 
 tape solo "key-encrypt" 400 25 \
   "Encrypt the current identity private key with password demopassword using NIP-49"
@@ -196,14 +196,14 @@ tape solo "filter" 400 25 \
   "Build a Nostr filter for kind 1 events with limit 5 from the last 24 hours"
 
 tape solo "social-feed" 400 25 \
-  "Show the global social feed with the 5 most recent notes"
+  "Use the social-feed tool to fetch the 5 most recent global notes"
 
 # --- NIP Info ---
 tape solo "nip-list" 400 25 \
-  "List all supported Nostr NIPs"
+  "Use the nip-list tool to list all supported Nostr NIPs"
 
 tape solo "nip-show" 400 25 \
-  "Show details about NIP-17 private direct messages"
+  "Use the nip-show tool to look up NIP-17 private direct messages"
 
 # --- Identity Utilities ---
 tape solo "identity-derive" 400 25 \
@@ -245,7 +245,7 @@ tape solo "social-repost" 400 25 \
   "Fetch the latest note from npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 and repost it"
 
 tape solo "social-profile-get" 400 25 \
-  "Get the profile metadata for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
+  "Use the social-profile-get tool to fetch the profile for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
 
 tape solo "dm-by-name" 400 25 \
   "Send a DM to fiatjaf saying hello from the bray demo"
@@ -261,7 +261,7 @@ tape solo "profile-by-name" 400 25 \
 
 # --- Contacts ---
 tape solo "contacts-get" 400 25 \
-  "Get the contact list for the active identity"
+  "Use the contacts-get tool to fetch the contact list for the active identity"
 
 tape solo "contacts-unfollow" 500 25 \
   "Follow npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 then unfollow them"
@@ -280,13 +280,13 @@ tape solo "label-remove" 500 25 \
   "Create a label tagging a test event as review-needed, then remove that label"
 
 tape solo "list-mute-read" 400 25 \
-  "Read the current mute list"
+  "Use the list-mute-read tool to read the current mute list"
 
 tape solo "list-check-muted" 400 25 \
   "Check if pubkey 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d is muted"
 
 tape solo "list-pin-read" 400 25 \
-  "Read the current pinned notes list"
+  "Use the list-pin-read tool to read the current pinned notes"
 
 # --- Privacy ---
 tape solo "privacy-open" 400 25 \
@@ -381,7 +381,7 @@ tape solo "relay-diversity" 400 25 \
 
 # --- Safety ---
 tape solo "safety-configure" 400 25 \
-  "Show the current safety configuration settings"
+  "Use the safety-configure tool to show the current safety settings"
 
 tape solo "safety-activate" 400 25 \
   "Activate safety protections with the duress word pineapple"
@@ -400,7 +400,7 @@ tape solo "canary-duress-detect" 400 25 \
 
 # --- Vault Utilities ---
 tape solo "vault-read" 400 25 \
-  "Read the contents of the default vault for the active identity"
+  "Use the vault-read tool to read the contents of the default vault"
 
 tape solo "vault-read-shared" 500 25 \
   "Create a vault, encrypt a message, share it with npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6, then read the shared content"
@@ -412,7 +412,7 @@ tape solo "vault-members" 400 25 \
   "List members with access to the default vault"
 
 tape solo "vault-config" 400 25 \
-  "Show the current vault configuration"
+  "Use the vault-config tool to show the current vault configuration"
 
 tape solo "vault-rotate" 500 25 \
   "Create a vault and rotate its encryption keys to a new epoch"
@@ -466,7 +466,7 @@ tape solo "zap-receipts" 400 25 \
 
 # --- Blossom ---
 tape solo "blossom-check" 400 25 \
-  "Check if any blobs exist for the active identity on Blossom servers"
+  "Use the blossom-check tool to check if any blobs exist for the active identity"
 
 tape solo "blossom-delete" 500 25 \
   "Upload a test blob to Blossom, then delete it"
@@ -484,7 +484,7 @@ tape solo "blossom-usage" 400 25 \
   "Check storage usage on Blossom servers"
 
 tape solo "blossom-servers" 400 25 \
-  "Get the current Blossom server list"
+  "Use the blossom-servers tool to get the current Blossom server list"
 
 # --- Groups ---
 tape solo "group-info" 400 25 \

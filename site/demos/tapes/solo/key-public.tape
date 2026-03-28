@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Get the public key for the current active identity'"
+Type "claude -p 'Use the key-public tool to get the public key for the current active identity'"
 Enter
 Sleep 25s

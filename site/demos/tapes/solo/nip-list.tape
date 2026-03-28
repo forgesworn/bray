@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'List all supported Nostr NIPs'"
+Type "claude -p 'Use the nip-list tool to list all supported Nostr NIPs'"
 Enter
 Sleep 25s

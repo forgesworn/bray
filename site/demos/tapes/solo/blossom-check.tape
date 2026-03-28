@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Check if any blobs exist for the active identity on Blossom servers'"
+Type "claude -p 'Use the blossom-check tool to check if any blobs exist for the active identity'"
 Enter
 Sleep 25s
