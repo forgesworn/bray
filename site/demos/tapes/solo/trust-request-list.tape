@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'List pending trust attestation requests for the active identity'"
+Type "claude -p 'Use trust-request-list to list pending trust attestation requests for the active identity'"
 Enter
 Sleep 25s

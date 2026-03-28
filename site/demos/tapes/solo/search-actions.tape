@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Search for available actions related to identity management'"
+Type "claude -p 'Use search-actions to search for available actions related to identity management'"
 Enter
 Sleep 25s

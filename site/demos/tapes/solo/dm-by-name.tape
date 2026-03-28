@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Send a DM to fiatjaf saying hello from the bray demo'"
+Type "claude -p 'Use dm-send to send an encrypted DM to fiatjaf saying hello from the bray demo'"
 Enter
 Sleep 25s

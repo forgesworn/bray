@@ -207,86 +207,86 @@ tape solo "nip-show" 400 25 \
 
 # --- Identity Utilities ---
 tape solo "identity-derive" 400 25 \
-  "Derive a child identity with purpose payments from the root key"
+  "Use identity-derive to derive a child identity with purpose payments from the root key"
 
 tape solo "identity-list" 400 25 \
-  "List all derived identities and personas"
+  "Use identity-list to list all derived identities and personas"
 
 tape solo "identity-prove" 400 25 \
-  "Generate an identity ownership proof for the active identity"
+  "Use identity-prove to generate an ownership proof for the active identity"
 
 tape solo "identity-backup" 400 25 \
-  "Create a standard backup of the current identity including profile and contacts"
+  "Use identity-backup to create a portable backup of the current identity"
 
 tape solo "identity-restore" 500 25 \
-  "Back up the current identity profile, then restore it from that backup"
+  "Use identity-backup to back up the current identity, then use identity-restore to restore from it"
 
 tape solo "identity-migrate" 400 25 \
-  "Generate a NIP-41 key migration event from the current identity to a new target pubkey 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d"
+  "Use identity-migrate to generate a NIP-41 key migration event to pubkey 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d"
 
 tape solo "nip05-relays" 400 25 \
-  "Look up the relay list for NIP-05 address fiatjaf@fiatjaf.com"
+  "Use nip05-relays to look up the relay list for fiatjaf@fiatjaf.com"
 
 # --- Identity Workflows ---
 tape solo "identity-setup" 500 25 \
-  "Run the identity-setup workflow to initialise a new identity"
+  "Use identity-setup in preview mode to show what a multi-persona setup would create"
 
 tape solo "identity-recover" 500 25 \
-  "Run identity-recover to check recovery options for the active identity"
+  "Use identity-recover to check recovery options for the active identity"
 
 tape solo "onboard-verified" 500 25 \
-  "Run the onboard-verified workflow to set up a verified identity"
+  "Use onboard-verified to show the verified identity setup workflow"
 
 # --- Social Utilities ---
 tape solo "social-delete" 500 25 \
-  "Post a note saying test message for cleanup, then delete it"
+  "Use social-post to post a note saying test message for cleanup, then use social-delete to delete it"
 
 tape solo "social-repost" 400 25 \
-  "Fetch the latest note from npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 and repost it"
+  "Use social-repost to repost the latest note from npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
 
 tape solo "social-profile-get" 400 25 \
-  "Use the social-profile-get tool to fetch the profile for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
+  "Use social-profile-get to fetch the profile for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
 
 tape solo "dm-by-name" 400 25 \
-  "Send a DM to fiatjaf saying hello from the bray demo"
+  "Use dm-send to send an encrypted DM to fiatjaf saying hello from the bray demo"
 
 tape solo "dm-conversation" 400 25 \
-  "Read the DM conversation history with npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
+  "Use dm-read to check the encrypted DM inbox for the active identity"
 
 tape solo "feed-by-name" 400 25 \
-  "Show the recent feed for fiatjaf"
+  "Use feed-by-name to show the recent feed for fiatjaf"
 
 tape solo "profile-by-name" 400 25 \
-  "Look up the profile for fiatjaf by name"
+  "Use profile-by-name to look up the profile for fiatjaf"
 
 # --- Contacts ---
 tape solo "contacts-get" 400 25 \
-  "Use the contacts-get tool to fetch the contact list for the active identity"
+  "Use contacts-get to fetch the contact list for the active identity"
 
 tape solo "contacts-unfollow" 500 25 \
-  "Follow npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 then unfollow them"
+  "Use contacts-follow to follow npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6, then use contacts-unfollow to unfollow them"
 
 # --- Content Management ---
 tape solo "label-self" 400 25 \
-  "Create a self-label tagging the active identity as a developer"
+  "Use label-self to tag the active identity as a developer"
 
-tape solo "label-read" 400 25 \
-  "Read labels applied to npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
+tape solo "label-read" 500 25 \
+  "Use label-self to tag the active identity as a developer, then use label-read to read labels back"
 
 tape solo "label-search" 400 25 \
-  "Search for events labelled as spam"
+  "Use label-search to search for events labelled as developer"
 
 tape solo "label-remove" 500 25 \
-  "Create a label tagging a test event as review-needed, then remove that label"
+  "Use label-self to create a review-needed label, then use label-remove to remove it"
 
 tape solo "list-mute-read" 400 25 \
-  "Use the list-mute-read tool to read the current mute list"
+  "Use list-mute-read to read the current mute list for the active identity"
 
 tape solo "list-check-muted" 400 25 \
-  "Check if pubkey 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d is muted"
+  "Use list-check-muted to check if pubkey 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d is on the mute list"
 
 tape solo "list-pin-read" 400 25 \
-  "Use the list-pin-read tool to read the current pinned notes"
+  "Use list-pin-read to read the current pinned notes for the active identity"
 
 # --- Privacy ---
 tape solo "privacy-open" 400 25 \
@@ -312,37 +312,37 @@ tape solo "privacy-read-proof" 400 25 \
 
 # --- Trust Utilities ---
 tape solo "trust-read" 400 25 \
-  "Read trust attestations for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
+  "Use trust-read to fetch trust attestations for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
 
 tape solo "trust-verify" 400 25 \
-  "Verify trust attestations for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
+  "Use trust-verify to verify trust attestations for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
 
 tape solo "trust-revoke" 500 25 \
-  "Create a trust attestation for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 as a tester, then revoke it"
+  "Use trust-attest to create an attestation for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 as a tester, then use trust-revoke to revoke it"
 
 tape solo "trust-request" 400 25 \
-  "Send a trust attestation request to npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 asking for a developer attestation"
+  "Use trust-request to send an attestation request to npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 asking for a developer attestation"
 
 tape solo "trust-request-list" 400 25 \
-  "List pending trust attestation requests for the active identity"
+  "Use trust-request-list to list pending trust attestation requests for the active identity"
 
 tape solo "trust-proof-publish" 500 25 \
-  "Create a trust attestation for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 and publish the proof to Nostr"
+  "Use trust-attest to create an attestation for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6, then use trust-proof-publish to publish it"
 
 tape solo "trust-attest-parse" 400 25 \
-  "Fetch trust attestations for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 and parse their contents"
+  "Use trust-attest-parse to fetch and parse trust attestations for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
 
 tape solo "trust-attest-filter" 400 25 \
-  "Filter trust attestations for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 by type developer"
+  "Use trust-attest-filter to filter trust attestations for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 by type developer"
 
 tape solo "trust-attest-temporal" 400 25 \
-  "Create a trust attestation for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 that expires in 30 days"
+  "Use trust-attest-temporal to create an attestation for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 that expires in 30 days"
 
 tape solo "trust-attest-chain" 400 25 \
-  "Build an attestation chain starting from the active identity through npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
+  "Use trust-attest-chain to build a chain from the active identity through npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
 
 tape solo "trust-attest-check-revoked" 400 25 \
-  "Check if any attestations for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 have been revoked"
+  "Use trust-attest-check-revoked to check if any attestations for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 have been revoked"
 
 tape solo "trust-ring-lsag-sign" 400 25 \
   "Create a linkable ring signature over the message bray demo with a 3-member ring"
@@ -361,10 +361,10 @@ tape solo "trust-spoken-encode" 400 25 \
 
 # --- Signet ---
 tape solo "signet-credentials" 400 25 \
-  "List Signet credentials for the active identity"
+  "Use signet-credentials to list Signet credentials for the active identity"
 
 tape solo "signet-challenge" 400 25 \
-  "Generate a Signet verification challenge"
+  "Use signet-challenge to generate a Signet verification challenge"
 
 # --- Relay Utilities ---
 tape solo "relay-add" 400 25 \
@@ -381,66 +381,66 @@ tape solo "relay-diversity" 400 25 \
 
 # --- Safety ---
 tape solo "safety-configure" 400 25 \
-  "Use the safety-configure tool to show the current safety settings"
+  "Use safety-configure to show the current safety configuration"
 
 tape solo "safety-activate" 400 25 \
-  "Activate safety protections with the duress word pineapple"
+  "Use safety-activate to activate safety protections with the duress word pineapple"
 
 tape solo "canary-group-join" 500 25 \
-  "Create a canary group called demo-team, then join it with the active identity"
+  "Use canary-group-create to create a group called demo-team, then use canary-group-join to join it"
 
 tape solo "canary-group-members" 500 25 \
-  "Create a canary group called demo-squad and list its members"
+  "Use canary-group-create to create a group called demo-squad, then use canary-group-members to list its members"
 
 tape solo "canary-duress-signal" 400 25 \
-  "Send a test duress signal from the active identity"
+  "Use canary-duress-signal to send a duress signal from the active identity"
 
 tape solo "canary-duress-detect" 400 25 \
-  "Check for duress signals from npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
+  "Use canary-duress-detect to check for duress signals from npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
 
 # --- Vault Utilities ---
-tape solo "vault-read" 400 25 \
-  "Use the vault-read tool to read the contents of the default vault"
+tape solo "vault-read" 500 25 \
+  "Use vault-create to create a vault, use vault-encrypt to store a secret message, then use vault-read to read it back"
 
 tape solo "vault-read-shared" 500 25 \
-  "Create a vault, encrypt a message, share it with npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6, then read the shared content"
+  "Use vault-create to create a vault, vault-encrypt to store a message, then vault-share to share access with npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
 
 tape solo "vault-revoke" 500 25 \
-  "Create a vault, share it with npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6, then revoke their access"
+  "Use vault-create to create a vault, vault-share to share it, then vault-revoke to revoke access for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
 
-tape solo "vault-members" 400 25 \
-  "List members with access to the default vault"
+tape solo "vault-members" 500 25 \
+  "Use vault-create to create a vault, vault-share to add npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6, then vault-members to list members"
 
 tape solo "vault-config" 400 25 \
-  "Use the vault-config tool to show the current vault configuration"
+  "Use vault-config to show the current vault configuration"
 
 tape solo "vault-rotate" 500 25 \
-  "Create a vault and rotate its encryption keys to a new epoch"
+  "Use vault-create to create a vault, then vault-rotate to rotate its encryption keys"
 
 # --- Marketplace Utilities ---
 tape solo "marketplace-search" 400 25 \
-  "Search for marketplace services offering translation"
+  "Use marketplace-search to search for marketplace services offering translation"
 
 tape solo "marketplace-reputation" 400 25 \
-  "Check the marketplace reputation for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
+  "Use marketplace-reputation to check the reputation for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
 
 tape solo "marketplace-compare" 400 25 \
-  "Search for marketplace services and compare the first two side by side"
+  "Use marketplace-compare to compare marketplace services side by side"
 
 tape solo "marketplace-probe" 400 25 \
-  "Probe a marketplace service endpoint for availability"
+  "Use marketplace-probe to probe a marketplace service endpoint for availability"
 
 tape solo "marketplace-announce" 400 25 \
-  "Announce a new marketplace service offering translation for 100 sats per request"
+  "Use marketplace-announce to announce a service offering translation for 100 sats per request"
 
 tape solo "marketplace-update" 500 25 \
-  "Announce a test service offering demo-api, then update its description to say improved demo"
+  "Use marketplace-announce to create a test service, then use marketplace-update to update its description"
 
 tape solo "marketplace-retire" 500 25 \
-  "Announce a temporary test service, then retire it"
+  "Use marketplace-announce to create a temporary service, then use marketplace-retire to retire it"
 
 tape solo "marketplace-credentials-clear" 400 25 \
-  "Clear cached marketplace credentials"
+  "Use marketplace-credentials-clear to clear cached marketplace credentials"
 
 # --- Zap Utilities ---
 tape solo "zap-balance" 400 25 \
@@ -466,55 +466,55 @@ tape solo "zap-receipts" 400 25 \
 
 # --- Blossom ---
 tape solo "blossom-check" 400 25 \
-  "Use the blossom-check tool to check if any blobs exist for the active identity"
+  "Use blossom-check to check if any blobs exist for the active identity on Blossom servers"
 
 tape solo "blossom-delete" 500 25 \
-  "Upload a test blob to Blossom, then delete it"
+  "Use blossom-upload to upload a test blob, then use blossom-delete to delete it"
 
 tape solo "blossom-discover" 400 25 \
-  "Discover Blossom servers used by contacts"
+  "Use blossom-discover to discover Blossom servers used by contacts"
 
 tape solo "blossom-verify" 400 25 \
-  "List blobs on Blossom and verify their integrity"
+  "Use blossom-verify to check blob integrity on Blossom servers"
 
 tape solo "blossom-repair" 400 25 \
-  "Check for missing or corrupted blobs and attempt repair"
+  "Use blossom-repair to check for missing or corrupted blobs"
 
 tape solo "blossom-usage" 400 25 \
-  "Check storage usage on Blossom servers"
+  "Use blossom-usage to check storage usage on Blossom servers"
 
 tape solo "blossom-servers" 400 25 \
-  "Use the blossom-servers tool to get the current Blossom server list"
+  "Use blossom-servers to get the current Blossom server list"
 
 # --- Groups ---
 tape solo "group-info" 400 25 \
-  "Get information about a NIP-29 group on wss://groups.fiatjaf.com"
+  "Use group-info to get information about a NIP-29 group on wss://groups.fiatjaf.com"
 
 tape solo "group-chat" 400 25 \
-  "View recent messages in a NIP-29 group on wss://groups.fiatjaf.com"
+  "Use group-chat to view recent messages in a NIP-29 group on wss://groups.fiatjaf.com"
 
 tape solo "group-send" 400 25 \
-  "Send a message saying hello from bray demo to a NIP-29 group"
+  "Use group-send to send a message saying hello from bray demo to a NIP-29 group on wss://groups.fiatjaf.com"
 
 tape solo "group-members" 400 25 \
-  "List members of a NIP-29 group on wss://groups.fiatjaf.com"
+  "Use group-members to list members of a NIP-29 group on wss://groups.fiatjaf.com"
 
 # --- NIP Publishing ---
 tape solo "nip-publish" 400 25 \
-  "Publish a kind-1 event with content hello from bray demo to wss://relay.damus.io"
+  "Use nip-publish to publish a kind-1 event with content hello from bray demo to wss://relay.damus.io"
 
 tape solo "nip-read" 400 25 \
-  "Read the most recent kind-1 event from npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 on wss://relay.damus.io"
+  "Use nip-read to read the most recent kind-1 event from npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 on wss://relay.damus.io"
 
 # --- Misc ---
 tape solo "tombstone" 400 25 \
-  "Create a tombstone deletion event for event ID d4ea1b7ffb77c1fba9b84fda4e8d838db7a39c63a9bde3962a1cb13b2c4d50e3"
+  "Use tombstone to create a deletion event for event ID d4ea1b7ffb77c1fba9b84fda4e8d838db7a39c63a9bde3962a1cb13b2c4d50e3"
 
 tape solo "search-actions" 400 25 \
-  "Search for available actions related to identity management"
+  "Use search-actions to search for available actions related to identity management"
 
 tape solo "execute-action" 500 25 \
-  "Search for actions related to relay, then execute the first one found"
+  "Use search-actions to find relay actions, then use execute-action to run the first one"
 
 
 ###############################################################################

@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Check storage usage on Blossom servers'"
+Type "claude -p 'Use blossom-usage to check storage usage on Blossom servers'"
 Enter
 Sleep 25s

@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Announce a temporary test service, then retire it'"
+Type "claude -p 'Use marketplace-announce to create a temporary service, then use marketplace-retire to retire it'"
 Enter
 Sleep 25s

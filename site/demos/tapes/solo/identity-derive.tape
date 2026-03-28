@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Derive a child identity with purpose payments from the root key'"
+Type "claude -p 'Use identity-derive to derive a child identity with purpose payments from the root key'"
 Enter
 Sleep 25s

@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Search for actions related to relay, then execute the first one found'"
+Type "claude -p 'Use search-actions to find relay actions, then use execute-action to run the first one'"
 Enter
 Sleep 25s

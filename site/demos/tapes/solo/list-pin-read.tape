@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Use the list-pin-read tool to read the current pinned notes'"
+Type "claude -p 'Use list-pin-read to read the current pinned notes for the active identity'"
 Enter
 Sleep 25s

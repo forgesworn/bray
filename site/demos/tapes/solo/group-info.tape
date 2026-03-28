@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Get information about a NIP-29 group on wss://groups.fiatjaf.com'"
+Type "claude -p 'Use group-info to get information about a NIP-29 group on wss://groups.fiatjaf.com'"
 Enter
 Sleep 25s

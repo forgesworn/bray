@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Create a canary group called demo-squad and list its members'"
+Type "claude -p 'Use canary-group-create to create a group called demo-squad, then use canary-group-members to list its members'"
 Enter
 Sleep 25s

@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Generate an identity ownership proof for the active identity'"
+Type "claude -p 'Use identity-prove to generate an ownership proof for the active identity'"
 Enter
 Sleep 25s

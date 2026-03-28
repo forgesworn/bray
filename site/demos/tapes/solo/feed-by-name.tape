@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Show the recent feed for fiatjaf'"
+Type "claude -p 'Use feed-by-name to show the recent feed for fiatjaf'"
 Enter
 Sleep 25s

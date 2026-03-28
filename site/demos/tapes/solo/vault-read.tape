@@ -1,6 +1,6 @@
 Set Shell "zsh"
 Set Width 1200
-Set Height 400
+Set Height 500
 Set Theme "Catppuccin Mocha"
 Set FontSize 16
 Set Padding 20
@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Use the vault-read tool to read the contents of the default vault'"
+Type "claude -p 'Use vault-create to create a vault, use vault-encrypt to store a secret message, then use vault-read to read it back'"
 Enter
 Sleep 25s

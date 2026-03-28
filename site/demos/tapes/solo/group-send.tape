@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Send a message saying hello from bray demo to a NIP-29 group'"
+Type "claude -p 'Use group-send to send a message saying hello from bray demo to a NIP-29 group on wss://groups.fiatjaf.com'"
 Enter
 Sleep 25s

@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Run the identity-setup workflow to initialise a new identity'"
+Type "claude -p 'Use identity-setup in preview mode to show what a multi-persona setup would create'"
 Enter
 Sleep 25s

@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Back up the current identity profile, then restore it from that backup'"
+Type "claude -p 'Use identity-backup to back up the current identity, then use identity-restore to restore from it'"
 Enter
 Sleep 25s

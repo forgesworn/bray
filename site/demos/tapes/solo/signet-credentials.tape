@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'List Signet credentials for the active identity'"
+Type "claude -p 'Use signet-credentials to list Signet credentials for the active identity'"
 Enter
 Sleep 25s

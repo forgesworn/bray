@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Create a standard backup of the current identity including profile and contacts'"
+Type "claude -p 'Use identity-backup to create a portable backup of the current identity'"
 Enter
 Sleep 25s

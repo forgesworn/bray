@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Create a label tagging a test event as review-needed, then remove that label'"
+Type "claude -p 'Use label-self to create a review-needed label, then use label-remove to remove it'"
 Enter
 Sleep 25s

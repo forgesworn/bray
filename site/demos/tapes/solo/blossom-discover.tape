@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Discover Blossom servers used by contacts'"
+Type "claude -p 'Use blossom-discover to discover Blossom servers used by contacts'"
 Enter
 Sleep 25s

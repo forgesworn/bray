@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Look up the profile for fiatjaf by name'"
+Type "claude -p 'Use profile-by-name to look up the profile for fiatjaf'"
 Enter
 Sleep 25s

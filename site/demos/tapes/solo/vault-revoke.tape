@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Create a vault, share it with npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6, then revoke their access'"
+Type "claude -p 'Use vault-create to create a vault, vault-share to share it, then vault-revoke to revoke access for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6'"
 Enter
 Sleep 25s

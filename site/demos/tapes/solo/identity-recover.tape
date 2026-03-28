@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Run identity-recover to check recovery options for the active identity'"
+Type "claude -p 'Use identity-recover to check recovery options for the active identity'"
 Enter
 Sleep 25s

@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Use the vault-config tool to show the current vault configuration'"
+Type "claude -p 'Use vault-config to show the current vault configuration'"
 Enter
 Sleep 25s

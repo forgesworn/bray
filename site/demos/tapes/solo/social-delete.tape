@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Post a note saying test message for cleanup, then delete it'"
+Type "claude -p 'Use social-post to post a note saying test message for cleanup, then use social-delete to delete it'"
 Enter
 Sleep 25s
