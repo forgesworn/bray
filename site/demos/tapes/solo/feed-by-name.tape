@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Show the recent feed for fiatjaf'"
 Enter
-Sleep 15s
+Sleep 25s

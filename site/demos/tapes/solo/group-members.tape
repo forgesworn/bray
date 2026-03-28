@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'List members of a NIP-29 group on wss://groups.fiatjaf.com'"
 Enter
-Sleep 15s
+Sleep 25s

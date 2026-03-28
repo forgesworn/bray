@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'List recent lightning transactions'"
 Enter
-Sleep 15s
+Sleep 25s

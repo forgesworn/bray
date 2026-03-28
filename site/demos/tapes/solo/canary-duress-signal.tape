@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Send a test duress signal from the active identity'"
 Enter
-Sleep 15s
+Sleep 25s

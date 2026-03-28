@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Post a note saying test message for cleanup, then delete it'"
 Enter
-Sleep 20s
+Sleep 25s

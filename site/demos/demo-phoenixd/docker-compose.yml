@@ -1,0 +1,61 @@
+# Demo-only phoenixd instances for bray GIF recordings
+# Completely isolated from production routing-phoenixd-1
+# Each container has its own seed, wallet, and data volume
+#
+# NWC bridges proxy NIP-47 wallet requests to phoenixd HTTP API.
+# Set BRIDGE_SECRET + CLIENT_SECRET in .env for persistence across restarts.
+
+services:
+  phoenixd-demo:
+    image: acinq/phoenixd:latest
+    container_name: demo-phoenixd-demo
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9741:9740"
+    volumes:
+      - demo-data:/phoenix/.phoenix
+    command: ["--agree-to-terms-of-service", "--http-bind-ip", "0.0.0.0"]
+
+  phoenixd-alice:
+    image: acinq/phoenixd:latest
+    container_name: demo-phoenixd-alice
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9742:9740"
+    volumes:
+      - alice-data:/phoenix/.phoenix
+    command: ["--agree-to-terms-of-service", "--http-bind-ip", "0.0.0.0"]
+
+  nwc-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile.nwc
+    container_name: demo-nwc-demo
+    restart: unless-stopped
+    depends_on:
+      - phoenixd-demo
+    environment:
+      - PHOENIXD_URL=http://phoenixd-demo:9740
+      - PHOENIXD_PASSWORD=${DEMO_PHOENIXD_PASSWORD}
+      - RELAY=${NWC_RELAY:-wss://relay.damus.io}
+      - BRIDGE_SECRET=${DEMO_BRIDGE_SECRET:-}
+      - CLIENT_SECRET=${DEMO_CLIENT_SECRET:-}
+
+  nwc-alice:
+    build:
+      context: .
+      dockerfile: Dockerfile.nwc
+    container_name: demo-nwc-alice
+    restart: unless-stopped
+    depends_on:
+      - phoenixd-alice
+    environment:
+      - PHOENIXD_URL=http://phoenixd-alice:9740
+      - PHOENIXD_PASSWORD=${ALICE_PHOENIXD_PASSWORD}
+      - RELAY=${NWC_RELAY:-wss://relay.damus.io}
+      - BRIDGE_SECRET=${ALICE_BRIDGE_SECRET:-}
+      - CLIENT_SECRET=${ALICE_CLIENT_SECRET:-}
+
+volumes:
+  demo-data:
+  alice-data:

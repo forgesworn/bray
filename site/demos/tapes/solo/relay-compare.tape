@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Compare relays wss://relay.damus.io and wss://nos.lol for features and performance'"
 Enter
-Sleep 15s
+Sleep 25s

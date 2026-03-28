@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Show the current vault configuration'"
 Enter
-Sleep 12s
+Sleep 25s

@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Back up the current identity profile, then restore it from that backup'"
 Enter
-Sleep 20s
+Sleep 25s

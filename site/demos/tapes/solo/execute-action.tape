@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Search for actions related to relay, then execute the first one found'"
 Enter
-Sleep 20s
+Sleep 25s

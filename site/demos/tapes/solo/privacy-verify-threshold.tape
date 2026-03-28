@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Create a commitment for value 500, prove it exceeds 100, then verify the proof'"
 Enter
-Sleep 20s
+Sleep 25s

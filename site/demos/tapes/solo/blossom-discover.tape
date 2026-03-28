@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Discover Blossom servers used by contacts'"
 Enter
-Sleep 15s
+Sleep 25s

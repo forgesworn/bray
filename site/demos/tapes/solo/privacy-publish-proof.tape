@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Create a commitment for value 30, prove it is in range 0-50, then publish the proof to Nostr'"
 Enter
-Sleep 20s
+Sleep 25s

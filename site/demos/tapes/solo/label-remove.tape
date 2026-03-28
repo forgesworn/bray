@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Create a label tagging a test event as review-needed, then remove that label'"
 Enter
-Sleep 20s
+Sleep 25s

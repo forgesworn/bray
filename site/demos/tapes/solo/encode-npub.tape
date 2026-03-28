@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Encode the hex pubkey 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d as an npub'"
 Enter
-Sleep 12s
+Sleep 25s

@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Announce a temporary test service, then retire it'"
 Enter
-Sleep 20s
+Sleep 25s

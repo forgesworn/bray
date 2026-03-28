@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Create a privacy commitment for value 42, then open it to reveal the original value'"
 Enter
-Sleep 15s
+Sleep 25s

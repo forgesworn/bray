@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Search for marketplace services offering translation'"
 Enter
-Sleep 15s
+Sleep 25s

@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Read the current mute list'"
 Enter
-Sleep 12s
+Sleep 25s

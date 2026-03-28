@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Encode hex pubkey 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d with relay wss://relay.damus.io as an nprofile'"
 Enter
-Sleep 12s
+Sleep 25s

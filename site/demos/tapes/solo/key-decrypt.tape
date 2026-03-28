@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Encrypt a test key with NIP-49 using password demo123, then decrypt it back with the same password'"
 Enter
-Sleep 20s
+Sleep 25s

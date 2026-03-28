@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Announce a test service offering demo-api, then update its description to say improved demo'"
 Enter
-Sleep 20s
+Sleep 25s

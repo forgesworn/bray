@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Check if any blobs exist for the active identity on Blossom servers'"
 Enter
-Sleep 15s
+Sleep 25s

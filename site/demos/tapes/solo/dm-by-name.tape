@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Send a DM to fiatjaf saying hello from the bray demo'"
 Enter
-Sleep 15s
+Sleep 25s

@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Create a canary group called demo-squad and list its members'"
 Enter
-Sleep 20s
+Sleep 25s

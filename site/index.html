@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>nostr-bray | Trust-aware Nostr for AI and humans</title>
-  <meta name="description" content="Three dimensions of trust: verification, proximity, and access. 185 tools for identity, social, payments, moderation, and encrypted access control.">
+  <meta name="description" content="Three dimensions of trust: verification, proximity, and access. 182 tools for identity, social, payments, moderation, and encrypted access control.">
   <meta name="theme-color" content="#0a0a0f">
   <meta property="og:title" content="nostr-bray | Trust-aware Nostr for AI and humans">
-  <meta property="og:description" content="Three dimensions of trust: verification, proximity, and access. 185 tools for identity, social, payments, moderation, and encrypted access control.">
+  <meta property="og:description" content="Three dimensions of trust: verification, proximity, and access. 182 tools for identity, social, payments, moderation, and encrypted access control.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://bray.forgesworn.dev">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="nostr-bray | Trust-aware Nostr for AI and humans">
-  <meta name="twitter:description" content="Three dimensions of trust: verification, proximity, and access. 185 tools for identity, social, payments, moderation, and encrypted access control.">
+  <meta name="twitter:description" content="Three dimensions of trust: verification, proximity, and access. 182 tools for identity, social, payments, moderation, and encrypted access control.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a0f'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='%23e8a838' font-family='serif'>b</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1406,7 +1406,7 @@
       <div class="section-divider">
         <span class="section-label">Tool Groups</span>
       </div>
-      <h2 class="reveal">185 tools. 17 groups.<br>One coherent surface.</h2>
+      <h2 class="reveal">182 tools. 17 groups.<br>One coherent surface.</h2>
       <p class="text-muted reveal" style="max-width:620px;">
         Every tool operates as the active identity. Switch persona, and your posts, DMs, attestations, and payments all follow. No configuration changes needed.
       </p>
@@ -1468,14 +1468,16 @@
         <div class="feature-card" style="--card-accent: var(--accent-purple);">
           <div class="feature-header">
             <h3>Zap</h3>
-            <span class="feature-count">7 tools</span>
+            <span class="feature-count">9 tools</span>
           </div>
-          <p>Lightning payments via Nostr Wallet Connect. Send, receive, invoice, check balances, decode bolt11.</p>
+          <p>Lightning payments via Nostr Wallet Connect. Send, receive, invoice, check balances, decode bolt11. Per-identity wallet configuration.</p>
           <div class="feature-tools">
             <span class="tool-tag">zap-send</span>
             <span class="tool-tag">zap-balance</span>
             <span class="tool-tag">zap-make-invoice</span>
             <span class="tool-tag">zap-decode</span>
+            <span class="tool-tag">zap-wallet-set</span>
+            <span class="tool-tag">zap-wallet-clear</span>
           </div>
         </div>
 
@@ -1669,7 +1671,7 @@
       </div>
       <h2 class="reveal">Two interfaces.<br>Same engine.</h2>
       <p class="text-muted reveal" style="max-width:580px;">
-        Use bray as an MCP server for AI agents (Claude, Cursor, Windsurf) or as a standalone CLI. The MCP server exposes the full 185 tools; the CLI surfaces the most common operations. Both share the same handlers, identity engine, and security guarantees.
+        Use bray as an MCP server for AI agents (Claude, Cursor, Windsurf) or as a standalone CLI. The MCP server exposes the full 182 tools; the CLI surfaces the most common operations. Both share the same handlers, identity engine, and security guarantees.
       </p>
       <div class="how-grid reveal">
         <!-- MCP Server -->
@@ -1852,7 +1854,7 @@
           <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">NIP-46 bunker auth <span style="color: var(--text-muted); font-size: 0.75rem;">(key never leaves signer)</span></div>
         </div>
         <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1.5rem; line-height: 1.6;">
-          All bundled into a single MCP server with 185 tools, so an AI agent gets a complete trust-aware Nostr identity out of the box without stitching together multiple tools.
+          All bundled into a single MCP server with 182 tools, so an AI agent gets a complete trust-aware Nostr identity out of the box without stitching together multiple tools.
         </p>
       </div>
     </div>
@@ -2034,15 +2036,15 @@
       'relay-auth': '26-relay-operator',
       // Site name -> actual tool name fixes
       'blossom-servers-get': 'blossom-servers',
-      'canary-create': 'canary-session-create',
-      'canary-check': 'canary-beacon-check',
-      'canary-renew': 'canary-session-verify',
+      'canary-create': '20-canary-session',
+      'canary-check': '22-canary-beacon',
+      'canary-renew': '20-canary-session',
       'canary-revoke': 'canary-duress-signal',
-      'bookmark-add': 'list-bookmark',
+      'bookmark-add': '24-bookmarks',
       'mute-add': 'list-mute-read',
       'mute-list': 'list-mute-read',
       'pin-add': 'list-pin-read',
-      'followset-create': 'list-followset-create',
+      'followset-create': '23-follow-sets',
       'marketplace-publish': 'marketplace-announce',
       'privacy-range-prove': 'privacy-prove-range',
       'privacy-age-verify': '12-privacy-proofs',

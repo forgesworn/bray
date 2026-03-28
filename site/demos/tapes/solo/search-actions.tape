@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Search for available actions related to identity management'"
 Enter
-Sleep 12s
+Sleep 25s

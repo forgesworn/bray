@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Probe a marketplace service endpoint for availability'"
 Enter
-Sleep 15s
+Sleep 25s

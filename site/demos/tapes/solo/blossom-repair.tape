@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Check for missing or corrupted blobs and attempt repair'"
 Enter
-Sleep 15s
+Sleep 25s

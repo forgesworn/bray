@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Read published privacy proofs for the active identity'"
 Enter
-Sleep 15s
+Sleep 25s

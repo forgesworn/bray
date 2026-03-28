@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Show the global social feed with the 5 most recent notes'"
 Enter
-Sleep 15s
+Sleep 25s

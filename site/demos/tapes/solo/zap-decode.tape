@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Create a lightning invoice for 50 sats and then decode it'"
 Enter
-Sleep 12s
+Sleep 25s

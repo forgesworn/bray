@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Run the onboard-verified workflow to set up a verified identity'"
 Enter
-Sleep 15s
+Sleep 25s

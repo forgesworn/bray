@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Get the current Blossom server list'"
 Enter
-Sleep 12s
+Sleep 25s

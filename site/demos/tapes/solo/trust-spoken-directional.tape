@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Generate a directional spoken verification token for a meeting'"
 Enter
-Sleep 12s
+Sleep 25s

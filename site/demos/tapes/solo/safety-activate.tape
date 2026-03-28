@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Activate safety protections with the duress word pineapple'"
 Enter
-Sleep 15s
+Sleep 25s

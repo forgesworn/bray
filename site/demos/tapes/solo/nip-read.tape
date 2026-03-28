@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Read the most recent kind-1 event from npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 on wss://relay.damus.io'"
 Enter
-Sleep 15s
+Sleep 25s

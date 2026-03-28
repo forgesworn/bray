@@ -20,4 +20,4 @@ Show
 
 Type "claude -p 'Get the public key for the current active identity'"
 Enter
-Sleep 12s
+Sleep 25s
