@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Use marketplace-announce to create a temporary service, then use marketplace-retire to retire it'"
+Type "claude -p 'Use marketplace-announce to create a service with identifier demo-temp-svc, name Temp Service, url https://api.example.com, about Temporary test service, pricing capability test at 1 sat currency SAT, payment method l402. Then use marketplace-retire to retire identifier demo-temp-svc with reason demo cleanup'"
 Enter
-Sleep 25s
+Sleep 30s

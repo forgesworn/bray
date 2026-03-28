@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Use blossom-repair to check for missing or corrupted blobs'"
+Type "claude -p 'Use the blossom-repair tool to search for blob sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 on servers https://blossom.azzamo.net and https://nostr.media'"
 Enter
 Sleep 25s

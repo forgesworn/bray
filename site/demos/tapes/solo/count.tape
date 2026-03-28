@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Count kind-1 events from the last hour on relay wss://relay.damus.io'"
+Type "claude -p 'Use the count tool to count kind-1 events from the last hour'"
 Enter
 Sleep 25s

@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Use blossom-usage to check storage usage on Blossom servers'"
+Type "claude -p 'Use the blossom-usage tool to check storage on https://blossom.azzamo.net for pubkey 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d'"
 Enter
 Sleep 25s

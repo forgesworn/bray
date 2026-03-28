@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Analyse relay diversity for the current relay set'"
+Type "claude -p 'Use the relay-diversity tool to analyse relay diversity for the current relay set'"
 Enter
 Sleep 25s

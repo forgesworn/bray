@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Use the nip-show tool to look up NIP-17 private direct messages'"
+Type "claude -p 'Use the nip-show tool to look up NIP number 17 and summarise it'"
 Enter
 Sleep 25s

@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Use contacts-get to fetch the contact list for the active identity'"
+Type "claude -p 'Use the contacts-get tool to fetch the contact list for pubkey 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d'"
 Enter
 Sleep 25s

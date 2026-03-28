@@ -187,7 +187,7 @@ tape solo "key-decrypt" 500 25 \
 
 # --- Event Queries ---
 tape solo "count" 400 25 \
-  "Count kind-1 events from the last hour on relay wss://relay.damus.io"
+  "Use the count tool to count kind-1 events from the last hour"
 
 tape solo "fetch" 400 25 \
   "Fetch the latest kind-0 profile event for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
@@ -203,7 +203,7 @@ tape solo "nip-list" 400 25 \
   "Use the nip-list tool to list all supported Nostr NIPs"
 
 tape solo "nip-show" 400 25 \
-  "Use the nip-show tool to look up NIP-17 private direct messages"
+  "Use the nip-show tool to look up NIP number 17 and summarise it"
 
 # --- Identity Utilities ---
 tape solo "identity-derive" 400 25 \
@@ -225,7 +225,7 @@ tape solo "identity-migrate" 400 25 \
   "Use identity-migrate to generate a NIP-41 key migration event to pubkey 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d"
 
 tape solo "nip05-relays" 400 25 \
-  "Use nip05-relays to look up the relay list for fiatjaf@fiatjaf.com"
+  "Use the nip05-relays tool to look up relays for the identifier fiatjaf@fiatjaf.com"
 
 # --- Identity Workflows ---
 tape solo "identity-setup" 500 25 \
@@ -261,14 +261,14 @@ tape solo "profile-by-name" 400 25 \
 
 # --- Contacts ---
 tape solo "contacts-get" 400 25 \
-  "Use contacts-get to fetch the contact list for the active identity"
+  "Use the contacts-get tool to fetch the contact list for pubkey 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d"
 
 tape solo "contacts-unfollow" 500 25 \
   "Use contacts-follow to follow npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6, then use contacts-unfollow to unfollow them"
 
 # --- Content Management ---
-tape solo "label-self" 400 25 \
-  "Use label-self to tag the active identity as a developer"
+tape solo "label-self" 500 25 \
+  "Use social-post to publish a note saying Testing labels in bray, then use label-self with namespace category and label test to tag that note"
 
 tape solo "label-read" 500 25 \
   "Use label-self to tag the active identity as a developer, then use label-read to read labels back"
@@ -293,7 +293,7 @@ tape solo "privacy-open" 400 25 \
   "Create a privacy commitment for value 42, then open it to reveal the original value"
 
 tape solo "privacy-prove-range" 400 25 \
-  "Create a commitment for value 42 and prove it is between 0 and 100"
+  "Use the privacy-prove-range tool to create a range proof that the value 42 is between 0 and 100"
 
 tape solo "privacy-verify-range" 500 25 \
   "Create a commitment for value 42, prove it is between 0 and 100, then verify the proof"
@@ -308,7 +308,7 @@ tape solo "privacy-publish-proof" 500 25 \
   "Create a commitment for value 30, prove it is in range 0-50, then publish the proof to Nostr"
 
 tape solo "privacy-read-proof" 400 25 \
-  "Read published privacy proofs for the active identity"
+  "Use the privacy-read-proof tool to read published privacy proofs for the active identity"
 
 # --- Trust Utilities ---
 tape solo "trust-read" 400 25 \
@@ -342,7 +342,7 @@ tape solo "trust-attest-chain" 400 25 \
   "Use trust-attest-chain to build a chain from the active identity through npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
 
 tape solo "trust-attest-check-revoked" 400 25 \
-  "Use trust-attest-check-revoked to check if any attestations for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 have been revoked"
+  "Use the trust-attest-check-revoked tool to check for revoked attestations for pubkey 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d"
 
 tape solo "trust-ring-lsag-sign" 400 25 \
   "Create a linkable ring signature over the message bray demo with a 3-member ring"
@@ -377,7 +377,7 @@ tape solo "relay-compare" 400 25 \
   "Compare relays wss://relay.damus.io and wss://nos.lol for features and performance"
 
 tape solo "relay-diversity" 400 25 \
-  "Analyse relay diversity for the current relay set"
+  "Use the relay-diversity tool to analyse relay diversity for the current relay set"
 
 # --- Safety ---
 tape solo "safety-configure" 400 25 \
@@ -424,8 +424,8 @@ tape solo "marketplace-search" 400 25 \
 tape solo "marketplace-reputation" 400 25 \
   "Use marketplace-reputation to check the reputation for npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
 
-tape solo "marketplace-compare" 400 25 \
-  "Use marketplace-compare to compare marketplace services side by side"
+tape solo "marketplace-compare" 600 30 \
+  "Use marketplace-announce to create two services: first with identifier demo-basic-translate, name Basic Translate, url https://api.example.com/basic, about Basic translation, pricing capability translate at 5 sats currency SAT, payment method l402. Second with identifier demo-pro-translate, name Pro Translate, url https://api.example.com/pro, about Premium translation, pricing capability translate at 15 sats currency SAT, payment method l402. Then use marketplace-compare to compare them side by side."
 
 tape solo "marketplace-probe" 400 25 \
   "Use marketplace-probe to probe a marketplace service endpoint for availability"
@@ -436,8 +436,8 @@ tape solo "marketplace-announce" 400 25 \
 tape solo "marketplace-update" 500 25 \
   "Use marketplace-announce to create a test service, then use marketplace-update to update its description"
 
-tape solo "marketplace-retire" 500 25 \
-  "Use marketplace-announce to create a temporary service, then use marketplace-retire to retire it"
+tape solo "marketplace-retire" 500 30 \
+  "Use marketplace-announce to create a service with identifier demo-temp-svc, name Temp Service, url https://api.example.com, about Temporary test service, pricing capability test at 1 sat currency SAT, payment method l402. Then use marketplace-retire to retire identifier demo-temp-svc with reason demo cleanup"
 
 tape solo "marketplace-credentials-clear" 400 25 \
   "Use marketplace-credentials-clear to clear cached marketplace credentials"
@@ -472,16 +472,16 @@ tape solo "blossom-delete" 500 25 \
   "Use blossom-upload to upload a test blob, then use blossom-delete to delete it"
 
 tape solo "blossom-discover" 400 25 \
-  "Use blossom-discover to discover Blossom servers used by contacts"
+  "Use the blossom-discover tool to find Blossom servers for pubkey 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d"
 
 tape solo "blossom-verify" 400 25 \
   "Use blossom-verify to check blob integrity on Blossom servers"
 
 tape solo "blossom-repair" 400 25 \
-  "Use blossom-repair to check for missing or corrupted blobs"
+  "Use the blossom-repair tool to search for blob sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 on servers https://blossom.azzamo.net and https://nostr.media"
 
 tape solo "blossom-usage" 400 25 \
-  "Use blossom-usage to check storage usage on Blossom servers"
+  "Use the blossom-usage tool to check storage on https://blossom.azzamo.net for pubkey 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d"
 
 tape solo "blossom-servers" 400 25 \
   "Use blossom-servers to get the current Blossom server list"
