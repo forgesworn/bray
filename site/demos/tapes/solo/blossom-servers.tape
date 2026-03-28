@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Get the current Blossom server list'"
+Type "claude -p 'Use the blossom-servers tool to get the current Blossom server list'"
 Enter
 Sleep 25s

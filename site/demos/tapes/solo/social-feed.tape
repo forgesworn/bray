@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Show the global social feed with the 5 most recent notes'"
+Type "claude -p 'Use the social-feed tool to fetch the 5 most recent global notes'"
 Enter
 Sleep 25s

@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Read the current mute list'"
+Type "claude -p 'Use the list-mute-read tool to read the current mute list'"
 Enter
 Sleep 25s

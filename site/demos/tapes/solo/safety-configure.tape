@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Show the current safety configuration settings'"
+Type "claude -p 'Use the safety-configure tool to show the current safety settings'"
 Enter
 Sleep 25s

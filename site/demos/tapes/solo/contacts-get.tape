@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Get the contact list for the active identity'"
+Type "claude -p 'Use the contacts-get tool to fetch the contact list for the active identity'"
 Enter
 Sleep 25s
