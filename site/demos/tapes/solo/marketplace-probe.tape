@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Probe a marketplace service endpoint for availability'"
+Type "claude -p 'Use marketplace-probe to probe a marketplace service endpoint for availability'"
 Enter
 Sleep 25s

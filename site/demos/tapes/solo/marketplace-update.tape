@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Announce a test service offering demo-api, then update its description to say improved demo'"
+Type "claude -p 'Use marketplace-announce to create a test service, then use marketplace-update to update its description'"
 Enter
 Sleep 25s

@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Search for events labelled as spam'"
+Type "claude -p 'Use label-search to search for events labelled as developer'"
 Enter
 Sleep 25s

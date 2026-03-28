@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Activate safety protections with the duress word pineapple'"
+Type "claude -p 'Use safety-activate to activate safety protections with the duress word pineapple'"
 Enter
 Sleep 25s

@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Publish a kind-1 event with content hello from bray demo to wss://relay.damus.io'"
+Type "claude -p 'Use nip-publish to publish a kind-1 event with content hello from bray demo to wss://relay.damus.io'"
 Enter
 Sleep 25s

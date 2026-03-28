@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'List blobs on Blossom and verify their integrity'"
+Type "claude -p 'Use blossom-verify to check blob integrity on Blossom servers'"
 Enter
 Sleep 25s

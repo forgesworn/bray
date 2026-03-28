@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Clear cached marketplace credentials'"
+Type "claude -p 'Use marketplace-credentials-clear to clear cached marketplace credentials'"
 Enter
 Sleep 25s

@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'List members of a NIP-29 group on wss://groups.fiatjaf.com'"
+Type "claude -p 'Use group-members to list members of a NIP-29 group on wss://groups.fiatjaf.com'"
 Enter
 Sleep 25s

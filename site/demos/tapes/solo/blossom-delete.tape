@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Upload a test blob to Blossom, then delete it'"
+Type "claude -p 'Use blossom-upload to upload a test blob, then use blossom-delete to delete it'"
 Enter
 Sleep 25s

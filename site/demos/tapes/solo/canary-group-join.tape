@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Create a canary group called demo-team, then join it with the active identity'"
+Type "claude -p 'Use canary-group-create to create a group called demo-team, then use canary-group-join to join it'"
 Enter
 Sleep 25s

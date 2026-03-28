@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Search for marketplace services offering translation'"
+Type "claude -p 'Use marketplace-search to search for marketplace services offering translation'"
 Enter
 Sleep 25s

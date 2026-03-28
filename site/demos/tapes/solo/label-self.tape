@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Create a self-label tagging the active identity as a developer'"
+Type "claude -p 'Use label-self to tag the active identity as a developer'"
 Enter
 Sleep 25s

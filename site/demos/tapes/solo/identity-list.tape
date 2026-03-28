@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'List all derived identities and personas'"
+Type "claude -p 'Use identity-list to list all derived identities and personas'"
 Enter
 Sleep 25s

@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Create a vault and rotate its encryption keys to a new epoch'"
+Type "claude -p 'Use vault-create to create a vault, then vault-rotate to rotate its encryption keys'"
 Enter
 Sleep 25s

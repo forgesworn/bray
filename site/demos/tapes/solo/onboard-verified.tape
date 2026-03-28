@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Run the onboard-verified workflow to set up a verified identity'"
+Type "claude -p 'Use onboard-verified to show the verified identity setup workflow'"
 Enter
 Sleep 25s

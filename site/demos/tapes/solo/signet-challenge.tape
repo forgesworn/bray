@@ -18,6 +18,6 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Generate a Signet verification challenge'"
+Type "claude -p 'Use signet-challenge to generate a Signet verification challenge'"
 Enter
 Sleep 25s
