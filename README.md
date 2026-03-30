@@ -438,9 +438,43 @@ Auth tier progression (safest to least safe): **bunker** > **ncryptsec** > **fil
 
 ## Configuration
 
+### Config file (recommended)
+
+Create `~/.config/bray/config.json` (or `~/.nostr/bray.json`):
+
+```json
+{
+  "bunkerUriFile": "/Users/you/.nostr/bunker-uri",
+  "relays": ["wss://relay.damus.io", "wss://nos.lol"],
+  "trustMode": "annotate"
+}
+```
+
+Secrets are referenced by **file path** (`bunkerUriFile`, `secretKeyFile`, `nwcUriFile`) so they never appear in the config itself. This avoids exposing secrets in process environment listings.
+
+Search order: `BRAY_CONFIG` env var > `$XDG_CONFIG_HOME/bray/config.json` > `~/.nostr/bray.json`.
+
+MCP server config becomes minimal:
+
+```json
+{
+  "mcpServers": {
+    "nostr-bray": {
+      "command": "nostr-bray"
+    }
+  }
+}
+```
+
+### Environment variables
+
+Env vars override config file values. Use when you need per-invocation overrides.
+
 | Variable | Description |
 |----------|-------------|
+| `BRAY_CONFIG` | Path to config file (overrides default search) |
 | `BUNKER_URI` | NIP-46 bunker URL -- safest option, key stays on your device |
+| `BUNKER_URI_FILE` | Path to bunker URI file (preferred over env var) |
 | `NOSTR_SECRET_KEY` | nsec bech32, 64-char hex, or BIP-39 mnemonic |
 | `NOSTR_SECRET_KEY_FILE` | Path to secret key file (takes precedence over env var) |
 | `NOSTR_NCRYPTSEC` | NIP-49 encrypted key (requires `NOSTR_NCRYPTSEC_PASSWORD`) |
@@ -451,6 +485,8 @@ Auth tier progression (safest to least safe): **bunker** > **ncryptsec** > **fil
 | `NIP04_ENABLED` | Set `1` to enable legacy NIP-04 DMs |
 | `TRANSPORT` | `stdio` (default) or `http` |
 | `PORT` | HTTP port (default 3000) |
+
+All secret env vars are deleted from `process.env` immediately after parsing.
 
 ## Documentation
 
