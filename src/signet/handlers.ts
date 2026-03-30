@@ -10,7 +10,7 @@ import {
   createPolicy,
   parseVerifier,
   createChallenge,
-  ATTESTATION_KIND,
+  SIGNET_KINDS,
 } from 'signet-protocol'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
@@ -243,7 +243,7 @@ export async function handleSignetVerifiers(
   args: { jurisdiction?: string; profession?: string },
 ): Promise<SignetVerifierResult[]> {
   const events = await pool.query(callerNpub, {
-    kinds: [ATTESTATION_KIND],
+    kinds: [SIGNET_KINDS.VERIFIER],
     '#type': ['verifier'],
     limit: 50,
   } as any) as NostrEvent[]
