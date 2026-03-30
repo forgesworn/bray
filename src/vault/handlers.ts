@@ -165,15 +165,15 @@ export async function handleVaultCreate(
 }
 
 /** Encrypt content with a content key derived from the active identity for a given tier + epoch. */
-export function handleVaultEncrypt(
+export async function handleVaultEncrypt(
   ctx: IdentityContext,
   args: { content: string; tier: string; epoch?: string },
-): VaultEncryptResult {
+): Promise<VaultEncryptResult> {
   const privkeyHex = Buffer.from(ctx.activePrivateKey).toString('hex')
   const epoch = args.epoch ?? getCurrentEpochId()
-  const ck = deriveContentKey(privkeyHex, epoch, args.tier)
+  const ck = deriveContentKey(privkeyHex, epoch)
   try {
-    const ciphertext = encrypt(args.content, ck)
+    const ciphertext = await encrypt(args.content, ck)
     return { ciphertext, tier: args.tier, epoch }
   } finally {
     ck.fill(0)
@@ -190,7 +190,7 @@ export async function handleVaultShare(
   const privkeyBytes = Buffer.from(privkeyHex, 'hex')
   const epoch = args.epoch ?? getCurrentEpochId()
   const authorPubkeyHex = ctx.activePublicKeyHex
-  const ck = deriveContentKey(privkeyHex, epoch, args.tier)
+  const ck = deriveContentKey(privkeyHex, epoch)
   let published = 0
   let failed = 0
   const successfulRecipients: string[] = []
@@ -235,14 +235,14 @@ export async function handleVaultShare(
 }
 
 /** Decrypt ciphertext using the content key for the active identity's tier + epoch. */
-export function handleVaultRead(
+export async function handleVaultRead(
   ctx: IdentityContext,
   args: { ciphertext: string; tier: string; epoch: string },
-): VaultReadResult {
+): Promise<VaultReadResult> {
   const privkeyHex = Buffer.from(ctx.activePrivateKey).toString('hex')
-  const ck = deriveContentKey(privkeyHex, args.epoch, args.tier)
+  const ck = deriveContentKey(privkeyHex, args.epoch)
   try {
-    const plaintext = decrypt(args.ciphertext, ck)
+    const plaintext = await decrypt(args.ciphertext, ck)
     return { plaintext, tier: args.tier, epoch: args.epoch }
   } finally {
     ck.fill(0)
@@ -285,7 +285,7 @@ export async function handleVaultReadShared(
     // Reconstruct the content key buffer and decrypt the ciphertext
     const ck = Buffer.from(ckHex, 'hex')
     try {
-      const plaintext = decrypt(args.ciphertext, ck)
+      const plaintext = await decrypt(args.ciphertext, ck)
       return {
         plaintext,
         tier: args.tier,
