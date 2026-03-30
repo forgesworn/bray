@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { writeFileSync, unlinkSync, mkdtempSync } from 'node:fs'
+import { writeFileSync, unlinkSync, mkdtempSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -162,6 +162,125 @@ describe('loadConfig', () => {
     process.env.ALLOW_CLEARNET_WITH_TOR = '1'
     const config = await loadConfig()
     expect(config.allowClearnetWithTor).toBe(true)
+  })
+})
+
+describe('loadConfigFile', () => {
+  let savedEnv: NodeJS.ProcessEnv
+
+  beforeEach(() => {
+    savedEnv = { ...process.env }
+    delete process.env.BRAY_CONFIG
+    delete process.env.XDG_CONFIG_HOME
+  })
+
+  afterEach(() => {
+    process.env = savedEnv
+  })
+
+  it('loads config from BRAY_CONFIG path', async () => {
+    const { loadConfigFile } = await import('../src/config.js')
+    const dir = mkdtempSync(join(tmpdir(), 'bray-test-'))
+    const configPath = join(dir, 'config.json')
+    writeFileSync(configPath, JSON.stringify({
+      bunkerUriFile: '/tmp/test-bunker-uri',
+      relays: ['wss://relay.test.com'],
+      trustMode: 'strict',
+    }))
+
+    process.env.BRAY_CONFIG = configPath
+    const config = loadConfigFile()
+    expect(config.bunkerUriFile).toBe('/tmp/test-bunker-uri')
+    expect(config.relays).toEqual(['wss://relay.test.com'])
+    expect(config.trustMode).toBe('strict')
+
+    unlinkSync(configPath)
+  })
+
+  it('loads config from XDG_CONFIG_HOME', async () => {
+    const { loadConfigFile } = await import('../src/config.js')
+    const dir = mkdtempSync(join(tmpdir(), 'bray-test-'))
+    const configDir = join(dir, 'bray')
+    mkdirSync(configDir, { recursive: true })
+    const configPath = join(configDir, 'config.json')
+    writeFileSync(configPath, JSON.stringify({ transport: 'http', port: 8080 }))
+
+    process.env.XDG_CONFIG_HOME = dir
+    const config = loadConfigFile()
+    expect(config.transport).toBe('http')
+    expect(config.port).toBe(8080)
+
+    unlinkSync(configPath)
+  })
+
+  it('returns empty object when no config file exists', async () => {
+    const { loadConfigFile } = await import('../src/config.js')
+    process.env.XDG_CONFIG_HOME = '/tmp/nonexistent-bray-config-dir'
+    const config = loadConfigFile()
+    expect(config).toEqual({})
+  })
+
+  it('throws on invalid JSON', async () => {
+    const { loadConfigFile } = await import('../src/config.js')
+    const dir = mkdtempSync(join(tmpdir(), 'bray-test-'))
+    const configPath = join(dir, 'config.json')
+    writeFileSync(configPath, 'not valid json {{{')
+
+    process.env.BRAY_CONFIG = configPath
+    expect(() => loadConfigFile()).toThrow(/invalid json/i)
+
+    unlinkSync(configPath)
+  })
+
+  it('config file bunkerUriFile used when no env vars set', async () => {
+    const { loadConfig } = await import('../src/config.js')
+    const dir = mkdtempSync(join(tmpdir(), 'bray-test-'))
+
+    // Create a bunker URI file
+    const bunkerFile = join(dir, 'bunker-uri')
+    writeFileSync(bunkerFile, 'bunker://abc123?relay=wss://relay.test.com')
+
+    // Create a config file pointing to it
+    const configPath = join(dir, 'config.json')
+    writeFileSync(configPath, JSON.stringify({
+      bunkerUriFile: bunkerFile,
+      relays: ['wss://relay.test.com'],
+    }))
+
+    process.env.BRAY_CONFIG = configPath
+    delete process.env.NOSTR_SECRET_KEY
+    delete process.env.NOSTR_SECRET_KEY_FILE
+    delete process.env.BUNKER_URI
+    delete process.env.BUNKER_URI_FILE
+    delete process.env.NOSTR_RELAYS
+
+    const config = await loadConfig()
+    expect(config.bunkerUri).toBe('bunker://abc123?relay=wss://relay.test.com')
+    expect(config.relays).toEqual(['wss://relay.test.com'])
+
+    unlinkSync(bunkerFile)
+    unlinkSync(configPath)
+  })
+
+  it('env vars override config file values', async () => {
+    const { loadConfig } = await import('../src/config.js')
+    const dir = mkdtempSync(join(tmpdir(), 'bray-test-'))
+    const configPath = join(dir, 'config.json')
+    writeFileSync(configPath, JSON.stringify({
+      relays: ['wss://config-relay.test.com'],
+      trustMode: 'off',
+    }))
+
+    process.env.BRAY_CONFIG = configPath
+    process.env.NOSTR_SECRET_KEY = TEST_NSEC
+    process.env.NOSTR_RELAYS = 'wss://env-relay.test.com'
+    process.env.TRUST_MODE = 'strict'
+
+    const config = await loadConfig()
+    expect(config.relays).toEqual(['wss://env-relay.test.com'])
+    expect(config.trustMode).toBe('strict')
+
+    unlinkSync(configPath)
   })
 })
 

@@ -1,4 +1,6 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { homedir } from 'node:os'
 import type { BrayConfig } from './types.js'
 
 const NSEC_RE = /^nsec1[a-z0-9]{58}$/
@@ -36,10 +38,66 @@ function validateTorRelays(relays: string[], torProxy: string | undefined, allow
   }
 }
 
-/** Load configuration from environment variables and optional secret files */
+/** Supported config file fields (subset of BrayConfig + secret paths) */
+interface ConfigFile {
+  secretKeyFile?: string
+  bunkerUriFile?: string
+  nwcUriFile?: string
+  ncryptsecFile?: string
+  ncryptsecPassword?: string
+  relays?: string[]
+  walletsFile?: string
+  torProxy?: string
+  allowClearnetWithTor?: boolean
+  nip04Enabled?: boolean
+  transport?: 'stdio' | 'http'
+  port?: number
+  bindAddress?: string
+  trustMode?: 'strict' | 'annotate' | 'off'
+  vaultEpochLength?: 'daily' | 'weekly' | 'monthly'
+  veilCacheTtl?: number
+  veilCacheMax?: number
+  trustCacheTtl?: number
+  trustCacheMax?: number
+}
+
+/**
+ * Load config from a JSON file. Searches in order:
+ * 1. BRAY_CONFIG env var (explicit path)
+ * 2. ~/.config/bray/config.json (XDG standard)
+ * 3. ~/.nostr/bray.json (Nostr convention)
+ *
+ * Returns empty object if no config file found.
+ * Secrets are referenced by file path (secretKeyFile, bunkerUriFile) —
+ * they never appear as values in the config file itself.
+ */
+export function loadConfigFile(): ConfigFile {
+  const candidates = [
+    process.env.BRAY_CONFIG,
+    join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'bray', 'config.json'),
+    join(homedir(), '.nostr', 'bray.json'),
+  ].filter(Boolean) as string[]
+
+  for (const path of candidates) {
+    if (existsSync(path)) {
+      const raw = readFileSync(path, 'utf-8').trim()
+      try {
+        return JSON.parse(raw) as ConfigFile
+      } catch {
+        throw new Error(`Invalid JSON in config file: ${path}`)
+      }
+    }
+  }
+  return {}
+}
+
+/** Load configuration from config file, environment variables, and secret files.
+ *  Priority: env vars > config file > defaults */
 export async function loadConfig(): Promise<BrayConfig> {
+  const file = loadConfigFile()
+
   // --- Secret key ---
-  const keyFilePath = process.env.NOSTR_SECRET_KEY_FILE
+  const keyFilePath = process.env.NOSTR_SECRET_KEY_FILE ?? file.secretKeyFile
   const keyEnvVar = process.env.NOSTR_SECRET_KEY
   let secretKey: string
 
@@ -48,13 +106,19 @@ export async function loadConfig(): Promise<BrayConfig> {
     bunkerUri = readSecretFile(process.env.BUNKER_URI_FILE)
   } else if (process.env.BUNKER_URI) {
     bunkerUri = process.env.BUNKER_URI
+  } else if (file.bunkerUriFile) {
+    bunkerUri = readSecretFile(file.bunkerUriFile)
   }
 
   // --- NIP-49 ncryptsec (password-encrypted key) ---
   const ncryptsec = process.env.NOSTR_NCRYPTSEC_FILE
     ? readSecretFile(process.env.NOSTR_NCRYPTSEC_FILE)
     : process.env.NOSTR_NCRYPTSEC
-  const ncryptsecPassword = process.env.NOSTR_NCRYPTSEC_PASSWORD
+      ? process.env.NOSTR_NCRYPTSEC
+      : file.ncryptsecFile
+        ? readSecretFile(file.ncryptsecFile)
+        : undefined
+  const ncryptsecPassword = process.env.NOSTR_NCRYPTSEC_PASSWORD ?? file.ncryptsecPassword
 
   if (ncryptsec) {
     if (!ncryptsecPassword) {
@@ -80,13 +144,13 @@ export async function loadConfig(): Promise<BrayConfig> {
     // Bunker mode — no local secret needed
     secretKey = ''
   } else {
-    throw new Error('No secret key provided: set NOSTR_SECRET_KEY, NOSTR_SECRET_KEY_FILE, NOSTR_NCRYPTSEC, or BUNKER_URI')
+    throw new Error('No secret key provided: set NOSTR_SECRET_KEY, NOSTR_SECRET_KEY_FILE, NOSTR_NCRYPTSEC, BUNKER_URI, or use a config file (~/.config/bray/config.json)')
   }
 
   const secretFormat = secretKey ? detectKeyFormat(secretKey) : 'nsec' as const
 
   // --- NWC URI ---
-  const nwcFilePath = process.env.NWC_URI_FILE
+  const nwcFilePath = process.env.NWC_URI_FILE ?? file.nwcUriFile
   let nwcUri: string | undefined
   if (nwcFilePath) {
     nwcUri = readSecretFile(nwcFilePath)
@@ -95,51 +159,55 @@ export async function loadConfig(): Promise<BrayConfig> {
   }
 
   // --- Relays ---
-  const relays = parseRelays(process.env.NOSTR_RELAYS ?? '')
+  const relays = process.env.NOSTR_RELAYS
+    ? parseRelays(process.env.NOSTR_RELAYS)
+    : file.relays ?? []
 
   // --- Tor ---
-  const torProxy = process.env.TOR_PROXY || undefined
-  const allowClearnetWithTor = process.env.ALLOW_CLEARNET_WITH_TOR === '1'
+  const torProxy = process.env.TOR_PROXY ?? file.torProxy ?? undefined
+  const allowClearnetWithTor = process.env.ALLOW_CLEARNET_WITH_TOR === '1' || file.allowClearnetWithTor === true
   validateTorRelays(relays, torProxy, allowClearnetWithTor)
 
   // --- Transport ---
-  const transport = (process.env.TRANSPORT === 'http' ? 'http' : 'stdio') as 'stdio' | 'http'
-  const port = parseInt(process.env.PORT ?? '3000', 10)
-  const bindAddress = process.env.BIND_ADDRESS ?? '127.0.0.1'
+  const transportRaw = process.env.TRANSPORT ?? file.transport
+  const transport = (transportRaw === 'http' ? 'http' : 'stdio') as 'stdio' | 'http'
+  const port = parseInt(process.env.PORT ?? String(file.port ?? 3000), 10)
+  const bindAddress = process.env.BIND_ADDRESS ?? file.bindAddress ?? '127.0.0.1'
 
   // --- NIP-04 ---
-  const nip04Enabled = process.env.NIP04_ENABLED === '1'
+  const nip04Enabled = process.env.NIP04_ENABLED === '1' || file.nip04Enabled === true
 
   // Veil trust cache
   const veilCacheTtl = process.env.VEIL_CACHE_TTL
     ? parseInt(process.env.VEIL_CACHE_TTL, 10) * 1000
-    : 300_000 // 5 minutes default
+    : (file.veilCacheTtl ?? 300) * 1000
   const veilCacheMax = process.env.VEIL_CACHE_MAX
     ? parseInt(process.env.VEIL_CACHE_MAX, 10)
-    : 500
+    : file.veilCacheMax ?? 500
 
   // Trust context cache
   const trustCacheTtl = process.env.TRUST_CACHE_TTL
     ? parseInt(process.env.TRUST_CACHE_TTL, 10) * 1000
-    : 300_000 // 5 minutes default
+    : (file.trustCacheTtl ?? 300) * 1000
   const trustCacheMax = process.env.TRUST_CACHE_MAX
     ? parseInt(process.env.TRUST_CACHE_MAX, 10)
-    : 500
+    : file.trustCacheMax ?? 500
 
   // Trust mode
-  const trustModeRaw = process.env.TRUST_MODE ?? 'annotate'
+  const trustModeRaw = process.env.TRUST_MODE ?? file.trustMode ?? 'annotate'
   const trustMode = ['strict', 'annotate', 'off'].includes(trustModeRaw)
     ? trustModeRaw as 'strict' | 'annotate' | 'off'
     : 'annotate'
 
   // Vault epoch length
-  const vaultEpochRaw = process.env.VAULT_EPOCH_LENGTH ?? 'weekly'
+  const vaultEpochRaw = process.env.VAULT_EPOCH_LENGTH ?? file.vaultEpochLength ?? 'weekly'
   const vaultEpochLength = ['daily', 'weekly', 'monthly'].includes(vaultEpochRaw)
     ? vaultEpochRaw as 'daily' | 'weekly' | 'monthly'
     : 'weekly'
 
   // --- Wallets file ---
   const walletsFile = process.env.BRAY_WALLETS_FILE
+    ?? file.walletsFile
     ?? (process.env.HOME ? `${process.env.HOME}/.nostr/bray-wallets.json` : '')
 
   // --- Clean up secrets from process.env ---
