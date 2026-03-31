@@ -42,10 +42,10 @@ describe('relay handlers', () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200 }))
       const pool = mockPool()
       pool.checkSharedRelays = vi.fn().mockReturnValue(['wss://shared.example.com'])
-      ctx.derive('alt', 0)
-      ctx.switch('alt', 0)
+      await ctx.derive('alt', 0)
+      await ctx.switch('alt', 0)
       const altNpub = ctx.activeNpub
-      ctx.switch('master')
+      await ctx.switch('master')
       const result = await handleRelayList(ctx, pool as any, altNpub)
       expect(result.sharedWarning).toBeDefined()
       expect(result.sharedWarning).toContain('wss://shared.example.com')

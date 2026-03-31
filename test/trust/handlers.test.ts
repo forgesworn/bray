@@ -40,8 +40,8 @@ describe('trust handlers', () => {
 
     it('warns when attesting as derived persona', async () => {
       const pool = mockPool()
-      ctx.derive('alt', 0)
-      ctx.switch('alt', 0)
+      await ctx.derive('alt', 0)
+      await ctx.switch('alt', 0)
       const result = await handleTrustAttest(ctx, pool as any, {
         type: 'identity-verification',
         identifier: 'cd'.repeat(32),
@@ -179,8 +179,8 @@ describe('trust handlers', () => {
   describe('handleTrustProofPublish', () => {
     it('requires confirm: true (returns warning when false)', async () => {
       const pool = mockPool()
-      ctx.derive('child', 0)
-      ctx.switch('child', 0)
+      await ctx.derive('child', 0)
+      await ctx.switch('child', 0)
       const result = await handleTrustProofPublish(ctx, pool as any, { confirm: false })
       expect(result.published).toBe(false)
       expect(result.warning).toMatch(/confirm/i)
@@ -188,8 +188,8 @@ describe('trust handlers', () => {
 
     it('publishes kind 30078 when confirmed', async () => {
       const pool = mockPool()
-      ctx.derive('child', 0)
-      ctx.switch('child', 0)
+      await ctx.derive('child', 0)
+      await ctx.switch('child', 0)
       const result = await handleTrustProofPublish(ctx, pool as any, { confirm: true })
       expect(result.published).toBe(true)
       expect(result.event!.kind).toBe(30078)
@@ -197,8 +197,8 @@ describe('trust handlers', () => {
 
     it('returns warning about what the proof reveals', async () => {
       const pool = mockPool()
-      ctx.derive('child', 0)
-      ctx.switch('child', 0)
+      await ctx.derive('child', 0)
+      await ctx.switch('child', 0)
       const blind = await handleTrustProofPublish(ctx, pool as any, { mode: 'blind', confirm: false })
       expect(blind.warning).toMatch(/blind/i)
       const full = await handleTrustProofPublish(ctx, pool as any, { mode: 'full', confirm: false })
@@ -226,8 +226,8 @@ describe('trust handlers', () => {
   describe('edge cases', () => {
     it('trust_attest warns when attesting as derived persona', async () => {
       const pool = mockPool()
-      ctx.derive('persona-x', 0)
-      ctx.switch('persona-x', 0)
+      await ctx.derive('persona-x', 0)
+      await ctx.switch('persona-x', 0)
       const result = await handleTrustAttest(ctx, pool as any, {
         type: 'test',
         identifier: 'test-id',

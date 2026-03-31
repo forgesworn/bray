@@ -26,7 +26,7 @@ export function registerSafetyTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: false },
   }, async ({ personaName }) => {
-    const result = handleDuressConfigure(deps.ctx, deps.pool, { personaName })
+    const result = await handleDuressConfigure(deps.ctx, deps.pool, { personaName })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }
@@ -40,7 +40,7 @@ export function registerSafetyTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ personaName }) => {
-    const result = handleDuressActivate(deps.ctx, { personaName })
+    const result = await handleDuressActivate(deps.ctx, { personaName })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }

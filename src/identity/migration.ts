@@ -123,7 +123,7 @@ export async function handleIdentityMigrate(
 
   // Publish linkage proof connecting old → new (only if operating as a derived identity)
   try {
-    const proof = ctx.prove('full')
+    const proof = await ctx.prove('full')
     const sign = ctx.getSigningFunction()
     const proofEvent = await sign({
       kind: 30078,

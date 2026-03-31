@@ -59,7 +59,7 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: false },
   }, async ({ purpose, index }) => {
-    const result = handleIdentityDerive(deps.ctx, { purpose, index })
+    const result = await handleIdentityDerive(deps.ctx, { purpose, index })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }
@@ -73,7 +73,7 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: false },
   }, async ({ name, index }) => {
-    const result = handleIdentityDerivePersona(deps.ctx, { name, index })
+    const result = await handleIdentityDerivePersona(deps.ctx, { name, index })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }
@@ -87,7 +87,7 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: false },
   }, async ({ target, index }) => {
-    const result = handleIdentitySwitch(deps.ctx, { target, index })
+    const result = await handleIdentitySwitch(deps.ctx, { target, index })
 
     // Reload NIP-65 relay list for the new identity so the pool routes correctly
     deps.nip65.loadForIdentity(result.npub).then(relays => {
@@ -106,7 +106,7 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: true },
   }, async ({ output }) => {
-    const result = handleIdentityList(deps.ctx)
+    const result = await handleIdentityList(deps.ctx)
     return toolResponse(result, output, fmt.formatIdentityList)
   })
 
@@ -117,7 +117,7 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: true },
   }, async ({ mode }) => {
-    const proof = handleIdentityProve(deps.ctx, { mode })
+    const proof = await handleIdentityProve(deps.ctx, { mode })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(proof, null, 2) }],
     }

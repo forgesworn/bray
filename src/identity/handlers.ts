@@ -19,15 +19,15 @@ export function handleIdentityCreate(): { npub: string; mnemonic: string } {
 }
 
 /** Derive a child identity by purpose and index */
-export function handleIdentityDerive(
+export async function handleIdentityDerive(
   ctx: IdentityContext,
   args: { purpose: string; index: number },
-): DeriveResult {
+): Promise<DeriveResult> {
   // Check before deriving — if only master exists, this is the first derivation
-  const identitiesBefore = ctx.listIdentities()
+  const identitiesBefore = await ctx.listIdentities()
   const isFirstDerivation = identitiesBefore.length <= 1
 
-  const identity = ctx.derive(args.purpose, args.index)
+  const identity = await ctx.derive(args.purpose, args.index)
   const result: DeriveResult = { ...identity }
 
   if (isFirstDerivation) {
@@ -38,31 +38,31 @@ export function handleIdentityDerive(
 }
 
 /** Derive a named persona */
-export function handleIdentityDerivePersona(
+export async function handleIdentityDerivePersona(
   ctx: IdentityContext,
   args: { name: string; index: number },
-): PublicIdentity {
+): Promise<PublicIdentity> {
   return ctx.derivePersona(args.name, args.index)
 }
 
 /** Switch active identity */
-export function handleIdentitySwitch(
+export async function handleIdentitySwitch(
   ctx: IdentityContext,
   args: { target: string; index?: number },
-): { npub: string } {
-  ctx.switch(args.target, args.index)
+): Promise<{ npub: string }> {
+  await ctx.switch(args.target, args.index)
   return { npub: ctx.activeNpub }
 }
 
 /** List all known identities — returns public info only */
-export function handleIdentityList(ctx: IdentityContext): PublicIdentity[] {
+export async function handleIdentityList(ctx: IdentityContext): Promise<PublicIdentity[]> {
   return ctx.listIdentities()
 }
 
 /** Create a linkage proof for the active identity. Defaults to blind (no purpose/index). */
-export function handleIdentityProve(
+export async function handleIdentityProve(
   ctx: IdentityContext,
   args: { mode?: 'blind' | 'full' },
-): LinkageProof {
+): Promise<LinkageProof> {
   return ctx.prove(args.mode ?? 'blind')
 }

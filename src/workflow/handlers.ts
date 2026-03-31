@@ -546,10 +546,10 @@ export async function handleIdentitySetup(
   const masterNpub = ctx.activeNpub
 
   // Derive each persona
-  const personas = personaNames.map((name, index) => {
-    const identity = ctx.derive(name, index)
+  const personas = await Promise.all(personaNames.map(async (name, index) => {
+    const identity = await ctx.derive(name, index)
     return { name, index, npub: identity.npub }
-  })
+  }))
 
   // Preview mode — no side effects
   if (!args.confirm) {
@@ -585,7 +585,7 @@ export async function handleIdentitySetup(
   let relaysConfigured = false
   if (args.relays && args.relays.length > 0) {
     for (const persona of personas) {
-      ctx.switch(persona.name, persona.index)
+      await ctx.switch(persona.name, persona.index)
       const sign = ctx.getSigningFunction()
       const tags = args.relays.map(url => ['r', url])
       const event = await sign({
@@ -602,7 +602,7 @@ export async function handleIdentitySetup(
     }
     relaysConfigured = true
     // Switch back to master
-    ctx.switch('master')
+    await ctx.switch('master')
   }
 
   return {

@@ -19,89 +19,89 @@ describe('safety handlers', () => {
   })
 
   describe('handleDuressConfigure', () => {
-    it('configures a duress persona', () => {
+    it('configures a duress persona', async () => {
       const pool = mockPool()
-      const result = handleDuressConfigure(ctx, pool as any, {})
+      const result = await handleDuressConfigure(ctx, pool as any, {})
       expect(result.configured).toBe(true)
       expect(result.npub).toMatch(/^npub1/)
     })
 
-    it('uses custom persona name', () => {
+    it('uses custom persona name', async () => {
       const pool = mockPool()
-      const result = handleDuressConfigure(ctx, pool as any, { personaName: 'escape-hatch' })
+      const result = await handleDuressConfigure(ctx, pool as any, { personaName: 'escape-hatch' })
       expect(result.configured).toBe(true)
-      const list = ctx.listIdentities()
+      const list = await ctx.listIdentities()
       expect(list.some(i => i.personaName === 'escape-hatch')).toBe(true)
     })
 
-    it('defaults to "anonymous" persona name', () => {
+    it('defaults to "anonymous" persona name', async () => {
       const pool = mockPool()
-      handleDuressConfigure(ctx, pool as any, {})
-      const list = ctx.listIdentities()
+      await handleDuressConfigure(ctx, pool as any, {})
+      const list = await ctx.listIdentities()
       expect(list.some(i => i.personaName === 'anonymous')).toBe(true)
     })
 
-    it('produces deterministic npub for same persona name', () => {
+    it('produces deterministic npub for same persona name', async () => {
       const pool = mockPool()
-      const r1 = handleDuressConfigure(ctx, pool as any, { personaName: 'safe' })
-      const r2 = handleDuressConfigure(ctx, pool as any, { personaName: 'safe' })
+      const r1 = await handleDuressConfigure(ctx, pool as any, { personaName: 'safe' })
+      const r2 = await handleDuressConfigure(ctx, pool as any, { personaName: 'safe' })
       expect(r1.npub).toBe(r2.npub)
     })
 
-    it('produces different npubs for different persona names', () => {
+    it('produces different npubs for different persona names', async () => {
       const pool = mockPool()
-      const r1 = handleDuressConfigure(ctx, pool as any, { personaName: 'alpha' })
-      const r2 = handleDuressConfigure(ctx, pool as any, { personaName: 'beta' })
+      const r1 = await handleDuressConfigure(ctx, pool as any, { personaName: 'alpha' })
+      const r2 = await handleDuressConfigure(ctx, pool as any, { personaName: 'beta' })
       expect(r1.npub).not.toBe(r2.npub)
     })
   })
 
   describe('handleDuressActivate', () => {
-    it('switches to duress persona', () => {
+    it('switches to duress persona', async () => {
       const pool = mockPool()
-      handleDuressConfigure(ctx, pool as any, { personaName: 'safe' })
+      await handleDuressConfigure(ctx, pool as any, { personaName: 'safe' })
       const masterNpub = ctx.activeNpub
-      const result = handleDuressActivate(ctx, { personaName: 'safe' })
+      const result = await handleDuressActivate(ctx, { personaName: 'safe' })
       expect(result.npub).toMatch(/^npub1/)
       expect(result.npub).not.toBe(masterNpub)
     })
 
-    it('response is identical structure to identity_switch', () => {
+    it('response is identical structure to identity_switch', async () => {
       const pool = mockPool()
-      handleDuressConfigure(ctx, pool as any, {})
-      const result = handleDuressActivate(ctx, {})
+      await handleDuressConfigure(ctx, pool as any, {})
+      const result = await handleDuressActivate(ctx, {})
       expect(Object.keys(result)).toEqual(['npub'])
     })
 
-    it('duress identity appears in identity_list as normal', () => {
+    it('duress identity appears in identity_list as normal', async () => {
       const pool = mockPool()
-      handleDuressConfigure(ctx, pool as any, { personaName: 'emergency' })
-      const list = ctx.listIdentities()
+      await handleDuressConfigure(ctx, pool as any, { personaName: 'emergency' })
+      const list = await ctx.listIdentities()
       expect(list.some(i => i.personaName === 'emergency')).toBe(true)
     })
 
-    it('does NOT publish any Nostr events on activation', () => {
+    it('does NOT publish any Nostr events on activation', async () => {
       const pool = mockPool()
-      handleDuressConfigure(ctx, pool as any, {})
-      handleDuressActivate(ctx, {})
+      await handleDuressConfigure(ctx, pool as any, {})
+      await handleDuressActivate(ctx, {})
       // Pool should not have been called for publishing
       expect(pool.reconfigure).not.toHaveBeenCalled()
     })
 
-    it('can switch back to master after activation', () => {
+    it('can switch back to master after activation', async () => {
       const pool = mockPool()
       const masterNpub = ctx.activeNpub
-      handleDuressConfigure(ctx, pool as any, { personaName: 'safe' })
-      handleDuressActivate(ctx, { personaName: 'safe' })
+      await handleDuressConfigure(ctx, pool as any, { personaName: 'safe' })
+      await handleDuressActivate(ctx, { personaName: 'safe' })
       expect(ctx.activeNpub).not.toBe(masterNpub)
-      ctx.switch('master')
+      await ctx.switch('master')
       expect(ctx.activeNpub).toBe(masterNpub)
     })
 
-    it('duress persona is cryptographically unlinkable to master', () => {
+    it('duress persona is cryptographically unlinkable to master', async () => {
       const pool = mockPool()
       const masterNpub = ctx.activeNpub
-      const { npub: duressNpub } = handleDuressConfigure(ctx, pool as any, {})
+      const { npub: duressNpub } = await handleDuressConfigure(ctx, pool as any, {})
       // The npubs are completely different — no deterministic relationship visible
       expect(duressNpub).not.toBe(masterNpub)
       expect(duressNpub.slice(0, 10)).not.toBe(masterNpub.slice(0, 10))

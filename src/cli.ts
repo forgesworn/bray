@@ -338,24 +338,24 @@ async function run(cmdArgs: string[]): Promise<void> {
       break
 
     case 'list':
-      out(handleIdentityList(ctx), fmt.formatIdentityList)
+      out(await handleIdentityList(ctx), fmt.formatIdentityList)
       break
 
     case 'derive':
-      out(ctx.derive(req(1, 'derive <purpose> [index]'), parseInt(cmdArgs[2] ?? '0', 10)))
+      out(await ctx.derive(req(1, 'derive <purpose> [index]'), parseInt(cmdArgs[2] ?? '0', 10)))
       break
 
     case 'persona':
-      out(ctx.derivePersona(req(1, 'persona <name> [index]'), parseInt(cmdArgs[2] ?? '0', 10)))
+      out(await ctx.derivePersona(req(1, 'persona <name> [index]'), parseInt(cmdArgs[2] ?? '0', 10)))
       break
 
     case 'switch':
-      ctx.switch(req(1, 'switch <target> [index]'), cmdArgs[2] ? parseInt(cmdArgs[2], 10) : undefined)
+      await ctx.switch(req(1, 'switch <target> [index]'), cmdArgs[2] ? parseInt(cmdArgs[2], 10) : undefined)
       console.log(ctx.activeNpub)
       break
 
     case 'prove':
-      out(handleIdentityProve(ctx, { mode: (cmdArgs[1] === 'full' ? 'full' : 'blind') }))
+      out(await handleIdentityProve(ctx, { mode: (cmdArgs[1] === 'full' ? 'full' : 'blind') }))
       break
 
     case 'proof-publish': {
@@ -658,11 +658,11 @@ async function run(cmdArgs: string[]): Promise<void> {
     // === Safety ===
 
     case 'safety-configure':
-      out(handleDuressConfigure(ctx, pool, { personaName: cmdArgs[1] }))
+      out(await handleDuressConfigure(ctx, pool, { personaName: cmdArgs[1] }))
       break
 
     case 'safety-activate':
-      out(handleDuressActivate(ctx, { personaName: cmdArgs[1] }))
+      out(await handleDuressActivate(ctx, { personaName: cmdArgs[1] }))
       break
 
     // === Blossom ===

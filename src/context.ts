@@ -6,6 +6,7 @@ import { decode, npubEncode, nsecEncode } from 'nostr-tools/nip19'
 import type { TreeRoot, Identity, LinkageProof } from 'nsec-tree'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 import type { PublicIdentity, SignFn } from './types.js'
+import type { ExtendedSigningContext } from './signing-context.js'
 
 interface CacheEntry {
   identity: Identity
@@ -33,7 +34,7 @@ export interface ContextOptions {
   maxCache?: number
 }
 
-export class IdentityContext {
+export class IdentityContext implements ExtendedSigningContext {
   private root: TreeRoot
   private cache = new Map<string, CacheEntry>()
   private masterEntry: CacheEntry
@@ -83,7 +84,7 @@ export class IdentityContext {
   }
 
   /** Derive a child identity by purpose and index */
-  derive(purpose: string, index: number): PublicIdentity {
+  async derive(purpose: string, index: number): Promise<PublicIdentity> {
     // Return from cache if already derived
     for (const [npub, entry] of this.cache) {
       if (entry.purpose === purpose && entry.index === index && !entry.personaName) {
@@ -104,7 +105,7 @@ export class IdentityContext {
   }
 
   /** Derive a named persona */
-  derivePersona(name: string, index: number): PublicIdentity {
+  async derivePersona(name: string, index: number): Promise<PublicIdentity> {
     // Return from cache if already derived
     for (const [npub, entry] of this.cache) {
       if (entry.personaName === name && entry.index === index) {
@@ -131,7 +132,7 @@ export class IdentityContext {
   }
 
   /** Switch active identity by purpose+index, persona name, or "master" */
-  switch(purposeOrName: string, index?: number): void {
+  async switch(purposeOrName: string, index?: number): Promise<void> {
     if (purposeOrName === 'master') {
       this.activeEntry = this.masterEntry
       this.masterEntry.lastUsed = Date.now()
@@ -168,8 +169,22 @@ export class IdentityContext {
     }
   }
 
+  /** NIP-44 encrypt using the active identity's key. */
+  async nip44Encrypt(recipientPubkey: string, plaintext: string): Promise<string> {
+    const { getConversationKey, encrypt } = await import('nostr-tools/nip44')
+    const ck = getConversationKey(this.activePrivateKey, recipientPubkey)
+    return encrypt(plaintext, ck)
+  }
+
+  /** NIP-44 decrypt using the active identity's key. */
+  async nip44Decrypt(senderPubkey: string, ciphertext: string): Promise<string> {
+    const { getConversationKey, decrypt } = await import('nostr-tools/nip44')
+    const ck = getConversationKey(this.activePrivateKey, senderPubkey)
+    return decrypt(ciphertext, ck)
+  }
+
   /** List all known identities — returns public info only, never private keys */
-  listIdentities(): PublicIdentity[] {
+  async listIdentities(): Promise<PublicIdentity[]> {
     const result: PublicIdentity[] = [
       { npub: this.masterEntry.identity.npub, purpose: 'master', index: 0 },
     ]
@@ -186,7 +201,7 @@ export class IdentityContext {
 
   /** Create a linkage proof for the active identity.
    *  Only works for derived identities — the master IS the raw key, not a tree child. */
-  prove(mode: 'blind' | 'full' = 'blind'): LinkageProof {
+  async prove(mode: 'blind' | 'full' = 'blind'): Promise<LinkageProof> {
     if (this.activeEntry === this.masterEntry) {
       throw new Error('Cannot prove master identity — it is the raw key, not a derived child. Switch to a derived identity first.')
     }
@@ -195,6 +210,28 @@ export class IdentityContext {
       return createFullProof(this.root, child)
     }
     return createBlindProof(this.root, child)
+  }
+
+  /** Recover identities by scanning derived keys for known purposes. */
+  async recover(lookahead?: number): Promise<PublicIdentity[]> {
+    const { recover: recoverIdentities } = await import('nsec-tree')
+    const defaultPurposes = ['messaging', 'signing', 'social', 'commerce', 'master']
+    const range = lookahead ?? 20
+    const recoveredMap = recoverIdentities(this.root, defaultPurposes, range)
+    const result: PublicIdentity[] = []
+    for (const [, identities] of recoveredMap) {
+      for (const identity of identities) {
+        const entry: CacheEntry = {
+          identity,
+          purpose: identity.purpose,
+          index: identity.index,
+          lastUsed: Date.now(),
+        }
+        this.putCache(identity.npub, entry)
+        result.push({ npub: identity.npub, purpose: identity.purpose, index: identity.index })
+      }
+    }
+    return result
   }
 
   /** Get the nsec-tree root's master pubkey (the derivation anchor, distinct from the raw key's pubkey) */

@@ -58,7 +58,7 @@ export async function handleTrustAttest(
   const publish = await pool.publish(ctx.activeNpub, event)
 
   // Warn if attesting as a derived persona
-  const identities = ctx.listIdentities()
+  const identities = await ctx.listIdentities()
   const active = identities.find(i => i.npub === ctx.activeNpub)
   let warning: string | undefined
   if (active && active.purpose !== 'master') {
@@ -192,7 +192,7 @@ export async function handleTrustProofPublish(
   pool: RelayPool,
   args: { mode?: 'blind' | 'full'; confirm: boolean },
 ): Promise<{ event?: NostrEvent; published: boolean; warning?: string; publish?: PublishResult }> {
-  const proof = ctx.prove(args.mode ?? 'blind')
+  const proof = await ctx.prove(args.mode ?? 'blind')
   const reveals = args.mode === 'full'
     ? `Full proof — reveals purpose "${proof.purpose}" and index ${proof.index}. This is irreversible.`
     : 'Blind proof — reveals that child belongs to master, but NOT the derivation path.'

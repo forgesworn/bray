@@ -18,10 +18,10 @@ describe('LSAG ring signatures', () => {
   let activeHex: string
   let ring: string[]
 
-  beforeEach(() => {
+  beforeEach(async () => {
     ctx = new IdentityContext(TEST_NSEC, 'nsec')
-    ctx.derive('ring-member', 0)
-    ctx.switch('ring-member', 0)
+    await ctx.derive('ring-member', 0)
+    await ctx.switch('ring-member', 0)
     activeHex = decode(ctx.activeNpub).data as string
 
     const other1 = getPublicKey(generateSecretKey())
