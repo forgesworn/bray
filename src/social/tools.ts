@@ -38,6 +38,7 @@ import {
 } from './blossom.js'
 import { handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers } from './groups.js'
 import { handleArticlePublish, handleArticleRead, handleArticleList } from './articles.js'
+import { handleSearchNotes, handleSearchProfiles, handleHashtagFeed } from './search.js'
 
 export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   const trustCache = new TrustCache({
@@ -749,5 +750,49 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       author: resolved.pubkeyHex, limit,
     })
     return toolResponse(articles, output, fmt.formatArticleList)
+  })
+
+  // --- NIP-50 Search ---
+
+  server.registerTool('search-notes', {
+    description: 'Full-text search for notes (kind 1) using NIP-50. Requires relay support for NIP-50 — if results are empty, try relay-info to check NIP support. Optionally specify relays known to support NIP-50.',
+    inputSchema: {
+      query: z.string().describe('Search query string'),
+      limit: z.number().int().min(1).max(200).default(50).describe('Max results to return'),
+      since: z.number().optional().describe('Unix timestamp — only notes after this time'),
+      relays: z.array(z.string()).optional().describe('Explicit relay URLs to search (use relays known to support NIP-50)'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ query, limit, since, relays, output }) => {
+    const results = await handleSearchNotes(deps.pool, deps.ctx.activeNpub, { query, limit, since, relays })
+    return toolResponse(results, output, fmt.formatSearchResults)
+  })
+
+  server.registerTool('search-profiles', {
+    description: 'Search for Nostr profiles (kind 0) by keyword using NIP-50. Requires relay support for NIP-50 — if results are empty, try relay-info to check NIP support.',
+    inputSchema: {
+      query: z.string().describe('Search query (name, about, NIP-05, etc.)'),
+      limit: z.number().int().min(1).max(100).default(20).describe('Max profiles to return'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ query, limit, output }) => {
+    const results = await handleSearchProfiles(deps.pool, deps.ctx.activeNpub, { query, limit })
+    return toolResponse(results, output, fmt.formatProfileSearchResults)
+  })
+
+  server.registerTool('hashtag-feed', {
+    description: 'Fetch notes (kind 1) with a specific hashtag. Uses standard tag filtering — works on all relays, no NIP-50 required.',
+    inputSchema: {
+      hashtag: z.string().describe('Hashtag to search for (without the #)'),
+      limit: z.number().int().min(1).max(200).default(50).describe('Max notes to return'),
+      since: z.number().optional().describe('Unix timestamp — only notes after this time'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ hashtag, limit, since, output }) => {
+    const results = await handleHashtagFeed(deps.pool, deps.ctx.activeNpub, { hashtag, limit, since })
+    return toolResponse(results, output, fmt.formatSearchResults)
   })
 }
