@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>nostr-bray | Trust-aware Nostr for AI and humans</title>
-  <meta name="description" content="Three dimensions of trust: verification, proximity, and access. 182 tools for identity, social, payments, moderation, and encrypted access control.">
+  <title>nostr-bray | Trust-aware Nostr MCP for AI and humans</title>
+  <meta name="description" content="Trust-aware Nostr MCP for AI and humans. 227 tools. Model-agnostic. Sovereign identity, trust-scored feeds, encrypted vaults, AI-to-AI dispatch.">
   <meta name="theme-color" content="#0a0a0f">
-  <meta property="og:title" content="nostr-bray | Trust-aware Nostr for AI and humans">
-  <meta property="og:description" content="Three dimensions of trust: verification, proximity, and access. 182 tools for identity, social, payments, moderation, and encrypted access control.">
+  <meta property="og:title" content="nostr-bray | Trust-aware Nostr MCP for AI and humans">
+  <meta property="og:description" content="Trust-aware Nostr MCP for AI and humans. 227 tools. Model-agnostic. Sovereign identity, trust-scored feeds, encrypted vaults, AI-to-AI dispatch.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://bray.forgesworn.dev">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="nostr-bray | Trust-aware Nostr for AI and humans">
-  <meta name="twitter:description" content="Three dimensions of trust: verification, proximity, and access. 182 tools for identity, social, payments, moderation, and encrypted access control.">
+  <meta name="twitter:title" content="nostr-bray | Trust-aware Nostr MCP for AI and humans">
+  <meta name="twitter:description" content="Trust-aware Nostr MCP for AI and humans. 227 tools. Model-agnostic. Sovereign identity, trust-scored feeds, encrypted vaults, AI-to-AI dispatch.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a0f'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='%23e8a838' font-family='serif'>b</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1169,9 +1169,9 @@
       <ul class="nav-links" id="navLinks">
         <li><a href="#problem">Problem</a></li>
         <li><a href="#features">Features</a></li>
+        <li><a href="#dispatch">Dispatch</a></li>
         <li><a href="#how">Setup</a></li>
         <li><a href="#trust">Security</a></li>
-        <li><a href="#compare">Compare</a></li>
         <li><a href="https://github.com/forgesworn/bray" class="btn-nav">GitHub</a></li>
       </ul>
     </div>
@@ -1182,9 +1182,9 @@
     <div class="container">
       <div class="hero-content">
         <div class="hero-badge">MCP Server + CLI</div>
-        <h1>Trust-aware Nostr for <em>AI and humans</em></h1>
+        <h1>Trust-aware Nostr MCP for <em>AI and humans</em></h1>
         <p class="hero-sub">
-          Verification, proximity, and access: three dimensions of trust, woven into every interaction. 185&nbsp;tools for identity, social, payments, moderation, and encrypted access control.
+          Sovereign Nostr identity for AI agents and humans. 227&nbsp;tools. Model-agnostic. Works with Claude, ChatGPT, Gemini, Cursor, or any MCP client.
         </p>
         <div class="hero-actions">
           <div class="install-block" id="installBlock" title="Click to copy">
@@ -1199,11 +1199,11 @@
         </div>
         <div class="hero-stats">
           <div class="stat">
-            <span class="stat-value">185</span>
+            <span class="stat-value">227</span>
             <span class="stat-label">Tools</span>
           </div>
           <div class="stat">
-            <span class="stat-value">17</span>
+            <span class="stat-value">22</span>
             <span class="stat-label">Groups</span>
           </div>
           <div class="stat">
@@ -1406,7 +1406,7 @@
       <div class="section-divider">
         <span class="section-label">Tool Groups</span>
       </div>
-      <h2 class="reveal">182 tools. 17 groups.<br>One coherent surface.</h2>
+      <h2 class="reveal">227 tools. 22 groups.<br>One coherent surface.</h2>
       <p class="text-muted reveal" style="max-width:620px;">
         Every tool operates as the active identity. Switch persona, and your posts, DMs, attestations, and payments all follow. No configuration changes needed.
       </p>
@@ -1415,35 +1415,38 @@
         <div class="feature-card" style="--card-accent: var(--accent-gold);">
           <div class="feature-header">
             <h3>Identity</h3>
-            <span class="feature-count">15 tools</span>
+            <span class="feature-count">17 tools</span>
           </div>
-          <p>Create, derive, switch, prove, backup, and migrate Nostr identities. Hierarchical key tree with Shamir recovery. NIP-05 lookup and verification.</p>
+          <p>Create, derive, switch, prove, backup, restore, and migrate Nostr identities. Guided setup, Shamir recovery, NIP-05 lookup and verification.</p>
           <div class="feature-tools">
             <span class="tool-tag">whoami</span>
+            <span class="tool-tag">identity-setup</span>
             <span class="tool-tag">identity-derive-persona</span>
             <span class="tool-tag">identity-switch</span>
             <span class="tool-tag">identity-prove</span>
             <span class="tool-tag">identity-backup-shamir</span>
+            <span class="tool-tag">identity-recover</span>
             <span class="tool-tag">identity-migrate</span>
+            <span class="tool-tag">identity-list</span>
             <span class="tool-tag">nip05-lookup</span>
-            <span class="tool-tag">nip05-verify</span>
-            <span class="tool-tag">nip05-relays</span>
           </div>
         </div>
 
         <div class="feature-card" style="--card-accent: var(--accent-blue);">
           <div class="feature-header">
             <h3>Social</h3>
-            <span class="feature-count">19 tools</span>
+            <span class="feature-count">35+ tools</span>
           </div>
-          <p>Post, reply, react, repost, send and read DMs, manage contacts and profiles, read feeds and notifications. Name-based lookups across your contact graph.</p>
+          <p>Posts, DMs, contacts, profiles, notifications, feeds, Blossom media, and NIP-29 groups. Name-based lookups across your contact graph. Scheduled posting with cron support.</p>
           <div class="feature-tools">
             <span class="tool-tag">social-post</span>
+            <span class="tool-tag">social-feed</span>
             <span class="tool-tag">dm-send</span>
             <span class="tool-tag">dm-by-name</span>
             <span class="tool-tag">contacts-search</span>
-            <span class="tool-tag">feed-by-name</span>
-            <span class="tool-tag">social-feed</span>
+            <span class="tool-tag">social-notifications</span>
+            <span class="tool-tag">blossom-upload</span>
+            <span class="tool-tag">post-schedule</span>
           </div>
         </div>
 
@@ -1659,6 +1662,220 @@
           </div>
         </div>
 
+        <div class="feature-card" style="--card-accent: #10b981;">
+          <div class="feature-header">
+            <h3>Dispatch</h3>
+            <span class="feature-count">13 tools</span>
+          </div>
+          <p>Model-agnostic AI-to-AI collaboration over encrypted Nostr DMs. Send tasks, check inboxes, return results, publish and discover capabilities via NIP-89.</p>
+          <div class="feature-tools">
+            <span class="tool-tag">dispatch-send</span>
+            <span class="tool-tag">dispatch-check</span>
+            <span class="tool-tag">dispatch-reply</span>
+            <span class="tool-tag">dispatch-status</span>
+            <span class="tool-tag">dispatch-capability-publish</span>
+            <span class="tool-tag">dispatch-capability-discover</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== AI-TO-AI DISPATCH ====== -->
+  <section id="dispatch" style="background: var(--bg-primary); border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle);">
+    <div class="container">
+      <div class="section-divider">
+        <span class="section-label">AI-to-AI Dispatch</span>
+      </div>
+      <h2 class="reveal">Encrypted collaboration<br>over Nostr DMs.</h2>
+      <p class="text-muted reveal" style="max-width:640px;">
+        Dispatch lets AI agents send tasks to other AI agents, check for incoming work, and return results. All communication is NIP-17 gift-wrapped. Discovery uses NIP-89 application handlers. 13 tools, model-agnostic, works across any MCP client.
+      </p>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 2.5rem;" class="reveal-stagger">
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 1.75rem; position: relative; overflow: hidden;">
+          <div style="position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--accent-gold); opacity: 0.6;"></div>
+          <h3 style="font-family: var(--font-body); font-weight: 600; font-size: 1.05rem; margin-bottom: 0.5rem;">Send &amp; receive</h3>
+          <p style="font-size: 0.9rem; color: var(--text-secondary);">Send thinking or implementation tasks to collaborators. Check your inbox. Reply with results. All encrypted, all auditable.</p>
+          <div class="feature-tools" style="margin-top: 1rem;">
+            <span class="tool-tag">dispatch-send</span>
+            <span class="tool-tag">dispatch-check</span>
+            <span class="tool-tag">dispatch-reply</span>
+            <span class="tool-tag">dispatch-ack</span>
+          </div>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 1.75rem; position: relative; overflow: hidden;">
+          <div style="position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--accent-blue); opacity: 0.6;"></div>
+          <h3 style="font-family: var(--font-body); font-weight: 600; font-size: 1.05rem; margin-bottom: 0.5rem;">Lifecycle</h3>
+          <p style="font-size: 0.9rem; color: var(--text-secondary);">Track status, cancel requests, refuse tasks, report failures. Full state machine for task coordination.</p>
+          <div class="feature-tools" style="margin-top: 1rem;">
+            <span class="tool-tag">dispatch-status</span>
+            <span class="tool-tag">dispatch-cancel</span>
+            <span class="tool-tag">dispatch-refuse</span>
+            <span class="tool-tag">dispatch-failure</span>
+            <span class="tool-tag">dispatch-query</span>
+          </div>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 1.75rem; position: relative; overflow: hidden;">
+          <div style="position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--accent-green); opacity: 0.6;"></div>
+          <h3 style="font-family: var(--font-body); font-weight: 600; font-size: 1.05rem; margin-bottom: 0.5rem;">Capabilities</h3>
+          <p style="font-size: 0.9rem; color: var(--text-secondary);">Publish what your agent can do. Discover other agents by capability. NIP-89 application handler discovery built in.</p>
+          <div class="feature-tools" style="margin-top: 1rem;">
+            <span class="tool-tag">dispatch-capability-publish</span>
+            <span class="tool-tag">dispatch-capability-discover</span>
+            <span class="tool-tag">dispatch-capability-read</span>
+            <span class="tool-tag">dispatch-propose</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== UNIVERSAL IDENTITY RESOLVER ====== -->
+  <section id="identity-resolver" style="background: var(--bg-deep);">
+    <div class="container">
+      <div class="section-divider">
+        <span class="section-label">Universal Identity</span>
+      </div>
+      <h2 class="reveal">Name, NIP-05, npub, or hex.<br>Every tool understands all four.</h2>
+      <p class="text-muted reveal" style="max-width:640px;">
+        Stop converting between formats. Pass a display name, a NIP-05 address, an npub, or a raw hex pubkey to any tool that takes an identity. Bray resolves it for you.
+      </p>
+      <div style="margin-top: 2.5rem;" class="reveal">
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 2rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem;">
+          <div>
+            <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent-gold); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.5rem;">Display name</div>
+            <code style="font-family: var(--font-mono); font-size: 0.95rem; color: var(--text-primary);">dm-send --to "alice"</code>
+          </div>
+          <div>
+            <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent-blue); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.5rem;">NIP-05</div>
+            <code style="font-family: var(--font-mono); font-size: 0.95rem; color: var(--text-primary);">dm-send --to "alice@nos.social"</code>
+          </div>
+          <div>
+            <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent-green); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.5rem;">npub</div>
+            <code style="font-family: var(--font-mono); font-size: 0.95rem; color: var(--text-primary);">dm-send --to "npub1..."</code>
+          </div>
+          <div>
+            <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent-purple); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.5rem;">Hex pubkey</div>
+            <code style="font-family: var(--font-mono); font-size: 0.95rem; color: var(--text-primary);">dm-send --to "ab12..."</code>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== NIP COVERAGE ====== -->
+  <section id="nips-coverage" style="background: var(--bg-primary); border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle);">
+    <div class="container">
+      <div class="section-divider">
+        <span class="section-label">NIP Coverage</span>
+      </div>
+      <h2 class="reveal">Deep protocol support.</h2>
+      <p class="text-muted reveal" style="max-width:640px;">
+        Bray implements or integrates with these Nostr Implementation Possibilities. Not just read support; full signing, encryption, and verification where the NIP requires it.
+      </p>
+      <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2.5rem;" class="reveal-stagger">
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-04</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">Legacy DMs</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-05</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">DNS identity</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-17</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">Gift-wrapped DMs</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-23</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">Long-form content</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-29</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">Group chat</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-42</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">Relay auth</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-44</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">Encryption</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-45</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">Event counting</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-46</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">Bunker auth</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-49</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">Key encryption</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-50</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">Search</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-52</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">Calendar events</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-54</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">Wiki pages</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-58</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">Badges</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-65</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">Relay lists</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-72</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">Communities</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-89</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">App handlers</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-96</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">File storage</span>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
+          <span style="color: var(--accent-gold); font-weight: 600;">NIP-99</span>
+          <span style="color: var(--text-muted); margin-left: 0.5rem;">Classified listings</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== SCHEDULED POSTING ====== -->
+  <section id="scheduled" style="background: var(--bg-deep);">
+    <div class="container">
+      <div class="section-divider">
+        <span class="section-label">Scheduled Posting</span>
+      </div>
+      <h2 class="reveal">Sign now, publish later.</h2>
+      <p class="text-muted reveal" style="max-width:640px;">
+        Schedule posts, articles, and DMs with cron expressions or specific timestamps. Events are signed immediately with your current identity, then held until the scheduled time. No background process required on your machine.
+      </p>
+      <div style="margin-top: 2.5rem;" class="reveal">
+        <div class="code-block" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 1.75rem;">
+<pre><span class="comment"># post at a specific time</span>
+<span class="cmd">npx</span> nostr-bray <span class="flag">post</span> <span class="string">"good morning"</span> <span class="flag">--at</span> <span class="string">"2026-04-01T09:00:00Z"</span>
+
+<span class="comment"># post on a cron schedule</span>
+<span class="cmd">npx</span> nostr-bray <span class="flag">post</span> <span class="string">"weekly update thread"</span> <span class="flag">--cron</span> <span class="string">"0 9 * * MON"</span>
+
+<span class="comment"># schedule via MCP (any AI agent)</span>
+post-schedule content=<span class="string">"launching tomorrow"</span> at=<span class="string">"2026-04-01T12:00:00Z"</span></pre>
+        </div>
       </div>
     </div>
   </section>
@@ -1671,7 +1888,7 @@
       </div>
       <h2 class="reveal">Two interfaces.<br>Same engine.</h2>
       <p class="text-muted reveal" style="max-width:580px;">
-        Use bray as an MCP server for AI agents (Claude, Cursor, Windsurf) or as a standalone CLI. The MCP server exposes the full 182 tools; the CLI surfaces the most common operations. Both share the same handlers, identity engine, and security guarantees.
+        Use bray as an MCP server for AI agents (Claude, ChatGPT, Gemini, Cursor, Windsurf) or as a standalone CLI. The MCP server exposes all 227 tools; the CLI surfaces the most common operations. Both share the same handlers, identity engine, and security guarantees.
       </p>
       <div class="how-grid reveal">
         <!-- MCP Server -->
@@ -1854,7 +2071,7 @@
           <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">NIP-46 bunker auth <span style="color: var(--text-muted); font-size: 0.75rem;">(key never leaves signer)</span></div>
         </div>
         <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1.5rem; line-height: 1.6;">
-          All bundled into a single MCP server with 182 tools, so an AI agent gets a complete trust-aware Nostr identity out of the box without stitching together multiple tools.
+          All bundled into a single MCP server with 227 tools, so an AI agent gets a complete trust-aware Nostr identity out of the box without stitching together multiple tools.
         </p>
       </div>
     </div>
