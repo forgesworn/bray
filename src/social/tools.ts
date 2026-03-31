@@ -39,7 +39,6 @@ import {
 import { handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers } from './groups.js'
 import { handleArticlePublish, handleArticleRead, handleArticleList } from './articles.js'
 import { handleSearchNotes, handleSearchProfiles, handleHashtagFeed } from './search.js'
-import { handleArticlePublish, handleArticleRead, handleArticleList } from './articles.js'
 
 export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   const trustCache = new TrustCache({
@@ -797,63 +796,4 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     return toolResponse(results, output, fmt.formatSearchResults)
   })
 
-  // --- NIP-23 Long-form Articles ---
-
-  server.registerTool('article-publish', {
-    description: 'Publish a long-form article (NIP-23, kind 30023). Creates a replaceable event with title, markdown content, and optional metadata. The slug (d-tag) defaults to a slugified version of the title.',
-    inputSchema: {
-      title: z.string().describe('Article title'),
-      content: z.string().describe('Article body in Markdown'),
-      summary: z.string().optional().describe('Short summary / abstract'),
-      image: z.string().optional().describe('Header image URL'),
-      published_at: z.string().optional().describe('Publication date as ISO string (defaults to now)'),
-      hashtags: z.array(z.string()).optional().describe('Hashtag labels (without #)'),
-      slug: z.string().optional().describe('URL-safe identifier (d-tag) — defaults to slugified title'),
-    },
-    annotations: { readOnlyHint: false, destructiveHint: true },
-  }, async ({ title, content, summary, image, published_at, hashtags, slug }) => {
-    const result = await handleArticlePublish(deps.ctx, deps.pool, {
-      title, content, summary, image, published_at, hashtags, slug,
-    })
-    return {
-      content: [{ type: 'text' as const, text: JSON.stringify({
-        id: result.event.id,
-        pubkey: result.event.pubkey,
-        slug: result.event.tags.find(t => t[0] === 'd')?.[1],
-        publish: result.publish,
-      }, null, 2) }],
-    }
-  })
-
-  server.registerTool('article-read', {
-    description: 'Read long-form article(s) (NIP-23, kind 30023) by author. Optionally fetch a specific article by slug. Accepts any identifier: name, NIP-05, npub, or hex pubkey.',
-    inputSchema: {
-      author: z.string().describe('Author — name, NIP-05, npub, or hex pubkey'),
-      slug: z.string().optional().describe('Article slug (d-tag) — omit to fetch all articles by author'),
-      output: z.enum(['json', 'human']).default('human').describe('Response format'),
-    },
-    annotations: { readOnlyHint: true },
-  }, async ({ author, slug, output }) => {
-    const resolved = await resolveRecipient(author)
-    const articles = await handleArticleRead(deps.pool, deps.ctx.activeNpub, {
-      author: resolved.pubkeyHex, slug,
-    })
-    return toolResponse(articles, output, fmt.formatArticle)
-  })
-
-  server.registerTool('article-list', {
-    description: 'List long-form article metadata (NIP-23, kind 30023) by author — titles, slugs, summaries, and dates without full content. Accepts any identifier: name, NIP-05, npub, or hex pubkey.',
-    inputSchema: {
-      author: z.string().describe('Author — name, NIP-05, npub, or hex pubkey'),
-      limit: z.number().int().min(1).max(100).default(20).describe('Max articles to return'),
-      output: z.enum(['json', 'human']).default('human').describe('Response format'),
-    },
-    annotations: { readOnlyHint: true },
-  }, async ({ author, limit, output }) => {
-    const resolved = await resolveRecipient(author)
-    const articles = await handleArticleList(deps.pool, deps.ctx.activeNpub, {
-      author: resolved.pubkeyHex, limit,
-    })
-    return toolResponse(articles, output, fmt.formatArticleList)
-  })
 }
