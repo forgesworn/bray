@@ -79,6 +79,11 @@ const PROMOTED = new Set([
   'article-publish', 'article-read', 'article-list',
   'search-notes', 'search-profiles', 'hashtag-feed',
   'social-profile-get', 'dm-conversation', 'verify-person',
+  'dispatch-propose', 'dispatch-capability-publish', 'dispatch-capability-discover', 'dispatch-capability-read',
+  'badge-create', 'badge-award', 'badge-accept', 'badge-list',
+  'community-create', 'community-feed', 'community-post', 'community-approve', 'community-list',
+  'calendar-create', 'calendar-read', 'calendar-rsvp',
+  'listing-create', 'listing-read', 'listing-search', 'listing-close',
 ])
 const catalog = new ActionCatalog()
 const proxy = createCatalogProxy(server, catalog, PROMOTED)
