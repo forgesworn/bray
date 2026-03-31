@@ -27,7 +27,7 @@ export async function handleIdentityPickerWidget(
   ctx: IdentityContext,
   pool: RelayPool,
 ): Promise<IdentityPickerResult> {
-  const identities = handleIdentityList(ctx)
+  const identities = await handleIdentityList(ctx)
   const activeNpub = ctx.activeNpub
 
   const entries: IdentityPickerEntry[] = []

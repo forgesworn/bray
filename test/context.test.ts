@@ -43,9 +43,9 @@ describe('IdentityContext', () => {
   })
 
   describe('derive', () => {
-    it('returns identity with correct npub for given purpose/index', () => {
+    it('returns identity with correct npub for given purpose/index', async () => {
       const ctx = new IdentityContext(TEST_NSEC, 'nsec')
-      const id = ctx.derive('messaging', 0)
+      const id = await ctx.derive('messaging', 0)
       expect(id.npub).toMatch(/^npub1/)
       expect(id.purpose).toBe('messaging')
       expect(id.index).toBe(0)
@@ -53,27 +53,27 @@ describe('IdentityContext', () => {
       ctx.destroy()
     })
 
-    it('produces deterministic npub for same purpose/index', () => {
+    it('produces deterministic npub for same purpose/index', async () => {
       const ctx = new IdentityContext(TEST_NSEC, 'nsec')
-      const id1 = ctx.derive('messaging', 0)
-      const id2 = ctx.derive('messaging', 0)
+      const id1 = await ctx.derive('messaging', 0)
+      const id2 = await ctx.derive('messaging', 0)
       expect(id1.npub).toBe(id2.npub)
       ctx.destroy()
     })
 
-    it('produces different npubs for different purposes', () => {
+    it('produces different npubs for different purposes', async () => {
       const ctx = new IdentityContext(TEST_NSEC, 'nsec')
-      const id1 = ctx.derive('messaging', 0)
-      const id2 = ctx.derive('signing', 0)
+      const id1 = await ctx.derive('messaging', 0)
+      const id2 = await ctx.derive('signing', 0)
       expect(id1.npub).not.toBe(id2.npub)
       ctx.destroy()
     })
   })
 
   describe('derivePersona', () => {
-    it('returns persona with name', () => {
+    it('returns persona with name', async () => {
       const ctx = new IdentityContext(TEST_NSEC, 'nsec')
-      const p = ctx.derivePersona('work', 0)
+      const p = await ctx.derivePersona('work', 0)
       expect(p.npub).toMatch(/^npub1/)
       expect(p.personaName).toBe('work')
       ctx.destroy()
@@ -81,59 +81,59 @@ describe('IdentityContext', () => {
   })
 
   describe('switch', () => {
-    it('changes active identity', () => {
+    it('changes active identity', async () => {
       const ctx = new IdentityContext(TEST_NSEC, 'nsec')
       const masterNpub = ctx.activeNpub
-      ctx.derive('alt', 0)
-      ctx.switch('alt', 0)
+      await ctx.derive('alt', 0)
+      await ctx.switch('alt', 0)
       expect(ctx.activeNpub).not.toBe(masterNpub)
       ctx.destroy()
     })
 
-    it('switch("master") returns to root', () => {
+    it('switch("master") returns to root', async () => {
       const ctx = new IdentityContext(TEST_NSEC, 'nsec')
       const masterNpub = ctx.activeNpub
-      ctx.derive('alt', 0)
-      ctx.switch('alt', 0)
+      await ctx.derive('alt', 0)
+      await ctx.switch('alt', 0)
       expect(ctx.activeNpub).not.toBe(masterNpub)
-      ctx.switch('master')
+      await ctx.switch('master')
       expect(ctx.activeNpub).toBe(masterNpub)
       ctx.destroy()
     })
 
-    it('switch to unknown persona derives on the fly', () => {
+    it('switch to unknown persona derives on the fly', async () => {
       const ctx = new IdentityContext(TEST_NSEC, 'nsec')
-      ctx.switch('brand-new-purpose', 0)
+      await ctx.switch('brand-new-purpose', 0)
       expect(ctx.activeNpub).toMatch(/^npub1/)
       ctx.destroy()
     })
   })
 
   describe('LRU cache', () => {
-    it('evicts oldest entry when cache exceeds max size', () => {
+    it('evicts oldest entry when cache exceeds max size', async () => {
       const ctx = new IdentityContext(TEST_NSEC, 'nsec', { maxCache: 3 })
       // Derive 4 identities (plus master = 5 total, but master is separate)
-      const first = ctx.derive('first', 0)
-      ctx.derive('second', 0)
-      ctx.derive('third', 0)
-      ctx.derive('fourth', 0) // should evict 'first'
+      const first = await ctx.derive('first', 0)
+      await ctx.derive('second', 0)
+      await ctx.derive('third', 0)
+      await ctx.derive('fourth', 0) // should evict 'first'
 
-      const list = ctx.listIdentities()
+      const list = await ctx.listIdentities()
       const npubs = list.map(i => i.npub)
       // 'first' should have been evicted from cache
       expect(npubs).not.toContain(first.npub)
       ctx.destroy()
     })
 
-    it('zeroises evicted identities (privateKey bytes all zero)', () => {
+    it('zeroises evicted identities (privateKey bytes all zero)', async () => {
       const ctx = new IdentityContext(TEST_NSEC, 'nsec', { maxCache: 2 })
-      const first = ctx.derive('first', 0)
+      const first = await ctx.derive('first', 0)
       // Grab a reference to the underlying identity's privateKey before eviction
       const privateKeyRef = ctx._getPrivateKeyRefForTesting(first.npub)
       expect(privateKeyRef).toBeDefined()
 
-      ctx.derive('second', 0)
-      ctx.derive('third', 0) // evicts 'first'
+      await ctx.derive('second', 0)
+      await ctx.derive('third', 0) // evicts 'first'
 
       // The referenced bytes should now be zeroed
       expect(privateKeyRef!.every(b => b === 0)).toBe(true)
@@ -160,11 +160,11 @@ describe('IdentityContext', () => {
   })
 
   describe('listIdentities', () => {
-    it('returns npub + purpose + persona name only (no private keys)', () => {
+    it('returns npub + purpose + persona name only (no private keys)', async () => {
       const ctx = new IdentityContext(TEST_NSEC, 'nsec')
-      ctx.derive('messaging', 0)
-      ctx.derivePersona('work', 0)
-      const list = ctx.listIdentities()
+      await ctx.derive('messaging', 0)
+      await ctx.derivePersona('work', 0)
+      const list = await ctx.listIdentities()
       expect(list.length).toBeGreaterThanOrEqual(3) // master + messaging + work
       for (const entry of list) {
         expect(entry.npub).toMatch(/^npub1/)
@@ -180,12 +180,12 @@ describe('IdentityContext', () => {
   })
 
   describe('destroy', () => {
-    it('zeroises all cached identities', () => {
+    it('zeroises all cached identities', async () => {
       const ctx = new IdentityContext(TEST_NSEC, 'nsec')
-      ctx.derive('a', 0)
-      ctx.derive('b', 0)
-      const refA = ctx._getPrivateKeyRefForTesting(ctx.derive('a', 0).npub)
-      const refB = ctx._getPrivateKeyRefForTesting(ctx.derive('b', 0).npub)
+      await ctx.derive('a', 0)
+      await ctx.derive('b', 0)
+      const refA = ctx._getPrivateKeyRefForTesting((await ctx.derive('a', 0)).npub)
+      const refB = ctx._getPrivateKeyRefForTesting((await ctx.derive('b', 0)).npub)
       ctx.destroy()
       expect(refA!.every(b => b === 0)).toBe(true)
       expect(refB!.every(b => b === 0)).toBe(true)
@@ -203,12 +203,12 @@ describe('IdentityContext', () => {
   })
 
   describe('LRU cache duplicate', () => {
-    it('re-deriving the same identity updates cache without duplicating', () => {
+    it('re-deriving the same identity updates cache without duplicating', async () => {
       const ctx = new IdentityContext(TEST_NSEC, 'nsec')
-      const first = ctx.derive('same', 0)
-      const second = ctx.derive('same', 0)
+      const first = await ctx.derive('same', 0)
+      const second = await ctx.derive('same', 0)
       expect(first.npub).toBe(second.npub)
-      const list = ctx.listIdentities()
+      const list = await ctx.listIdentities()
       const sameCount = list.filter(i => i.purpose === 'same').length
       expect(sameCount).toBe(1)
       ctx.destroy()

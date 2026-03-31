@@ -58,8 +58,8 @@ describe('integration: round-trip tests', () => {
     const masterPubkey = masterPost.event.pubkey
 
     // Derive and switch
-    ctx.derive('alt', 0)
-    ctx.switch('alt', 0)
+    await ctx.derive('alt', 0)
+    await ctx.switch('alt', 0)
 
     // Post as alt
     const altPost = await handleSocialPost(ctx, pool as any, { content: 'from alt' })
@@ -71,7 +71,7 @@ describe('integration: round-trip tests', () => {
     expect(verifyEvent(altPost.event)).toBe(true)
 
     // Switch back and verify
-    ctx.switch('master')
+    await ctx.switch('master')
     const backPost = await handleSocialPost(ctx, pool as any, { content: 'back to master' })
     expect(backPost.event.pubkey).toBe(masterPubkey)
   })
@@ -122,11 +122,11 @@ describe('integration: round-trip tests', () => {
     expect(validation.valid).toBe(true)
   })
 
-  it('derive → prove → verify linkage', () => {
-    ctx.derive('provable', 0)
-    ctx.switch('provable', 0)
+  it('derive → prove → verify linkage', async () => {
+    await ctx.derive('provable', 0)
+    await ctx.switch('provable', 0)
 
-    const proof = handleIdentityProve(ctx, { mode: 'full' })
+    const proof = await handleIdentityProve(ctx, { mode: 'full' })
     expect(verifyProof(proof)).toBe(true)
     expect(proof.purpose).toContain('provable')
   })
@@ -166,12 +166,12 @@ describe('integration: round-trip tests', () => {
     expect(verification.valid).toBe(true)
   })
 
-  it('identity list never exposes private keys', () => {
-    ctx.derive('persona-a', 0)
-    ctx.derivePersona('work', 0)
-    ctx.derive('persona-b', 1)
+  it('identity list never exposes private keys', async () => {
+    await ctx.derive('persona-a', 0)
+    await ctx.derivePersona('work', 0)
+    await ctx.derive('persona-b', 1)
 
-    const list = handleIdentityList(ctx)
+    const list = await handleIdentityList(ctx)
     const serialised = JSON.stringify(list)
 
     expect(serialised).not.toMatch(/nsec1/)

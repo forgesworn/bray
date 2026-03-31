@@ -32,66 +32,66 @@ describe('identity handlers', () => {
   })
 
   describe('handleIdentityDerive', () => {
-    it('returns npub + purpose + index', () => {
-      const result = handleIdentityDerive(ctx, { purpose: 'messaging', index: 0 })
+    it('returns npub + purpose + index', async () => {
+      const result = await handleIdentityDerive(ctx, { purpose: 'messaging', index: 0 })
       expect(result.npub).toMatch(/^npub1/)
       expect(result.purpose).toBe('messaging')
       expect(result.index).toBe(0)
     })
 
-    it('includes setup hint when only master identity exists', () => {
+    it('includes setup hint when only master identity exists', async () => {
       // Fresh ctx has only master — first derive should trigger hint
-      const result = handleIdentityDerive(ctx, { purpose: 'social', index: 0 })
+      const result = await handleIdentityDerive(ctx, { purpose: 'social', index: 0 })
       expect(result.hint).toBeDefined()
       expect(result.hint).toMatch(/identity-setup/)
     })
 
-    it('does not include hint when other derived identities already exist', () => {
+    it('does not include hint when other derived identities already exist', async () => {
       // Derive one first so cache has master + 1 child
-      ctx.derive('existing', 0)
+      await ctx.derive('existing', 0)
       // Now derive another — cache already has entries beyond just master
-      const result = handleIdentityDerive(ctx, { purpose: 'messaging', index: 0 })
+      const result = await handleIdentityDerive(ctx, { purpose: 'messaging', index: 0 })
       expect(result.hint).toBeUndefined()
     })
   })
 
   describe('handleIdentityDerivePersona', () => {
-    it('returns npub + persona name', () => {
-      const result = handleIdentityDerivePersona(ctx, { name: 'work', index: 0 })
+    it('returns npub + persona name', async () => {
+      const result = await handleIdentityDerivePersona(ctx, { name: 'work', index: 0 })
       expect(result.npub).toMatch(/^npub1/)
       expect(result.personaName).toBe('work')
     })
   })
 
   describe('handleIdentitySwitch', () => {
-    it('switches by persona name and changes active', () => {
+    it('switches by persona name and changes active', async () => {
       const masterNpub = ctx.activeNpub
-      ctx.derivePersona('work', 0)
-      const result = handleIdentitySwitch(ctx, { target: 'work' })
+      await ctx.derivePersona('work', 0)
+      const result = await handleIdentitySwitch(ctx, { target: 'work' })
       expect(result.npub).not.toBe(masterNpub)
     })
 
-    it('switches by purpose+index', () => {
+    it('switches by purpose+index', async () => {
       const masterNpub = ctx.activeNpub
-      ctx.derive('messaging', 0)
-      const result = handleIdentitySwitch(ctx, { target: 'messaging', index: 0 })
+      await ctx.derive('messaging', 0)
+      const result = await handleIdentitySwitch(ctx, { target: 'messaging', index: 0 })
       expect(result.npub).not.toBe(masterNpub)
     })
 
-    it('switch("master") returns to root', () => {
+    it('switch("master") returns to root', async () => {
       const masterNpub = ctx.activeNpub
-      ctx.derive('alt', 0)
-      handleIdentitySwitch(ctx, { target: 'alt', index: 0 })
-      const result = handleIdentitySwitch(ctx, { target: 'master' })
+      await ctx.derive('alt', 0)
+      await handleIdentitySwitch(ctx, { target: 'alt', index: 0 })
+      const result = await handleIdentitySwitch(ctx, { target: 'master' })
       expect(result.npub).toBe(masterNpub)
     })
   })
 
   describe('handleIdentityList', () => {
-    it('returns array of { npub, purpose, personaName } — NO nsec', () => {
-      ctx.derive('messaging', 0)
-      ctx.derivePersona('work', 0)
-      const result = handleIdentityList(ctx)
+    it('returns array of { npub, purpose, personaName } — NO nsec', async () => {
+      await ctx.derive('messaging', 0)
+      await ctx.derivePersona('work', 0)
+      const result = await handleIdentityList(ctx)
       expect(result.length).toBeGreaterThanOrEqual(3)
       for (const entry of result) {
         expect(entry.npub).toMatch(/^npub1/)
@@ -105,10 +105,10 @@ describe('identity handlers', () => {
   })
 
   describe('handleIdentityProve', () => {
-    it('defaults to blind proof', () => {
-      ctx.derive('messaging', 0)
-      ctx.switch('messaging', 0)
-      const proof = handleIdentityProve(ctx, {})
+    it('defaults to blind proof', async () => {
+      await ctx.derive('messaging', 0)
+      await ctx.switch('messaging', 0)
+      const proof = await handleIdentityProve(ctx, {})
       expect(proof.masterPubkey).toBeDefined()
       expect(proof.childPubkey).toBeDefined()
       expect(proof.signature).toBeDefined()
@@ -117,27 +117,27 @@ describe('identity handlers', () => {
       expect(proof.index).toBeUndefined()
     })
 
-    it('full proof includes purpose and index', () => {
-      ctx.derive('messaging', 0)
-      ctx.switch('messaging', 0)
-      const proof = handleIdentityProve(ctx, { mode: 'full' })
+    it('full proof includes purpose and index', async () => {
+      await ctx.derive('messaging', 0)
+      await ctx.switch('messaging', 0)
+      const proof = await handleIdentityProve(ctx, { mode: 'full' })
       expect(proof.masterPubkey).toBeDefined()
       expect(proof.childPubkey).toBeDefined()
       expect(proof.purpose).toBeDefined()
       expect(proof.index).toBeDefined()
     })
 
-    it('proof verifies via nsec-tree verifyProof', () => {
-      ctx.derive('messaging', 0)
-      ctx.switch('messaging', 0)
-      const proof = handleIdentityProve(ctx, { mode: 'full' })
+    it('proof verifies via nsec-tree verifyProof', async () => {
+      await ctx.derive('messaging', 0)
+      await ctx.switch('messaging', 0)
+      const proof = await handleIdentityProve(ctx, { mode: 'full' })
       expect(verifyProof(proof)).toBe(true)
     })
 
-    it('response does NOT include any private key material', () => {
-      ctx.derive('messaging', 0)
-      ctx.switch('messaging', 0)
-      const proof = handleIdentityProve(ctx, {})
+    it('response does NOT include any private key material', async () => {
+      await ctx.derive('messaging', 0)
+      await ctx.switch('messaging', 0)
+      const proof = await handleIdentityProve(ctx, {})
       const serialised = JSON.stringify(proof)
       expect(serialised).not.toMatch(/nsec1/)
       expect(serialised).not.toMatch(/privateKey/)
