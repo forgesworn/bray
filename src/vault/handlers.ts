@@ -14,6 +14,7 @@ import { getConversationKey, encrypt as nip44Encrypt, decrypt as nip44Decrypt } 
 import { npubEncode, decode } from 'nostr-tools/nip19'
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { DominionConfig } from 'dominion-protocol'
+import type { SigningContext } from '../signing-context.js'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { TrustContext, TrustAnnotation } from '../trust-context.js'
@@ -126,7 +127,7 @@ async function fetchVaultConfig(
 
 /** Create a vault config with named tiers, sign and publish as kind 30078. */
 export async function handleVaultCreate(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { tiers: string[] },
 ): Promise<VaultCreateResult> {
@@ -166,10 +167,10 @@ export async function handleVaultCreate(
 
 /** Encrypt content with a content key derived from the active identity for a given tier + epoch. */
 export async function handleVaultEncrypt(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   args: { content: string; tier: string; epoch?: string },
 ): Promise<VaultEncryptResult> {
-  const privkeyHex = Buffer.from(ctx.activePrivateKey).toString('hex')
+  const privkeyHex = Buffer.from((ctx as IdentityContext).activePrivateKey).toString('hex')
   const epoch = args.epoch ?? getCurrentEpochId()
   const ck = deriveContentKey(privkeyHex, epoch, args.tier)
   try {
@@ -182,11 +183,11 @@ export async function handleVaultEncrypt(
 
 /** Derive the content key and distribute vault shares to recipients. */
 export async function handleVaultShare(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { tier: string; recipients: string[]; epoch?: string },
 ): Promise<VaultShareResult> {
-  const privkeyHex = Buffer.from(ctx.activePrivateKey).toString('hex')
+  const privkeyHex = Buffer.from((ctx as IdentityContext).activePrivateKey).toString('hex')
   const privkeyBytes = Buffer.from(privkeyHex, 'hex')
   const epoch = args.epoch ?? getCurrentEpochId()
   const authorPubkeyHex = ctx.activePublicKeyHex
@@ -236,10 +237,10 @@ export async function handleVaultShare(
 
 /** Decrypt ciphertext using the content key for the active identity's tier + epoch. */
 export async function handleVaultRead(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   args: { ciphertext: string; tier: string; epoch: string },
 ): Promise<VaultReadResult> {
-  const privkeyHex = Buffer.from(ctx.activePrivateKey).toString('hex')
+  const privkeyHex = Buffer.from((ctx as IdentityContext).activePrivateKey).toString('hex')
   const ck = deriveContentKey(privkeyHex, args.epoch, args.tier)
   try {
     const plaintext = await decrypt(args.ciphertext, ck)
@@ -251,13 +252,13 @@ export async function handleVaultRead(
 
 /** Fetch a shared vault key from relays, decrypt it, and use it to decrypt ciphertext. */
 export async function handleVaultReadShared(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { ciphertext: string; authorPubkey: string; tier: string; epoch: string },
 ): Promise<VaultReadSharedResult> {
   const recipientHex = ctx.activePublicKeyHex
   const authorHex = toHexPubkey(args.authorPubkey)
-  const privkeyHex = Buffer.from(ctx.activePrivateKey).toString('hex')
+  const privkeyHex = Buffer.from((ctx as IdentityContext).activePrivateKey).toString('hex')
   const privkeyBytes = Buffer.from(privkeyHex, 'hex')
 
   try {
@@ -302,7 +303,7 @@ export async function handleVaultReadShared(
 
 /** Revoke a pubkey from the vault config and publish the updated config. */
 export async function handleVaultRevoke(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { pubkey: string },
 ): Promise<VaultRevokeResult> {

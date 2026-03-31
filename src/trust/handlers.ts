@@ -5,6 +5,8 @@ import { wrapEvent } from 'nostr-tools/nip17'
 import { toUnsignedEvent } from 'nsec-tree/event'
 import { decode } from 'nostr-tools/nip19'
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
+import type { SigningContext } from '../signing-context.js'
+import { hasExtendedIdentity } from '../signing-context.js'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
@@ -17,7 +19,7 @@ export interface AttestResult {
 
 /** Create and publish a kind 31000 attestation */
 export async function handleTrustAttest(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     type?: string
@@ -91,7 +93,7 @@ export function handleTrustVerify(event: NostrEvent): { valid: boolean; errors: 
 
 /** Create and publish a revocation for an attestation */
 export async function handleTrustRevoke(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     type: string
@@ -131,7 +133,7 @@ const ATTESTATION_REQUEST_TYPE = 'nip-va/attestation-request'
 
 /** Send an attestation request as a NIP-17 structured DM */
 export async function handleTrustRequest(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     recipientPubkeyHex: string
@@ -149,7 +151,7 @@ export async function handleTrustRequest(
   })
 
   const event = wrapEvent(
-    ctx.activePrivateKey,
+    (ctx as IdentityContext).activePrivateKey,
     { publicKey: args.recipientPubkeyHex },
     payload,
   )
@@ -159,7 +161,7 @@ export async function handleTrustRequest(
 
 /** Scan NIP-17 DMs for attestation request payloads */
 export async function handleTrustRequestList(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
 ): Promise<Array<{ from: string; subject: string; attestationType: string; message?: string }>> {
   const { handleDmRead } = await import('../social/dm.js')
@@ -188,10 +190,13 @@ export async function handleTrustRequestList(
 
 /** Publish a linkage proof as a kind 30078 event. Requires confirmation. */
 export async function handleTrustProofPublish(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { mode?: 'blind' | 'full'; confirm: boolean },
 ): Promise<{ event?: NostrEvent; published: boolean; warning?: string; publish?: PublishResult }> {
+  if (!hasExtendedIdentity(ctx)) {
+    return { published: false, warning: 'Linkage proofs require a Heartwood-compatible signer or local key mode.' }
+  }
   const proof = await ctx.prove(args.mode ?? 'blind')
   const reveals = args.mode === 'full'
     ? `Full proof — reveals purpose "${proof.purpose}" and index ${proof.index}. This is irreversible.`

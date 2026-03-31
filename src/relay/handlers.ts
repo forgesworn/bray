@@ -1,5 +1,5 @@
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { RelaySet, PublishResult } from '../types.js'
 
@@ -23,7 +23,7 @@ export interface RelayEntry {
 
 /** Get relay list for the active identity, optionally checking for shared relays with another identity */
 export async function handleRelayList(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   compareWithNpub?: string,
 ): Promise<RelayListResult> {
@@ -62,7 +62,7 @@ export async function handleRelayList(
 
 /** Publish a kind 10002 relay list */
 export async function handleRelaySet(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { relays: RelayEntry[]; confirm?: boolean },
 ): Promise<{ event: NostrEvent; published: boolean; publish?: PublishResult; warning?: string }> {
@@ -106,7 +106,7 @@ export async function handleRelaySet(
 
 /** Add a single relay to the active identity's relay set */
 export function handleRelayAdd(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { url: string; mode?: 'read' | 'write' },
 ): { reconfigured: boolean } {

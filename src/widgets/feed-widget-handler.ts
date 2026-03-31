@@ -3,7 +3,7 @@
  * enriches entries with profile images fetched server-side.
  */
 
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import { handleFeed } from '../social/notifications.js'
 import { handleSocialProfileGet } from '../social/handlers.js'
@@ -25,7 +25,7 @@ export interface FeedWidgetResult {
 }
 
 export async function handleFeedWidget(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { authors?: string[]; since?: number; limit?: number },
 ): Promise<FeedWidgetResult> {

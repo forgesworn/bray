@@ -1,5 +1,5 @@
 import type { Event as NostrEvent } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 
@@ -48,7 +48,7 @@ function parseWikiArticle(event: NostrEvent): WikiArticle {
 
 /** Create and publish a kind 30818 wiki article (NIP-54) */
 export async function handleWikiPublish(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     topic: string

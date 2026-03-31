@@ -39,6 +39,7 @@ import {
   encryptDuressAlert,
   type BeaconPayload,
 } from 'canary-kit'
+import type { SigningContext } from '../signing-context.js'
 import type { IdentityContext } from '../context.js'
 
 // ---------------------------------------------------------------------------
@@ -97,12 +98,12 @@ export interface CreateSessionArgs {
 }
 
 export function handleCanarySessionCreate(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   args: CreateSessionArgs,
 ): { sessionId: string; preset?: string; myToken: string; namespace: string; myRole: string } {
   // Derive a deterministic session secret from the identity tree
   // so sessions are reproducible per-identity without storing raw secrets
-  const secretBytes = ctx.activePrivateKey
+  const secretBytes = (ctx as IdentityContext).activePrivateKey
 
   const config: SessionConfig = {
     secret: secretBytes,
@@ -187,7 +188,7 @@ export interface CreateGroupArgs {
 }
 
 export function handleCanaryGroupCreate(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   args: CreateGroupArgs,
 ): { groupId: string; name: string; memberCount: number; preset?: string; currentWord: string } {
   const creatorPubkey = ctx.activePublicKeyHex
@@ -224,7 +225,7 @@ export function handleCanaryGroupCreate(
 }
 
 export function handleCanaryGroupJoin(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   args: { groupId: string; seed: string; name: string; members: string[]; rotationInterval?: number; wordCount?: 1 | 2 | 3; tolerance?: number },
 ): { groupId: string; name: string; memberCount: number; currentWord: string } {
   const myPubkey = ctx.activePublicKeyHex
@@ -440,7 +441,7 @@ export interface DuressSignalArgs {
 }
 
 export async function handleCanaryDuressSignal(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   args: DuressSignalArgs,
 ): Promise<{ groupId: string; duressWord: string; encrypted: string }> {
   const groupEntry = groups.get(args.groupId)

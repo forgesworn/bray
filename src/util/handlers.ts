@@ -3,7 +3,7 @@ import { verifyEvent, getPublicKey } from 'nostr-tools/pure'
 import { matchFilter } from 'nostr-tools'
 import { getConversationKey, encrypt, decrypt } from 'nostr-tools/nip44'
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 
 // --- Decode ---
@@ -232,7 +232,7 @@ export interface TombstoneResult {
  * This effectively deletes it from relays that support NIP-01 replaceable semantics.
  */
 export async function handleTombstone(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { kind: number; dTag: string },
 ): Promise<TombstoneResult> {

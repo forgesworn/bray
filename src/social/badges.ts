@@ -1,5 +1,5 @@
 import type { Event as NostrEvent } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 
@@ -69,7 +69,7 @@ function parseProfileBadgePairs(event: NostrEvent): ProfileBadgePair[] {
 
 /** Create and publish a kind 30009 badge definition */
 export async function handleBadgeCreate(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     slug: string
@@ -104,7 +104,7 @@ export async function handleBadgeCreate(
 
 /** Award a badge to one or more recipients (kind 8) */
 export async function handleBadgeAward(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     badgeSlug: string
@@ -136,7 +136,7 @@ export async function handleBadgeAward(
 
 /** Add a badge to the user's profile badges (updates kind 30008) */
 export async function handleBadgeAccept(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     badgeDefinitionCoord: string

@@ -1,5 +1,5 @@
 import type { Event as NostrEvent } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 
@@ -73,7 +73,7 @@ export async function handleGroupChat(
 
 /** Send a message to a group (kind 9) */
 export async function handleGroupSend(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { groupId: string; content: string },
 ): Promise<{ event: NostrEvent; publish: PublishResult }> {

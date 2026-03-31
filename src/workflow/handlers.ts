@@ -4,6 +4,7 @@ import { parseAttestation, attestationFilter } from 'nostr-attestations'
 import { verifyProof } from 'nostr-veil/proof'
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
 import type { ProofVerification } from 'nostr-veil/proof'
+import type { SigningContext, ExtendedSigningContext } from '../signing-context.js'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { VeilScoring } from '../veil/scoring.js'
@@ -30,7 +31,7 @@ export interface TrustScoreResponse {
 }
 
 export async function handleTrustScore(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   scoring: VeilScoring,
   args: { pubkey: string; depth?: number },
@@ -86,7 +87,7 @@ export async function handleTrustScore(
 
 /** Traverse kind 3 follow graph to find hop distance to a target pubkey */
 async function computeSocialDistance(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   targetPubkey: string,
   maxDepth: number,
@@ -151,7 +152,7 @@ export interface FeedSuggestion {
 }
 
 export async function handleFeedDiscover(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   scoring: VeilScoring,
   args: { strategy?: 'trust-adjacent' | 'topic' | 'active'; limit?: number; query?: string },
@@ -170,7 +171,7 @@ export async function handleFeedDiscover(
 }
 
 async function discoverTrustAdjacent(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   scoring: VeilScoring,
   limit: number,
@@ -267,7 +268,7 @@ async function discoverTrustAdjacent(
 }
 
 async function discoverByTopic(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   scoring: VeilScoring,
   query: string,
@@ -368,7 +369,7 @@ export interface VerificationResult {
 }
 
 export async function handleVerifyPerson(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   scoring: VeilScoring,
   args: { pubkey: string; method?: 'quick' | 'full' },
@@ -464,7 +465,7 @@ export async function handleVerifyPerson(
     // Generate spoken challenge
     try {
       const { getConversationKey } = await import('nostr-tools/nip44')
-      const sharedSecret = getConversationKey(ctx.activePrivateKey, args.pubkey)
+      const sharedSecret = getConversationKey((ctx as IdentityContext).activePrivateKey, args.pubkey)
       const { deriveToken } = await import('spoken-token')
       const counter = Math.floor(Date.now() / 300_000)
       const token = deriveToken(
@@ -532,7 +533,7 @@ export interface IdentitySetupResult {
 }
 
 export async function handleIdentitySetup(
-  ctx: IdentityContext,
+  ctx: ExtendedSigningContext,
   pool: RelayPool,
   args: {
     personas?: string[]
@@ -573,7 +574,7 @@ export async function handleIdentitySetup(
     mkdirSync(outputDir, { recursive: true, mode: 0o700 })
 
     const result = handleBackupShamir({
-      secret: ctx.activePrivateKey,
+      secret: (ctx as IdentityContext).activePrivateKey,
       threshold: args.shamirThreshold.threshold,
       shares: args.shamirThreshold.shares,
       outputDir,
@@ -689,7 +690,7 @@ export interface RelayHealthReport {
 }
 
 export async function handleRelayHealth(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { pubkey?: string; checkWrite?: boolean },
 ): Promise<RelayHealthReport[]> {
@@ -711,7 +712,7 @@ export async function handleRelayHealth(
 
 async function checkRelayHealth(
   pool: RelayPool,
-  ctx: IdentityContext,
+  ctx: SigningContext,
   url: string,
   pubkeyHex: string,
   checkWrite: boolean,
@@ -795,7 +796,7 @@ export interface OnboardVerifiedResult {
 }
 
 export async function handleOnboardVerified(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   trust: TrustContext,
   _args: Record<string, never>,

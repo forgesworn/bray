@@ -12,6 +12,7 @@ import {
   createChallenge,
   SIGNET_KINDS,
 } from 'signet-protocol'
+import type { SigningContext } from '../signing-context.js'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { TrustAssessment } from '../trust-context.js'
@@ -93,11 +94,11 @@ export async function handleSignetBadge(
 
 /** Create and publish a kind 31000 type:vouch event for another user. */
 export async function handleSignetVouch(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { pubkey: string; method?: 'in-person' | 'online'; comment?: string },
 ): Promise<NostrEvent> {
-  const privkeyHex = Buffer.from(ctx.activePrivateKey).toString('hex')
+  const privkeyHex = Buffer.from((ctx as IdentityContext).activePrivateKey).toString('hex')
 
   const event = await createVouch(privkeyHex, {
     subjectPubkey: args.pubkey,
@@ -207,7 +208,7 @@ export async function handleSignetPolicyCheck(
 
 /** Sign and publish a kind 30078 community policy event. */
 export async function handleSignetPolicySet(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     communityId: string
@@ -218,7 +219,7 @@ export async function handleSignetPolicySet(
     description?: string
   },
 ): Promise<NostrEvent> {
-  const privkeyHex = Buffer.from(ctx.activePrivateKey).toString('hex')
+  const privkeyHex = Buffer.from((ctx as IdentityContext).activePrivateKey).toString('hex')
 
   const event = await createPolicy(privkeyHex, {
     communityId: args.communityId,
@@ -273,7 +274,7 @@ export async function handleSignetVerifiers(
 
 /** Sign and publish a kind 31000 type:challenge event against a verifier. */
 export async function handleSignetChallenge(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     verifierPubkey: string
@@ -281,7 +282,7 @@ export async function handleSignetChallenge(
     evidence?: string
   },
 ): Promise<NostrEvent> {
-  const privkeyHex = Buffer.from(ctx.activePrivateKey).toString('hex')
+  const privkeyHex = Buffer.from((ctx as IdentityContext).activePrivateKey).toString('hex')
 
   const event = await createChallenge(privkeyHex, {
     verifierPubkey: args.verifierPubkey,

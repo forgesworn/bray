@@ -1,6 +1,7 @@
 import { verifyEvent } from 'nostr-tools/pure'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
+import { hasExtendedIdentity } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 
 /** Kinds to backup and the subset that can be re-signed */
@@ -45,7 +46,7 @@ export async function handleIdentityBackup(
 
 /** Re-sign migratable events under the active identity. Skips attestations (trust chain protection). */
 export async function handleIdentityRestore(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   backup: BackupBundle,
 ): Promise<RestoreResult> {
@@ -88,7 +89,7 @@ export async function handleIdentityRestore(
 
 /** Migrate identity: preview first, then execute when confirmed */
 export async function handleIdentityMigrate(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { oldPubkeyHex: string; oldNpub: string; confirm: boolean },
 ): Promise<MigrateResult> {
@@ -121,8 +122,9 @@ export async function handleIdentityMigrate(
   // Execute migration: re-sign migratable events
   await handleIdentityRestore(ctx, pool, backup)
 
-  // Publish linkage proof connecting old → new (only if operating as a derived identity)
+  // Publish linkage proof connecting old → new (only if operating as a derived identity with tree support)
   try {
+    if (!hasExtendedIdentity(ctx)) throw new Error('Context does not support linkage proofs')
     const proof = await ctx.prove('full')
     const sign = ctx.getSigningFunction()
     const proofEvent = await sign({

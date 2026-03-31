@@ -1,7 +1,7 @@
 import { parseAttestation, isRevoked, attestationFilter, revocationFilter, createAttestation, isValid } from 'nostr-attestations'
 import type { Attestation, FilterParams } from 'nostr-attestations'
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 
@@ -36,7 +36,7 @@ export function handleTrustAttestFilter(args: {
 
 /** Create and publish an attestation with occurredAt field */
 export async function handleTrustAttestTemporal(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     type?: string

@@ -2,7 +2,8 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { VeilScoring } from '../veil/scoring.js'
 import { TrustCache } from '../veil/cache.js'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
+import { hasExtendedIdentity } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { Nip65Manager } from '../nip65.js'
 import type { TrustContext } from '../trust-context.js'
@@ -19,7 +20,7 @@ import {
 } from './handlers.js'
 
 export interface WorkflowDeps {
-  ctx: IdentityContext
+  ctx: SigningContext
   pool: RelayPool
   nip65: Nip65Manager
   veilCacheTtl: number
@@ -86,6 +87,9 @@ export function registerWorkflowTools(server: McpServer, deps: WorkflowDeps): vo
     },
     annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ personas, shamirThreshold, relays, confirm }) => {
+    if (!hasExtendedIdentity(deps.ctx)) {
+      return { content: [{ type: 'text' as const, text: 'This operation requires a Heartwood-compatible signer or local key mode.' }] }
+    }
     const result = await handleIdentitySetup(deps.ctx, deps.pool, { personas, shamirThreshold, relays, confirm })
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })

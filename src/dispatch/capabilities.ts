@@ -6,7 +6,7 @@
  */
 
 import type { Event as NostrEvent } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 
@@ -73,7 +73,7 @@ function parseCapabilityEvent(event: NostrEvent): CapabilityCard | null {
  * Publish a kind 31990 event advertising dispatch capabilities.
  */
 export async function handleCapabilityPublish(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     name: string

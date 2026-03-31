@@ -1,5 +1,5 @@
 import type { Event as NostrEvent } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 
@@ -76,7 +76,7 @@ function parseListing(event: NostrEvent): ParsedListing {
 
 /** Create and publish a kind 30402 classified listing */
 export async function handleListingCreate(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     title: string
@@ -166,7 +166,7 @@ export async function handleListingSearch(
 
 /** Close a listing by adding a status tag (sold or closed) */
 export async function handleListingClose(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { slug: string; status: 'sold' | 'closed' },
 ): Promise<ListingPublishResult> {

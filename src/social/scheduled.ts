@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync, readFileSync, readdirSync, unlinkSync, exists
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { Event as NostrEvent } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 
 const DEFAULT_QUEUE_DIR = join(homedir(), '.config', 'bray', 'scheduled')
@@ -50,7 +50,7 @@ function parseScheduledAt(scheduledAt: string | number): number {
 
 /** Schedule a Nostr event for future publication */
 export async function handlePostSchedule(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   args: {
     content: string
     scheduledAt: string | number

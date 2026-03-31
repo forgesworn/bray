@@ -1,5 +1,6 @@
 import { ringSign, ringVerify } from '@forgesworn/ring-sig'
 import type { RingSignature } from '@forgesworn/ring-sig'
+import type { SigningContext } from '../signing-context.js'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
@@ -7,7 +8,7 @@ import type { Event as NostrEvent } from 'nostr-tools'
 
 /** Create a ring signature proving membership in a group */
 export async function handleTrustRingProve(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     ring: string[] // hex x-only public keys of ring members
@@ -26,7 +27,7 @@ export async function handleTrustRingProve(
   }
 
   // Get private key as hex — strings can't be zeroised, so limit scope
-  let privateKeyHex = Buffer.from(ctx.activePrivateKey).toString('hex')
+  let privateKeyHex = Buffer.from((ctx as IdentityContext).activePrivateKey).toString('hex')
   let signature: RingSignature
   try {
     signature = ringSign(canonicalMessage, args.ring, signerIndex, privateKeyHex)

@@ -1,5 +1,5 @@
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 import { validatePublicUrl } from '../validation.js'
@@ -601,7 +601,7 @@ export interface AnnounceArgs {
 
 /** Build and publish a kind 31402 service announcement. */
 export async function handleMarketplaceAnnounce(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: AnnounceArgs,
 ): Promise<{ event: NostrEvent; publish: PublishResult }> {
@@ -709,7 +709,7 @@ export async function handleMarketplaceAnnounce(
 
 /** Update an existing service announcement (same as announce — kind 31402 is replaceable). */
 export async function handleMarketplaceUpdate(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: AnnounceArgs,
 ): Promise<{ event: NostrEvent; publish: PublishResult }> {
@@ -721,7 +721,7 @@ export async function handleMarketplaceUpdate(
 
 /** Mark a service as retired by publishing a kind 5 deletion event. */
 export async function handleMarketplaceRetire(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { identifier: string; reason?: string },
 ): Promise<{ event: NostrEvent; publish: PublishResult }> {

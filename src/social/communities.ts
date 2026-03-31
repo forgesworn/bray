@@ -1,6 +1,6 @@
 import type { Event as NostrEvent } from 'nostr-tools'
 import { nip19 } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 
@@ -23,7 +23,7 @@ export interface CommunityPost {
 
 /** Create a kind 34550 community definition */
 export async function handleCommunityCreate(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     name: string
@@ -108,7 +108,7 @@ export async function handleCommunityFeed(
 
 /** Post to a community (kind 1 with `a` tag) */
 export async function handleCommunityPost(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { community: string; content: string },
 ): Promise<{ event: NostrEvent; publish: PublishResult }> {
@@ -127,7 +127,7 @@ export async function handleCommunityPost(
 
 /** Moderator approves a post (kind 4550) */
 export async function handleCommunityApprove(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { community: string; eventId: string; eventPubkey: string },
 ): Promise<{ event: NostrEvent; publish: PublishResult }> {

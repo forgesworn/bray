@@ -4,7 +4,7 @@
  */
 
 import { decode } from 'nostr-tools/nip19'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import { handleDmConversation } from '../social/dm.js'
 import { handleSocialProfileGet } from '../social/handlers.js'
@@ -33,7 +33,7 @@ export interface DmThreadResult {
 const MAX_MESSAGES = 50
 
 export async function handleDmThreadWidget(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { withPubkeyHex: string },
 ): Promise<DmThreadResult> {
