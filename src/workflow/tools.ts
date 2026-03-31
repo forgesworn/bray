@@ -7,6 +7,7 @@ import type { RelayPool } from '../relay-pool.js'
 import type { Nip65Manager } from '../nip65.js'
 import type { TrustContext } from '../trust-context.js'
 import { hexId } from '../validation.js'
+import { resolveRecipient } from '../resolve.js'
 import {
   handleTrustScore,
   handleFeedDiscover,
@@ -31,15 +32,16 @@ export function registerWorkflowTools(server: McpServer, deps: WorkflowDeps): vo
   const trustCache = new TrustCache({ ttl: deps.veilCacheTtl, maxEntries: deps.veilCacheMax })
 
   server.registerTool('trust-score', {
-    description: 'Compute a trust score for a Nostr pubkey using the web-of-trust graph (NIP-85 kind 30382 events) and kind 31000 attestations. Returns endorsement counts, attestation summary, social distance from active identity, and any trust flags.',
+    description: 'Compute a trust score for a Nostr identity using the web-of-trust graph and kind 31000 attestations. Accepts any identifier: name, NIP-05, npub, or hex pubkey.',
     inputSchema: {
-      pubkey: hexId.describe('Hex pubkey to score'),
+      pubkey: z.string().describe('Identity to score — name, NIP-05, npub, or hex pubkey'),
       depth: z.number().int().min(1).max(3).default(2).optional().describe('Social graph traversal depth (1–3, default 2)'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ pubkey, depth }) => {
+    const resolved = await resolveRecipient(pubkey)
     const scoring = new VeilScoring(deps.pool, trustCache, deps.ctx.activeNpub)
-    const result = await handleTrustScore(deps.ctx, deps.pool, scoring, { pubkey, depth }, deps.trust)
+    const result = await handleTrustScore(deps.ctx, deps.pool, scoring, { pubkey: resolved.pubkeyHex, depth }, deps.trust)
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 
@@ -58,15 +60,16 @@ export function registerWorkflowTools(server: McpServer, deps: WorkflowDeps): vo
   })
 
   server.registerTool('verify-person', {
-    description: 'Verify a Nostr identity: checks NIP-05, trust score, kind 31000 attestations, linkage proofs, and (in full mode) ring endorsements and a spoken challenge token.',
+    description: 'Verify a Nostr identity: checks NIP-05, trust score, kind 31000 attestations, linkage proofs, and (in full mode) ring endorsements and a spoken challenge token. Accepts any identifier: name, NIP-05, npub, or hex pubkey.',
     inputSchema: {
-      pubkey: hexId.describe('Hex pubkey of the person to verify'),
+      pubkey: z.string().describe('Identity to verify — name, NIP-05, npub, or hex pubkey'),
       method: z.enum(['quick', 'full']).optional().describe('Verification depth — quick (default) or full (includes ring proofs and spoken challenge)'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ pubkey, method }) => {
+    const resolved = await resolveRecipient(pubkey)
     const scoring = new VeilScoring(deps.pool, trustCache, deps.ctx.activeNpub)
-    const result = await handleVerifyPerson(deps.ctx, deps.pool, scoring, { pubkey, method }, deps.trust)
+    const result = await handleVerifyPerson(deps.ctx, deps.pool, scoring, { pubkey: resolved.pubkeyHex, method }, deps.trust)
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 

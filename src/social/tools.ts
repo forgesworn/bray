@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
 import { hexId } from '../validation.js'
+import { resolveRecipient } from '../resolve.js'
 import { toolResponse } from '../tool-response.js'
 import * as fmt from '../format.js'
 import { VeilScoring } from '../veil/scoring.js'
@@ -130,16 +131,15 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('social-profile-get', {
-    description: 'Fetch the kind 0 profile for a Nostr pubkey. Returns parsed profile fields.',
+    description: 'Fetch the kind 0 profile for a Nostr identity. Accepts any identifier: name, NIP-05, npub, or hex pubkey.',
     inputSchema: {
-      pubkeyHex: hexId.describe('Hex pubkey to fetch profile for'),
-      npub: z.string().optional().describe('Bech32 npub (used for relay routing, defaults to active identity)'),
+      pubkey: z.string().describe('Identity to look up — name, NIP-05, npub, or hex pubkey'),
       output: z.enum(['json', 'human']).default('human').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ pubkeyHex, npub, output }) => {
-    const resolvedNpub = npub ?? deps.ctx.activeNpub
-    const profile = await handleSocialProfileGet(deps.pool, resolvedNpub, pubkeyHex)
+  }, async ({ pubkey, output }) => {
+    const resolved = await resolveRecipient(pubkey)
+    const profile = await handleSocialProfileGet(deps.pool, deps.ctx.activeNpub, resolved.pubkeyHex)
     return toolResponse(profile, output, fmt.formatProfile)
   })
 
@@ -179,17 +179,18 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('dm-send', {
-    description: 'Send an encrypted direct message. Default: NIP-17 gift wrap (most private — sender identity hidden behind ephemeral key). Set nip04: true for legacy NIP-04 (only if NIP04_ENABLED=1). Returns { protocol, id, publish }.',
+    description: 'Send an encrypted direct message. Accepts any identifier: name, NIP-05, npub, or hex pubkey. Default: NIP-17 gift wrap (most private). Set nip04: true for legacy NIP-04 (only if NIP04_ENABLED=1). Use dm-by-name to search your contacts if you are unsure of the exact identity.',
     inputSchema: {
-      recipientPubkeyHex: hexId.describe('Recipient hex pubkey'),
+      to: z.string().describe('Recipient — name, NIP-05 ("user@domain"), npub, nprofile, or hex pubkey'),
       message: z.string().describe('Message text'),
       nip04: z.boolean().default(false).describe('Use legacy NIP-04 instead of NIP-17'),
       recipientRelay: z.string().optional().describe('Relay URL hint for recipient'),
     },
     annotations: { readOnlyHint: false, destructiveHint: true },
-  }, async ({ recipientPubkeyHex, message, nip04, recipientRelay }) => {
+  }, async ({ to, message, nip04, recipientRelay }) => {
+    const resolved = await resolveRecipient(to)
     const result = await handleDmSend(deps.ctx, deps.pool, {
-      recipientPubkeyHex,
+      recipientPubkeyHex: resolved.pubkeyHex,
       message,
       nip04,
       nip04Enabled: deps.nip04Enabled ?? false,
@@ -272,15 +273,16 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('dm-conversation', {
-    description: 'Read DM conversation with a specific person. Filters to messages from one pubkey and shows them in chronological order. Use contacts-search first if you only know the name.',
+    description: 'Read DM conversation with a specific person. Accepts any identifier: name, NIP-05, npub, or hex pubkey. Shows messages in chronological order.',
     inputSchema: {
-      pubkeyHex: hexId.describe('Hex pubkey to show conversation with'),
+      with: z.string().describe('Person to show conversation with — name, NIP-05, npub, or hex pubkey'),
       limit: z.number().int().min(1).max(200).default(50).describe('Max messages to fetch before filtering'),
       output: z.enum(['json', 'human']).default('human').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ pubkeyHex, limit, output }) => {
-    const messages = await handleDmConversation(deps.ctx, deps.pool, { withPubkeyHex: pubkeyHex, limit })
+  }, async ({ with: withId, limit, output }) => {
+    const resolved = await resolveRecipient(withId)
+    const messages = await handleDmConversation(deps.ctx, deps.pool, { withPubkeyHex: resolved.pubkeyHex, limit })
     return toolResponse(messages, output, fmt.formatConversation)
   })
 
@@ -403,15 +405,15 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('contacts-get', {
-    description: 'Fetch the contact list (kind 3 follows) for a pubkey. Returns pubkeys, relay hints, and petnames.',
+    description: 'Fetch the contact list (kind 3 follows) for a Nostr identity. Accepts any identifier: name, NIP-05, npub, or hex pubkey.',
     inputSchema: {
-      pubkeyHex: hexId.describe('Hex pubkey to fetch contacts for'),
-      npub: z.string().optional().describe('Bech32 npub for relay routing (defaults to active identity)'),
+      pubkey: z.string().describe('Identity to fetch contacts for — name, NIP-05, npub, or hex pubkey'),
       output: z.enum(['json', 'human']).default('human').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ pubkeyHex, npub, output }) => {
-    const contacts = await handleContactsGet(deps.pool, npub ?? deps.ctx.activeNpub, pubkeyHex)
+  }, async ({ pubkey, output }) => {
+    const resolved = await resolveRecipient(pubkey)
+    const contacts = await handleContactsGet(deps.pool, deps.ctx.activeNpub, resolved.pubkeyHex)
     return toolResponse(contacts, output, fmt.formatContacts)
   })
 
