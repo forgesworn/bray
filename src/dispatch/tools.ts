@@ -15,6 +15,7 @@ import {
   handleDispatchRefuse,
   handleDispatchFailure,
   handleDispatchQuery,
+  handleDispatchPropose,
 } from './handlers.js'
 import {
   handleCapabilityPublish,
@@ -57,10 +58,11 @@ export function registerDispatchTools(server: McpServer, deps: ToolDeps & { disp
       branch_from: z.string().optional().describe('Base branch for build tasks (default: "main")'),
       context_id: z.string().optional().describe('Conversation/session ID for grouping related tasks. Pass the same ID across a multi-turn exchange.'),
       depth: z.number().optional().describe('Delegation depth limit. Decremented when forwarding tasks. Prevents infinite delegation chains. Default: no limit.'),
+      depends_on: z.array(z.string()).optional().describe('Task IDs that must complete before the recipient should start this task. The recipient should check results for these IDs before proceeding.'),
       output: z.enum(['json', 'human']).default('json').describe('Response format'),
     },
     annotations: { readOnlyHint: false },
-  }, async ({ to, type, prompt, repos, branch_from, context_id, depth, output }) => {
+  }, async ({ to, type, prompt, repos, branch_from, context_id, depth, depends_on, output }) => {
     const resolved = await resolveRecipient(to, identities)
     const result = await handleDispatchSend(deps.ctx, deps.pool, {
       identities,
@@ -72,6 +74,7 @@ export function registerDispatchTools(server: McpServer, deps: ToolDeps & { disp
       branchFrom: branch_from,
       contextId: context_id,
       depth,
+      dependsOn: depends_on,
     })
     return toolResponse(result, output, fmt.formatDispatchSendResult)
   })
@@ -339,5 +342,29 @@ export function registerDispatchTools(server: McpServer, deps: ToolDeps & { disp
       return toolResponse({ found: false, pubkey: resolved.pubkeyHex }, output, () => 'No dispatch capability card found for this agent.')
     }
     return toolResponse(result, output, (c) => fmt.formatCapabilities([c]))
+  })
+
+  // --- dispatch-propose ---
+
+  server.registerTool('dispatch-propose', {
+    description: 'Propose an alternative approach for a dispatch task. Use when you can\'t do exactly what was asked but have a better idea. The sender receives the proposal via dispatch-check.',
+    inputSchema: {
+      re: z.string().describe('Task ID you are proposing an alternative for'),
+      to: z.string().describe('Recipient — name, NIP-05, npub, or hex pubkey'),
+      proposal: z.string().describe('What you propose to do instead'),
+      reason: z.string().optional().describe('Why the original approach won\'t work'),
+      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ re, to, proposal, reason, output }) => {
+    const resolved = await resolveRecipient(to, identities)
+    const result = await handleDispatchPropose(deps.ctx, deps.pool, {
+      identities,
+      re,
+      to: resolved.pubkeyHex,
+      proposal,
+      reason,
+    })
+    return toolResponse(result, output, fmt.formatDispatchReplyResult)
   })
 }

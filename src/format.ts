@@ -212,13 +212,18 @@ export function formatDispatchMessages(messages: any[]): string {
     const name = m.fromName || m.from.slice(0, 12) + '...'
     const msg = m.message
     switch (msg.type) {
-      case 'dispatch-think':
-        return `Think task from ${name}: ${msg.prompt?.slice(0, 80) ?? ''}\n  Repos: ${(msg.repos ?? []).join(', ')}  Respond to: ${msg.respond_to?.slice(0, 12) ?? '?'}  (${time})\n  Task ID: ${msg.id}  Event ID: ${m.eventId}`
-      case 'dispatch-build':
-        return `Build task from ${name}: ${msg.prompt?.slice(0, 80) ?? ''}\n  Repos: ${(msg.repos ?? []).join(', ')}  Branch from: ${msg.branch_from ?? 'main'}  (${time})\n  Task ID: ${msg.id}  Event ID: ${m.eventId}`
-      case 'dispatch-result':
+      case 'dispatch-think': {
+        const thinkDeps = msg.depends_on?.length ? `\n  Depends on: ${msg.depends_on.join(', ')}` : ''
+        return `Think task from ${name}: ${msg.prompt?.slice(0, 80) ?? ''}\n  Repos: ${(msg.repos ?? []).join(', ')}  Respond to: ${msg.respond_to?.slice(0, 12) ?? '?'}  (${time})\n  Task ID: ${msg.id}  Event ID: ${m.eventId}${thinkDeps}`
+      }
+      case 'dispatch-build': {
+        const buildDeps = msg.depends_on?.length ? `\n  Depends on: ${msg.depends_on.join(', ')}` : ''
+        return `Build task from ${name}: ${msg.prompt?.slice(0, 80) ?? ''}\n  Repos: ${(msg.repos ?? []).join(', ')}  Branch from: ${msg.branch_from ?? 'main'}  (${time})\n  Task ID: ${msg.id}  Event ID: ${m.eventId}${buildDeps}`
+      }
+      case 'dispatch-result': {
         const payload = msg.plan || msg.tests || ''
         return `Result from ${name} for ${msg.re?.slice(0, 12) ?? '?'} (${msg.mode ?? '?'}):\n  ${String(payload).slice(0, 200)}  (${time})`
+      }
       case 'dispatch-status':
         return `Status from ${name}: ${msg.status} — ${msg.note ?? ''}  (${time})`
       case 'dispatch-ack':
@@ -231,8 +236,10 @@ export function formatDispatchMessages(messages: any[]): string {
         return `Failed from ${name} for ${msg.re?.slice(0, 12) ?? '?'}: ${msg.error ?? ''}\n  Partial: ${msg.partial?.slice(0, 200) ?? 'none'}  (${time})`
       case 'dispatch-query':
         return `Question from ${name} for ${msg.re?.slice(0, 12) ?? '?'}: ${msg.question ?? ''}  (${time})`
+      case 'dispatch-propose':
+        return `Proposal from ${name} for ${msg.re?.slice(0, 12) ?? '?'}: ${msg.proposal}\n  Reason: ${msg.reason ?? 'none'}  (${time})`
       default:
-        return `${msg.type} from ${name}  (${time})`
+        return `${(msg as any).type} from ${name}  (${time})`
     }
   }).join('\n\n')
 }
@@ -325,6 +332,46 @@ export function formatCapabilities(cards: any[]): string {
     if (c.maxDepth !== undefined) lines.push(`  Max depth: ${c.maxDepth}`)
     if (c.slug) lines.push(`  Slug: ${c.slug}`)
     return lines.join('\n')
+  }).join('\n\n')
+}
+
+// --- Badge formatters ---
+
+export function formatBadges(badges: any[]): string {
+  if (badges.length === 0) return 'No badges found.'
+  return badges.map(b => {
+    if (b.badgeCoord) {
+      return `Badge: ${b.badgeCoord}\n  Award: ${b.awardEventId ?? 'unknown'}`
+    }
+    const lines = [`${b.name ?? b.slug ?? 'Unnamed badge'}`]
+    if (b.description) lines.push(`  ${b.description}`)
+    if (b.image) lines.push(`  Image: ${b.image}`)
+    if (b.slug) lines.push(`  Slug: ${b.slug}`)
+    return lines.join('\n')
+  }).join('\n\n')
+}
+
+// --- Community formatters ---
+
+export function formatCommunities(communities: any[]): string {
+  if (communities.length === 0) return 'No communities found.'
+  return communities.map(c => {
+    const lines = [`# ${c.name}`]
+    if (c.description) lines.push(`  ${c.description}`)
+    if (c.image) lines.push(`  Image: ${c.image}`)
+    if (c.rules) lines.push(`  Rules: ${c.rules}`)
+    if (c.moderators?.length > 0) lines.push(`  Moderators: ${c.moderators.map((m: string) => m.slice(0, 12) + '...').join(', ')}`)
+    lines.push(`  Created by: ${c.pubkey?.slice(0, 12) ?? 'unknown'}...`)
+    return lines.join('\n')
+  }).join('\n\n')
+}
+
+export function formatCommunityFeed(posts: any[]): string {
+  if (posts.length === 0) return 'No approved posts.'
+  return posts.map(p => {
+    const time = p.created_at ? new Date(p.created_at * 1000).toLocaleString() : 'unknown'
+    const author = p.pubkey?.slice(0, 12) ?? 'unknown'
+    return `${author}... (${time}):\n  ${p.content?.slice(0, 200) ?? ''}`
   }).join('\n\n')
 }
 

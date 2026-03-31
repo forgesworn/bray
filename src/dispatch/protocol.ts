@@ -31,6 +31,7 @@ export interface DispatchThink {
   respond_to: string
   context_id?: string
   depth?: number
+  depends_on?: string[]
 }
 
 export interface DispatchBuild {
@@ -44,6 +45,7 @@ export interface DispatchBuild {
   respond_to: string
   context_id?: string
   depth?: number
+  depends_on?: string[]
 }
 
 export interface DispatchResult {
@@ -112,6 +114,16 @@ export interface DispatchQuery {
   respond_to: string
 }
 
+export interface DispatchPropose {
+  v: 1
+  type: 'dispatch-propose'
+  re: string
+  ts: string
+  proposal: string
+  reason?: string
+  respond_to: string
+}
+
 export type DispatchMessage =
   | DispatchThink
   | DispatchBuild
@@ -122,6 +134,7 @@ export type DispatchMessage =
   | DispatchRefuse
   | DispatchFailure
   | DispatchQuery
+  | DispatchPropose
 
 // ---------------------------------------------------------------------------
 // Task ID generation
@@ -141,6 +154,7 @@ export function buildThinkMessage(args: {
   respond_to: string
   context_id?: string
   depth?: number
+  depends_on?: string[]
 }): DispatchThink {
   const msg: DispatchThink = {
     v: PROTOCOL_VERSION,
@@ -153,6 +167,7 @@ export function buildThinkMessage(args: {
   }
   if (args.context_id !== undefined) msg.context_id = args.context_id
   if (args.depth !== undefined) msg.depth = args.depth
+  if (args.depends_on !== undefined && args.depends_on.length > 0) msg.depends_on = args.depends_on
   return msg
 }
 
@@ -163,6 +178,7 @@ export function buildBuildMessage(args: {
   respond_to: string
   context_id?: string
   depth?: number
+  depends_on?: string[]
 }): DispatchBuild {
   const msg: DispatchBuild = {
     v: PROTOCOL_VERSION,
@@ -176,6 +192,7 @@ export function buildBuildMessage(args: {
   }
   if (args.context_id !== undefined) msg.context_id = args.context_id
   if (args.depth !== undefined) msg.depth = args.depth
+  if (args.depends_on !== undefined && args.depends_on.length > 0) msg.depends_on = args.depends_on
   return msg
 }
 
@@ -293,6 +310,24 @@ export function buildQueryMessage(args: {
     question: args.question,
     respond_to: args.respond_to,
   }
+}
+
+export function buildProposeMessage(args: {
+  re: string
+  proposal: string
+  reason?: string
+  respond_to: string
+}): DispatchPropose {
+  const msg: DispatchPropose = {
+    v: PROTOCOL_VERSION,
+    type: 'dispatch-propose',
+    re: args.re,
+    ts: new Date().toISOString(),
+    proposal: args.proposal,
+    respond_to: args.respond_to,
+  }
+  if (args.reason !== undefined) msg.reason = args.reason
+  return msg
 }
 
 // ---------------------------------------------------------------------------
