@@ -261,6 +261,33 @@ export function formatProfileSearchResults(profiles: any[]): string {
   }).join('\n')
 }
 
+// --- Calendar formatters ---
+
+export function formatCalendarEvents(events: any[]): string {
+  if (events.length === 0) return 'No calendar events found.'
+  return events.map(e => {
+    const lines = [`# ${e.title}`]
+    if (e.slug) lines.push(`Slug: ${e.slug}`)
+    lines.push(`Kind: ${e.kind === 31922 ? 'date-based (31922)' : 'time-based (31923)'}`)
+    lines.push(`Start: ${e.start}`)
+    if (e.end) lines.push(`End: ${e.end}`)
+    if (e.location) lines.push(`Location: ${e.location}`)
+    if (e.geohash) lines.push(`Geohash: ${e.geohash}`)
+    if (e.image) lines.push(`Image: ${e.image}`)
+    if (e.participants?.length > 0) lines.push(`Participants: ${e.participants.map((p: string) => p.slice(0, 12) + '...').join(', ')}`)
+    if (e.hashtags?.length > 0) lines.push(`Tags: ${e.hashtags.join(', ')}`)
+    if (e.content) { lines.push(''); lines.push(e.content) }
+    return lines.join('\n')
+  }).join('\n\n---\n\n')
+}
+
+export function formatRsvp(result: any): string {
+  const status = result.publish?.success ? '✓' : '✗'
+  const rsvpStatus = result.event?.tags?.find((t: string[]) => t[0] === 'status')?.[1] ?? 'unknown'
+  const coord = result.event?.tags?.find((t: string[]) => t[0] === 'a')?.[1] ?? 'unknown'
+  return `${status} RSVP ${rsvpStatus} for ${coord}`
+}
+
 export function formatDispatchReplyResult(result: any): string {
   const del = result.deleted ? ' (original message deleted)' : ''
   return `Sent ${result.messageType}${del}`

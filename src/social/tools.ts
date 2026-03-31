@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
 import { hexId } from '../validation.js'
-import { resolveRecipient } from '../resolve.js'
+import { resolveRecipient, resolveRecipients } from '../resolve.js'
 import { toolResponse } from '../tool-response.js'
 import * as fmt from '../format.js'
 import { VeilScoring } from '../veil/scoring.js'
@@ -39,6 +39,7 @@ import {
 import { handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers } from './groups.js'
 import { handleArticlePublish, handleArticleRead, handleArticleList } from './articles.js'
 import { handleSearchNotes, handleSearchProfiles, handleHashtagFeed } from './search.js'
+import { handleCalendarCreate, handleCalendarRead, handleCalendarRsvp } from './calendar.js'
 
 export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   const trustCache = new TrustCache({
@@ -794,6 +795,82 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   }, async ({ hashtag, limit, since, output }) => {
     const results = await handleHashtagFeed(deps.pool, deps.ctx.activeNpub, { hashtag, limit, since })
     return toolResponse(results, output, fmt.formatSearchResults)
+  })
+
+  // --- NIP-52 Calendar Events ---
+
+  server.registerTool('calendar-create', {
+    description: 'Create a calendar event (NIP-52). Auto-detects date-based (kind 31922, YYYY-MM-DD) vs time-based (kind 31923, ISO datetime). Returns the signed event and publish result.',
+    inputSchema: {
+      title: z.string().describe('Event title'),
+      content: z.string().describe('Event description'),
+      start: z.string().describe('Start — YYYY-MM-DD for date-based, ISO datetime for time-based (auto-detected)'),
+      end: z.string().optional().describe('End — same format as start'),
+      location: z.string().optional().describe('Location name or address'),
+      geohash: z.string().optional().describe('Geohash for the location'),
+      participants: z.array(z.string()).optional().describe('Participant identifiers — name, NIP-05, npub, or hex pubkey'),
+      hashtags: z.array(z.string()).optional().describe('Hashtag labels (without #)'),
+      image: z.string().optional().describe('Event image URL'),
+      slug: z.string().optional().describe('URL-safe identifier (d-tag) — defaults to slugified title'),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true },
+  }, async ({ title, content, start, end, location, geohash, participants, hashtags, image, slug }) => {
+    // Resolve participant identifiers to hex pubkeys
+    let resolvedParticipants: string[] | undefined
+    if (participants && participants.length > 0) {
+      const resolved = await resolveRecipients(participants)
+      resolvedParticipants = resolved.map(r => r.pubkeyHex)
+    }
+
+    const result = await handleCalendarCreate(deps.ctx, deps.pool, {
+      title, content, start, end, location, geohash,
+      participants: resolvedParticipants, hashtags, image, slug,
+    })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({
+        id: result.event.id,
+        pubkey: result.event.pubkey,
+        kind: result.event.kind,
+        slug: result.event.tags.find(t => t[0] === 'd')?.[1],
+        publish: result.publish,
+      }, null, 2) }],
+    }
+  })
+
+  server.registerTool('calendar-read', {
+    description: 'Fetch calendar events (NIP-52, kinds 31922 + 31923) by author and/or date range. Accepts any identifier for author: name, NIP-05, npub, or hex pubkey.',
+    inputSchema: {
+      author: z.string().optional().describe('Author — name, NIP-05, npub, or hex pubkey'),
+      since: z.string().optional().describe('Only events starting after this date (ISO datetime or YYYY-MM-DD)'),
+      until: z.string().optional().describe('Only events starting before this date (ISO datetime or YYYY-MM-DD)'),
+      limit: z.number().int().min(1).max(200).default(50).describe('Max events to return'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ author, since, until, limit, output }) => {
+    let authorHex: string | undefined
+    if (author) {
+      const resolved = await resolveRecipient(author)
+      authorHex = resolved.pubkeyHex
+    }
+    const events = await handleCalendarRead(deps.pool, deps.ctx.activeNpub, {
+      author: authorHex, since, until, limit,
+    })
+    return toolResponse(events, output, fmt.formatCalendarEvents)
+  })
+
+  server.registerTool('calendar-rsvp', {
+    description: 'RSVP to a calendar event (NIP-52, kind 31925). Pass the event coordinate (kind:pubkey:d-tag format) and your status.',
+    inputSchema: {
+      eventCoordinate: z.string().describe('Event coordinate — kind:pubkey:d-tag format (e.g. 31923:abc123:my-event)'),
+      status: z.enum(['accepted', 'declined', 'tentative']).describe('RSVP status'),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true },
+  }, async ({ eventCoordinate, status }) => {
+    const result = await handleCalendarRsvp(deps.ctx, deps.pool, { eventCoordinate, status })
+    return {
+      content: [{ type: 'text' as const, text: fmt.formatRsvp(result) }],
+    }
   })
 
 }
