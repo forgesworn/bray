@@ -1,7 +1,7 @@
 import { finalizeEvent } from 'nostr-tools/pure'
 import { decode } from 'nostr-tools/nip19'
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 import type { TrustContext } from '../trust-context.js'
@@ -17,7 +17,7 @@ export interface LabelCreateResult {
 
 /** Create and publish a NIP-32 label event (kind 1985) */
 export async function handleLabelCreate(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     namespace: string
@@ -55,7 +55,7 @@ export async function handleLabelCreate(
 
 /** Create a self-label on your own content (kind 1985 with L/l tags) */
 export async function handleLabelSelf(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     namespace: string
@@ -165,7 +165,7 @@ export async function handleLabelSearch(
 
 /** Delete a label via kind 5 deletion event */
 export async function handleLabelRemove(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { labelEventId: string },
 ): Promise<{ event: NostrEvent; publish: PublishResult }> {
@@ -242,7 +242,7 @@ async function fetchLatestList(
 
 /** Manage mute list (kind 10000): add or remove entries */
 export async function handleListMute(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     action: MuteAction
@@ -335,7 +335,7 @@ export async function handleListCheckMuted(
 
 /** Manage pinned events (kind 10001): add or remove event IDs */
 export async function handleListPin(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     action: 'add' | 'remove'
@@ -385,7 +385,7 @@ export async function handleListPinRead(
 
 /** Create a named follow set (kind 30000) */
 export async function handleListFollowSetCreate(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     name: string
@@ -415,7 +415,7 @@ export async function handleListFollowSetCreate(
 
 /** Add or remove pubkeys from a follow set (kind 30000) */
 export async function handleListFollowSetManage(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     name: string
@@ -478,7 +478,7 @@ export async function handleListFollowSetRead(
 
 /** Manage bookmarks (kind 30001): add or remove event IDs, links, or a-tags */
 export async function handleListBookmark(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     name?: string

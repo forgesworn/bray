@@ -1,5 +1,6 @@
 import { lsagSign, lsagVerify, computeKeyImage, hasDuplicateKeyImage } from '@forgesworn/ring-sig'
 import type { LsagSignature } from '@forgesworn/ring-sig'
+import type { SigningContext } from '../signing-context.js'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
@@ -7,7 +8,7 @@ import type { Event as NostrEvent } from 'nostr-tools'
 
 /** Create an LSAG signature with linkable key image for double-action detection */
 export async function handleTrustRingLsagSign(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     ring: string[]
@@ -26,7 +27,7 @@ export async function handleTrustRingLsagSign(
   }
 
   // Get private key as hex — limit scope for security
-  let privateKeyHex = Buffer.from(ctx.activePrivateKey).toString('hex')
+  let privateKeyHex = Buffer.from((ctx as IdentityContext).activePrivateKey).toString('hex')
   let signature: LsagSignature
   try {
     signature = lsagSign(
@@ -93,7 +94,7 @@ export function handleTrustRingLsagVerify(
 
 /** Compute key image for a signing key in a specific election */
 export function handleTrustRingKeyImage(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   args: {
     electionId: string
   },
@@ -101,7 +102,7 @@ export function handleTrustRingKeyImage(
   const activeHex = ctx.activePublicKeyHex
 
   // Get private key as hex — limit scope for security
-  let privateKeyHex = Buffer.from(ctx.activePrivateKey).toString('hex')
+  let privateKeyHex = Buffer.from((ctx as IdentityContext).activePrivateKey).toString('hex')
   let keyImage: string
   try {
     keyImage = computeKeyImage(privateKeyHex, activeHex, args.electionId)

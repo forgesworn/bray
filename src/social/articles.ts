@@ -1,5 +1,5 @@
 import type { Event as NostrEvent } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 
@@ -62,7 +62,7 @@ function parseArticle(event: NostrEvent): Article {
 
 /** Create and publish a kind 30023 long-form article */
 export async function handleArticlePublish(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     title: string

@@ -1,6 +1,6 @@
 import { decode } from 'nostr-tools/nip19'
 import type { Event as NostrEvent } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { VeilScoring } from '../veil/scoring.js'
 import type { TrustMode } from '../veil/filter.js'
@@ -34,7 +34,7 @@ export interface FeedEntry {
 
 /** Fetch notifications (mentions, replies, reactions, zaps) for the active identity */
 export async function handleNotifications(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   opts?: {
     since?: number
@@ -120,7 +120,7 @@ function parseZapReceipt(event: NostrEvent, base: Omit<Notification, 'type'>): N
 
 /** Fetch feed (kind 1 events) */
 export async function handleFeed(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   opts: {
     authors?: string[]

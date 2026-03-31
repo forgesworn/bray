@@ -1,5 +1,5 @@
 import type { Event as NostrEvent } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 import type { VeilScoring } from '../veil/scoring.js'
@@ -23,7 +23,7 @@ export interface ContactGuardWarning {
 
 /** Create and publish a kind 1 text note */
 export async function handleSocialPost(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { content: string; tags?: string[][] },
 ): Promise<PostResult> {
@@ -40,7 +40,7 @@ export async function handleSocialPost(
 
 /** Create and publish a reply (kind 1 with e-tag and p-tag) */
 export async function handleSocialReply(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { content: string; replyTo: string; replyToPubkey: string; relay?: string; _scoring?: VeilScoring },
 ): Promise<ReplyResult> {
@@ -72,7 +72,7 @@ export async function handleSocialReply(
 
 /** Create and publish a reaction (kind 7) */
 export async function handleSocialReact(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { eventId: string; eventPubkey: string; reaction?: string },
 ): Promise<PostResult> {
@@ -92,7 +92,7 @@ export async function handleSocialReact(
 
 /** Delete an event (kind 5 deletion request) */
 export async function handleSocialDelete(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { eventId: string; reason?: string },
 ): Promise<PostResult> {
@@ -109,7 +109,7 @@ export async function handleSocialDelete(
 
 /** Repost/boost an event (kind 6) */
 export async function handleSocialRepost(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { eventId: string; eventPubkey: string; relay?: string },
 ): Promise<PostResult> {
@@ -161,7 +161,7 @@ export interface ProfileSetResult {
 
 /** Set the kind 0 profile for the active identity, with overwrite safety guard */
 export async function handleSocialProfileSet(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { profile: Record<string, unknown>; confirm?: boolean },
 ): Promise<ProfileSetResult> {
@@ -335,7 +335,7 @@ export async function handleContactsSearch(
 
 /** Follow a pubkey — fetches current contacts, adds, publishes new kind 3 */
 export async function handleContactsFollow(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { pubkeyHex: string; relay?: string; petname?: string; confirm?: boolean },
 ): Promise<PostResult | ContactGuardWarning> {
@@ -390,7 +390,7 @@ export async function handleContactsFollow(
 
 /** Unfollow a pubkey — fetches current contacts, removes, publishes new kind 3 */
 export async function handleContactsUnfollow(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { pubkeyHex: string; confirm?: boolean },
 ): Promise<PostResult | ContactGuardWarning> {

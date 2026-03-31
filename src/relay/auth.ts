@@ -1,5 +1,5 @@
 import { validateRelayUrl } from './handlers.js'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 
 export interface RelayAuthResult {
   authenticated: boolean
@@ -19,7 +19,7 @@ export interface RelayAuthResult {
  * 5. Wait for ["OK", eventId, true, ...] confirmation
  */
 export async function handleRelayAuth(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   relay: string,
 ): Promise<RelayAuthResult> {
   validateRelayUrl(relay) // throws on private IPs -- intentionally not caught

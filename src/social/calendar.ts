@@ -1,5 +1,5 @@
 import type { Event as NostrEvent } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 
@@ -86,7 +86,7 @@ function startSortKey(event: CalendarEvent): number {
 
 /** Create and publish a calendar event (kind 31922 date-based or 31923 time-based) */
 export async function handleCalendarCreate(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     title: string
@@ -199,7 +199,7 @@ export async function handleCalendarRead(
 
 /** Create and publish an RSVP (kind 31925) to a calendar event */
 export async function handleCalendarRsvp(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     eventCoordinate: string

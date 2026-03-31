@@ -2,7 +2,7 @@ import { generateMnemonic } from '@scure/bip39'
 import { wordlist } from '@scure/bip39/wordlists/english.js'
 import { fromMnemonic } from 'nsec-tree'
 import type { LinkageProof } from 'nsec-tree'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext, ExtendedSigningContext } from '../signing-context.js'
 import type { PublicIdentity } from '../types.js'
 
 export interface DeriveResult extends PublicIdentity {
@@ -20,7 +20,7 @@ export function handleIdentityCreate(): { npub: string; mnemonic: string } {
 
 /** Derive a child identity by purpose and index */
 export async function handleIdentityDerive(
-  ctx: IdentityContext,
+  ctx: ExtendedSigningContext,
   args: { purpose: string; index: number },
 ): Promise<DeriveResult> {
   // Check before deriving — if only master exists, this is the first derivation
@@ -39,7 +39,7 @@ export async function handleIdentityDerive(
 
 /** Derive a named persona */
 export async function handleIdentityDerivePersona(
-  ctx: IdentityContext,
+  ctx: ExtendedSigningContext,
   args: { name: string; index: number },
 ): Promise<PublicIdentity> {
   return ctx.derivePersona(args.name, args.index)
@@ -47,7 +47,7 @@ export async function handleIdentityDerivePersona(
 
 /** Switch active identity */
 export async function handleIdentitySwitch(
-  ctx: IdentityContext,
+  ctx: ExtendedSigningContext,
   args: { target: string; index?: number },
 ): Promise<{ npub: string }> {
   await ctx.switch(args.target, args.index)
@@ -55,13 +55,13 @@ export async function handleIdentitySwitch(
 }
 
 /** List all known identities — returns public info only */
-export async function handleIdentityList(ctx: IdentityContext): Promise<PublicIdentity[]> {
+export async function handleIdentityList(ctx: SigningContext): Promise<PublicIdentity[]> {
   return ctx.listIdentities()
 }
 
 /** Create a linkage proof for the active identity. Defaults to blind (no purpose/index). */
 export async function handleIdentityProve(
-  ctx: IdentityContext,
+  ctx: ExtendedSigningContext,
   args: { mode?: 'blind' | 'full' },
 ): Promise<LinkageProof> {
   return ctx.prove(args.mode ?? 'blind')

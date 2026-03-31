@@ -3,7 +3,7 @@ import { dirname } from 'node:path'
 import { getConversationKey, encrypt, decrypt } from 'nostr-tools/nip44'
 import { finalizeEvent } from 'nostr-tools/pure'
 import type { Event as NostrEvent } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 
@@ -39,7 +39,7 @@ export function saveWallets(walletsFile: string, wallets: Record<string, string>
  * 3. undefined (no wallet configured)
  */
 export function resolveNwcUri(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   walletsFile: string,
   globalNwcUri?: string,
 ): string | undefined {
@@ -127,7 +127,7 @@ export interface ZapReceipt {
 
 /** Parse zap receipts (kind 9735) for the active identity */
 export async function handleZapReceipts(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   opts?: { since?: number; limit?: number },
 ): Promise<ZapReceipt[]> {
@@ -197,7 +197,7 @@ export function handleZapDecode(bolt11: string): {
 
 /** Pay a Lightning invoice via NWC */
 export async function handleZapSend(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { invoice: string; nwcUri?: string },
 ): Promise<{ event: NostrEvent; publish: PublishResult }> {
@@ -213,7 +213,7 @@ export async function handleZapSend(
 
 /** Request wallet balance via NWC */
 export async function handleZapBalance(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { nwcUri?: string },
 ): Promise<{ event: NostrEvent; publish: PublishResult }> {
@@ -229,7 +229,7 @@ export async function handleZapBalance(
 
 /** Generate a Lightning invoice via NWC */
 export async function handleZapMakeInvoice(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { amountMsats: number; description?: string; nwcUri?: string },
 ): Promise<{ event: NostrEvent; publish: PublishResult }> {
@@ -248,7 +248,7 @@ export async function handleZapMakeInvoice(
 
 /** Look up an invoice via NWC */
 export async function handleZapLookupInvoice(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { paymentHash?: string; invoice?: string; nwcUri?: string },
 ): Promise<{ event: NostrEvent; publish: PublishResult }> {
@@ -267,7 +267,7 @@ export async function handleZapLookupInvoice(
 
 /** List recent transactions via NWC */
 export async function handleZapListTransactions(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { limit?: number; offset?: number; nwcUri?: string },
 ): Promise<{ event: NostrEvent; publish: PublishResult }> {

@@ -4,7 +4,7 @@
  */
 
 import { decode } from 'nostr-tools/nip19'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import { handleIdentityList } from '../identity/handlers.js'
 import { handleSocialProfileGet } from '../social/handlers.js'
@@ -24,7 +24,7 @@ export interface IdentityPickerResult {
 }
 
 export async function handleIdentityPickerWidget(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
 ): Promise<IdentityPickerResult> {
   const identities = await handleIdentityList(ctx)

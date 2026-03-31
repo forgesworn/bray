@@ -108,8 +108,7 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     annotations: { readOnlyHint: true },
   }, async ({ recipientPubkeyHex, plaintext }) => {
     const resolved = await resolveRecipient(recipientPubkeyHex)
-    const skHex = Buffer.from(deps.ctx.activePrivateKey).toString('hex')
-    const ciphertext = handleEncrypt(skHex, resolved.pubkeyHex, plaintext)
+    const ciphertext = await deps.ctx.nip44Encrypt(resolved.pubkeyHex, plaintext)
     return { content: [{ type: 'text' as const, text: ciphertext }] }
   })
 
@@ -122,8 +121,7 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     annotations: { readOnlyHint: true },
   }, async ({ senderPubkeyHex, ciphertext }) => {
     const resolved = await resolveRecipient(senderPubkeyHex)
-    const skHex = Buffer.from(deps.ctx.activePrivateKey).toString('hex')
-    const plaintext = handleDecrypt(skHex, resolved.pubkeyHex, ciphertext)
+    const plaintext = await deps.ctx.nip44Decrypt(resolved.pubkeyHex, ciphertext)
     return { content: [{ type: 'text' as const, text: plaintext }] }
   })
 

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
+import { hasExtendedIdentity } from '../signing-context.js'
 import { hexId } from '../validation.js'
 import { handleDuressConfigure, handleDuressActivate } from './handlers.js'
 import {
@@ -26,6 +27,9 @@ export function registerSafetyTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: false },
   }, async ({ personaName }) => {
+    if (!hasExtendedIdentity(deps.ctx)) {
+      return { content: [{ type: 'text' as const, text: 'This operation requires a Heartwood-compatible signer or local key mode.' }] }
+    }
     const result = await handleDuressConfigure(deps.ctx, deps.pool, { personaName })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
@@ -40,6 +44,9 @@ export function registerSafetyTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ personaName }) => {
+    if (!hasExtendedIdentity(deps.ctx)) {
+      return { content: [{ type: 'text' as const, text: 'This operation requires a Heartwood-compatible signer or local key mode.' }] }
+    }
     const result = await handleDuressActivate(deps.ctx, { personaName })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],

@@ -11,7 +11,7 @@ import {
   type RangeProof,
 } from '@forgesworn/range-proof'
 import type { Event as NostrEvent } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 
@@ -152,7 +152,7 @@ export interface PublishProofResult {
 
 /** Publish a range proof as a kind 30078 Nostr event. */
 export async function handlePrivacyPublishProof(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     proof: string

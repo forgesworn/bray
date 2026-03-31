@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { validatePublicUrl } from '../validation.js'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 
@@ -15,7 +15,7 @@ export interface BlobDescriptor {
 
 /** Upload a file to a blossom media server */
 export async function handleBlossomUpload(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   args: { server: string; filePath?: string; data?: Uint8Array; contentType?: string },
 ): Promise<BlobDescriptor> {
   validatePublicUrl(args.server)
@@ -102,7 +102,7 @@ export async function handleBlossomDownload(
 
 /** Delete a blob from a blossom server */
 export async function handleBlossomDelete(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   args: { server: string; sha256: string },
 ): Promise<{ deleted: boolean }> {
   validatePublicUrl(args.server)
@@ -153,7 +153,7 @@ export interface MirrorResult {
  * Accepts either a source URL (fetches from an existing blossom server) or raw data/filePath.
  */
 export async function handleBlossomMirror(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   args: {
     servers: string[]
     sourceUrl?: string
@@ -419,7 +419,7 @@ export interface RepairResult {
  * re-upload to the target server.
  */
 export async function handleBlossomRepair(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   args: {
     sha256: string
     searchServers: string[]
@@ -567,7 +567,7 @@ export async function handleBlossomServersGet(
 
 /** Publish a kind 10063 blossom server list event */
 export async function handleBlossomServersSet(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { servers: string[] },
 ): Promise<ServerListResult> {

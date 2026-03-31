@@ -2,7 +2,8 @@ import { z } from 'zod'
 import { toolResponse } from '../tool-response.js'
 import * as fmt from '../format.js'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
+import { hasExtendedIdentity } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { Nip65Manager } from '../nip65.js'
 import type { TrustContext } from '../trust-context.js'
@@ -18,9 +19,10 @@ import { handleBackupShamir, handleRestoreShamir } from './shamir.js'
 import { hexId } from '../validation.js'
 import { handleIdentityBackup, handleIdentityRestore, handleIdentityMigrate } from './migration.js'
 import { handleNip05Lookup, handleNip05Verify, handleNip05Relays } from './nip05.js'
+import type { IdentityContext } from '../context.js'
 
 export interface ToolDeps {
-  ctx: IdentityContext
+  ctx: SigningContext
   pool: RelayPool
   nip65: Nip65Manager
   nwcUri?: string
@@ -59,6 +61,9 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: false },
   }, async ({ purpose, index }) => {
+    if (!hasExtendedIdentity(deps.ctx)) {
+      return { content: [{ type: 'text' as const, text: 'This operation requires a Heartwood-compatible signer or local key mode.' }] }
+    }
     const result = await handleIdentityDerive(deps.ctx, { purpose, index })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
@@ -73,6 +78,9 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: false },
   }, async ({ name, index }) => {
+    if (!hasExtendedIdentity(deps.ctx)) {
+      return { content: [{ type: 'text' as const, text: 'This operation requires a Heartwood-compatible signer or local key mode.' }] }
+    }
     const result = await handleIdentityDerivePersona(deps.ctx, { name, index })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
@@ -87,6 +95,9 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: false },
   }, async ({ target, index }) => {
+    if (!hasExtendedIdentity(deps.ctx)) {
+      return { content: [{ type: 'text' as const, text: 'This operation requires a Heartwood-compatible signer or local key mode.' }] }
+    }
     const result = await handleIdentitySwitch(deps.ctx, { target, index })
 
     // Reload NIP-65 relay list for the new identity so the pool routes correctly
@@ -117,6 +128,9 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: true },
   }, async ({ mode }) => {
+    if (!hasExtendedIdentity(deps.ctx)) {
+      return { content: [{ type: 'text' as const, text: 'This operation requires a Heartwood-compatible signer or local key mode.' }] }
+    }
     const proof = await handleIdentityProve(deps.ctx, { mode })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(proof, null, 2) }],
@@ -132,8 +146,14 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: false, destructiveHint: false },
   }, async ({ threshold, shares, outputDir }) => {
+    // activePrivateKey is on IdentityContext (not base SigningContext) — Shamir backup
+    // requires raw key bytes and is only available in local key mode (BunkerContext has no raw key).
+    const localCtx = deps.ctx as IdentityContext
+    if (!localCtx.activePrivateKey) {
+      return { content: [{ type: 'text' as const, text: 'Shamir backup requires local key mode — not available with a remote bunker.' }] }
+    }
     const result = handleBackupShamir({
-      secret: new Uint8Array(deps.ctx.activePrivateKey),
+      secret: new Uint8Array(localCtx.activePrivateKey),
       threshold,
       shares,
       outputDir,

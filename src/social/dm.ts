@@ -2,6 +2,7 @@ import { wrapEvent } from 'nostr-tools/nip17'
 import * as nip04 from 'nostr-tools/nip04'
 import { decode, npubEncode } from 'nostr-tools/nip19'
 import type { Event as NostrEvent } from 'nostr-tools'
+import type { SigningContext } from '../signing-context.js'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { Nip65Manager } from '../nip65.js'
@@ -33,7 +34,7 @@ export interface DmReadEntry {
 
 /** Send a DM. Uses NIP-17 gift wrap by default. NIP-04 only if explicitly requested and enabled. */
 export async function handleDmSend(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     recipientPubkeyHex: string
@@ -50,7 +51,7 @@ export async function handleDmSend(
     }
 
     // NIP-04 legacy DM (kind 4)
-    const encrypted = await nip04.encrypt(ctx.activePrivateKey, args.recipientPubkeyHex, args.message)
+    const encrypted = await nip04.encrypt((ctx as IdentityContext).activePrivateKey, args.recipientPubkeyHex, args.message)
     const sign = ctx.getSigningFunction()
     const event = await sign({
       kind: 4,
@@ -78,7 +79,7 @@ export async function handleDmSend(
 
   // Wrap for recipient
   const event = wrapEvent(
-    ctx.activePrivateKey,
+    (ctx as IdentityContext).activePrivateKey,
     { publicKey: args.recipientPubkeyHex, relayUrl: recipientRelayHint },
     args.message,
   )
@@ -99,7 +100,7 @@ export async function handleDmSend(
   // outer gift-wrap's p-tag to route, and the inner content to display.
   const senderHex = (decode(ctx.activeNpub).data as string)
   const senderCopy = wrapEvent(
-    ctx.activePrivateKey,
+    (ctx as IdentityContext).activePrivateKey,
     { publicKey: senderHex, relayUrl: recipientRelayHint },
     args.message,
   )
@@ -116,7 +117,7 @@ export async function handleDmSend(
 
 /** Read DMs addressed to the active identity */
 export async function handleDmRead(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args?: { since?: number; limit?: number; _scoring?: VeilScoring; _trustCtx?: TrustContext },
 ): Promise<DmReadEntry[]> {
@@ -150,7 +151,7 @@ export async function handleDmRead(
 
 /** Read DM conversation with a specific pubkey — filters to messages from that person only */
 export async function handleDmConversation(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { withPubkeyHex: string; limit?: number; _scoring?: VeilScoring; _trustCtx?: TrustContext },
 ): Promise<DmReadEntry[]> {
@@ -162,7 +163,7 @@ export async function handleDmConversation(
 
 /** Decrypt a list of DM events (kind 1059 gift wrap + kind 4 legacy) */
 async function decryptDmEvents(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   events: NostrEvent[],
 ): Promise<DmReadEntry[]> {
   const results: DmReadEntry[] = []
@@ -172,7 +173,7 @@ async function decryptDmEvents(
       // NIP-17 gift wrap — try to unwrap
       try {
         const { unwrapEvent } = await import('nostr-tools/nip17')
-        const unwrapped = unwrapEvent(event, ctx.activePrivateKey)
+        const unwrapped = unwrapEvent(event, (ctx as IdentityContext).activePrivateKey)
         results.push({
           id: event.id,
           from: unwrapped.pubkey,
@@ -194,7 +195,7 @@ async function decryptDmEvents(
     } else if (event.kind === 4) {
       // NIP-04 legacy DM
       try {
-        const decrypted = await nip04.decrypt(ctx.activePrivateKey, event.pubkey, event.content)
+        const decrypted = await nip04.decrypt((ctx as IdentityContext).activePrivateKey, event.pubkey, event.content)
         results.push({
           id: event.id,
           from: event.pubkey,

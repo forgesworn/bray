@@ -1,5 +1,5 @@
 import { deriveToken, verifyToken } from 'spoken-token'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 
 /** Generate a challenge token for spoken verification */
 export function handleTrustSpokenChallenge(

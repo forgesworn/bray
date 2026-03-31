@@ -1,5 +1,5 @@
 import type { Event as NostrEvent } from 'nostr-tools'
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import { parseRelayTags } from '../nip65.js'
 import { validateRelayUrl, handleRelayInfo } from './handlers.js'
@@ -24,7 +24,7 @@ export interface RelayDiscoverResult {
 }
 
 export async function handleRelayDiscover(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { limit?: number },
 ): Promise<RelayDiscoverResult> {
@@ -128,7 +128,7 @@ export interface NipSearchResult {
 }
 
 export async function handleRelayNipSearch(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { nips: number[]; candidateRelays?: string[] },
 ): Promise<NipSearchResult> {
@@ -200,7 +200,7 @@ export interface RelayCompareResult {
 }
 
 export async function handleRelayCompare(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { relays: string[] },
 ): Promise<RelayCompareResult> {
@@ -217,7 +217,7 @@ export async function handleRelayCompare(
 
 async function compareRelay(
   pool: RelayPool,
-  ctx: IdentityContext,
+  ctx: SigningContext,
   url: string,
   pubkeyHex: string,
 ): Promise<RelayComparison> {
@@ -299,7 +299,7 @@ export interface DiversityReport {
 }
 
 export async function handleRelayDiversity(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
 ): Promise<DiversityReport> {
   const relaySet = pool.getRelays(ctx.activeNpub)
@@ -411,7 +411,7 @@ export interface RelayRecommendResult {
 }
 
 export async function handleRelayRecommend(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: { strategy?: RecommendStrategy; limit?: number },
 ): Promise<RelayRecommendResult> {

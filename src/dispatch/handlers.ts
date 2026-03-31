@@ -3,7 +3,7 @@
  * and identity modules to send, check, and reply to collaborator tasks.
  */
 
-import type { IdentityContext } from '../context.js'
+import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 import {
@@ -64,7 +64,7 @@ export interface DispatchReplyResult {
  * sends it as a NIP-17 DM.
  */
 export async function handleDispatchSend(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     identities: Map<string, string>
@@ -136,7 +136,7 @@ export async function handleDispatchSend(
  * filters to those from known identities, and validates freshness.
  */
 export async function handleDispatchCheck(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     identities: Map<string, string>
@@ -212,7 +212,7 @@ export async function handleDispatchCheck(
  * and optionally deletes the original task event (best effort).
  */
 export async function handleDispatchReply(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     identities: Map<string, string>
@@ -269,7 +269,7 @@ export async function handleDispatchReply(
  * Acknowledge receipt of a dispatch task.
  */
 export async function handleDispatchAck(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     identities: Map<string, string>
@@ -294,7 +294,7 @@ export async function handleDispatchAck(
  * Send a status update to a collaborator.
  */
 export async function handleDispatchStatus(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     identities: Map<string, string>
@@ -326,7 +326,7 @@ export async function handleDispatchStatus(
  * Cancel a dispatch task.
  */
 export async function handleDispatchCancel(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     identities: Map<string, string>
@@ -351,7 +351,7 @@ export async function handleDispatchCancel(
  * Refuse a dispatch task. Tells the sender "I can't do this" with a reason.
  */
 export async function handleDispatchRefuse(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     identities: Map<string, string>
@@ -376,7 +376,7 @@ export async function handleDispatchRefuse(
  * Report that a dispatch task failed. Optionally includes partial results.
  */
 export async function handleDispatchFailure(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     identities: Map<string, string>
@@ -406,7 +406,7 @@ export async function handleDispatchFailure(
  * Ask the sender a clarifying question mid-task before delivering results.
  */
 export async function handleDispatchQuery(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     identities: Map<string, string>
@@ -435,7 +435,7 @@ export async function handleDispatchQuery(
  * Propose an alternative approach for a dispatch task.
  */
 export async function handleDispatchPropose(
-  ctx: IdentityContext,
+  ctx: SigningContext,
   pool: RelayPool,
   args: {
     identities: Map<string, string>
