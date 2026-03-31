@@ -1,11 +1,11 @@
 # CLAUDE.md — nostr-bray
 
-MCP server giving AI agents sovereign Nostr identities. 182 tools across 17 groups.
+MCP server giving AI agents sovereign Nostr identities. 198 tools across 17 groups.
 
 ## Commands
 
 - `npm run build` — compile TypeScript to dist/
-- `npm test` — run all tests (vitest, 329 tests)
+- `npm test` — run all tests (vitest, 865 tests)
 - `npm run test:watch` — watch mode
 - `npm run lint` — type-check without emitting (`tsc --noEmit`)
 - `npm start` — run the MCP server (requires NOSTR_SECRET_KEY + NOSTR_RELAYS)
@@ -24,7 +24,7 @@ Single-process MCP server. Entry points:
 - `src/<group>/tools.ts` — Zod schemas + `server.registerTool()` wiring
 - `test/<group>/handlers.test.ts` — unit tests for handlers
 
-Tool groups: `identity/`, `social/` (includes blossom, dm, groups, nips, notifications), `trust/`, `relay/`, `zap/`, `safety/`, `signet/`, `vault/`, `util/`, `workflow/` (trust-score, feed-discover, verify-person, identity-setup, identity-recover, relay-health), `dispatch/` (dispatch-send, dispatch-check, dispatch-reply — model-agnostic AI-to-AI collaboration over encrypted Nostr DMs)
+Tool groups: `identity/`, `social/` (includes blossom, dm, groups, nips, notifications), `trust/`, `relay/`, `zap/`, `safety/`, `signet/`, `vault/`, `util/`, `workflow/` (trust-score, feed-discover, verify-person, identity-setup, identity-recover, relay-health), `dispatch/` (9 tools: send, check, reply, ack, status, cancel, refuse, failure, query — model-agnostic AI-to-AI collaboration over encrypted Nostr DMs, with universal identity resolution)
 
 **Shared modules:**
 - `src/config.ts` — env var + file secret loading, format detection
