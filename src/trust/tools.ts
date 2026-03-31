@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
 import { hexId } from '../validation.js'
+import { resolveRecipients } from '../resolve.js'
 import {
   handleTrustAttest,
   handleTrustRead,
@@ -178,13 +179,15 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('trust-ring-prove', {
     description: 'Create a ring signature proving anonymous group membership. A verifier can confirm "someone in this ring signed this" but cannot determine who. The active identity must be one of the pubkeys in the ring. Returns kind 30078 event with the signature.',
     inputSchema: {
-      ring: z.array(hexId).describe('Hex x-only public keys of ring members (must include active identity)'),
+      ring: z.array(z.string()).describe('Ring members — name, NIP-05, npub, or hex pubkey (must include active identity)'),
       attestationType: z.string().describe('Attestation type context for the canonical message'),
       message: z.string().optional().describe('Custom message to sign (defaults to canonical format)'),
     },
     annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ ring, attestationType, message }) => {
-    const result = await handleTrustRingProve(deps.ctx, deps.pool, { ring, attestationType, message })
+    const resolved = await resolveRecipients(ring)
+    const ringHex = resolved.map(r => r.pubkeyHex)
+    const result = await handleTrustRingProve(deps.ctx, deps.pool, { ring: ringHex, attestationType, message })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({ id: result.event.id, ringSize: ring.length }, null, 2) }],
     }
@@ -340,14 +343,16 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('trust-ring-lsag-sign', {
     description: 'Create an LSAG (Linkable SAG) signature with a key image tied to an election ID. If the same signer signs twice in the same election, the duplicate key image reveals double-action without revealing identity. Use for anonymous voting, one-per-person actions, or fair resource allocation.',
     inputSchema: {
-      ring: z.array(hexId).describe('Hex x-only public keys of ring members (must include active identity)'),
+      ring: z.array(z.string()).describe('Ring members — name, NIP-05, npub, or hex pubkey (must include active identity)'),
       electionId: z.string().min(1).describe('Election/context identifier — key image is bound to this (e.g. "vote-2026-q1")'),
       message: z.string().describe('Message to sign'),
       domain: z.string().optional().describe('Domain separator (defaults to "lsag-v1")'),
     },
     annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ ring, electionId, message, domain }) => {
-    const result = await handleTrustRingLsagSign(deps.ctx, deps.pool, { ring, electionId, message, domain })
+    const resolved = await resolveRecipients(ring)
+    const ringHex = resolved.map(r => r.pubkeyHex)
+    const result = await handleTrustRingLsagSign(deps.ctx, deps.pool, { ring: ringHex, electionId, message, domain })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({
         id: result.event.id,
