@@ -16,6 +16,7 @@ import {
   buildRefuseMessage,
   buildFailureMessage,
   buildQueryMessage,
+  buildProposeMessage,
   parseDispatchMessage,
   validateRepos,
   checkFreshness,
@@ -47,7 +48,7 @@ export interface CheckedDispatchMessage {
 
 export interface DispatchReplyResult {
   sent: boolean
-  messageType: 'dispatch-result' | 'dispatch-ack' | 'dispatch-status' | 'dispatch-cancel' | 'dispatch-refuse' | 'dispatch-failure' | 'dispatch-query'
+  messageType: 'dispatch-result' | 'dispatch-ack' | 'dispatch-status' | 'dispatch-cancel' | 'dispatch-refuse' | 'dispatch-failure' | 'dispatch-query' | 'dispatch-propose'
   deleted: boolean
 }
 
@@ -75,6 +76,7 @@ export async function handleDispatchSend(
     branchFrom?: string
     contextId?: string
     depth?: number
+    dependsOn?: string[]
   },
 ): Promise<DispatchSendResult> {
   // Enforce delegation depth limit
@@ -93,6 +95,7 @@ export async function handleDispatchSend(
       respond_to: senderHex,
       context_id: args.contextId,
       depth: args.depth,
+      depends_on: args.dependsOn,
     })
   } else {
     msg = buildBuildMessage({
@@ -102,6 +105,7 @@ export async function handleDispatchSend(
       respond_to: senderHex,
       context_id: args.contextId,
       depth: args.depth,
+      depends_on: args.dependsOn,
     })
   }
 
@@ -421,4 +425,35 @@ export async function handleDispatchQuery(
     message: JSON.stringify(msg),
   })
   return { sent: true, messageType: 'dispatch-query', deleted: false }
+}
+
+// ---------------------------------------------------------------------------
+// handleDispatchPropose
+// ---------------------------------------------------------------------------
+
+/**
+ * Propose an alternative approach for a dispatch task.
+ */
+export async function handleDispatchPropose(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: {
+    identities: Map<string, string>
+    re: string
+    to: string
+    proposal: string
+    reason?: string
+  },
+): Promise<DispatchReplyResult> {
+  const msg = buildProposeMessage({
+    re: args.re,
+    proposal: args.proposal,
+    reason: args.reason,
+    respond_to: ctx.activePublicKeyHex,
+  })
+  await handleDmSend(ctx, pool, {
+    recipientPubkeyHex: args.to,
+    message: JSON.stringify(msg),
+  })
+  return { sent: true, messageType: 'dispatch-propose', deleted: false }
 }

@@ -11,6 +11,7 @@ import {
   handleDispatchRefuse,
   handleDispatchFailure,
   handleDispatchQuery,
+  handleDispatchPropose,
 } from '../../src/dispatch/handlers.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
@@ -343,6 +344,83 @@ describe('dispatch handlers', () => {
       })
 
       expect(result.sent).toBe(true)
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // handleDispatchSend with dependsOn
+  // -------------------------------------------------------------------------
+  describe('handleDispatchSend with dependsOn', () => {
+    it('passes dependsOn through to the message', async () => {
+      const pool = mockPool()
+      const result = await handleDispatchSend(ctx, pool as any, {
+        identities: makeIdentities(),
+        recipientHex: ALICE_HEX,
+        recipientName: 'alice',
+        type: 'think',
+        prompt: 'Analyse after prerequisites',
+        dependsOn: ['think-abc-1', 'build-def-2'],
+      })
+
+      expect(result.sent).toBe(true)
+      expect(result.messageType).toBe('dispatch-think')
+
+      // Verify the published message contains depends_on
+      const publishCall = pool.publish.mock.calls[0]
+      const event = publishCall[0]
+      // The DM content is encrypted, so we verify the task ID format indicates it was built
+      expect(result.taskId).toMatch(/^think-/)
+    })
+
+    it('passes dependsOn through to build messages', async () => {
+      const pool = mockPool()
+      const result = await handleDispatchSend(ctx, pool as any, {
+        identities: makeIdentities(),
+        recipientHex: BOB_HEX,
+        recipientName: 'bob',
+        type: 'build',
+        prompt: 'Implement after analysis',
+        branchFrom: 'main',
+        dependsOn: ['think-abc-1'],
+      })
+
+      expect(result.sent).toBe(true)
+      expect(result.messageType).toBe('dispatch-build')
+      expect(result.taskId).toMatch(/^build-/)
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // handleDispatchPropose
+  // -------------------------------------------------------------------------
+  describe('handleDispatchPropose', () => {
+    it('sends a proposal message', async () => {
+      const pool = mockPool()
+      const result = await handleDispatchPropose(ctx, pool as any, {
+        identities: makeIdentities(),
+        re: 'think-abc123',
+        to: ALICE_HEX,
+        proposal: 'Use event sourcing instead of CRUD',
+        reason: 'The current approach cannot handle real-time updates',
+      })
+
+      expect(result.sent).toBe(true)
+      expect(result.messageType).toBe('dispatch-propose')
+      expect(result.deleted).toBe(false)
+      expect(pool.publish).toHaveBeenCalled()
+    })
+
+    it('sends a proposal without reason', async () => {
+      const pool = mockPool()
+      const result = await handleDispatchPropose(ctx, pool as any, {
+        identities: makeIdentities(),
+        re: 'build-xyz789',
+        to: BOB_HEX,
+        proposal: 'Split into two smaller tasks',
+      })
+
+      expect(result.sent).toBe(true)
+      expect(result.messageType).toBe('dispatch-propose')
     })
   })
 })

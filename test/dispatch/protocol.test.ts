@@ -4,6 +4,7 @@ import {
   buildBuildMessage,
   buildResultMessage,
   buildAckMessage,
+  buildProposeMessage,
   isDispatchMessage,
   parseDispatchMessage,
   validateRepos,
@@ -14,6 +15,7 @@ import {
   type DispatchAck,
   type DispatchCancel,
   type DispatchStatus,
+  type DispatchPropose,
   type DispatchMessage,
 } from '../../src/dispatch/protocol.js'
 
@@ -274,6 +276,78 @@ describe('dispatch protocol', () => {
     it('build IDs use build- prefix with base-36 components', () => {
       const msg = buildBuildMessage({ prompt: 'p', repos: ['r'], branch_from: 'main', respond_to: 'x' })
       expect(msg.id).toMatch(/^build-[a-z0-9]+-[a-z0-9]+$/)
+    })
+  })
+
+  describe('depends_on', () => {
+    it('includes depends_on in think messages when provided', () => {
+      const msg = buildThinkMessage({
+        prompt: 'Analyse after prerequisites',
+        repos: ['trott-sdk'],
+        respond_to: 'npub1abc',
+        depends_on: ['think-abc-1', 'build-def-2'],
+      })
+      expect(msg.depends_on).toEqual(['think-abc-1', 'build-def-2'])
+    })
+
+    it('omits depends_on from think messages when not provided', () => {
+      const msg = buildThinkMessage({ prompt: 'p', repos: ['r'], respond_to: 'x' })
+      expect(msg.depends_on).toBeUndefined()
+    })
+
+    it('omits depends_on from think messages when empty array', () => {
+      const msg = buildThinkMessage({ prompt: 'p', repos: ['r'], respond_to: 'x', depends_on: [] })
+      expect(msg.depends_on).toBeUndefined()
+    })
+
+    it('includes depends_on in build messages when provided', () => {
+      const msg = buildBuildMessage({
+        prompt: 'Implement after analysis',
+        repos: ['bray'],
+        branch_from: 'main',
+        respond_to: 'npub1def',
+        depends_on: ['think-abc-1'],
+      })
+      expect(msg.depends_on).toEqual(['think-abc-1'])
+    })
+
+    it('omits depends_on from build messages when not provided', () => {
+      const msg = buildBuildMessage({ prompt: 'p', repos: ['r'], branch_from: 'main', respond_to: 'x' })
+      expect(msg.depends_on).toBeUndefined()
+    })
+  })
+
+  describe('buildProposeMessage', () => {
+    it('creates a valid dispatch-propose message', () => {
+      const msg = buildProposeMessage({
+        re: 'think-abc123',
+        proposal: 'Use a different approach with event sourcing',
+        reason: 'The current architecture cannot support real-time updates',
+        respond_to: 'npub1abc',
+      })
+      expect(msg.v).toBe(1)
+      expect(msg.type).toBe('dispatch-propose')
+      expect(msg.re).toBe('think-abc123')
+      expect(msg.proposal).toBe('Use a different approach with event sourcing')
+      expect(msg.reason).toBe('The current architecture cannot support real-time updates')
+      expect(msg.respond_to).toBe('npub1abc')
+      expect(msg.ts).toBeDefined()
+    })
+
+    it('omits reason when not provided', () => {
+      const msg = buildProposeMessage({
+        re: 'build-xyz789',
+        proposal: 'Split into two smaller tasks',
+        respond_to: 'npub1def',
+      })
+      expect(msg.reason).toBeUndefined()
+      expect(msg.proposal).toBe('Split into two smaller tasks')
+    })
+  })
+
+  describe('isDispatchMessage recognises dispatch-propose', () => {
+    it('returns true for dispatch-propose', () => {
+      expect(isDispatchMessage({ v: 1, type: 'dispatch-propose' })).toBe(true)
     })
   })
 })

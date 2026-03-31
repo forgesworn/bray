@@ -40,6 +40,8 @@ import { handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers }
 import { handleArticlePublish, handleArticleRead, handleArticleList } from './articles.js'
 import { handleSearchNotes, handleSearchProfiles, handleHashtagFeed } from './search.js'
 import { handleCalendarCreate, handleCalendarRead, handleCalendarRsvp } from './calendar.js'
+import { handleBadgeCreate, handleBadgeAward, handleBadgeAccept, handleBadgeList } from './badges.js'
+import { handleCommunityCreate, handleCommunityFeed, handleCommunityPost, handleCommunityApprove, handleCommunityList } from './communities.js'
 
 export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   const trustCache = new TrustCache({
@@ -871,6 +873,149 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     return {
       content: [{ type: 'text' as const, text: fmt.formatRsvp(result) }],
     }
+  })
+
+  // --- NIP-58 Badges ---
+
+  server.registerTool('badge-create', {
+    description: 'Define a new badge (NIP-58, kind 30009). Creates a replaceable badge definition with name, description, and optional image.',
+    inputSchema: {
+      slug: z.string().describe('Badge identifier (d-tag)'),
+      name: z.string().describe('Human-readable badge name'),
+      description: z.string().describe('What the badge represents'),
+      image: z.string().optional().describe('Badge image URL'),
+      thumb: z.string().optional().describe('Badge thumbnail URL'),
+      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ slug, name, description, image, thumb, output }) => {
+    const result = await handleBadgeCreate(deps.ctx, deps.pool, { slug, name, description, image, thumb })
+    return toolResponse(result, output, fmt.formatPublish)
+  })
+
+  server.registerTool('badge-award', {
+    description: 'Award a badge to one or more recipients (NIP-58, kind 8). The badge must be defined first via badge-create.',
+    inputSchema: {
+      badge_slug: z.string().describe('Badge identifier (d-tag from badge-create)'),
+      recipients: z.array(z.string()).describe('Recipients — names, NIP-05, npubs, or hex pubkeys'),
+      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ badge_slug, recipients, output }) => {
+    const resolved = await resolveRecipients(recipients)
+    const result = await handleBadgeAward(deps.ctx, deps.pool, {
+      badgeSlug: badge_slug,
+      recipients: resolved.map(r => r.pubkeyHex),
+    })
+    return toolResponse(result, output, fmt.formatPublish)
+  })
+
+  server.registerTool('badge-accept', {
+    description: 'Accept a badge and add it to your profile badges (NIP-58, kind 30008). Updates your profile badge list preserving existing badges.',
+    inputSchema: {
+      badge_coord: z.string().describe('Badge definition coordinate (e.g. "30009:pubkey:slug")'),
+      award_event_id: z.string().describe('Event ID of the badge award (kind 8)'),
+      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ badge_coord, award_event_id, output }) => {
+    const result = await handleBadgeAccept(deps.ctx, deps.pool, {
+      badgeDefinitionCoord: badge_coord,
+      awardEventId: award_event_id,
+    })
+    return toolResponse(result, output, fmt.formatPublish)
+  })
+
+  server.registerTool('badge-list', {
+    description: 'List badges defined by an author or displayed on a profile (NIP-58). Mode "defined" shows badge definitions, "profile" shows accepted badges.',
+    inputSchema: {
+      pubkey: z.string().describe('Identity — name, NIP-05, npub, or hex pubkey'),
+      mode: z.enum(['defined', 'profile']).describe('"defined" for badges created by this person, "profile" for badges they display'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ pubkey, mode, output }) => {
+    const resolved = await resolveRecipient(pubkey)
+    const result = await handleBadgeList(deps.pool, deps.ctx.activeNpub, { pubkey: resolved.pubkeyHex, mode })
+    return toolResponse(result, output, fmt.formatBadges)
+  })
+
+  // --- NIP-72 Communities ---
+
+  server.registerTool('community-create', {
+    description: 'Create a moderated community (NIP-72, kind 34550). Communities are open and approval-based, different from NIP-29 closed groups.',
+    inputSchema: {
+      name: z.string().describe('Community name (d-tag identifier)'),
+      description: z.string().describe('Community description'),
+      image: z.string().optional().describe('Community image URL'),
+      rules: z.string().optional().describe('Community rules'),
+      moderators: z.array(z.string()).optional().describe('Moderator identities — names, NIP-05, npubs, or hex pubkeys'),
+      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ name, description, image, rules, moderators, output }) => {
+    const resolvedMods = moderators ? await resolveRecipients(moderators) : []
+    const result = await handleCommunityCreate(deps.ctx, deps.pool, {
+      name, description, image, rules,
+      moderators: resolvedMods.map(r => r.pubkeyHex),
+    })
+    return toolResponse(result, output, fmt.formatPublish)
+  })
+
+  server.registerTool('community-feed', {
+    description: 'Read approved posts in a community (NIP-72). Fetches kind 4550 approved posts and unwraps the original content.',
+    inputSchema: {
+      community: z.string().describe('Community coordinate (e.g. "34550:pubkey:name" or naddr)'),
+      limit: z.number().int().min(1).max(200).default(50).describe('Max posts to return'),
+      since: z.number().optional().describe('Unix timestamp — only posts after this time'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ community, limit, since, output }) => {
+    const result = await handleCommunityFeed(deps.pool, deps.ctx.activeNpub, { community, limit, since })
+    return toolResponse(result, output, fmt.formatCommunityFeed)
+  })
+
+  server.registerTool('community-post', {
+    description: 'Post to a community (NIP-72). Creates a kind 1 note with an a-tag pointing to the community. A moderator must approve it before it appears in the feed.',
+    inputSchema: {
+      community: z.string().describe('Community coordinate (e.g. "34550:pubkey:name" or naddr)'),
+      content: z.string().describe('Post content'),
+      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ community, content, output }) => {
+    const result = await handleCommunityPost(deps.ctx, deps.pool, { community, content })
+    return toolResponse(result, output, fmt.formatPublish)
+  })
+
+  server.registerTool('community-approve', {
+    description: 'Approve a post in a community you moderate (NIP-72, kind 4550). Wraps the original event for inclusion in the community feed.',
+    inputSchema: {
+      community: z.string().describe('Community coordinate'),
+      event_id: z.string().describe('Event ID of the post to approve'),
+      event_pubkey: z.string().describe('Author of the post — name, NIP-05, npub, or hex pubkey'),
+      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ community, event_id, event_pubkey, output }) => {
+    const resolved = await resolveRecipient(event_pubkey)
+    const result = await handleCommunityApprove(deps.ctx, deps.pool, {
+      community, eventId: event_id, eventPubkey: resolved.pubkeyHex,
+    })
+    return toolResponse(result, output, fmt.formatPublish)
+  })
+
+  server.registerTool('community-list', {
+    description: 'Discover communities on Nostr (NIP-72). Fetches kind 34550 community definitions.',
+    inputSchema: {
+      limit: z.number().int().min(1).max(100).default(20).describe('Max communities to return'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ limit, output }) => {
+    const result = await handleCommunityList(deps.pool, deps.ctx.activeNpub, { limit })
+    return toolResponse(result, output, fmt.formatCommunities)
   })
 
 }
