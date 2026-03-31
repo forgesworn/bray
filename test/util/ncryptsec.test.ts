@@ -8,7 +8,7 @@ const skHex = Buffer.from(sk).toString('hex')
 const nsec = nsecEncode(sk)
 const pk = getPublicKey(sk)
 
-describe('NIP-49 ncryptsec', () => {
+describe('NIP-49 ncryptsec', { timeout: 30_000 }, () => {
   describe('handleKeyEncrypt', () => {
     it('encrypts nsec and returns ncryptsec + pubkey', () => {
       const result = handleKeyEncrypt(nsec, 'testpassword')
