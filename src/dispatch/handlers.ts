@@ -6,11 +6,16 @@
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
-import type { DmReadEntry } from '../social/dm.js'
 import {
   buildThinkMessage,
   buildBuildMessage,
   buildResultMessage,
+  buildAckMessage,
+  buildCancelMessage,
+  buildStatusMessage,
+  buildRefuseMessage,
+  buildFailureMessage,
+  buildQueryMessage,
   parseDispatchMessage,
   validateRepos,
   checkFreshness,
@@ -26,7 +31,7 @@ import { handleSocialDelete } from '../social/handlers.js'
 export interface DispatchSendResult {
   sent: boolean
   taskId: string
-  messageType: 'claude-think' | 'claude-build'
+  messageType: 'dispatch-think' | 'dispatch-build'
   recipientName: string
   recipientHex: string
   publish: PublishResult
@@ -42,7 +47,7 @@ export interface CheckedDispatchMessage {
 
 export interface DispatchReplyResult {
   sent: boolean
-  messageType: 'claude-result'
+  messageType: 'dispatch-result' | 'dispatch-ack' | 'dispatch-status' | 'dispatch-cancel' | 'dispatch-refuse' | 'dispatch-failure' | 'dispatch-query'
   deleted: boolean
 }
 
@@ -51,31 +56,30 @@ export interface DispatchReplyResult {
 // ---------------------------------------------------------------------------
 
 /**
- * Send a dispatch task (think or build) to a named collaborator.
+ * Send a dispatch task (think or build) to a resolved recipient.
  *
- * Looks up the recipient in the identities map, builds the appropriate
- * protocol message, and sends it as a NIP-17 DM.
+ * The caller has already resolved the recipient to a hex pubkey via
+ * resolveRecipient(). This handler builds the protocol message and
+ * sends it as a NIP-17 DM.
  */
 export async function handleDispatchSend(
   ctx: IdentityContext,
   pool: RelayPool,
   args: {
     identities: Map<string, string>
-    to: string
+    recipientHex: string
+    recipientName: string
     type: 'think' | 'build'
     prompt: string
     repos?: string[]
     branchFrom?: string
+    contextId?: string
+    depth?: number
   },
 ): Promise<DispatchSendResult> {
-  const name = args.to.toLowerCase()
-  const recipientHex = args.identities.get(name)
-
-  if (!recipientHex) {
-    const known = [...args.identities.keys()].join(', ')
-    throw new Error(
-      `Unknown recipient "${args.to}". Known identities: ${known}`,
-    )
+  // Enforce delegation depth limit
+  if (args.depth !== undefined && args.depth <= 0) {
+    throw new Error('Delegation depth limit reached (depth=0). Cannot forward this task further.')
   }
 
   const senderHex = ctx.activePublicKeyHex
@@ -87,6 +91,8 @@ export async function handleDispatchSend(
       prompt: args.prompt,
       repos,
       respond_to: senderHex,
+      context_id: args.contextId,
+      depth: args.depth,
     })
   } else {
     msg = buildBuildMessage({
@@ -94,12 +100,14 @@ export async function handleDispatchSend(
       repos,
       branch_from: args.branchFrom ?? 'main',
       respond_to: senderHex,
+      context_id: args.contextId,
+      depth: args.depth,
     })
   }
 
   const json = JSON.stringify(msg)
   const dmResult = await handleDmSend(ctx, pool, {
-    recipientPubkeyHex: recipientHex,
+    recipientPubkeyHex: args.recipientHex,
     message: json,
   })
 
@@ -107,8 +115,8 @@ export async function handleDispatchSend(
     sent: true,
     taskId: msg.id,
     messageType: msg.type,
-    recipientName: name,
-    recipientHex,
+    recipientName: args.recipientName,
+    recipientHex: args.recipientHex,
     publish: dmResult.publish,
   }
 }
@@ -206,7 +214,7 @@ export async function handleDispatchReply(
     identities: Map<string, string>
     re: string
     to: string
-    mode: 'think' | 'build'
+    type: 'think' | 'build'
     plan?: string
     filesRead?: string[]
     branch?: string
@@ -216,14 +224,14 @@ export async function handleDispatchReply(
     deleteEventId?: string
   },
 ): Promise<DispatchReplyResult> {
-  // Build the result message
   const resultMsg = buildResultMessage({
     re: args.re,
-    mode: args.mode,
+    mode: args.type,
     plan: args.plan,
     files_read: args.filesRead,
     branch: args.branch,
     commits: args.commits,
+    tests: args.tests,
     pr: args.pr,
   })
 
@@ -233,7 +241,6 @@ export async function handleDispatchReply(
     message: json,
   })
 
-  // Best-effort deletion of the original task event
   let deleted = false
   if (args.deleteEventId) {
     try {
@@ -243,13 +250,175 @@ export async function handleDispatchReply(
       })
       deleted = true
     } catch {
-      // Deletion is best-effort; do not propagate errors
+      // Deletion is best-effort
     }
   }
 
-  return {
-    sent: true,
-    messageType: 'claude-result',
-    deleted,
-  }
+  return { sent: true, messageType: 'dispatch-result', deleted }
+}
+
+// ---------------------------------------------------------------------------
+// handleDispatchAck
+// ---------------------------------------------------------------------------
+
+/**
+ * Acknowledge receipt of a dispatch task.
+ */
+export async function handleDispatchAck(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: {
+    identities: Map<string, string>
+    re: string
+    to: string
+    note?: string
+  },
+): Promise<DispatchReplyResult> {
+  const msg = buildAckMessage({ re: args.re, note: args.note })
+  await handleDmSend(ctx, pool, {
+    recipientPubkeyHex: args.to,
+    message: JSON.stringify(msg),
+  })
+  return { sent: true, messageType: 'dispatch-ack', deleted: false }
+}
+
+// ---------------------------------------------------------------------------
+// handleDispatchStatus
+// ---------------------------------------------------------------------------
+
+/**
+ * Send a status update to a collaborator.
+ */
+export async function handleDispatchStatus(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: {
+    identities: Map<string, string>
+    to: string
+    status: string
+    note?: string
+    resetsAt?: string
+    queue?: number
+  },
+): Promise<DispatchReplyResult> {
+  const msg = buildStatusMessage({
+    status: args.status,
+    note: args.note,
+    resets_at: args.resetsAt,
+    queue: args.queue,
+  })
+  await handleDmSend(ctx, pool, {
+    recipientPubkeyHex: args.to,
+    message: JSON.stringify(msg),
+  })
+  return { sent: true, messageType: 'dispatch-status', deleted: false }
+}
+
+// ---------------------------------------------------------------------------
+// handleDispatchCancel
+// ---------------------------------------------------------------------------
+
+/**
+ * Cancel a dispatch task.
+ */
+export async function handleDispatchCancel(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: {
+    identities: Map<string, string>
+    re: string
+    to: string
+    note?: string
+  },
+): Promise<DispatchReplyResult> {
+  const msg = buildCancelMessage({ re: args.re, note: args.note })
+  await handleDmSend(ctx, pool, {
+    recipientPubkeyHex: args.to,
+    message: JSON.stringify(msg),
+  })
+  return { sent: true, messageType: 'dispatch-cancel', deleted: false }
+}
+
+// ---------------------------------------------------------------------------
+// handleDispatchRefuse
+// ---------------------------------------------------------------------------
+
+/**
+ * Refuse a dispatch task. Tells the sender "I can't do this" with a reason.
+ */
+export async function handleDispatchRefuse(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: {
+    identities: Map<string, string>
+    re: string
+    to: string
+    reason: string
+  },
+): Promise<DispatchReplyResult> {
+  const msg = buildRefuseMessage({ re: args.re, reason: args.reason })
+  await handleDmSend(ctx, pool, {
+    recipientPubkeyHex: args.to,
+    message: JSON.stringify(msg),
+  })
+  return { sent: true, messageType: 'dispatch-refuse', deleted: false }
+}
+
+// ---------------------------------------------------------------------------
+// handleDispatchFailure
+// ---------------------------------------------------------------------------
+
+/**
+ * Report that a dispatch task failed. Optionally includes partial results.
+ */
+export async function handleDispatchFailure(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: {
+    identities: Map<string, string>
+    re: string
+    to: string
+    error: string
+    partial?: string
+  },
+): Promise<DispatchReplyResult> {
+  const msg = buildFailureMessage({
+    re: args.re,
+    error: args.error,
+    partial: args.partial,
+  })
+  await handleDmSend(ctx, pool, {
+    recipientPubkeyHex: args.to,
+    message: JSON.stringify(msg),
+  })
+  return { sent: true, messageType: 'dispatch-failure', deleted: false }
+}
+
+// ---------------------------------------------------------------------------
+// handleDispatchQuery
+// ---------------------------------------------------------------------------
+
+/**
+ * Ask the sender a clarifying question mid-task before delivering results.
+ */
+export async function handleDispatchQuery(
+  ctx: IdentityContext,
+  pool: RelayPool,
+  args: {
+    identities: Map<string, string>
+    re: string
+    to: string
+    question: string
+  },
+): Promise<DispatchReplyResult> {
+  const msg = buildQueryMessage({
+    re: args.re,
+    question: args.question,
+    respond_to: ctx.activePublicKeyHex,
+  })
+  await handleDmSend(ctx, pool, {
+    recipientPubkeyHex: args.to,
+    message: JSON.stringify(msg),
+  })
+  return { sent: true, messageType: 'dispatch-query', deleted: false }
 }

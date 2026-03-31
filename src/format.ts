@@ -182,19 +182,25 @@ export function formatDispatchMessages(messages: any[]): string {
     const name = m.fromName || m.from.slice(0, 12) + '...'
     const msg = m.message
     switch (msg.type) {
-      case 'claude-think':
-        return `Think task from ${name}: ${msg.prompt?.slice(0, 80) ?? ''}\n  Repos: ${(msg.repos ?? []).join(', ')}  Reply to: ${msg.re?.slice(0, 12) ?? '?'}  (${time})\n  Event ID: ${m.eventId}`
-      case 'claude-build':
-        return `Build task from ${name}: ${msg.prompt?.slice(0, 80) ?? ''}\n  Repos: ${(msg.repos ?? []).join(', ')}  Branch from: ${msg.branch ?? 'main'}  (${time})\n  Event ID: ${m.eventId}`
-      case 'claude-result':
+      case 'dispatch-think':
+        return `Think task from ${name}: ${msg.prompt?.slice(0, 80) ?? ''}\n  Repos: ${(msg.repos ?? []).join(', ')}  Respond to: ${msg.respond_to?.slice(0, 12) ?? '?'}  (${time})\n  Task ID: ${msg.id}  Event ID: ${m.eventId}`
+      case 'dispatch-build':
+        return `Build task from ${name}: ${msg.prompt?.slice(0, 80) ?? ''}\n  Repos: ${(msg.repos ?? []).join(', ')}  Branch from: ${msg.branch_from ?? 'main'}  (${time})\n  Task ID: ${msg.id}  Event ID: ${m.eventId}`
+      case 'dispatch-result':
         const payload = msg.plan || msg.tests || ''
         return `Result from ${name} for ${msg.re?.slice(0, 12) ?? '?'} (${msg.mode ?? '?'}):\n  ${String(payload).slice(0, 200)}  (${time})`
-      case 'claude-status':
+      case 'dispatch-status':
         return `Status from ${name}: ${msg.status} — ${msg.note ?? ''}  (${time})`
-      case 'claude-ack':
+      case 'dispatch-ack':
         return `Ack from ${name} for ${msg.re?.slice(0, 12) ?? '?'}: ${msg.note ?? ''}  (${time})`
-      case 'claude-cancel':
+      case 'dispatch-cancel':
         return `Cancel from ${name} for ${msg.re?.slice(0, 12) ?? '?'}: ${msg.note ?? ''}  (${time})`
+      case 'dispatch-refuse':
+        return `Refused by ${name} for ${msg.re?.slice(0, 12) ?? '?'}: ${msg.reason ?? ''}  (${time})`
+      case 'dispatch-failure':
+        return `Failed from ${name} for ${msg.re?.slice(0, 12) ?? '?'}: ${msg.error ?? ''}\n  Partial: ${msg.partial?.slice(0, 200) ?? 'none'}  (${time})`
+      case 'dispatch-query':
+        return `Question from ${name} for ${msg.re?.slice(0, 12) ?? '?'}: ${msg.question ?? ''}  (${time})`
       default:
         return `${msg.type} from ${name}  (${time})`
     }

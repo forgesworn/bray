@@ -26,7 +26,7 @@ describe('dispatch protocol', () => {
         respond_to: 'npub1abc',
       })
       expect(msg.v).toBe(1)
-      expect(msg.type).toBe('claude-think')
+      expect(msg.type).toBe('dispatch-think')
       expect(msg.prompt).toBe('Analyse the architecture of trott-sdk')
       expect(msg.repos).toEqual(['trott-sdk'])
       expect(msg.respond_to).toBe('npub1abc')
@@ -55,7 +55,7 @@ describe('dispatch protocol', () => {
         respond_to: 'npub1def',
       })
       expect(msg.v).toBe(1)
-      expect(msg.type).toBe('claude-build')
+      expect(msg.type).toBe('dispatch-build')
       expect(msg.prompt).toBe('Add dispatch protocol types')
       expect(msg.repos).toEqual(['bray'])
       expect(msg.branch_from).toBe('main')
@@ -80,7 +80,7 @@ describe('dispatch protocol', () => {
         files_read: ['src/index.ts', 'src/config.ts'],
       })
       expect(msg.v).toBe(1)
-      expect(msg.type).toBe('claude-result')
+      expect(msg.type).toBe('dispatch-result')
       expect(msg.re).toBe('think-abc123')
       expect(msg.mode).toBe('think')
       expect(msg.plan).toBe('Step 1: do this\nStep 2: do that')
@@ -94,15 +94,15 @@ describe('dispatch protocol', () => {
         mode: 'build',
         branch: 'feat/dispatch-protocol',
         commits: ['abc1234'],
-        tests: { passed: 10, failed: 0 },
+        tests: '10 passed, 0 failed',
         pr: 'https://github.com/forgesworn/bray/pull/42',
       })
       expect(msg.v).toBe(1)
-      expect(msg.type).toBe('claude-result')
+      expect(msg.type).toBe('dispatch-result')
       expect(msg.mode).toBe('build')
       expect(msg.branch).toBe('feat/dispatch-protocol')
       expect(msg.commits).toEqual(['abc1234'])
-      expect(msg.tests).toEqual({ passed: 10, failed: 0 })
+      expect(msg.tests).toBe('10 passed, 0 failed')
       expect(msg.pr).toBe('https://github.com/forgesworn/bray/pull/42')
     })
 
@@ -121,7 +121,7 @@ describe('dispatch protocol', () => {
     it('creates a valid claude-ack message', () => {
       const msg = buildAckMessage({ re: 'think-abc123' })
       expect(msg.v).toBe(1)
-      expect(msg.type).toBe('claude-ack')
+      expect(msg.type).toBe('dispatch-ack')
       expect(msg.re).toBe('think-abc123')
       expect(msg.ts).toBeDefined()
       expect(msg.note).toBeUndefined()
@@ -135,16 +135,16 @@ describe('dispatch protocol', () => {
 
   describe('isDispatchMessage', () => {
     it('returns true for valid dispatch messages', () => {
-      expect(isDispatchMessage({ v: 1, type: 'claude-think' })).toBe(true)
-      expect(isDispatchMessage({ v: 1, type: 'claude-build' })).toBe(true)
-      expect(isDispatchMessage({ v: 1, type: 'claude-result' })).toBe(true)
-      expect(isDispatchMessage({ v: 1, type: 'claude-ack' })).toBe(true)
-      expect(isDispatchMessage({ v: 1, type: 'claude-cancel' })).toBe(true)
-      expect(isDispatchMessage({ v: 1, type: 'claude-status' })).toBe(true)
+      expect(isDispatchMessage({ v: 1, type: 'dispatch-think' })).toBe(true)
+      expect(isDispatchMessage({ v: 1, type: 'dispatch-build' })).toBe(true)
+      expect(isDispatchMessage({ v: 1, type: 'dispatch-result' })).toBe(true)
+      expect(isDispatchMessage({ v: 1, type: 'dispatch-ack' })).toBe(true)
+      expect(isDispatchMessage({ v: 1, type: 'dispatch-cancel' })).toBe(true)
+      expect(isDispatchMessage({ v: 1, type: 'dispatch-status' })).toBe(true)
     })
 
     it('returns false for wrong version', () => {
-      expect(isDispatchMessage({ v: 2, type: 'claude-think' })).toBe(false)
+      expect(isDispatchMessage({ v: 2, type: 'dispatch-think' })).toBe(false)
     })
 
     it('returns false for wrong type prefix', () => {
@@ -160,7 +160,7 @@ describe('dispatch protocol', () => {
 
     it('returns false for missing fields', () => {
       expect(isDispatchMessage({ v: 1 })).toBe(false)
-      expect(isDispatchMessage({ type: 'claude-think' })).toBe(false)
+      expect(isDispatchMessage({ type: 'dispatch-think' })).toBe(false)
       expect(isDispatchMessage({})).toBe(false)
     })
   })
