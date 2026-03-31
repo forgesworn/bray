@@ -74,6 +74,8 @@ const PROMOTED = new Set([
   'identity-switch', 'relay-query',
   'signet-badge', 'trust-score', 'vault-read',
   'dispatch-send', 'dispatch-check', 'dispatch-reply',
+  'dispatch-ack', 'dispatch-status', 'dispatch-cancel',
+  'dispatch-refuse', 'dispatch-failure', 'dispatch-query',
 ])
 const catalog = new ActionCatalog()
 const proxy = createCatalogProxy(server, catalog, PROMOTED)
