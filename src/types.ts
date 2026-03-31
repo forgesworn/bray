@@ -52,4 +52,5 @@ export interface BrayConfig {
   readonly transport: 'stdio' | 'http'
   readonly port: number
   readonly bindAddress: string
+  readonly dispatchIdentities?: string
 }
