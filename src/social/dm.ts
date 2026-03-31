@@ -118,7 +118,7 @@ export async function handleDmSend(
 export async function handleDmRead(
   ctx: IdentityContext,
   pool: RelayPool,
-  args?: { limit?: number; _scoring?: VeilScoring; _trustCtx?: TrustContext },
+  args?: { since?: number; limit?: number; _scoring?: VeilScoring; _trustCtx?: TrustContext },
 ): Promise<DmReadEntry[]> {
   // Fetch gift wraps (kind 1059) and legacy DMs (kind 4) addressed to us
   const activeHex = decode(ctx.activeNpub).data as string
@@ -126,6 +126,7 @@ export async function handleDmRead(
     kinds: [1059, 4],
     '#p': [activeHex],
     limit: args?.limit ?? 50,
+    ...(args?.since ? { since: args.since } : {}),
   })
 
   const entries = await decryptDmEvents(ctx, events)
