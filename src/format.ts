@@ -406,6 +406,20 @@ export function formatWikiList(topics: any[]): string {
   }).join('\n')
 }
 
+export function formatScheduleResult(result: any): string {
+  const time = new Date(result.scheduledAt * 1000).toISOString()
+  return `Scheduled ${result.eventId.slice(0, 12)}... for ${time}`
+}
+
+export function formatScheduledQueue(entries: any[]): string {
+  if (entries.length === 0) return 'No scheduled posts.'
+  return entries.map(e => {
+    const time = new Date(e.scheduledAt * 1000).toISOString()
+    const preview = e.content.length > 60 ? e.content.slice(0, 60) + '...' : e.content
+    return `${time}  kind:${e.kind}  ${e.eventId.slice(0, 12)}...  ${preview}`
+  }).join('\n')
+}
+
 export function formatDispatchReplyResult(result: any): string {
   const del = result.deleted ? ' (original message deleted)' : ''
   return `Sent ${result.messageType}${del}`

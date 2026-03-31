@@ -24,10 +24,22 @@
     "start": "node dist/index.js"
   },
   "keywords": [
-    "nostr", "mcp", "trust", "web-of-trust", "identity",
-    "verification", "signet", "dominion", "encrypted",
-    "access-control", "privacy", "lightning", "nip-46",
-    "nsec-tree", "ring-signatures", "attestations"
+    "nostr",
+    "mcp",
+    "trust",
+    "web-of-trust",
+    "identity",
+    "verification",
+    "signet",
+    "dominion",
+    "encrypted",
+    "access-control",
+    "privacy",
+    "lightning",
+    "nip-46",
+    "nsec-tree",
+    "ring-signatures",
+    "attestations"
   ],
   "repository": {
     "type": "git",
@@ -60,7 +72,7 @@
     "nostr-attestations": "^2.2.0",
     "nostr-tools": "^2.23.3",
     "nostr-veil": "file:../nostr-veil",
-    "nsec-tree": "^1.4.1",
+    "nsec-tree": "^1.4.2",
     "signet-protocol": "file:../signet",
     "socks-proxy-agent": "^9.0.0",
     "spoken-token": "^2.0.3",
