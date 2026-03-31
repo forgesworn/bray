@@ -76,6 +76,9 @@ const PROMOTED = new Set([
   'dispatch-send', 'dispatch-check', 'dispatch-reply',
   'dispatch-ack', 'dispatch-status', 'dispatch-cancel',
   'dispatch-refuse', 'dispatch-failure', 'dispatch-query',
+  'article-publish', 'article-read', 'article-list',
+  'search-notes', 'search-profiles', 'hashtag-feed',
+  'social-profile-get', 'dm-conversation', 'verify-person',
 ])
 const catalog = new ActionCatalog()
 const proxy = createCatalogProxy(server, catalog, PROMOTED)
