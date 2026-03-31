@@ -14,6 +14,7 @@ import {
   handleIdentitySwitch,
   handleIdentityList,
   handleIdentityProve,
+  handleAcceptMigration,
 } from './handlers.js'
 import { handleBackupShamir, handleRestoreShamir } from './shamir.js'
 import { hexId } from '../validation.js'
@@ -235,6 +236,20 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
     annotations: { readOnlyHint: false },
   }, async ({ oldPubkeyHex, oldNpub, confirm }) => {
     const result = await handleIdentityMigrate(deps.ctx, deps.pool, { oldPubkeyHex, oldNpub, confirm })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    }
+  })
+
+  server.registerTool('identity-accept-migration', {
+    description: 'Accept a migration from an external signer (Amber, nsec.app, etc). Signs and publishes the acceptance event via the current signer. Optionally verifies the migration event from the old key. Requires a Heartwood-compatible signer or local key.',
+    inputSchema: {
+      oldNpub: z.string().describe('Bech32 npub of the identity migrating to this signer'),
+      migrationEventId: z.string().optional().describe('Event ID of the migration event signed by the old key (for verification)'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ oldNpub, migrationEventId }) => {
+    const result = await handleAcceptMigration(deps.ctx, deps.pool, { oldNpub, migrationEventId })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }
