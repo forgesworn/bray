@@ -75,7 +75,7 @@ describe('bunker round-trip', () => {
 
   it('client lists identities', async () => {
     const client = await BunkerContext.connect(bunkerServer.url)
-    const list = client.listIdentities()
+    const list = await client.listIdentities()
     expect(list.length).toBe(1)
     expect(list[0].purpose).toBe('bunker')
     client.destroy()

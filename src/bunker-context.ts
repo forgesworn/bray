@@ -17,6 +17,7 @@ import { npubEncode } from 'nostr-tools/nip19'
 import WebSocket from 'ws'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 import type { PublicIdentity, SignFn } from './types.js'
+import type { SigningContext } from './signing-context.js'
 
 useWebSocketImplementation(WebSocket)
 
@@ -39,9 +40,9 @@ export function parseBunkerUri(uri: string): BunkerConfig {
   return { pubkey, relay, secret }
 }
 
-export class BunkerContext {
-  private signer: BunkerSigner
-  private pool: SimplePool
+export class BunkerContext implements SigningContext {
+  protected signer: BunkerSigner
+  protected pool: SimplePool
   private pubkeyHex: string | undefined
   private clientSk: Uint8Array
 
@@ -92,7 +93,7 @@ export class BunkerContext {
   }
 
   /** List identities — bunker mode only has one (the remote key) */
-  listIdentities(): PublicIdentity[] {
+  async listIdentities(): Promise<PublicIdentity[]> {
     return [{ npub: this.activeNpub, purpose: 'bunker', index: 0 }]
   }
 
