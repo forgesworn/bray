@@ -59,6 +59,7 @@ interface ConfigFile {
   veilCacheMax?: number
   trustCacheTtl?: number
   trustCacheMax?: number
+  dispatchIdentities?: string
 }
 
 /**
@@ -205,6 +206,9 @@ export async function loadConfig(): Promise<BrayConfig> {
     ? vaultEpochRaw as 'daily' | 'weekly' | 'monthly'
     : 'weekly'
 
+  // --- Dispatch identities file ---
+  const dispatchIdentities = process.env.DISPATCH_IDENTITIES ?? file.dispatchIdentities ?? undefined
+
   // --- Wallets file ---
   const walletsFile = process.env.BRAY_WALLETS_FILE
     ?? file.walletsFile
@@ -240,5 +244,6 @@ export async function loadConfig(): Promise<BrayConfig> {
     transport,
     port,
     bindAddress,
+    dispatchIdentities,
   }
 }
