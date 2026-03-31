@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
+import { resolveRecipient, resolveRecipients } from '../resolve.js'
 import {
   handleVaultCreate,
   handleVaultEncrypt,
@@ -46,12 +47,13 @@ export function registerVaultTools(server: McpServer, deps: ToolDeps): void {
     description: 'Derive the content key for a tier and epoch, then distribute encrypted vault shares to recipients via gift-wrapped events. Returns counts of published and failed shares.',
     inputSchema: {
       tier: z.string().describe('Access tier name to share the content key for'),
-      recipients: z.array(z.string()).describe('Recipient pubkeys (hex or npub) to share the key with'),
+      recipients: z.array(z.string()).describe('Recipients — name, NIP-05, npub, or hex pubkey for each'),
       epoch: z.string().optional().describe('Epoch ID to share (defaults to current epoch if omitted)'),
     },
     annotations: { title: 'Share Vault Key', readOnlyHint: false },
   }, async (args) => {
-    const result = await handleVaultShare(deps.ctx, deps.pool, args)
+    const resolved = await resolveRecipients(args.recipients)
+    const result = await handleVaultShare(deps.ctx, deps.pool, { ...args, recipients: resolved.map(r => r.pubkeyHex) })
     return jsonResponse(result)
   })
 
@@ -72,46 +74,50 @@ export function registerVaultTools(server: McpServer, deps: ToolDeps): void {
     description: 'Decrypt ciphertext using a vault key that was shared with you by another identity. Fetches the encrypted share event from relays, decrypts the content key via NIP-44, then decrypts the ciphertext. Use this when you are a recipient of vault-share, not the vault owner.',
     inputSchema: {
       ciphertext: z.string().describe('Encrypted ciphertext to decrypt'),
-      authorPubkey: z.string().describe('Pubkey (hex or npub) of the identity that shared the vault key'),
+      authorPubkey: z.string().describe('Identity that shared the vault key — name, NIP-05, npub, or hex pubkey'),
       tier: z.string().describe('Access tier name the content was encrypted for'),
       epoch: z.string().describe('Epoch ID that was used when encrypting'),
     },
     annotations: { title: 'Read Shared Vault', readOnlyHint: true, openWorldHint: true },
   }, async (args) => {
-    const result = await handleVaultReadShared(deps.ctx, deps.pool, args)
+    const resolved = await resolveRecipient(args.authorPubkey)
+    const result = await handleVaultReadShared(deps.ctx, deps.pool, { ...args, authorPubkey: resolved.pubkeyHex })
     return jsonResponse(result)
   })
 
   server.registerTool('vault-revoke', {
     description: 'Revoke a pubkey from the vault config. Fetches the current config, adds the pubkey to the revoked list, signs, and republishes the updated config event. Returns the updated event and revoked npub.',
     inputSchema: {
-      pubkey: z.string().describe('Pubkey to revoke (hex or npub)'),
+      pubkey: z.string().describe('Identity to revoke — name, NIP-05, npub, or hex pubkey'),
     },
     annotations: { title: 'Revoke Vault Access', readOnlyHint: false },
   }, async (args) => {
-    const result = await handleVaultRevoke(deps.ctx, deps.pool, args)
+    const resolved = await resolveRecipient(args.pubkey)
+    const result = await handleVaultRevoke(deps.ctx, deps.pool, { ...args, pubkey: resolved.pubkeyHex })
     return jsonResponse(result)
   })
 
   server.registerTool('vault-members', {
     description: 'Fetch a vault config and list all members annotated with trust levels. Optionally query another author\'s vault by passing their pubkey. Returns members with npub, tier, and trust annotation.',
     inputSchema: {
-      authorPubkey: z.string().optional().describe('Author pubkey (hex or npub) whose vault to inspect (defaults to active identity)'),
+      authorPubkey: z.string().optional().describe('Vault owner to inspect — name, NIP-05, npub, or hex pubkey (defaults to active identity)'),
     },
     annotations: { title: 'List Vault Members', readOnlyHint: true, openWorldHint: true },
   }, async (args) => {
-    const result = await handleVaultMembers(deps.pool, deps.trust!, deps.ctx.activeNpub, args)
+    const resolvedAuthor = args.authorPubkey ? (await resolveRecipient(args.authorPubkey)).pubkeyHex : undefined
+    const result = await handleVaultMembers(deps.pool, deps.trust!, deps.ctx.activeNpub, { ...args, authorPubkey: resolvedAuthor })
     return jsonResponse(result)
   })
 
   server.registerTool('vault-config', {
     description: 'Fetch a vault config and return a summary of tier names, member counts, revoked count, grant count, and current epoch. Optionally inspect another author\'s vault.',
     inputSchema: {
-      authorPubkey: z.string().optional().describe('Author pubkey (hex or npub) whose vault to inspect (defaults to active identity)'),
+      authorPubkey: z.string().optional().describe('Vault owner to inspect — name, NIP-05, npub, or hex pubkey (defaults to active identity)'),
     },
     annotations: { title: 'Vault Config', readOnlyHint: true, openWorldHint: true },
   }, async (args) => {
-    const result = await handleVaultConfig(deps.pool, deps.ctx.activeNpub, args)
+    const resolvedAuthor = args.authorPubkey ? (await resolveRecipient(args.authorPubkey)).pubkeyHex : undefined
+    const result = await handleVaultConfig(deps.pool, deps.ctx.activeNpub, { ...args, authorPubkey: resolvedAuthor })
     return jsonResponse(result)
   })
 

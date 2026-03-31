@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
 import { hexId, relayUrl } from '../validation.js'
+import { resolveRecipient } from '../resolve.js'
 import {
   handleMarketplaceDiscover,
   handleMarketplaceInspect,
@@ -52,14 +53,15 @@ export function registerMarketplaceTools(server: McpServer, deps: ToolDeps): voi
       'Get full details of a specific L402 service by event ID, or by provider pubkey + identifier.',
     inputSchema: {
       eventId: hexId.optional().describe('Event ID of the kind 31402 announcement'),
-      pubkey: hexId.optional().describe('Provider hex pubkey (requires identifier)'),
+      pubkey: z.string().optional().describe('Provider — name, NIP-05, npub, or hex pubkey (requires identifier)'),
       identifier: z.string().optional().describe('Service d-tag identifier (requires pubkey)'),
       relays: z.array(relayUrl).optional().describe('Explicit relays to query'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ eventId, pubkey, identifier, relays }) => {
+    const resolvedPubkey = pubkey ? (await resolveRecipient(pubkey)).pubkeyHex : undefined
     const service = await handleMarketplaceInspect(deps.pool, deps.ctx.activeNpub, {
-      eventId, pubkey, identifier, relays,
+      eventId, pubkey: resolvedPubkey, identifier, relays,
     })
     if (!service) {
       return {
@@ -98,13 +100,14 @@ export function registerMarketplaceTools(server: McpServer, deps: ToolDeps): voi
     description:
       'Check a service provider\'s reputation — number of active services, announcement history, and topics covered.',
     inputSchema: {
-      pubkey: hexId.describe('Provider hex pubkey to check'),
+      pubkey: z.string().describe('Provider to check — name, NIP-05, npub, or hex pubkey'),
       relays: z.array(relayUrl).optional().describe('Explicit relays to query'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ pubkey, relays }) => {
+    const resolved = await resolveRecipient(pubkey)
     const result = await handleMarketplaceReputation(deps.pool, deps.ctx.activeNpub, {
-      pubkey, relays,
+      pubkey: resolved.pubkeyHex, relays,
     })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
