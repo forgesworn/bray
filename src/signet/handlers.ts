@@ -4,7 +4,8 @@ import {
   buildBadgeFilters,
   parseCredential,
   isCredentialExpired,
-  createVouch,
+  buildVouchEvent,
+  signEvent,
   parsePolicy,
   checkPolicyCompliance,
   createPolicy,
@@ -16,6 +17,7 @@ import type { SigningContext } from '../signing-context.js'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { TrustAssessment } from '../trust-context.js'
+import { isHeartwoodContext } from '../heartwood-context.js'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -99,14 +101,23 @@ export async function handleSignetVouch(
   args: { pubkey: string; method?: 'in-person' | 'online'; comment?: string },
 ): Promise<NostrEvent> {
   const privkeyHex = Buffer.from((ctx as IdentityContext).activePrivateKey).toString('hex')
+  const pubkeyHex = ctx.activePublicKeyHex
 
-  const event = await createVouch(privkeyHex, {
+  // Build the unsigned event so we can add extra tags before signing
+  const unsigned = buildVouchEvent(pubkeyHex, {
     subjectPubkey: args.pubkey,
     method: args.method ?? 'in-person',
     context: args.comment,
     voucherTier: 1,
     voucherScore: 0,
   })
+
+  // Tag hardware-signed events when the context is backed by a Heartwood device
+  if (isHeartwoodContext(ctx)) {
+    unsigned.tags = [...unsigned.tags, ['signer', 'heartwood']]
+  }
+
+  const event = await signEvent(unsigned, privkeyHex)
 
   await pool.publish(ctx.activeNpub, event as unknown as NostrEvent)
 
