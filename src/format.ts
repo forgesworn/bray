@@ -375,6 +375,37 @@ export function formatCommunityFeed(posts: any[]): string {
   }).join('\n\n')
 }
 
+// --- Wiki formatters ---
+
+export function formatWikiArticles(articles: any[]): string {
+  if (articles.length === 0) return 'No wiki articles found.'
+  return articles.map(a => {
+    const time = a.created_at ? new Date(a.created_at * 1000).toLocaleString() : 'unknown'
+    const author = a.pubkey?.slice(0, 12) + '...'
+    const lines = [`# ${a.title}`]
+    lines.push(`Topic: ${a.topic}`)
+    lines.push(`Author: ${author}`)
+    lines.push(`Updated: ${time}`)
+    if (a.summary) lines.push(`Summary: ${a.summary}`)
+    if (a.hashtags?.length > 0) lines.push(`Tags: ${a.hashtags.join(', ')}`)
+    lines.push('')
+    lines.push(a.content)
+    return lines.join('\n')
+  }).join('\n\n---\n\n')
+}
+
+export function formatWikiList(topics: any[]): string {
+  if (topics.length === 0) return 'No wiki topics found.'
+  return topics.map(t => {
+    const time = t.created_at ? new Date(t.created_at * 1000).toLocaleString() : 'unknown'
+    const parts = [t.title || t.topic || '(untitled)']
+    if (t.topic) parts.push(`[${t.topic}]`)
+    parts.push(`(${time})`)
+    if (t.summary) parts.push(`— ${t.summary}`)
+    return parts.join('  ')
+  }).join('\n')
+}
+
 export function formatDispatchReplyResult(result: any): string {
   const del = result.deleted ? ' (original message deleted)' : ''
   return `Sent ${result.messageType}${del}`
