@@ -30,8 +30,8 @@ describe('trust handlers', () => {
       const pool = mockPool()
       const result = await handleTrustAttest(ctx, pool as any, {
         type: 'identity-verification',
-        identifier: 'subject-pubkey-hex',
-        subject: 'subject-pubkey-hex',
+        identifier: 'ab'.repeat(32),
+        subject: 'ab'.repeat(32),
         summary: 'Verified identity in person',
       })
       expect(result.event.kind).toBe(31000)
@@ -44,7 +44,7 @@ describe('trust handlers', () => {
       ctx.switch('alt', 0)
       const result = await handleTrustAttest(ctx, pool as any, {
         type: 'identity-verification',
-        identifier: 'subject-hex',
+        identifier: 'cd'.repeat(32),
       })
       expect(result.warning).toMatch(/derived|persona/i)
     })
@@ -53,13 +53,13 @@ describe('trust handlers', () => {
       const pool = mockPool()
       const result = await handleTrustAttest(ctx, pool as any, {
         subject: 'def456'.padEnd(64, '0'),
-        assertionId: 'evt999'.padEnd(64, '0'),
+        assertionId: 'e'.repeat(64),
         assertionRelay: 'wss://relay.example.com',
         summary: 'Verified in person',
       })
       const eTags = result.event.tags.filter((t: string[]) => t[0] === 'e' && t[3] === 'assertion')
       expect(eTags.length).toBe(1)
-      expect(eTags[0][1]).toBe('evt999'.padEnd(64, '0'))
+      expect(eTags[0][1]).toBe('e'.repeat(64))
       // d-tag should use assertion: prefix
       const dTag = result.event.tags.find((t: string[]) => t[0] === 'd')
       expect(dTag![1]).toMatch(/^assertion:/)
@@ -73,7 +73,7 @@ describe('trust handlers', () => {
       const result = await handleTrustAttest(ctx, pool as any, {
         type: 'credential',
         subject: 'def456'.padEnd(64, '0'),
-        assertionId: 'evt999'.padEnd(64, '0'),
+        assertionId: 'e'.repeat(64),
         summary: 'Hybrid attestation',
       })
       // d-tag still uses assertion: prefix (assertion wins)
@@ -120,8 +120,8 @@ describe('trust handlers', () => {
       const pool = mockPool()
       const attestResult = await handleTrustAttest(ctx, pool as any, {
         type: 'identity-verification',
-        identifier: 'subject-hex',
-        subject: 'subject-hex',
+        identifier: 'cd'.repeat(32),
+        subject: 'cd'.repeat(32),
       })
       const result = handleTrustVerify(attestResult.event)
       expect(result.valid).toBe(true)
@@ -147,7 +147,7 @@ describe('trust handlers', () => {
       const pool = mockPool()
       const result = await handleTrustRevoke(ctx, pool as any, {
         type: 'identity-verification',
-        identifier: 'subject-hex',
+        identifier: 'cd'.repeat(32),
       })
       expect(result.event.kind).toBe(31000)
       // Revocation replaces the original via same d-tag
@@ -157,7 +157,7 @@ describe('trust handlers', () => {
       const pool = mockPool()
       await expect(handleTrustRevoke(ctx, pool as any, {
         type: 'identity-verification',
-        identifier: 'subject-hex',
+        identifier: 'cd'.repeat(32),
         originalAttestorPubkey: 'someone-elses-pubkey',
       })).rejects.toThrow(/attestor/i)
     })
@@ -168,7 +168,7 @@ describe('trust handlers', () => {
       const pool = mockPool()
       const result = await handleTrustRequest(ctx, pool as any, {
         recipientPubkeyHex: '818b1ff78425c45464e7400d764ffc980dfdf522787e0c0309036b52933fece4',
-        subject: 'subject-hex',
+        subject: 'cd'.repeat(32),
         attestationType: 'identity-verification',
         message: 'Please verify my identity',
       })
