@@ -25,9 +25,17 @@ export interface TrustScoreResponse {
   score: number
   endorsements: number
   ringEndorsements: number
-  attestations: Array<{ type: string; attestor: string; content: string; expires?: string }>
+  attestations: Array<{ type: string; attestor: string; content: string; expires?: string; hardwareSigned?: boolean }>
+  hardwareSignedCount: number
   socialDistance: number
   flags: string[]
+}
+
+/** Count how many events carry a ["signer", "heartwood"] tag. */
+export function countHardwareSigned(events: NostrEvent[]): number {
+  return events.filter(e =>
+    e.tags.some(t => t[0] === 'signer' && t[1] === 'heartwood'),
+  ).length
 }
 
 export async function handleTrustScore(
@@ -55,8 +63,11 @@ export async function handleTrustScore(
       attestor: parsed.pubkey,
       content: parsed.summary ?? parsed.content,
       expires: parsed.expiration ? new Date(parsed.expiration * 1000).toISOString() : undefined,
+      hardwareSigned: ev.tags.some(t => t[0] === 'signer' && t[1] === 'heartwood'),
     })
   }
+
+  const hardwareSignedCount = countHardwareSigned(attEvents)
 
   // 3. Social distance via follow graph traversal
   const socialDistance = await computeSocialDistance(ctx, pool, args.pubkey, maxDepth)
@@ -80,6 +91,7 @@ export async function handleTrustScore(
     endorsements: wot.endorsements,
     ringEndorsements: wot.ringEndorsements,
     attestations,
+    hardwareSignedCount,
     socialDistance,
     flags: wot.flags,
   }
