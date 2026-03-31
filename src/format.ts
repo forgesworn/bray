@@ -168,6 +168,36 @@ export function formatDecode(result: { type: string; data: unknown }): string {
   return lines.join('\n')
 }
 
+// --- Article formatters ---
+
+export function formatArticle(articles: any[]): string {
+  if (articles.length === 0) return 'No articles found.'
+  return articles.map(a => {
+    const time = a.publishedAt ? new Date(a.publishedAt * 1000).toLocaleString() : 'unknown'
+    const lines = [`# ${a.title}`]
+    if (a.slug) lines.push(`Slug: ${a.slug}`)
+    lines.push(`Published: ${time}`)
+    if (a.summary) lines.push(`Summary: ${a.summary}`)
+    if (a.hashtags?.length > 0) lines.push(`Tags: ${a.hashtags.join(', ')}`)
+    if (a.image) lines.push(`Image: ${a.image}`)
+    lines.push('')
+    lines.push(a.content)
+    return lines.join('\n')
+  }).join('\n\n---\n\n')
+}
+
+export function formatArticleList(articles: any[]): string {
+  if (articles.length === 0) return 'No articles found.'
+  return articles.map(a => {
+    const time = a.publishedAt ? new Date(a.publishedAt * 1000).toLocaleString() : 'unknown'
+    const parts = [a.title || '(untitled)']
+    if (a.slug) parts.push(`[${a.slug}]`)
+    parts.push(`(${time})`)
+    if (a.summary) parts.push(`— ${a.summary}`)
+    return parts.join('  ')
+  }).join('\n')
+}
+
 // --- Dispatch formatters ---
 
 export function formatDispatchSendResult(result: any): string {
