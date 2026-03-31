@@ -24,7 +24,7 @@ Single-process MCP server. Entry points:
 - `src/<group>/tools.ts` — Zod schemas + `server.registerTool()` wiring
 - `test/<group>/handlers.test.ts` — unit tests for handlers
 
-Tool groups: `identity/`, `social/` (includes blossom, dm, groups, nips, notifications), `trust/`, `relay/`, `zap/`, `safety/`, `signet/`, `vault/`, `util/`, `workflow/` (trust-score, feed-discover, verify-person, identity-setup, identity-recover, relay-health)
+Tool groups: `identity/`, `social/` (includes blossom, dm, groups, nips, notifications), `trust/`, `relay/`, `zap/`, `safety/`, `signet/`, `vault/`, `util/`, `workflow/` (trust-score, feed-discover, verify-person, identity-setup, identity-recover, relay-health), `dispatch/` (dispatch-send, dispatch-check, dispatch-reply — model-agnostic AI-to-AI collaboration over encrypted Nostr DMs)
 
 **Shared modules:**
 - `src/config.ts` — env var + file secret loading, format detection
