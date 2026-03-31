@@ -1,10 +1,10 @@
-# nostr-bray — Full Documentation for AI Assistants
+# nostr-bray -- Full Documentation for AI Assistants
 
-> MCP server giving AI agents sovereign Nostr identities — key derivation, personas, attestations, ring signatures, duress detection, Lightning zaps, and web-of-trust scoring.
+> Trust-aware Nostr MCP server for AI agents and humans. 230 tools across 22 groups. Three dimensions of trust -- verification (Signet), proximity (web-of-trust), and access (Dominion) -- woven into every interaction. Model-agnostic: works with Claude, ChatGPT, Gemini, Cursor, or any MCP client.
 
 ## Architecture
 
-Single-process MCP server (stdio or HTTP transport) with 90 tools in 11 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction.
+Single-process MCP server (stdio or HTTP transport) with 230 tools in 22 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction. Universal identity resolution across all tools: names, NIP-05, npubs, and hex pubkeys are accepted anywhere a pubkey is needed.
 
 ## Configuration
 
@@ -28,18 +28,19 @@ Single-process MCP server (stdio or HTTP transport) with 90 tools in 11 groups. 
 | BIND_ADDRESS | No | HTTP bind address (default 127.0.0.1) |
 | VEIL_CACHE_TTL | No | Trust cache TTL in seconds (default 300) |
 | VEIL_CACHE_MAX | No | Trust cache max entries (default 500) |
+| DISPATCH_IDENTITIES | No | Path to dispatch identities markdown file |
 
 *Authentication tiers (use exactly one):
-1. **Bunker** (NIP-46) — most secure, keys never leave the signer
-2. **ncryptsec** (NIP-49) — password-encrypted key, decrypted at startup
-3. **File** — secret read from disk, deleted from process.env after parsing
-4. **Env var** — quickest start, lowest security
+1. **Bunker** (NIP-46) -- most secure, keys never leave the signer
+2. **ncryptsec** (NIP-49) -- password-encrypted key, decrypted at startup
+3. **File** -- secret read from disk, deleted from process.env after parsing
+4. **Env var** -- quickest start, lowest security
 
 Secret env vars are deleted from process.env after parsing.
 
 ## Tool Reference
 
-### Identity Tools (12)
+### Identity Tools (15)
 
 #### whoami
 Returns the active identity's npub. The simplest way to check which identity is currently in use.
@@ -63,7 +64,7 @@ Derive a named persona identity (e.g. "work", "personal").
 
 #### identity-switch
 Switch the active Nostr identity. All subsequent tools operate as the new identity.
-- Input: target (string — purpose, persona name, or "master"), index (optional number)
+- Input: target (string -- purpose, persona name, or "master"), index (optional number)
 - Returns: { npub }
 
 #### identity-list
@@ -80,7 +81,7 @@ Create a cryptographic linkage proof between master and active identity.
 #### identity-backup-shamir
 Split the master secret into Shamir shard files.
 - Input: threshold (number), shares (number), outputDir (string)
-- Shard content written to disk — never in response
+- Shard content written to disk -- never in response
 - Returns: { files, threshold, shares }
 
 #### identity-restore-shamir
@@ -100,11 +101,26 @@ Re-sign migratable events (profile, contacts, relay list) under the active ident
 - Verifies backup event signatures before re-signing
 
 #### identity-migrate
-Full migration from old identity to active. Shows preview first — set confirm: true to execute.
+Full migration from old identity to active. Shows preview first -- set confirm: true to execute.
 - Input: oldPubkeyHex, oldNpub, confirm (default false)
 - Publishes linkage proof connecting old to new identity
 
-### Social Tools (11)
+#### nip05-lookup
+Resolve a NIP-05 identifier (user@domain) to a Nostr pubkey. Returns relay hints if available.
+- Input: identifier (string, e.g. "bob@example.com")
+- Returns: { pubkey, relays }
+
+#### nip05-verify
+Verify that a NIP-05 identifier resolves to the expected pubkey.
+- Input: pubkey (hex), identifier (string)
+- Returns: { verified: boolean }
+
+#### nip05-relays
+Fetch relay hints from a NIP-05 identifier. Useful for relay discovery before messaging someone.
+- Input: identifier (string)
+- Returns: map of pubkey to relay URLs
+
+### Social Tools (14)
 
 #### social-post
 Post a text note (kind 1) as the active identity.
@@ -115,7 +131,7 @@ Post a text note (kind 1) as the active identity.
 Reply to a Nostr event (kind 1 with e-tag and p-tag).
 - Input: content, replyTo (event ID), replyToPubkey, relay (optional)
 - Returns: { id, publish, trustWarning?, authorTrustScore? }
-- Smart default: includes trustWarning and authorTrustScore when replying to an untrusted author (via nostr-veil WoT scoring)
+- Smart default: includes trustWarning and authorTrustScore when replying to an untrusted author
 
 #### social-react
 React to a Nostr event (kind 7). Default reaction is "+".
@@ -140,27 +156,43 @@ Set kind 0 profile for the active identity. Warns if profile exists.
 - Safety guard: returns diff + warning if existing profile found
 
 #### profile-by-name
-Look up a contact's full profile by name — no pubkey needed.
+Look up a contact's full profile by name -- no pubkey needed.
 - Input: name (string), output ("json" | "human", default "human")
-- Searches contacts, returns kind 0 profile for the match
-- Returns error if zero or multiple matches
 
 #### social-notifications
-Fetch notifications — mentions, replies, reactions, zap receipts.
-- Input: since (optional timestamp), limit (default 50), trust ("strict" | "annotate" | "off", default "strict"), output ("json" | "human", default "human")
-- Smart default: trust: "strict" hides notifications from untrusted authors; "annotate" shows trust scores; "off" disables filtering
-- Excludes kind 3 (follows)
-- Zap receipts parsed with amount in msats
+Fetch notifications -- mentions, replies, reactions, zap receipts.
+- Input: since (optional timestamp), limit (default 50), trust ("strict" | "annotate" | "off", default "strict"), output
+- Smart default: trust: "strict" hides notifications from untrusted authors
 
 #### social-feed
 Fetch kind 1 text note feed.
-- Input: authors (optional hex pubkeys), since (optional), limit (default 20), trust ("strict" | "annotate" | "off", default "strict"), output ("json" | "human", default "human")
-- Smart default: trust: "strict" hides posts from untrusted authors; "annotate" shows trust scores; "off" disables filtering
+- Input: authors (optional hex pubkeys), since (optional), limit (default 20), trust ("strict" | "annotate" | "off", default "strict"), output
+- Smart default: trust: "strict" hides posts from untrusted authors
 
 #### feed-by-name
 Fetch recent posts by a contact, searching by name instead of pubkey.
-- Input: name (string), since (optional), limit (default 20), output ("json" | "human", default "human")
-- Returns error if zero or multiple contacts match
+- Input: name (string), since (optional), limit (default 20), output
+
+#### hashtag-feed
+Fetch notes (kind 1) with a specific hashtag. Standard tag filtering, works on all relays.
+- Input: hashtag (string, without #), limit (default 50), since (optional), output
+
+#### contacts-get
+Fetch the contact list (kind 3 follows) for a pubkey.
+- Input: pubkeyHex, npub (optional), output
+- Returns: Array of { pubkey, relay, petname }
+
+#### contacts-search
+Search your contacts by name, display name, or NIP-05.
+- Input: query (string), pubkeyHex (optional), output
+
+#### contacts-follow
+Follow a Nostr pubkey. Safety guard: warns if contact list would shrink by >20%.
+- Input: pubkeyHex, relay (optional), petname (optional), confirm (optional)
+
+#### contacts-unfollow
+Unfollow a Nostr pubkey. Same safety guard as contacts-follow.
+- Input: pubkeyHex, confirm (optional)
 
 ### DM Tools (4)
 
@@ -171,56 +203,143 @@ Send a direct message via NIP-17 (default) or NIP-04 (legacy).
 - Returns: { protocol, id, publish, senderCopyPublish, relayWarning? }
 
 #### dm-read
-Read direct messages addressed to the active identity.
-- Decrypts NIP-17 and NIP-04 messages
+Read direct messages addressed to the active identity. Decrypts NIP-17 and NIP-04.
 - Input: output ("json" | "human", default "human")
-- Returns metadata with "could not decrypt" flag on failure (no throw)
-- Smart default: each message includes senderTrustScore (via nostr-veil WoT scoring)
+- Smart default: each message includes senderTrustScore
 
 #### dm-by-name
-Send an encrypted DM to a contact by name — no pubkey needed.
+Send an encrypted DM to a contact by name -- no pubkey needed.
 - Input: name (string), message (string), nip04 (default false)
-- Searches contacts, sends to the match
-- Returns error if zero or multiple matches
 
 #### dm-conversation
 Read DM conversation with a specific person in chronological order.
-- Input: pubkeyHex, limit (default 50), output ("json" | "human", default "human")
+- Input: pubkeyHex, limit (default 50), output
 
-### Contacts Tools (4)
+### Article Tools -- NIP-23 (3)
 
-#### contacts-get
-Fetch the contact list (kind 3 follows) for a pubkey.
-- Input: pubkeyHex, npub (optional), output ("json" | "human", default "human")
-- Returns: Array of { pubkey, relay, petname }
+#### article-publish
+Publish a long-form article (kind 30023). Replaceable event with title, markdown content, and metadata.
+- Input: title, content (markdown), summary (optional), image (optional), published_at (optional), hashtags (optional), slug (optional)
+- Returns: { id, pubkey, slug, publish }
 
-#### contacts-search
-Search your contacts by name, display name, or NIP-05.
-- Input: query (string), pubkeyHex (optional), npub (optional), output ("json" | "human", default "human")
-- Resolves profiles in one batch — much faster than fetching each individually
+#### article-read
+Read long-form articles by author. Accepts any identifier: name, NIP-05, npub, or hex pubkey.
+- Input: author (string), slug (optional), output
 
-#### contacts-follow
-Follow a Nostr pubkey. Fetches current contact list, adds the pubkey, publishes updated kind 3.
-- Input: pubkeyHex, relay (optional), petname (optional), confirm (optional boolean)
-- Smart default: if the contact list would shrink by >20%, returns a guarded warning — pass confirm: true to proceed
+#### article-list
+List article metadata (titles, slugs, summaries, dates) without full content.
+- Input: author (string), limit (default 20), output
 
-#### contacts-unfollow
-Unfollow a Nostr pubkey. Removes from contact list and publishes updated kind 3.
-- Input: pubkeyHex, confirm (optional boolean)
-- Smart default: if the contact list would shrink by >20%, returns a guarded warning — pass confirm: true to proceed
+### Search Tools -- NIP-50 (3)
 
-### Trust Tools (12)
+#### search-notes
+Full-text search for notes (kind 1) using NIP-50. Requires relay NIP-50 support.
+- Input: query, limit (default 50), since (optional), relays (optional), output
+
+#### search-profiles
+Search for profiles (kind 0) by keyword using NIP-50.
+- Input: query, limit (default 20), output
+
+#### hashtag-feed
+Fetch notes with a specific hashtag. Standard tag filtering, no NIP-50 required.
+- Input: hashtag, limit (default 50), since (optional), output
+
+### Calendar Tools -- NIP-52 (3)
+
+#### calendar-create
+Create a calendar event. Auto-detects date-based (kind 31922) vs time-based (kind 31923).
+- Input: title, content, start, end (optional), location (optional), geohash (optional), participants (optional, resolved via universal identity), hashtags (optional), image (optional), slug (optional)
+
+#### calendar-read
+Fetch calendar events by author and/or date range. Accepts any identifier for author.
+- Input: author (optional), since (optional), until (optional), limit (default 50), output
+
+#### calendar-rsvp
+RSVP to a calendar event (kind 31925).
+- Input: eventCoordinate (kind:pubkey:d-tag), status ("accepted" | "declined" | "tentative")
+
+### Wiki Tools -- NIP-54 (3)
+
+#### wiki-publish
+Publish or update a wiki article (kind 30818). Replaceable, collaborative -- anyone can publish a revision.
+- Input: topic (d-tag), title, content (Asciidoc or Markdown), summary (optional), hashtags (optional)
+
+#### wiki-read
+Read wiki articles by topic. Without author, returns versions from multiple authors sorted by recency.
+- Input: topic, author (optional), limit (default 10), output
+
+#### wiki-list
+List wiki topics with latest title, summary, and author. Optionally filter by author.
+- Input: author (optional), limit (default 50), output
+
+### Badge Tools -- NIP-58 (4)
+
+#### badge-create
+Define a new badge (kind 30009). Replaceable badge definition with name, description, and optional image.
+- Input: slug, name, description, image (optional), thumb (optional), output
+
+#### badge-award
+Award a badge to one or more recipients (kind 8). Badge must exist first.
+- Input: badge_slug, recipients (resolved via universal identity), output
+
+#### badge-accept
+Accept a badge and add it to your profile badges (kind 30008). Preserves existing badges.
+- Input: badge_coord (e.g. "30009:pubkey:slug"), award_event_id, output
+
+#### badge-list
+List badges defined by an author or displayed on a profile.
+- Input: pubkey (resolved), mode ("defined" | "profile"), output
+
+### Community Tools -- NIP-72 (5)
+
+#### community-create
+Create a moderated community (kind 34550). Open, approval-based.
+- Input: name, description, image (optional), rules (optional), moderators (optional, resolved), output
+
+#### community-feed
+Read approved posts in a community. Fetches kind 4550 approved posts.
+- Input: community (coordinate or naddr), limit (default 50), since (optional), output
+
+#### community-post
+Post to a community. Creates a kind 1 note with community a-tag. Requires moderator approval.
+- Input: community, content, output
+
+#### community-approve
+Approve a post in a community you moderate (kind 4550).
+- Input: community, event_id, event_pubkey (resolved), output
+
+#### community-list
+Discover communities on Nostr. Fetches kind 34550 definitions.
+- Input: limit (default 20), output
+
+### Listing Tools -- NIP-99 (4)
+
+#### listing-create
+Create a classified listing (kind 30402). Replaceable event with title, description, price, location.
+- Input: title, content (markdown), price ({ amount, currency, frequency? }), summary (optional), location (optional), geohash (optional), hashtags (optional), image (optional), slug (optional)
+
+#### listing-read
+Read classified listings by author and optional slug.
+- Input: author (optional, resolved), slug (optional), limit (default 50), output
+
+#### listing-search
+Search listings by hashtag or geohash location.
+- Input: hashtag (optional), geohash (optional), limit (default 50), output
+
+#### listing-close
+Mark a listing as sold or closed. Preserves all tags, adds status.
+- Input: slug, status ("sold" | "closed")
+
+### Trust Tools (22)
 
 #### trust-attest
 Verify someone else's claim by attesting to their assertion event.
-- Input: assertionId (event ID hex), subject (optional hex pubkey), type (optional), summary (optional), content (optional), expiration (optional timestamp), assertionRelay (optional)
-- The subject publishes their claim as a Nostr event; you reference it and say "I verify this"
-- Warns when attesting as derived persona
+- Input: assertionId, subject (optional), type (optional), summary (optional), content (optional), expiration (optional), assertionRelay (optional)
+- The subject publishes their claim; you reference it and say "I verify this"
 
 #### trust-claim
-Make a direct statement about another identity — endorsement, review, vouch, or any attestor-originated claim.
-- Input: type (string), subject (optional hex pubkey), identifier (optional), summary (optional), content (optional), expiration (optional timestamp)
-- Use trust-attest instead if the subject has published their own assertion event
+Make a direct statement about another identity -- endorsement, review, vouch.
+- Input: type, subject (optional), identifier (optional), summary (optional), content (optional), expiration (optional)
 
 #### trust-read
 Read kind 31000 attestations from relays.
@@ -234,12 +353,10 @@ Validate structural correctness of a kind 31000 attestation.
 #### trust-revoke
 Revoke a previously issued attestation.
 - Input: type, identifier, originalAttestorPubkey (optional verification)
-- Errors if active identity doesn't match original attestor
 
 #### trust-request
 Send an attestation request via NIP-17 encrypted DM.
 - Input: recipientPubkeyHex, subject, attestationType, message
-- Payload: { type: "nip-va/attestation-request", v: 1, ... }
 
 #### trust-request-list
 Scan received NIP-17 DMs for attestation request payloads.
@@ -248,16 +365,14 @@ Scan received NIP-17 DMs for attestation request payloads.
 #### trust-proof-publish
 Publish a linkage proof as kind 30078. Requires confirmation.
 - Input: mode ("blind"/"full"), confirm (boolean)
-- Returns warning about what proof reveals before publishing
 
 #### trust-ring-prove
-Create a ring signature proving anonymous group membership.
+Create a SAG ring signature proving anonymous group membership.
 - Input: ring (hex pubkeys), attestationType, message (optional)
-- Active identity must be in the ring
 - Returns: kind 30078 event with ring signature
 
 #### trust-ring-verify
-Verify a ring signature proof.
+Verify a SAG ring signature proof.
 - Input: signature (RingSignature object or Nostr event)
 - Returns: { valid }
 
@@ -271,46 +386,246 @@ Verify a spoken token response.
 - Input: secret, context, counter, input, tolerance (default 1)
 - Returns: { valid, identity }
 
-### Relay Tools (5)
+#### trust-attest-parse
+Parse a kind 31000 attestation into a fully typed object with all metadata: type, subject, assertion references, temporal fields, expiration, schema, revocation status.
+- Input: event object
+- Returns: parsed attestation or error
+
+#### trust-attest-filter
+Build a Nostr relay filter for attestation queries. Supports type, subject, attestor, schema, time range.
+- Input: type (optional), subject (optional, resolved), attestor (optional, resolved), schema (optional), since (optional), until (optional)
+- Returns: filter object for relay subscriptions
+
+#### trust-attest-temporal
+Create and publish an attestation with occurredAt field -- records when the attested event actually happened. Supports validFrom/validTo for deferred activation.
+- Input: type, identifier, subject, assertionId, summary, content, expiration, occurredAt (required), validFrom, validTo
+
+#### trust-attest-chain
+Follow endorsement references to build a transitive trust chain. Queries attestations about a subject, follows each attestor as a new subject up to maxDepth.
+- Input: startSubject (resolved), type (optional), maxDepth (default 3, max 10)
+- Returns: full chain with validity status per link
+
+#### trust-attest-check-revoked
+Check if a specific attestation has been revoked. Queries relays for the latest version.
+- Input: type (optional), identifier (optional), assertionId (optional), assertionAddress (optional)
+
+#### trust-ring-lsag-sign
+Create an LSAG (Linkable SAG) signature with a key image tied to an election ID. Detects double-signing without revealing identity. Use for anonymous voting.
+- Input: ring (resolved), electionId, message, domain (optional)
+- Returns: { id, keyImage, ringSize, electionId }
+
+#### trust-ring-lsag-verify
+Verify an LSAG signature and check key image against known images for duplicate detection.
+- Input: signature, existingKeyImages (optional)
+- Returns: { valid, keyImage, isDuplicate }
+
+#### trust-ring-key-image
+Compute the key image for the active identity in a specific election. Deterministic: same key + electionId always produces the same image.
+- Input: electionId
+- Returns: { keyImage }
+
+#### trust-spoken-directional
+Generate a directional token pair where each role gets a different token. Prevents the "echo problem" in two-party verification.
+- Input: secret, namespace, roles (2 strings), counter, format ("words" | "pin" | "hex"), wordCount, pinDigits, hexLength
+
+#### trust-spoken-encode
+Generate a spoken token in alternative encoding: PIN digits, hex, or multi-word.
+- Input: secret, context, counter, format, wordCount, pinDigits, hexLength
+
+### Moderation Tools -- NIP-32/NIP-51 (16)
+
+#### label-create
+Label an event, pubkey, or addressable event using NIP-32 (kind 1985). Requires namespace (L tag) and label value (l tag).
+- Input: namespace, label, targetEventId (optional), targetPubkey (optional), targetAddress (optional), content (optional)
+
+#### label-self
+Self-label your own content (kind 1985). Useful for content warnings.
+- Input: namespace, label, eventId, content (optional)
+
+#### label-read
+Query NIP-32 labels for a target event, pubkey, or address.
+- Input: targetEventId, targetPubkey, targetAddress, namespace, labeller (all optional)
+
+#### label-search
+Find all events/pubkeys given a specific label in a namespace.
+- Input: namespace, label, labeller (optional)
+
+#### label-remove
+Delete a label event via kind 5 deletion. Only works for labels you authored.
+- Input: labelEventId
+
+#### list-mute
+Manage your mute list (NIP-51, kind 10000). Add or remove pubkeys, event IDs, keywords, or hashtags.
+- Input: action ("add" | "remove"), entries (array of { type, value })
+
+#### list-mute-read
+Read your current mute list. Returns all muted pubkeys, events, keywords, and hashtags.
+- No inputs
+
+#### list-check-muted
+Check if a pubkey, event ID, keyword, or hashtag is on your mute list.
+- Input: pubkey, eventId, keyword, hashtag (all optional)
+
+#### list-pin
+Manage pinned events (NIP-51, kind 10001). Add or remove event IDs.
+- Input: action ("add" | "remove"), eventIds
+
+#### list-pin-read
+Read your pinned events list.
+- No inputs
+
+#### list-followset-create
+Create a named follow set (NIP-51, kind 30000). Group contacts into named lists.
+- Input: name, description (optional), pubkeys (resolved)
+
+#### list-followset-manage
+Add or remove pubkeys from a named follow set.
+- Input: name, action ("add" | "remove"), pubkeys (resolved)
+
+#### list-followset-read
+Read a named follow set by name.
+- Input: name
+
+#### list-bookmark
+Manage bookmarks (NIP-51). General bookmarks (kind 10003) or named sets (kind 30001). Supports event IDs, addresses, URLs, and hashtags.
+- Input: name (optional), action ("add" | "remove"), eventIds, addresses, urls, hashtags
+
+#### list-bookmark-read
+Read bookmarks. General (kind 10003) or named set (kind 30001).
+- Input: name (optional)
+
+#### moderation-filter
+Filter events against the active identity's mute list. Returns allowed and blocked events with reasons.
+- Input: events (array of { id, pubkey, content, tags })
+
+### Dispatch Tools (13 + 3 NIP-89 capability)
+
+AI-to-AI collaboration over encrypted Nostr DMs with universal identity resolution and NIP-89 agent discovery.
+
+#### dispatch-send
+Send a collaboration task to a Nostr identity. Think tasks request read-only analysis; build tasks request implementation.
+- Input: to (resolved), type ("think" | "build"), prompt, repos (optional), branch_from (optional), context_id (optional), depth (optional), depends_on (optional)
+- Falls back to NIP-89 capability discovery if name not in identities file
+
+#### dispatch-check
+Check for incoming collaboration tasks. Returns think/build tasks, results, acks, status updates. Only from trusted identities, validated for freshness.
+- Input: since (optional, defaults to session start)
+
+#### dispatch-reply
+Send a result back for a completed task. Only replies to trusted identities.
+- Input: re (task ID), to (resolved), type, plan (optional), files_read (optional), branch (optional), commits (optional), tests (optional), pr (optional), delete_event_id (optional)
+
+#### dispatch-ack
+Acknowledge receipt of a task. "Got it, working on it."
+- Input: re, to (resolved), note (optional)
+
+#### dispatch-status
+Broadcast availability, queue depth, or progress on long-running tasks.
+- Input: to (resolved), status, note (optional), resets_at (optional), queue (optional)
+
+#### dispatch-cancel
+Cancel a task you sent or received.
+- Input: re, to (resolved), note (optional)
+
+#### dispatch-refuse
+Refuse a task you cannot complete, with reason.
+- Input: re, to (resolved), reason
+
+#### dispatch-failure
+Report a task failed after attempting it. Optionally include partial results.
+- Input: re, to (resolved), error, partial (optional)
+
+#### dispatch-query
+Ask the task sender a clarifying question mid-task.
+- Input: re, to (resolved), question
+
+#### dispatch-propose
+Propose an alternative approach for a task.
+- Input: re, to (resolved), proposal, reason (optional)
+
+#### dispatch-capability-publish
+Publish your agent's dispatch capabilities as a NIP-89 card (kind 31990). Advertises task types, repos, and availability.
+- Input: name, description, task_types, repos (optional), availability (optional), max_depth (optional), slug (optional)
+
+#### dispatch-capability-discover
+Discover dispatch-capable agents on Nostr. Searches NIP-89 cards tagged with the dispatch protocol.
+- Input: task_type (optional), limit (optional)
+
+#### dispatch-capability-read
+Read a specific agent's dispatch capability card.
+- Input: pubkey (resolved)
+
+### Relay Tools (12)
 
 #### relay-list
-List relay set for the active identity.
-- Input: compareWithNpub (optional — warns about shared relays), output ("json" | "human", default "human")
+List relay set for the active identity. Optionally compare shared relays with another identity.
+- Input: compareWithNpub (optional), output
 
 #### relay-set
-Publish kind 10002 relay list.
+Publish kind 10002 relay list. Warns if relay list exists.
 - Input: relays (array of { url, mode }), confirm
-- Safety guard: warns if relay list exists
 
 #### relay-add
-Add a relay to active identity's relay set (in-memory).
-- Input: url, mode (optional: "read", "write", or both)
+Add a relay to active identity's relay set (in-memory only).
+- Input: url, mode (optional)
 
 #### relay-query
-Query events from Nostr relays by kind, author, tags, or time range.
-- Input: kinds (optional array), authors (optional hex pubkeys), tags (optional key-value pairs), since (optional), until (optional), limit (default 50, max 500), relays (optional — overrides identity relay set)
-- Returns: { count, events }
+Query events from relays by kind, author, tags, or time range. Supports NIP-50 full-text search.
+- Input: kinds (optional), authors (optional), tags (optional), since (optional), until (optional), limit (default 50, max 500), relays (optional), search (optional)
 
 #### relay-info
 Fetch the NIP-11 relay information document.
 - Input: url (wss:// relay URL)
-- Returns: Parsed relay info (name, description, supported NIPs, etc.)
 
-### Zap Tools (7)
+#### relay-count
+Count events matching a filter without fetching (NIP-45). Falls back to fetch-and-count.
+- Input: relays, kinds (optional), authors (optional), tags (optional), since (optional), until (optional)
+
+#### relay-auth
+Authenticate to a relay requiring NIP-42 AUTH. Signs a kind 22242 event.
+- Input: relay (URL)
+
+#### relay-discover
+Discover relays used by your contacts. Fetches NIP-65 relay lists from your follow list, ranks by popularity.
+- Input: limit (optional, default 20)
+
+#### relay-nip-search
+Find relays that support specific NIPs by querying NIP-11 info documents.
+- Input: nips (array of NIP numbers), candidateRelays (optional)
+
+#### relay-compare
+Compare 2+ relays side-by-side: NIP-11 metadata, response time, supported NIPs, software, limitations.
+- Input: relays (2-10 URLs)
+
+#### relay-diversity
+Analyse your relay set for centralisation risk. Checks operators, software diversity, reachability.
+- No inputs
+
+#### relay-recommend
+Recommend relays for your use case. Strategies: balanced, privacy, performance, social.
+- Input: strategy (optional), limit (optional, default 10)
+
+### Zap Tools (9)
+
+#### zap-wallet-set
+Set the NWC wallet URI for the active identity. Each persona can have its own Lightning wallet.
+- Input: nwcUri (nostr+walletconnect:// URI)
+
+#### zap-wallet-clear
+Remove the NWC wallet for the active identity. Falls back to global NWC_URI.
+- No inputs
 
 #### zap-send
-Pay a Lightning invoice via Nostr Wallet Connect (NIP-47).
-- Input: invoice (bolt11 string), confirm (default false)
-- Smart default: decodes invoice and shows amount first — set confirm: true to execute
-- Requires NWC_URI configured. Signs with NWC client key, encrypts via NIP-44.
+Pay a Lightning invoice via NWC. SPENDS REAL SATS. Shows amount first -- set confirm: true to execute.
+- Input: invoice (bolt11), confirm (default false)
 
 #### zap-balance
 Request wallet balance via NWC.
-- Sends get_balance request to the wallet service.
+- No inputs
 
 #### zap-make-invoice
 Generate a Lightning invoice via NWC to receive payments.
-- Input: amountMsats (number), description (optional string)
+- Input: amountMsats (number), description (optional)
 
 #### zap-lookup-invoice
 Look up a Lightning invoice status via NWC.
@@ -330,7 +645,228 @@ Decode basic fields from a bolt11 Lightning invoice.
 - Input: bolt11 string
 - Returns: { amountMsats }
 
-### Blossom Tools — Media (3)
+### Safety / CANARY Tools (14)
+
+#### safety-configure
+Configure an alternative identity persona.
+- Input: personaName (default "anonymous")
+
+#### safety-activate
+Switch to an alternative identity configuration.
+- Input: personaName (default "anonymous")
+
+#### canary-session-create
+Create a CANARY verification session for two-party spoken verification. Presets: "call" (30s rotation) or "handoff" (single-use).
+- Input: namespace, roles (2 strings), myRole, preset (optional), rotationSeconds (optional), tolerance (optional), theirIdentity (optional), counter (optional)
+- Returns: session ID and the word you should speak
+
+#### canary-session-current
+Get the current verification words for an active session.
+- Input: sessionId
+- Returns: your token (what you speak) and their token (what you expect to hear)
+
+#### canary-session-verify
+Verify a spoken word against a session. Returns "valid", "duress", or "invalid".
+- Input: sessionId, spokenWord
+
+#### canary-group-create
+Create an encrypted CANARY verification group. Multi-member, time-rotating words, silent duress. Presets: "family" (weekly), "field-ops" (daily), "enterprise" (48h), "event" (4h).
+- Input: name, members (hex pubkeys), preset (optional), rotationInterval (optional), wordCount (optional), tolerance (optional), beaconInterval (optional), beaconPrecision (optional)
+
+#### canary-group-join
+Join an existing group using a shared seed (received via NIP-17 DM).
+- Input: groupId (optional), seed (64-char hex), name, members, rotationInterval (optional), wordCount (optional), tolerance (optional)
+
+#### canary-group-current
+Get the current verification word for a group. All members derive the same word.
+- Input: groupId
+
+#### canary-group-verify
+Verify a spoken word against a group. Returns "verified", "duress", "stale", or "failed".
+- Input: groupId, spokenWord
+
+#### canary-group-members
+List members and admins of a CANARY group.
+- Input: groupId
+
+#### canary-beacon-create
+Create an encrypted liveness beacon for a group. Encrypts location with AES-256-GCM.
+- Input: groupId, geohash, precision
+
+#### canary-beacon-check
+Check a beacon's status. Returns "alive" (within interval) or "overdue" (missed 2+ intervals).
+- Input: beaconId (optional), groupId (optional), encrypted (optional)
+
+#### canary-duress-signal
+Generate a duress signal. Returns a word indistinguishable from normal verification.
+- Input: groupId, geohash (optional), precision (optional), locationSource (optional)
+
+#### canary-duress-detect
+Check if a spoken word is a duress signal. Returns which member(s) signalled.
+- Input: groupId, spokenWord
+
+### Signet Tools (7)
+
+#### signet-badge
+Fetch the Signet verification badge for a pubkey.
+- Input: pubkey
+
+#### signet-vouch
+Vouch for another identity's Signet credential.
+- Input: subject, credential type
+
+#### signet-credentials
+List credentials associated with a Signet identity.
+- Input: pubkey
+
+#### signet-policy-check
+Check whether a pubkey satisfies a verification policy.
+- Input: pubkey, policy context
+
+#### signet-policy-set
+Set a verification policy for an interaction context.
+- Input: context, policy rules
+
+#### signet-verifiers
+List trusted verifiers in the Signet network.
+- No required inputs
+
+#### signet-challenge
+Issue a Signet verification challenge.
+- Input: subject pubkey
+
+### Vault Tools (9)
+
+#### vault-create
+Create an encrypted vault with Dominion epoch key.
+- Returns: vault ID, epoch info
+
+#### vault-encrypt
+Encrypt content into a vault.
+- Input: vaultId, content
+
+#### vault-share
+Share vault access with a pubkey at a given tier.
+- Input: vaultId, pubkey, tier
+
+#### vault-read
+Decrypt and read vault content.
+- Input: vaultId
+
+#### vault-read-shared
+Read shared vault content using shared access credentials.
+- Input: vaultId, additional auth params
+
+#### vault-revoke
+Revoke a pubkey's vault access.
+- Input: vaultId, pubkey
+
+#### vault-members
+List members and their access tiers.
+- Input: vaultId
+
+#### vault-config
+View or update vault configuration.
+- Input: vaultId, config (optional)
+
+#### vault-rotate
+Rotate the vault epoch key.
+- Input: vaultId
+
+### Marketplace Tools (16)
+
+#### marketplace-discover
+Discover L402/x402 paid API services announced on Nostr (kind 31402). Filter by topic, payment method, provider, or price.
+- Input: topics (optional), paymentMethod (optional), authors (optional), maxPrice (optional), currency (optional), limit (optional), relays (optional)
+
+#### marketplace-inspect
+Get full details of a specific L402 service by event ID or provider + identifier.
+- Input: eventId (optional), pubkey (optional, resolved), identifier (optional), relays (optional)
+
+#### marketplace-search
+Full-text search across L402 service names, descriptions, topics, and capabilities.
+- Input: query, topics (optional), paymentMethod (optional), limit (optional), relays (optional)
+
+#### marketplace-reputation
+Check a provider's reputation -- active services, announcement history, topics covered.
+- Input: pubkey (resolved), relays (optional)
+
+#### marketplace-compare
+Compare 2+ L402 services side-by-side -- pricing, capabilities, shared features.
+- Input: eventIds (2+ hex IDs), relays (optional)
+
+#### marketplace-probe
+Send HTTP request to an endpoint. Extracts L402 challenge if 402 returned, estimates cost in sats.
+- Input: url, method (default GET)
+
+#### marketplace-pay
+Pay an L402 invoice via NWC and store credentials. SPENDS REAL SATS. Preview first, confirm to execute.
+- Input: macaroon (base64), invoice (bolt11), confirm (default false)
+- Returns: credentialId for use with marketplace-call
+
+#### marketplace-call
+Make an authenticated API call using L402 credentials from marketplace-pay.
+- Input: url, method (default GET), credentialId, body (optional), headers (optional)
+
+#### marketplace-announce
+Publish a kind 31402 service announcement. Advertises your API with pricing and capabilities.
+- Input: identifier, name, urls, about, pricing, paymentMethods, picture (optional), topics (optional), capabilities (optional), version (optional)
+
+#### marketplace-update
+Update an existing kind 31402 announcement. Same pubkey + identifier replaces the previous version.
+- Input: same as marketplace-announce
+
+#### marketplace-retire
+Retire a service announcement via kind 5 deletion.
+- Input: identifier, reason (optional)
+
+#### marketplace-credentials-clear
+Clear all stored L402 credentials from memory.
+- No inputs
+
+### Privacy Tools (10)
+
+#### privacy-commit
+Create a Pedersen commitment to a secret value. Returns a public commitment point (safe to share) and blinding factor (keep secret).
+- Input: value (non-negative integer)
+
+#### privacy-open
+Verify a Pedersen commitment opening. Check that value + blinding factor match the commitment.
+- Input: commitment (compressed hex), value, blinding (64-char hex)
+
+#### privacy-prove-range
+Prove a secret value is within [min, max] without revealing it. Optional binding context prevents proof transplanting.
+- Input: value, min, max, context (optional)
+
+#### privacy-verify-range
+Verify a range proof. Checks value is in [min, max] without learning the value.
+- Input: proof (JSON string), min, max, context (optional)
+
+#### privacy-prove-age
+Prove age is within a range without revealing exact age. Supports "18+", "13-17", "8-12".
+- Input: age, ageRange, subjectPubkey (optional)
+
+#### privacy-verify-age
+Verify an age range proof.
+- Input: proof (JSON string), ageRange, subjectPubkey (optional)
+
+#### privacy-prove-threshold
+Prove a value exceeds a threshold without revealing it. Useful for income, balance, credit checks.
+- Input: value, threshold, context (optional)
+
+#### privacy-verify-threshold
+Verify a threshold proof. Checks value >= threshold without learning the value.
+- Input: proof (JSON string), threshold, context (optional)
+
+#### privacy-publish-proof
+Publish a range proof as a kind 30078 Nostr event. Discoverable and verifiable by anyone.
+- Input: proof (JSON string), label, subjectPubkey (optional)
+
+#### privacy-read-proof
+Fetch and verify range proof events from relays.
+- Input: authorPubkey (optional), label (optional)
+
+### Blossom Tools -- Media (10)
 
 #### blossom-upload
 Upload a file to a blossom media server. Signs a kind 24242 auth event.
@@ -345,10 +881,38 @@ List blobs uploaded by a pubkey on a blossom server.
 Delete a blob from a blossom server by SHA-256 hash.
 - Input: server (URL), sha256
 
-### Group Tools — NIP-29 (4)
+#### blossom-mirror
+Upload a file to multiple blossom servers for redundancy.
+- Input: servers (1-10 URLs), sourceUrl (optional), filePath (optional), contentType (optional)
+
+#### blossom-check
+Verify a blob exists and is intact on a server. Optionally downloads and verifies SHA-256.
+- Input: server, sha256, verify (default false)
+
+#### blossom-discover
+Discover blossom servers used by contacts. Fetches kind 10063 (NIP-B7) events.
+- Input: pubkeys (hex array)
+
+#### blossom-verify
+Verify all media URLs in a note are still accessible. Returns alive/broken status per URL.
+- Input: content (note text), verifyHash (default false)
+
+#### blossom-repair
+Find a broken blob on other servers by SHA-256 and optionally re-upload.
+- Input: sha256, searchServers (1-20 URLs), targetServer (optional)
+
+#### blossom-usage
+Check storage usage across blossom servers for a pubkey.
+- Input: servers (1-20 URLs), pubkeyHex
+
+#### blossom-servers
+Read or update your preferred blossom server list (kind 10063).
+- Input: servers (optional -- omit to read, provide to publish)
+
+### Group Tools -- NIP-29 (4)
 
 #### group-info
-Fetch group metadata (kind 39000) — name, about, picture, open status.
+Fetch group metadata (kind 39000) -- name, about, picture, open status.
 - Input: relay, groupId
 
 #### group-chat
@@ -363,17 +927,31 @@ Send a message to a group (kind 9 with h-tag).
 List group members (kind 39002).
 - Input: groupId
 
+### Scheduled Posting Tools (3)
+
+#### post-schedule
+Schedule a Nostr event for future publication. Signs now, queues on disk, published via cron.
+- Input: content, scheduled_at (ISO datetime or Unix timestamp), kind (default 1), tags (optional)
+
+#### post-queue-list
+List all scheduled posts waiting to be published.
+- No inputs
+
+#### post-queue-cancel
+Cancel a scheduled post by event ID.
+- Input: event_id
+
 ### Community NIP Tools (2)
 
 #### nip-publish
-Publish a community NIP (kind 30817) — custom protocol spec on Nostr.
-- Input: identifier (slug), title, content (markdown), kinds (optional array)
+Publish a community NIP (kind 30817) -- custom protocol spec on Nostr.
+- Input: identifier (slug), title, content (markdown), kinds (optional)
 
 #### nip-read
 Fetch community NIPs from relays.
 - Input: author (optional), identifier (optional), kind (optional)
 
-### Utility Tools (18)
+### Utility Tools (19)
 
 #### decode
 Decode any nip19 entity (npub, nsec, note, nevent, nprofile, naddr) or nostr: URI.
@@ -393,7 +971,7 @@ Encrypt a secret key with a password (NIP-49 ncryptsec).
 - WARNING: secret key is transmitted through the MCP transport
 
 #### key-decrypt
-Decrypt an ncryptsec (NIP-49) with a password. Returns the derived pubkey for verification — never the raw key.
+Decrypt an ncryptsec (NIP-49) with a password. Returns the derived pubkey -- never the raw key.
 - Input: ncryptsec, password
 - Returns: { npub }
 
@@ -423,102 +1001,128 @@ List all official Nostr NIPs from the protocol repository.
 Fetch and display the full content of an official NIP by number.
 - Input: NIP number
 
-### Safety Tools (2)
+#### tombstone
+Overwrite an addressable event (kind 30000-39999) with empty content, effectively deleting it from relays.
+- Input: kind, dTag
 
-#### safety-configure
-Configure an alternative identity persona.
-- Input: personaName (default "anonymous")
-
-#### safety-activate
-Switch to an alternative identity configuration.
-- Input: personaName (default "anonymous")
-- Response structure identical to identity-switch
-
-### Workflow Tools (6)
+### Workflow Tools (7)
 
 #### trust-score
-Compute a trust score for a Nostr pubkey using the web-of-trust graph (NIP-85 kind 30382 events) and kind 31000 attestations. Returns endorsement counts, attestation summary, social distance from active identity, and any trust flags.
-- Input: pubkey (hex), depth (1–3, default 2, optional)
-- Returns: { pubkey, npub, score, endorsements, ringEndorsements, attestations: [{ type, attestor, content, expires? }], socialDistance, flags }
+Compute a trust score using the web-of-trust graph (NIP-85 kind 30382) and kind 31000 attestations. Returns endorsement counts, attestation summary, social distance, and trust flags.
+- Input: pubkey (hex), depth (1-3, default 2)
 - Social distance: 0 = self, 1 = direct contact, 2 = contact-of-contact, -1 = unreachable
 - Read-only
 
 #### feed-discover
-Discover new accounts worth following, ranked by trust score. Three strategies: trust-adjacent (contacts-of-contacts), topic (hashtag search), active (recent posters in your network).
-- Input: strategy ("trust-adjacent" | "topic" | "active", default "trust-adjacent"), limit (1–100, default 20), query (string, for topic strategy)
-- Returns: Array of { pubkey, npub, name?, nip05?, trustScore, mutualFollows, reason }
+Discover accounts worth following, ranked by trust score. Strategies: trust-adjacent, topic, active.
+- Input: strategy, limit (default 20), query (for topic)
 - Read-only
 
 #### verify-person
-Verify a Nostr identity: checks NIP-05, trust score, kind 31000 attestations, linkage proofs, and (in full mode) ring endorsements and a spoken challenge token.
+Verify a Nostr identity: NIP-05, trust score, attestations, linkage proofs, ring endorsements, spoken challenge.
 - Input: pubkey (hex), method ("quick" | "full", default "quick")
-- Quick mode: NIP-05, trust score, attestations, linkage proofs
-- Full mode: also checks ring endorsement proofs and generates a spoken challenge (5-minute expiry)
-- Returns: { pubkey, npub, name?, nip05: { verified, handle? }, trustScore, attestations, linkageProofs, ringEndorsements, spokenChallenge?, confidence: "high" | "medium" | "low" | "unknown" }
-- Confidence: high = score >= 50 + attestation + NIP-05; medium = score >= 20 or attestation or NIP-05; low = score >= 1; unknown = no signal
+- Confidence: high (score >= 50 + attestation + NIP-05), medium, low, unknown
 - Read-only
 
 #### identity-setup
-Set up a multi-persona identity from the current master secret. Derives named persona sub-identities, optionally creates a Shamir backup and configures relays. Preview mode (confirm: false) shows what would be created without any side effects.
-- Input: personas (string[], default ["social", "commerce"]), shamirThreshold ({ shares, threshold }, optional), relays (string[], optional), confirm (boolean, default false)
-- Preview (confirm: false) returns: { confirmed: false, masterNpub, personas: [{ name, index, npub }], shamirConfig?, message }
-- Confirmed (confirm: true) returns: { confirmed: true, masterNpub, personas, shardFiles?, relaysConfigured }
-- Destructive: creates shard files and publishes kind 10002 relay lists when confirmed
+Set up a multi-persona identity from the current master secret. Preview mode first.
+- Input: personas (string[], default ["social", "commerce"]), shamirThreshold (optional), relays (optional), confirm (default false)
 
 #### identity-recover
-Recover a master identity from Shamir word-list shard files. Reconstructs the secret, derives the master npub, and optionally configures new relays. This operation is destructive — use only when the original identity is inaccessible.
-- Input: shardPaths (string[], absolute file paths to shard files), newRelays (string[], optional)
-- Returns: { masterNpub, recovered: true, relaysConfigured }
-- Destructive: secret is reconstructed, then zeroised after use
+Recover a master identity from Shamir word-list shard files. Destructive.
+- Input: shardPaths (string[]), newRelays (optional)
 
 #### relay-health
-Check health of the active identity's configured relays. Reports NIP-11 metadata, response time, whether the user has events on the relay, and optionally write access (publishes a short-lived test event).
-- Input: pubkey (hex, optional — defaults to active identity), checkWrite (boolean, default false)
-- Returns: Array of { url, reachable, responseTimeMs, nip11?, hasUserEvents, writeAccess?, error? }
-- checkWrite: publishes a kind 30078 test event with 60-second expiration to verify write access
+Check health of configured relays. Reports NIP-11 metadata, response time, event presence, write access.
+- Input: pubkey (optional), checkWrite (default false)
+
+#### onboard-verified
+Guided workflow to build a verified trust profile. Shows current Signet tier, remaining steps, and contacts who could vouch for you.
+- Read-only
+
+### Meta Tools (2)
+
+#### search-actions
+Search additional actions by describing what you want to do. Returns matching actions with descriptions and parameter schemas.
+- Input: query (string)
+
+#### execute-action
+Execute an action found via search-actions.
+- Input: action name, parameters
 
 ## Smart Defaults
 
-nostr-bray includes trust-aware defaults to protect agents from interacting with spam, impersonation, and low-quality content:
+- **Trust-filtered feeds**: social-feed and social-notifications default to `trust: "strict"`, hiding content from untrusted authors. Set to "annotate" for scores, "off" to disable.
+- **Contact safety guards**: contacts-follow/unfollow detect >20% list shrinkage (data corruption sign) and warn.
+- **DM trust scores**: dm-read annotates each message with `senderTrustScore`.
+- **Reply trust warnings**: social-reply computes `authorTrustScore` and warns about untrusted authors.
+- **Payment preview**: zap-send decodes bolt11 and shows amount before executing.
+- **Universal identity resolution**: all tools accepting pubkeys also accept names, NIP-05, and npubs.
+- **NIP-65 relay chasing**: when messaging someone, bray fetches their relay list and writes to their preferred relays.
 
-- **Trust-filtered feeds**: social-feed and social-notifications default to `trust: "strict"`, which hides content from authors outside your web of trust. Set to `"annotate"` to see everything with trust scores, or `"off"` to disable.
-- **Contact safety guards**: contacts-follow and contacts-unfollow detect when the updated contact list would shrink by >20% (a sign of data corruption) and return a guarded warning. Pass `confirm: true` to proceed.
-- **DM trust scores**: dm-read annotates each message with `senderTrustScore` so agents can prioritise messages from trusted contacts.
-- **Reply trust warnings**: social-reply computes `authorTrustScore` for the parent event's author and includes a `trustWarning` if the score is low — helping agents avoid engaging with impersonators.
-- **Payment preview**: zap-send decodes the bolt11 invoice and shows the amount before executing — set `confirm: true` to pay.
+## Example Workflows
 
-## Example Workflow
+### Basic Identity + Social
 
 ```
-1. identity-list                    → see master identity
-2. identity-derive-persona("work")  → derive work persona
-3. identity-switch("work")          → switch to work
-4. social-profile-set(name: "Work Account")  → set profile
+1. identity-list                    -> see master identity
+2. identity-derive-persona("work")  -> derive work persona
+3. identity-switch("work")          -> switch to work
+4. social-profile-set(name: "Work Account")  -> set profile
 5. social-post("Hello from my work persona")
-6. identity-switch("master")        → back to master
+6. identity-switch("master")        -> back to master
 7. trust-attest(type: "endorsement", subject: workPubkeyHex)
-8. identity-prove(mode: "blind")    → prove without revealing path
+8. identity-prove(mode: "blind")    -> prove without revealing path
 ```
 
-## Trust Workflow
+### Trust Verification
 
 ```
-1. trust-score(pubkey: "abc...")        → check WoT score + attestations
-2. verify-person(pubkey: "abc...")      → NIP-05, attestations, proofs, confidence
-3. feed-discover(strategy: "trust-adjacent")  → find trusted accounts to follow
-4. social-feed(trust: "annotate")       → read feed with trust scores shown
-5. relay-health()                       → check relay liveness + write access
+1. trust-score(pubkey: "abc...")        -> check WoT score + attestations
+2. verify-person(pubkey: "abc...")      -> NIP-05, attestations, proofs, confidence
+3. feed-discover(strategy: "trust-adjacent")  -> find trusted accounts to follow
+4. social-feed(trust: "annotate")       -> read feed with trust scores shown
+5. relay-health()                       -> check relay liveness + write access
 ```
 
-## Identity Setup Workflow
+### Identity Setup with Shamir Backup
 
 ```
-1. identity-setup(confirm: false)                → preview personas + Shamir config
-2. identity-setup(personas: ["work", "social"],   → create with Shamir backup
+1. identity-setup(confirm: false)                -> preview personas + Shamir config
+2. identity-setup(personas: ["work", "social"],   -> create with Shamir backup
      shamirThreshold: { shares: 5, threshold: 3 },
      relays: ["wss://relay.damus.io"],
      confirm: true)
-3. relay-health()                                 → verify relay connectivity
+3. relay-health()                                 -> verify relay connectivity
+```
+
+### Marketplace Discovery + Payment
+
+```
+1. marketplace-discover(topics: ["ai"])          -> find AI services
+2. marketplace-inspect(eventId: "abc...")         -> full service details
+3. marketplace-probe(url: "https://api.svc/v1")  -> check pricing, extract L402
+4. marketplace-pay(macaroon: "...", invoice: "...") -> preview cost
+5. marketplace-pay(..., confirm: true)           -> pay and get credentialId
+6. marketplace-call(url: "...", credentialId: "...") -> authenticated API call
+```
+
+### CANARY Group Verification
+
+```
+1. canary-group-create(name: "team", members: [...], preset: "field-ops")
+2. canary-group-current(groupId: "...")         -> get current word
+3. canary-group-verify(groupId: "...", spokenWord: "maple") -> verify member
+4. canary-duress-detect(groupId: "...", spokenWord: "pine") -> check for duress
+```
+
+### AI-to-AI Dispatch
+
+```
+1. dispatch-check()                              -> check for incoming tasks
+2. dispatch-send(to: "alice", type: "think", prompt: "Review the auth module")
+3. dispatch-check()                              -> poll for results
+4. dispatch-capability-discover()                -> find agents on Nostr
 ```
 
 ## Security Model
@@ -531,9 +1135,10 @@ nostr-bray includes trust-aware defaults to protect agents from interacting with
 - Tor proxy support via SOCKS5h with clearnet blocking enforced on runtime relay additions
 - Per-identity relay separation to prevent linking
 - NIP-65 relay lists signature-verified and author-checked with 1-hour cache TTL
-- Relay URLs validated (scheme + private IP rejection) — SSRF protection
+- Relay URLs validated (scheme + private IP rejection) -- SSRF protection
 - HTTP transport: constant-time bearer token auth, rate limiting (100 req/60s), security headers
 - Hex pubkey and relay URL input validation via Zod across all tools
 - Shamir shard files written with 0o600 permissions via atomic rename
 - Migration verifies backup event signatures before re-signing
 - Four-tier auth progression: bunker (NIP-46) > ncryptsec (NIP-49) > file > env var
+- Dispatch trust boundary: only known identities can send/receive tasks
