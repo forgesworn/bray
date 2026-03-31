@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
 import { hexId } from '../validation.js'
+import { resolveRecipients } from '../resolve.js'
 import {
   handleLabelCreate,
   handleLabelSelf,
@@ -232,12 +233,14 @@ export function registerModerationTools(server: McpServer, deps: ToolDeps): void
     inputSchema: {
       name: z.string().min(1).describe('Set name (d-tag identifier)'),
       description: z.string().optional().describe('Human-readable description of the set'),
-      pubkeys: z.array(hexId).min(1).describe('Initial member pubkeys'),
+      pubkeys: z.array(z.string()).min(1).describe('Initial members — name, NIP-05, npub, or hex pubkey'),
     },
     annotations: { readOnlyHint: false },
   }, async ({ name, description, pubkeys }) => {
+    const resolved = await resolveRecipients(pubkeys)
+    const pubkeysHex = resolved.map(r => r.pubkeyHex)
     const result = await handleListFollowSetCreate(deps.ctx, deps.pool, {
-      name, description, pubkeys,
+      name, description, pubkeys: pubkeysHex,
     })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({
@@ -252,12 +255,14 @@ export function registerModerationTools(server: McpServer, deps: ToolDeps): void
     inputSchema: {
       name: z.string().min(1).describe('Set name (d-tag identifier)'),
       action: z.enum(['add', 'remove']).describe('Whether to add or remove members'),
-      pubkeys: z.array(hexId).min(1).describe('Pubkeys to add or remove'),
+      pubkeys: z.array(z.string()).min(1).describe('Members — name, NIP-05, npub, or hex pubkey'),
     },
     annotations: { readOnlyHint: false },
   }, async ({ name, action, pubkeys }) => {
+    const resolved = await resolveRecipients(pubkeys)
+    const pubkeysHex = resolved.map(r => r.pubkeyHex)
     const result = await handleListFollowSetManage(deps.ctx, deps.pool, {
-      name, action, pubkeys,
+      name, action, pubkeys: pubkeysHex,
     })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({

@@ -80,6 +80,18 @@ export async function resolveRecipient(
   )
 }
 
+/**
+ * Batch-resolve an array of human-friendly identifiers to hex pubkeys.
+ *
+ * Resolves all inputs in parallel via `resolveRecipient`.
+ */
+export async function resolveRecipients(
+  inputs: string[],
+  knownNames?: Map<string, string>,
+): Promise<ResolvedRecipient[]> {
+  return Promise.all(inputs.map(input => resolveRecipient(input, knownNames)))
+}
+
 function reverseLookup(map: Map<string, string>, hex: string): string | undefined {
   for (const [name, value] of map) {
     if (value === hex) return name
