@@ -16,6 +16,7 @@
     "llms-full.txt"
   ],
   "scripts": {
+    "postinstall": "cd node_modules/signet-protocol && npm run build 2>/dev/null; cd ../dominion-protocol && npm run build 2>/dev/null; cd ../nostr-veil && npm run build 2>/dev/null; true",
     "build": "tsc && node scripts/build-widgets.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
