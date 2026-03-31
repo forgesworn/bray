@@ -73,13 +73,13 @@ describe('attestation deep handlers', () => {
     it('parses assertion-first attestation with e-tag', async () => {
       const pool = mockPool()
       const { event } = await handleTrustAttest(ctx, pool as any, {
-        assertionId: 'evt999'.padEnd(64, '0'),
+        assertionId: 'e'.repeat(64),
         assertionRelay: 'wss://relay.example.com',
         summary: 'Verified',
       })
       const parsed = handleTrustAttestParse(event)
       expect(parsed).not.toBeNull()
-      expect(parsed!.assertionId).toBe('evt999'.padEnd(64, '0'))
+      expect(parsed!.assertionId).toBe('e'.repeat(64))
       expect(parsed!.assertionRelay).toBe('wss://relay.example.com')
     })
 
@@ -438,7 +438,7 @@ describe('attestation deep handlers', () => {
     it('works with assertionId', async () => {
       const pool = mockPool([])
       const result = await handleTrustAttestCheckRevoked(pool as any, 'somenpub', {
-        assertionId: 'evt999'.padEnd(64, '0'),
+        assertionId: 'e'.repeat(64),
       })
       expect(result.revoked).toBe(false)
       expect(pool.query).toHaveBeenCalled()

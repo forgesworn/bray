@@ -111,7 +111,7 @@ describe('integration: round-trip tests', () => {
     const attestResult = await handleTrustAttest(ctx, pool as any, {
       type: 'membership',
       identifier: 'org-123',
-      subject: 'subject-hex',
+      subject: 'ab'.repeat(32),
       summary: 'Verified member',
     })
     expect(attestResult.event.kind).toBe(31000)
