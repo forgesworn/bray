@@ -54,3 +54,6 @@ export interface BrayConfig {
   readonly bindAddress: string
   readonly dispatchIdentities?: string
 }
+
+export type { SigningContext, ExtendedSigningContext } from './signing-context.js'
+export { hasExtendedIdentity } from './signing-context.js'
