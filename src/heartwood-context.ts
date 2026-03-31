@@ -62,9 +62,15 @@ export class HeartwoodContext extends BunkerContext implements ExtendedSigningCo
     const params = index !== undefined
       ? [purposeOrName, String(index)]
       : [purposeOrName]
-    await this.signer.sendRequest('heartwood_switch', params)
-    // Refresh local pubkey cache after switch
-    this.pubkeyHex = await this.signer.getPublicKey()
+    const raw = await this.signer.sendRequest('heartwood_switch', params)
+    // The server returns { npub } — decode it to refresh the local pubkey cache
+    // (BunkerSigner caches getPublicKey() so we cannot rely on it after a switch)
+    const { npub } = JSON.parse(raw) as { npub: string }
+    const { decode } = await import('nostr-tools/nip19')
+    const decoded = decode(npub)
+    if (decoded.type === 'npub') {
+      this.pubkeyHex = decoded.data as unknown as string
+    }
   }
 
   /** Create a linkage proof on the Heartwood device. */

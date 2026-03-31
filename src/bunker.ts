@@ -26,6 +26,7 @@ export interface BunkerOptions {
   authorizedKeys?: string[]  // hex pubkeys allowed to send requests
   bunkerKeyHex?: string      // persistent bunker keypair (hex) — if not provided, generates ephemeral
   quiet?: boolean
+  heartwoodExtensions?: boolean
 }
 
 export interface BunkerInstance {
@@ -135,6 +136,53 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
         const [thirdPartyPk, ciphertext] = request.params
         const ck = getConversationKey(ctx.activePrivateKey, thirdPartyPk)
         result = decrypt(ciphertext, ck)
+        break
+      }
+
+      case 'heartwood_list_identities': {
+        if (!opts.heartwoodExtensions) { result = ''; error = `unsupported method: ${request.method}`; break }
+        const list = await ctx.listIdentities()
+        result = JSON.stringify(list)
+        break
+      }
+
+      case 'heartwood_derive': {
+        if (!opts.heartwoodExtensions) { result = ''; error = `unsupported method: ${request.method}`; break }
+        const [purpose, indexStr] = request.params
+        const identity = await ctx.derive(purpose, parseInt(indexStr, 10))
+        result = JSON.stringify(identity)
+        break
+      }
+
+      case 'heartwood_derive_persona': {
+        if (!opts.heartwoodExtensions) { result = ''; error = `unsupported method: ${request.method}`; break }
+        const [name, indexStr] = request.params
+        const identity = await ctx.derivePersona(name, parseInt(indexStr, 10))
+        result = JSON.stringify(identity)
+        break
+      }
+
+      case 'heartwood_switch': {
+        if (!opts.heartwoodExtensions) { result = ''; error = `unsupported method: ${request.method}`; break }
+        const [target, idxStr] = request.params
+        await ctx.switch(target, idxStr ? parseInt(idxStr, 10) : undefined)
+        result = JSON.stringify({ npub: ctx.activeNpub })
+        break
+      }
+
+      case 'heartwood_create_proof': {
+        if (!opts.heartwoodExtensions) { result = ''; error = `unsupported method: ${request.method}`; break }
+        const [, mode] = request.params
+        const proof = await ctx.prove((mode as 'blind' | 'full') ?? 'blind')
+        result = JSON.stringify(proof)
+        break
+      }
+
+      case 'heartwood_recover': {
+        if (!opts.heartwoodExtensions) { result = ''; error = `unsupported method: ${request.method}`; break }
+        const [lookaheadStr] = request.params
+        const recovered = await ctx.recover(lookaheadStr ? parseInt(lookaheadStr, 10) : undefined)
+        result = JSON.stringify(recovered)
         break
       }
 
