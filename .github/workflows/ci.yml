@@ -21,10 +21,10 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
-      # lint (tsc --noEmit) disabled until signet-protocol, dominion-protocol,
-      # nostr-veil are published to npm. Git URL deps don't resolve TS subpath
-      # exports for type checking. Build still compiles and tests still run.
-      # - run: npm run lint
+      # Build git deps that lack prepare scripts in CI
+      - run: cd node_modules/signet-protocol && npm run build --if-present; cd ../dominion-protocol && npm run build --if-present; cd ../nostr-veil && npm run build --if-present; true
+        name: Build git dependencies
+      - run: npm run lint
       - run: npm run build
       - run: npm test
 
