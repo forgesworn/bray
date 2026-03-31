@@ -43,10 +43,10 @@ export function parseBunkerUri(uri: string): BunkerConfig {
 export class BunkerContext implements SigningContext {
   protected signer: BunkerSigner
   protected pool: SimplePool
-  private pubkeyHex: string | undefined
+  protected pubkeyHex: string | undefined
   private clientSk: Uint8Array
 
-  private constructor(signer: BunkerSigner, pool: SimplePool, clientSk: Uint8Array) {
+  protected constructor(signer: BunkerSigner, pool: SimplePool, clientSk: Uint8Array) {
     this.signer = signer
     this.pool = pool
     this.clientSk = clientSk
