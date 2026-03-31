@@ -43,6 +43,7 @@ import { handleCalendarCreate, handleCalendarRead, handleCalendarRsvp } from './
 import { handleBadgeCreate, handleBadgeAward, handleBadgeAccept, handleBadgeList } from './badges.js'
 import { handleCommunityCreate, handleCommunityFeed, handleCommunityPost, handleCommunityApprove, handleCommunityList } from './communities.js'
 import { handleWikiPublish, handleWikiRead, handleWikiList } from './wiki.js'
+import { handlePostSchedule, handlePostQueueList, handlePostQueueCancel } from './scheduled.js'
 
 export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   const trustCache = new TrustCache({
@@ -1088,6 +1089,52 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       author: authorHex, limit,
     })
     return toolResponse(topics, output, fmt.formatWikiList)
+  })
+
+  // --- Scheduled posting ---
+
+  server.registerTool('post-schedule', {
+    description: 'Schedule a Nostr event for future publication. Signs the event now and queues it on disk. Use nostr-bray publish-scheduled (via cron) to publish when due.',
+    inputSchema: {
+      content: z.string().describe('Event content (note text, article body, etc.)'),
+      scheduled_at: z.string().describe('When to publish -- ISO datetime (e.g. "2026-04-01T14:00:00Z") or Unix timestamp'),
+      kind: z.number().int().optional().default(1).describe('Event kind (1 for note, 30023 for article, etc.)'),
+      tags: z.array(z.array(z.string())).optional().describe('Additional tags (e.g. [["t", "bitcoin"], ["d", "my-article"]])'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false },
+  }, async ({ content, scheduled_at, kind, tags, output }) => {
+    const result = await handlePostSchedule(deps.ctx, {
+      content,
+      scheduledAt: scheduled_at,
+      kind,
+      tags,
+      relays: deps.pool.getRelays(deps.ctx.activeNpub).write,
+    })
+    return toolResponse(result, output, fmt.formatScheduleResult)
+  })
+
+  server.registerTool('post-queue-list', {
+    description: 'List all scheduled posts waiting to be published.',
+    inputSchema: {
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ output }) => {
+    const entries = handlePostQueueList()
+    return toolResponse(entries, output, fmt.formatScheduledQueue)
+  })
+
+  server.registerTool('post-queue-cancel', {
+    description: 'Cancel a scheduled post by event ID. Removes it from the queue.',
+    inputSchema: {
+      event_id: z.string().describe('Event ID to cancel (from post-queue-list)'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true },
+  }, async ({ event_id, output }) => {
+    const result = handlePostQueueCancel(event_id)
+    return toolResponse(result, output, (r: any) => `Cancelled ${r.eventId.slice(0, 12)}...`)
   })
 
 }
