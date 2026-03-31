@@ -86,20 +86,20 @@ describe('vault handlers', () => {
   // ─── handleVaultEncrypt ──────────────────────────────────────────────────────
 
   describe('handleVaultEncrypt', () => {
-    it('returns ciphertext, tier, and epoch', () => {
-      const result = handleVaultEncrypt(ctx, { content: 'hello', tier: 'friends' })
+    it('returns ciphertext, tier, and epoch', async () => {
+      const result = await handleVaultEncrypt(ctx, { content: 'hello', tier: 'friends' })
       expect(result.ciphertext).toBeDefined()
       expect(result.tier).toBe('friends')
       expect(result.epoch).toMatch(/^\d{4}-W\d{2}$/)
     })
 
-    it('uses provided epoch when given', () => {
-      const result = handleVaultEncrypt(ctx, { content: 'secret', tier: 'family', epoch: '2026-W01' })
+    it('uses provided epoch when given', async () => {
+      const result = await handleVaultEncrypt(ctx, { content: 'secret', tier: 'family', epoch: '2026-W01' })
       expect(result.epoch).toBe('2026-W01')
     })
 
-    it('ciphertext is not the original plaintext', () => {
-      const result = handleVaultEncrypt(ctx, { content: 'my secret', tier: 'gold' })
+    it('ciphertext is not the original plaintext', async () => {
+      const result = await handleVaultEncrypt(ctx, { content: 'my secret', tier: 'gold' })
       expect(result.ciphertext).not.toBe('my secret')
     })
   })
@@ -107,39 +107,39 @@ describe('vault handlers', () => {
   // ─── handleVaultRead ─────────────────────────────────────────────────────────
 
   describe('handleVaultRead', () => {
-    it('decrypts content encrypted by handleVaultEncrypt (roundtrip)', () => {
+    it('decrypts content encrypted by handleVaultEncrypt (roundtrip)', async () => {
       const plaintext = 'sensitive vault data'
       const epoch = getCurrentEpochId()
       const tier = 'friends'
 
-      const encrypted = handleVaultEncrypt(ctx, { content: plaintext, tier, epoch })
-      const decrypted = handleVaultRead(ctx, { ciphertext: encrypted.ciphertext, tier, epoch })
+      const encrypted = await handleVaultEncrypt(ctx, { content: plaintext, tier, epoch })
+      const decrypted = await handleVaultRead(ctx, { ciphertext: encrypted.ciphertext, tier, epoch })
 
       expect(decrypted.plaintext).toBe(plaintext)
       expect(decrypted.tier).toBe(tier)
       expect(decrypted.epoch).toBe(epoch)
     })
 
-    it('roundtrip works with a specific past epoch', () => {
+    it('roundtrip works with a specific past epoch', async () => {
       const plaintext = 'archive entry'
       const epoch = '2025-W01'
       const tier = 'family'
 
-      const encrypted = handleVaultEncrypt(ctx, { content: plaintext, tier, epoch })
-      const decrypted = handleVaultRead(ctx, { ciphertext: encrypted.ciphertext, tier, epoch })
+      const encrypted = await handleVaultEncrypt(ctx, { content: plaintext, tier, epoch })
+      const decrypted = await handleVaultRead(ctx, { ciphertext: encrypted.ciphertext, tier, epoch })
 
       expect(decrypted.plaintext).toBe(plaintext)
     })
 
-    it('throws when decrypting with wrong tier', () => {
+    it('throws when decrypting with wrong tier', async () => {
       const epoch = '2026-W01'
-      const encrypted = handleVaultEncrypt(ctx, { content: 'data', tier: 'friends', epoch })
-      expect(() => handleVaultRead(ctx, { ciphertext: encrypted.ciphertext, tier: 'family', epoch })).toThrow()
+      const encrypted = await handleVaultEncrypt(ctx, { content: 'data', tier: 'friends', epoch })
+      await expect(handleVaultRead(ctx, { ciphertext: encrypted.ciphertext, tier: 'family', epoch })).rejects.toThrow()
     })
 
-    it('throws when decrypting with wrong epoch', () => {
-      const encrypted = handleVaultEncrypt(ctx, { content: 'data', tier: 'friends', epoch: '2026-W01' })
-      expect(() => handleVaultRead(ctx, { ciphertext: encrypted.ciphertext, tier: 'friends', epoch: '2026-W02' })).toThrow()
+    it('throws when decrypting with wrong epoch', async () => {
+      const encrypted = await handleVaultEncrypt(ctx, { content: 'data', tier: 'friends', epoch: '2026-W01' })
+      await expect(handleVaultRead(ctx, { ciphertext: encrypted.ciphertext, tier: 'friends', epoch: '2026-W02' })).rejects.toThrow()
     })
   })
 

@@ -171,7 +171,7 @@ export async function handleVaultEncrypt(
 ): Promise<VaultEncryptResult> {
   const privkeyHex = Buffer.from(ctx.activePrivateKey).toString('hex')
   const epoch = args.epoch ?? getCurrentEpochId()
-  const ck = deriveContentKey(privkeyHex, epoch)
+  const ck = deriveContentKey(privkeyHex, epoch, args.tier)
   try {
     const ciphertext = await encrypt(args.content, ck)
     return { ciphertext, tier: args.tier, epoch }
@@ -190,7 +190,7 @@ export async function handleVaultShare(
   const privkeyBytes = Buffer.from(privkeyHex, 'hex')
   const epoch = args.epoch ?? getCurrentEpochId()
   const authorPubkeyHex = ctx.activePublicKeyHex
-  const ck = deriveContentKey(privkeyHex, epoch)
+  const ck = deriveContentKey(privkeyHex, epoch, args.tier)
   let published = 0
   let failed = 0
   const successfulRecipients: string[] = []
@@ -240,7 +240,7 @@ export async function handleVaultRead(
   args: { ciphertext: string; tier: string; epoch: string },
 ): Promise<VaultReadResult> {
   const privkeyHex = Buffer.from(ctx.activePrivateKey).toString('hex')
-  const ck = deriveContentKey(privkeyHex, args.epoch)
+  const ck = deriveContentKey(privkeyHex, args.epoch, args.tier)
   try {
     const plaintext = await decrypt(args.ciphertext, ck)
     return { plaintext, tier: args.tier, epoch: args.epoch }
