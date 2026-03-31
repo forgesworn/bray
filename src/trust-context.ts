@@ -1,6 +1,6 @@
 import { npubEncode } from 'nostr-tools/nip19'
 import type { Event as NostrEvent } from 'nostr-tools'
-import type { IdentityContext } from './context.js'
+import type { SigningContext } from './signing-context.js'
 import type { RelayPool } from './relay-pool.js'
 import { SignetAssessor } from './signet/assessor.js'
 import { VaultResolver } from './vault/resolver.js'
@@ -171,7 +171,7 @@ async function checkMutual(
 // ─── TrustContext class ───────────────────────────────────────────────────────
 
 export class TrustContext {
-  private readonly ctx: IdentityContext
+  private readonly ctx: SigningContext
   private readonly pool: RelayPool
   readonly mode: TrustMode
   private readonly signet: SignetAssessor
@@ -179,7 +179,7 @@ export class TrustContext {
   private readonly veil: VeilScoring
   private readonly veilCache: TrustCache
 
-  constructor(ctx: IdentityContext, pool: RelayPool, opts: TrustContextOptions) {
+  constructor(ctx: SigningContext, pool: RelayPool, opts: TrustContextOptions) {
     this.ctx = ctx
     this.pool = pool
     this.mode = opts.trustMode
@@ -197,12 +197,11 @@ export class TrustContext {
 
     const myPubkeyHex = this.ctx.activePublicKeyHex
     const myNpub = this.ctx.activeNpub
-    const myPrivkeyHex = Buffer.from(this.ctx.activePrivateKey).toString('hex')
 
     const [verification, veilResult, access, distance, mutual] = await Promise.all([
       this.signet.assess(myNpub, targetPubkeyHex),
       this.veil.scorePubkey(targetPubkeyHex),
-      this.vault.resolve(myPubkeyHex, targetPubkeyHex, myPrivkeyHex),
+      this.vault.resolve(myPubkeyHex, targetPubkeyHex, ''),
       resolveDistance(this.pool, myNpub, myPubkeyHex, targetPubkeyHex),
       checkMutual(this.pool, myNpub, myPubkeyHex, targetPubkeyHex),
     ])

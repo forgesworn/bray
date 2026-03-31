@@ -17,6 +17,7 @@ import { registerMarketplaceTools } from './marketplace/tools.js'
 import { registerPrivacyTools } from './privacy/tools.js'
 import { registerModerationTools } from './moderation/tools.js'
 import { TrustContext } from './trust-context.js'
+import type { SigningContext } from './signing-context.js'
 import { registerSignetTools } from './signet/tools.js'
 import { registerVaultTools } from './vault/tools.js'
 import { registerDispatchTools } from './dispatch/tools.js'
@@ -30,24 +31,34 @@ const pool = new RelayPool({
 })
 const nip65 = new Nip65Manager(pool, config.relays)
 
-// Connect to bunker or use local key
-let ctx: IdentityContext | import('./bunker-context.js').BunkerContext
+// Connect to bunker (with Heartwood auto-detection) or use local key
+let ctx: SigningContext
 if (config.bunkerUri) {
   const { BunkerContext } = await import('./bunker-context.js')
-  ctx = await BunkerContext.connect(config.bunkerUri)
-  console.error(`Connected to bunker — signing as ${ctx.activeNpub}`)
+  const base = await BunkerContext.connect(config.bunkerUri)
+
+  // Probe for Heartwood extensions
+  const { HeartwoodContext } = await import('./heartwood-context.js')
+  const hw = await HeartwoodContext.probe(base)
+  if (hw) {
+    ctx = hw
+    console.error(`Connected to Heartwood — signing as ${hw.activeNpub}`)
+  } else {
+    ctx = base
+    console.error(`Connected to bunker — signing as ${base.activeNpub}`)
+  }
 } else {
   ctx = new IdentityContext(config.secretKey, config.secretFormat)
 }
 
-const trust = new TrustContext(ctx as any, pool, {
+const trust = new TrustContext(ctx, pool, {
   cacheTtl: config.trustCacheTtl,
   cacheMax: config.trustCacheMax,
   trustMode: config.trustMode,
 })
 
 export const deps = {
-  ctx: ctx as any, pool, nip65, trust,
+  ctx, pool, nip65, trust,
   nwcUri: config.nwcUri,
   walletsFile: config.walletsFile,
   nip04Enabled: config.nip04Enabled,
