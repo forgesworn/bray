@@ -63,7 +63,25 @@ export function registerDispatchTools(server: McpServer, deps: ToolDeps & { disp
     },
     annotations: { readOnlyHint: false },
   }, async ({ to, type, prompt, repos, branch_from, context_id, depth, depends_on, output }) => {
-    const resolved = await resolveRecipient(to, identities)
+    let resolved: Awaited<ReturnType<typeof resolveRecipient>>
+    try {
+      resolved = await resolveRecipient(to, identities)
+    } catch (resolveErr: any) {
+      // NIP-89 capability discovery fallback — search for agents by name
+      const cards = await handleCapabilityDiscover(deps.pool, deps.ctx.activeNpub, {})
+      const matches = cards.filter(c =>
+        c.name.toLowerCase() === to.toLowerCase() ||
+        c.slug.toLowerCase() === to.toLowerCase()
+      )
+      if (matches.length === 1) {
+        resolved = { pubkeyHex: matches[0].pubkey, resolvedVia: 'name' as const, displayName: matches[0].name }
+      } else if (matches.length > 1) {
+        const list = matches.map(c => `  - ${c.name} (${c.pubkey.slice(0, 12)}…)`).join('\n')
+        throw new Error(`Multiple NIP-89 capability cards match "${to}":\n${list}\nSpecify a pubkey or npub to disambiguate.`)
+      } else {
+        throw resolveErr
+      }
+    }
     const result = await handleDispatchSend(deps.ctx, deps.pool, {
       identities,
       recipientHex: resolved.pubkeyHex,

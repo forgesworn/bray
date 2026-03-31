@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
 import { hexId } from '../validation.js'
-import { resolveRecipient, resolveRecipients } from '../resolve.js'
+import { resolveRecipient, resolveRecipients, resolveWithProfile } from '../resolve.js'
 import { toolResponse } from '../tool-response.js'
 import * as fmt from '../format.js'
 import { VeilScoring } from '../veil/scoring.js'
@@ -42,6 +42,7 @@ import { handleSearchNotes, handleSearchProfiles, handleHashtagFeed } from './se
 import { handleCalendarCreate, handleCalendarRead, handleCalendarRsvp } from './calendar.js'
 import { handleBadgeCreate, handleBadgeAward, handleBadgeAccept, handleBadgeList } from './badges.js'
 import { handleCommunityCreate, handleCommunityFeed, handleCommunityPost, handleCommunityApprove, handleCommunityList } from './communities.js'
+import { handleWikiPublish, handleWikiRead, handleWikiList } from './wiki.js'
 
 export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   const trustCache = new TrustCache({
@@ -143,7 +144,11 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: true },
   }, async ({ pubkey, output }) => {
-    const resolved = await resolveRecipient(pubkey)
+    const resolved = await resolveWithProfile(pubkey, deps.pool, deps.ctx.activeNpub)
+    if (resolved.profile) {
+      return toolResponse(resolved.profile, output, fmt.formatProfile)
+    }
+    // Fallback to standard fetch if resolveWithProfile didn't get the profile
     const profile = await handleSocialProfileGet(deps.pool, deps.ctx.activeNpub, resolved.pubkeyHex)
     return toolResponse(profile, output, fmt.formatProfile)
   })
@@ -1016,6 +1021,73 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   }, async ({ limit, output }) => {
     const result = await handleCommunityList(deps.pool, deps.ctx.activeNpub, { limit })
     return toolResponse(result, output, fmt.formatCommunities)
+  })
+
+  // --- NIP-54 Wiki ---
+
+  server.registerTool('wiki-publish', {
+    description: 'Publish or update a wiki article (NIP-54, kind 30818). Creates a replaceable event keyed by topic (d-tag). Content convention is Asciidoc but Markdown is widely accepted. Articles are collaborative — anyone can publish a revision for the same topic.',
+    inputSchema: {
+      topic: z.string().describe('Article topic / slug (d-tag) — lowercase, hyphens instead of spaces'),
+      title: z.string().describe('Human-readable article title'),
+      content: z.string().describe('Article body (Asciidoc or Markdown)'),
+      summary: z.string().optional().describe('Short summary of the article'),
+      hashtags: z.array(z.string()).optional().describe('Topic hashtags (without #)'),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true },
+  }, async ({ topic, title, content, summary, hashtags }) => {
+    const result = await handleWikiPublish(deps.ctx, deps.pool, {
+      topic, title, content, summary, hashtags,
+    })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({
+        id: result.event.id,
+        pubkey: result.event.pubkey,
+        topic: result.event.tags.find(t => t[0] === 'd')?.[1],
+        publish: result.publish,
+      }, null, 2) }],
+    }
+  })
+
+  server.registerTool('wiki-read', {
+    description: 'Read wiki article(s) by topic (NIP-54, kind 30818). Without an author, returns versions from multiple authors sorted by recency — readers pick the version from the author they trust most. Accepts any identifier for author: name, NIP-05, npub, or hex pubkey.',
+    inputSchema: {
+      topic: z.string().describe('Article topic / slug (d-tag)'),
+      author: z.string().optional().describe('Author — name, NIP-05, npub, or hex pubkey (omit to see all authors)'),
+      limit: z.number().int().min(1).max(100).default(10).describe('Max articles to return (when no author specified)'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ topic, author, limit, output }) => {
+    let authorHex: string | undefined
+    if (author) {
+      const resolved = await resolveRecipient(author)
+      authorHex = resolved.pubkeyHex
+    }
+    const articles = await handleWikiRead(deps.pool, deps.ctx.activeNpub, {
+      topic, author: authorHex, limit,
+    })
+    return toolResponse(articles, output, fmt.formatWikiArticles)
+  })
+
+  server.registerTool('wiki-list', {
+    description: 'List wiki topics (NIP-54, kind 30818). Returns unique topics with latest title, summary, and author. Optionally filter by author. Accepts any identifier: name, NIP-05, npub, or hex pubkey.',
+    inputSchema: {
+      author: z.string().optional().describe('Author — name, NIP-05, npub, or hex pubkey (omit to list all topics)'),
+      limit: z.number().int().min(1).max(200).default(50).describe('Max topics to return'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ author, limit, output }) => {
+    let authorHex: string | undefined
+    if (author) {
+      const resolved = await resolveRecipient(author)
+      authorHex = resolved.pubkeyHex
+    }
+    const topics = await handleWikiList(deps.pool, deps.ctx.activeNpub, {
+      author: authorHex, limit,
+    })
+    return toolResponse(topics, output, fmt.formatWikiList)
   })
 
 }
