@@ -167,3 +167,41 @@ export function formatDecode(result: { type: string; data: unknown }): string {
   }
   return lines.join('\n')
 }
+
+// --- Dispatch formatters ---
+
+export function formatDispatchSendResult(result: any): string {
+  if (!result.sent) return `Failed to send ${result.messageType} to ${result.recipientName}`
+  return `Sent ${result.messageType} (${result.taskId}) to ${result.recipientName}\nRelays: ${result.publish.accepted.join(', ') || 'none accepted'}`
+}
+
+export function formatDispatchMessages(messages: any[]): string {
+  if (messages.length === 0) return 'No dispatch messages.'
+  return messages.map(m => {
+    const time = new Date(m.createdAt * 1000).toLocaleString()
+    const name = m.fromName || m.from.slice(0, 12) + '...'
+    const msg = m.message
+    switch (msg.type) {
+      case 'claude-think':
+        return `Think task from ${name}: ${msg.prompt?.slice(0, 80) ?? ''}\n  Repos: ${(msg.repos ?? []).join(', ')}  Reply to: ${msg.re?.slice(0, 12) ?? '?'}  (${time})\n  Event ID: ${m.eventId}`
+      case 'claude-build':
+        return `Build task from ${name}: ${msg.prompt?.slice(0, 80) ?? ''}\n  Repos: ${(msg.repos ?? []).join(', ')}  Branch from: ${msg.branch ?? 'main'}  (${time})\n  Event ID: ${m.eventId}`
+      case 'claude-result':
+        const payload = msg.plan || msg.tests || ''
+        return `Result from ${name} for ${msg.re?.slice(0, 12) ?? '?'} (${msg.mode ?? '?'}):\n  ${String(payload).slice(0, 200)}  (${time})`
+      case 'claude-status':
+        return `Status from ${name}: ${msg.status} — ${msg.note ?? ''}  (${time})`
+      case 'claude-ack':
+        return `Ack from ${name} for ${msg.re?.slice(0, 12) ?? '?'}: ${msg.note ?? ''}  (${time})`
+      case 'claude-cancel':
+        return `Cancel from ${name} for ${msg.re?.slice(0, 12) ?? '?'}: ${msg.note ?? ''}  (${time})`
+      default:
+        return `${msg.type} from ${name}  (${time})`
+    }
+  }).join('\n\n')
+}
+
+export function formatDispatchReplyResult(result: any): string {
+  const del = result.deleted ? ' (original message deleted)' : ''
+  return `Sent ${result.messageType}${del}`
+}
