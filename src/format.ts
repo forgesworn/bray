@@ -237,6 +237,30 @@ export function formatDispatchMessages(messages: any[]): string {
   }).join('\n\n')
 }
 
+export function formatSearchResults(notes: any[]): string {
+  if (notes.length === 0) return 'No matching notes found.'
+  return notes.map(n => {
+    const time = new Date(n.createdAt * 1000).toLocaleString()
+    const author = n.pubkey?.slice(0, 12) + '...'
+    const tags = n.hashtags?.length ? `  [${n.hashtags.join(', ')}]` : ''
+    return `${author}  ${time}${tags}\n  ${n.content?.slice(0, 200)}\n`
+  }).join('\n')
+}
+
+export function formatProfileSearchResults(profiles: any[]): string {
+  if (profiles.length === 0) return 'No matching profiles found.'
+  return profiles.map(p => {
+    const label = p.display_name || p.name || p.pubkey?.slice(0, 12) + '...'
+    const parts = [label]
+    if (p.name && p.display_name && p.name !== p.display_name) parts.push(`(@${p.name})`)
+    else if (p.name && !p.display_name) parts.push(`(@${p.name})`)
+    if (p.nip05) parts.push(`[${p.nip05}]`)
+    parts.push(p.pubkey?.slice(0, 12) + '...')
+    if (p.about) parts.push(`\n  ${p.about.slice(0, 120)}`)
+    return parts.join('  ')
+  }).join('\n')
+}
+
 export function formatDispatchReplyResult(result: any): string {
   const del = result.deleted ? ' (original message deleted)' : ''
   return `Sent ${result.messageType}${del}`
