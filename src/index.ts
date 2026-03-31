@@ -19,6 +19,7 @@ import { registerModerationTools } from './moderation/tools.js'
 import { TrustContext } from './trust-context.js'
 import { registerSignetTools } from './signet/tools.js'
 import { registerVaultTools } from './vault/tools.js'
+import { registerDispatchTools } from './dispatch/tools.js'
 import { ActionCatalog, createCatalogProxy } from './catalog.js'
 
 const config = await loadConfig()
@@ -72,6 +73,7 @@ const PROMOTED = new Set([
   'dm-send', 'dm-read', 'zap-send', 'zap-balance',
   'identity-switch', 'relay-query',
   'signet-badge', 'trust-score', 'vault-read',
+  'dispatch-send', 'dispatch-check', 'dispatch-reply',
 ])
 const catalog = new ActionCatalog()
 const proxy = createCatalogProxy(server, catalog, PROMOTED)
@@ -97,6 +99,7 @@ registerPrivacyTools(proxy, deps)
 registerModerationTools(proxy, deps)
 registerSignetTools(proxy, deps)
 registerVaultTools(proxy, deps)
+registerDispatchTools(proxy, { ...deps, dispatchIdentitiesPath: config.dispatchIdentities })
 
 // Add search-actions and execute-action meta-tools to the real server
 catalog.registerMetaTools(server)
