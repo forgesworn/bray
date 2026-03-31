@@ -46,7 +46,7 @@ export function parseIdentities(markdown: string): Map<string, string> {
 
     // Skip the header row (first non-separator row before the separator)
     if (!headerSkipped) {
-      headerSkipped = false
+      headerSkipped = true
       continue
     }
 

@@ -5,6 +5,12 @@ import {
   handleDispatchSend,
   handleDispatchCheck,
   handleDispatchReply,
+  handleDispatchAck,
+  handleDispatchStatus,
+  handleDispatchCancel,
+  handleDispatchRefuse,
+  handleDispatchFailure,
+  handleDispatchQuery,
 } from '../../src/dispatch/handlers.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
@@ -40,23 +46,22 @@ describe('dispatch handlers', () => {
   // handleDispatchSend
   // -------------------------------------------------------------------------
   describe('handleDispatchSend', () => {
-    it('sends a think task to a named recipient', async () => {
+    it('sends a think task to a resolved recipient', async () => {
       const pool = mockPool()
       const result = await handleDispatchSend(ctx, pool as any, {
         identities: makeIdentities(),
-        to: 'alice',
+        recipientHex: ALICE_HEX,
+        recipientName: 'alice',
         type: 'think',
         prompt: 'Analyse the relay pool architecture',
       })
 
       expect(result.sent).toBe(true)
-      expect(result.messageType).toBe('claude-think')
+      expect(result.messageType).toBe('dispatch-think')
       expect(result.recipientName).toBe('alice')
       expect(result.recipientHex).toBe(ALICE_HEX)
       expect(result.taskId).toMatch(/^think-/)
       expect(result.publish).toBeDefined()
-
-      // Verify the DM was sent with a JSON dispatch message
       expect(pool.publish).toHaveBeenCalled()
     })
 
@@ -64,7 +69,8 @@ describe('dispatch handlers', () => {
       const pool = mockPool()
       const result = await handleDispatchSend(ctx, pool as any, {
         identities: makeIdentities(),
-        to: 'bob',
+        recipientHex: BOB_HEX,
+        recipientName: 'bob',
         type: 'build',
         prompt: 'Add dispatch handlers',
         repos: ['bray'],
@@ -72,51 +78,10 @@ describe('dispatch handlers', () => {
       })
 
       expect(result.sent).toBe(true)
-      expect(result.messageType).toBe('claude-build')
+      expect(result.messageType).toBe('dispatch-build')
       expect(result.recipientName).toBe('bob')
       expect(result.recipientHex).toBe(BOB_HEX)
       expect(result.taskId).toMatch(/^build-/)
-    })
-
-    it('rejects an unknown recipient', async () => {
-      const pool = mockPool()
-      await expect(
-        handleDispatchSend(ctx, pool as any, {
-          identities: makeIdentities(),
-          to: 'charlie',
-          type: 'think',
-          prompt: 'Hello',
-        }),
-      ).rejects.toThrow(/charlie/)
-    })
-
-    it('performs case-insensitive name lookup', async () => {
-      const pool = mockPool()
-      const result = await handleDispatchSend(ctx, pool as any, {
-        identities: makeIdentities(),
-        to: 'Alice',
-        type: 'think',
-        prompt: 'Test case insensitivity',
-      })
-
-      expect(result.recipientName).toBe('alice')
-      expect(result.recipientHex).toBe(ALICE_HEX)
-    })
-
-    it('includes known names in the error for unknown recipient', async () => {
-      const pool = mockPool()
-      try {
-        await handleDispatchSend(ctx, pool as any, {
-          identities: makeIdentities(),
-          to: 'charlie',
-          type: 'think',
-          prompt: 'Hello',
-        })
-        expect.fail('Should have thrown')
-      } catch (err: any) {
-        expect(err.message).toContain('alice')
-        expect(err.message).toContain('bob')
-      }
     })
   })
 
@@ -156,13 +121,13 @@ describe('dispatch handlers', () => {
         identities: makeIdentities(),
         re: 'think-abc123',
         to: ALICE_HEX,
-        mode: 'think',
+        type: 'think',
         plan: 'Step 1: do this\nStep 2: do that',
         filesRead: ['src/index.ts'],
       })
 
       expect(result.sent).toBe(true)
-      expect(result.messageType).toBe('claude-result')
+      expect(result.messageType).toBe('dispatch-result')
       expect(result.deleted).toBe(false)
     })
 
@@ -172,7 +137,7 @@ describe('dispatch handlers', () => {
         identities: makeIdentities(),
         re: 'build-xyz789',
         to: BOB_HEX,
-        mode: 'build',
+        type: 'build',
         branch: 'feat/dispatch',
         commits: ['abc1234'],
         tests: '10 passed, 0 failed',
@@ -180,7 +145,7 @@ describe('dispatch handlers', () => {
       })
 
       expect(result.sent).toBe(true)
-      expect(result.messageType).toBe('claude-result')
+      expect(result.messageType).toBe('dispatch-result')
     })
 
     it('deletes original event when deleteEventId provided', async () => {
@@ -189,20 +154,17 @@ describe('dispatch handlers', () => {
         identities: makeIdentities(),
         re: 'think-abc123',
         to: ALICE_HEX,
-        mode: 'think',
+        type: 'think',
         plan: 'Done',
         deleteEventId: 'event123',
       })
 
       expect(result.deleted).toBe(true)
-      // publish is called for: DM send (gift wrap + sender copy) + delete event
-      // At minimum, the delete event should trigger another publish call
       expect(pool.publish.mock.calls.length).toBeGreaterThanOrEqual(2)
     })
 
     it('handles delete failure gracefully', async () => {
       const pool = mockPool()
-      // First two publish calls succeed (DM send), third fails (delete)
       pool.publish
         .mockResolvedValueOnce({ success: true, accepted: ['wss://relay.trotters.cc'], rejected: [], errors: [] })
         .mockResolvedValueOnce({ success: true, accepted: ['wss://relay.trotters.cc'], rejected: [], errors: [] })
@@ -212,13 +174,175 @@ describe('dispatch handlers', () => {
         identities: makeIdentities(),
         re: 'think-abc123',
         to: ALICE_HEX,
-        mode: 'think',
+        type: 'think',
         deleteEventId: 'event123',
       })
 
-      // Should not throw, just mark as not deleted
       expect(result.sent).toBe(true)
       expect(result.deleted).toBe(false)
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // handleDispatchAck
+  // -------------------------------------------------------------------------
+  describe('handleDispatchAck', () => {
+    it('sends an ack message', async () => {
+      const pool = mockPool()
+      const result = await handleDispatchAck(ctx, pool as any, {
+        identities: makeIdentities(),
+        re: 'think-abc123',
+        to: ALICE_HEX,
+        note: 'Starting analysis',
+      })
+
+      expect(result.sent).toBe(true)
+      expect(result.messageType).toBe('dispatch-ack')
+      expect(result.deleted).toBe(false)
+      expect(pool.publish).toHaveBeenCalled()
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // handleDispatchStatus
+  // -------------------------------------------------------------------------
+  describe('handleDispatchStatus', () => {
+    it('sends a status update', async () => {
+      const pool = mockPool()
+      const result = await handleDispatchStatus(ctx, pool as any, {
+        identities: makeIdentities(),
+        to: BOB_HEX,
+        status: 'busy',
+        note: 'Processing a build task',
+        queue: 2,
+      })
+
+      expect(result.sent).toBe(true)
+      expect(result.messageType).toBe('dispatch-status')
+      expect(pool.publish).toHaveBeenCalled()
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // handleDispatchCancel
+  // -------------------------------------------------------------------------
+  describe('handleDispatchCancel', () => {
+    it('sends a cancel message', async () => {
+      const pool = mockPool()
+      const result = await handleDispatchCancel(ctx, pool as any, {
+        identities: makeIdentities(),
+        re: 'build-xyz789',
+        to: BOB_HEX,
+        note: 'No longer needed',
+      })
+
+      expect(result.sent).toBe(true)
+      expect(result.messageType).toBe('dispatch-cancel')
+      expect(pool.publish).toHaveBeenCalled()
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // handleDispatchRefuse
+  // -------------------------------------------------------------------------
+  describe('handleDispatchRefuse', () => {
+    it('sends a refuse message with reason', async () => {
+      const pool = mockPool()
+      const result = await handleDispatchRefuse(ctx, pool as any, {
+        identities: makeIdentities(),
+        re: 'build-xyz789',
+        to: BOB_HEX,
+        reason: 'Repository not available locally',
+      })
+
+      expect(result.sent).toBe(true)
+      expect(result.messageType).toBe('dispatch-refuse')
+      expect(pool.publish).toHaveBeenCalled()
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // handleDispatchFailure
+  // -------------------------------------------------------------------------
+  describe('handleDispatchFailure', () => {
+    it('sends a failure message with error', async () => {
+      const pool = mockPool()
+      const result = await handleDispatchFailure(ctx, pool as any, {
+        identities: makeIdentities(),
+        re: 'build-xyz789',
+        to: BOB_HEX,
+        error: 'Build failed: type error in handlers.ts:42',
+      })
+
+      expect(result.sent).toBe(true)
+      expect(result.messageType).toBe('dispatch-failure')
+      expect(pool.publish).toHaveBeenCalled()
+    })
+
+    it('includes partial results', async () => {
+      const pool = mockPool()
+      const result = await handleDispatchFailure(ctx, pool as any, {
+        identities: makeIdentities(),
+        re: 'build-xyz789',
+        to: BOB_HEX,
+        error: 'Tests failed after implementation',
+        partial: 'Branch feat/dispatch created with 3 commits. 8 of 10 tests pass.',
+      })
+
+      expect(result.sent).toBe(true)
+      expect(result.messageType).toBe('dispatch-failure')
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // handleDispatchQuery
+  // -------------------------------------------------------------------------
+  describe('handleDispatchQuery', () => {
+    it('sends a clarifying question', async () => {
+      const pool = mockPool()
+      const result = await handleDispatchQuery(ctx, pool as any, {
+        identities: makeIdentities(),
+        re: 'think-abc123',
+        to: ALICE_HEX,
+        question: 'Should the analysis include performance benchmarks or just architecture review?',
+      })
+
+      expect(result.sent).toBe(true)
+      expect(result.messageType).toBe('dispatch-query')
+      expect(pool.publish).toHaveBeenCalled()
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // Delegation depth limit
+  // -------------------------------------------------------------------------
+  describe('delegation depth', () => {
+    it('rejects sending when depth is 0', async () => {
+      const pool = mockPool()
+      await expect(
+        handleDispatchSend(ctx, pool as any, {
+          identities: makeIdentities(),
+          recipientHex: ALICE_HEX,
+          recipientName: 'alice',
+          type: 'think',
+          prompt: 'Should be blocked',
+          depth: 0,
+        }),
+      ).rejects.toThrow(/depth/)
+    })
+
+    it('allows sending when depth is positive', async () => {
+      const pool = mockPool()
+      const result = await handleDispatchSend(ctx, pool as any, {
+        identities: makeIdentities(),
+        recipientHex: ALICE_HEX,
+        recipientName: 'alice',
+        type: 'think',
+        prompt: 'Should work',
+        depth: 3,
+      })
+
+      expect(result.sent).toBe(true)
     })
   })
 })
