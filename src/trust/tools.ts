@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
 import { hexId } from '../validation.js'
-import { resolveRecipients } from '../resolve.js'
+import { resolveRecipient, resolveRecipients } from '../resolve.js'
 import {
   handleTrustAttest,
   handleTrustRead,
@@ -29,7 +29,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
     description: 'Verify someone else\'s claim by attesting to their assertion event. The subject publishes their claim as a Nostr event; you reference it and say "I verify this." The type is inherited from the referenced event. This is the recommended pattern — it puts the individual at the centre.',
     inputSchema: {
       assertionId: hexId.describe('Event ID of the subject\'s assertion to verify'),
-      subject: hexId.optional().describe('Subject hex pubkey (auto-detected from assertion if omitted)'),
+      subject: z.string().optional().describe('Subject — name, NIP-05, npub, or hex pubkey (auto-detected from assertion if omitted)'),
       type: z.string().optional().describe('Explicit type override (usually inherited from the assertion)'),
       summary: z.string().optional().describe('Human-readable summary of what was verified'),
       content: z.string().optional().describe('Evidence payload (text or JSON)'),
@@ -38,8 +38,9 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: false },
   }, async ({ assertionId, subject, type, summary, content, expiration, assertionRelay }) => {
+    const resolvedSubject = subject ? (await resolveRecipient(subject)).pubkeyHex : undefined
     const result = await handleTrustAttest(deps.ctx, deps.pool, {
-      assertionId, subject, type, summary, content, expiration, assertionRelay,
+      assertionId, subject: resolvedSubject, type, summary, content, expiration, assertionRelay,
     })
     const response: Record<string, unknown> = {
       id: result.event.id,
@@ -55,7 +56,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
     description: 'Make a direct statement about another identity — an endorsement, review, vouch, or any attestor-originated claim. You define the type and subject. Use trust-attest instead if the subject has published their own assertion event.',
     inputSchema: {
       type: z.string().describe('Claim type (e.g. "endorsement", "vouch", "review")'),
-      subject: hexId.optional().describe('Subject hex pubkey (omit for self-declarations)'),
+      subject: z.string().optional().describe('Subject — name, NIP-05, npub, or hex pubkey (omit for self-declarations)'),
       identifier: z.string().optional().describe('D-tag identifier (defaults to subject pubkey)'),
       summary: z.string().optional().describe('Human-readable summary'),
       content: z.string().optional().describe('Event content (text or JSON)'),
@@ -63,8 +64,9 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: false },
   }, async ({ type, subject, identifier, summary, content, expiration }) => {
+    const resolvedSubject = subject ? (await resolveRecipient(subject)).pubkeyHex : undefined
     const result = await handleTrustAttest(deps.ctx, deps.pool, {
-      type, subject, identifier, summary, content, expiration,
+      type, subject: resolvedSubject, identifier, summary, content, expiration,
     })
     const response: Record<string, unknown> = {
       id: result.event.id,
@@ -79,13 +81,15 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('trust-read', {
     description: 'Read kind 31000 attestations from relays. Filter by subject, type, or attestor. Works with both assertion-first (trust-attest) and direct claims (trust-claim).',
     inputSchema: {
-      subject: hexId.optional().describe('Subject hex pubkey to filter by'),
+      subject: z.string().optional().describe('Subject — name, NIP-05, npub, or hex pubkey'),
       type: z.string().optional().describe('Attestation type to filter by'),
-      attestor: hexId.optional().describe('Attestor hex pubkey to filter by'),
+      attestor: z.string().optional().describe('Attestor — name, NIP-05, npub, or hex pubkey'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ subject, type, attestor }) => {
-    const events = await handleTrustRead(deps.pool, deps.ctx.activeNpub, { subject, type, attestor })
+    const resolvedSubject = subject ? (await resolveRecipient(subject)).pubkeyHex : undefined
+    const resolvedAttestor = attestor ? (await resolveRecipient(attestor)).pubkeyHex : undefined
+    const events = await handleTrustRead(deps.pool, deps.ctx.activeNpub, { subject: resolvedSubject, type, attestor: resolvedAttestor })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(events.map(e => ({
         id: e.id,
@@ -134,15 +138,17 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('trust-request', {
     description: 'Send an attestation request to another Nostr identity via NIP-17 encrypted DM.',
     inputSchema: {
-      recipientPubkeyHex: hexId.describe('Hex pubkey of the attestor you are requesting from'),
-      subject: hexId.describe('Hex pubkey of the subject to be attested'),
+      recipientPubkeyHex: z.string().describe('Attestor to request from — name, NIP-05, npub, or hex pubkey'),
+      subject: z.string().describe('Subject to be attested — name, NIP-05, npub, or hex pubkey'),
       attestationType: z.string().describe('Type of attestation requested'),
       message: z.string().optional().describe('Optional message explaining the request'),
     },
     annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ recipientPubkeyHex, subject, attestationType, message }) => {
+    const resolvedRecipient = (await resolveRecipient(recipientPubkeyHex)).pubkeyHex
+    const resolvedSubject = (await resolveRecipient(subject)).pubkeyHex
     const result = await handleTrustRequest(deps.ctx, deps.pool, {
-      recipientPubkeyHex, subject, attestationType, message,
+      recipientPubkeyHex: resolvedRecipient, subject: resolvedSubject, attestationType, message,
     })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({ id: result.event.id, publish: result.publish }, null, 2) }],
@@ -260,15 +266,17 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
     description: 'Build a Nostr relay filter for attestation queries. Returns a filter object suitable for relay subscriptions. Supports filtering by type, subject, attestor, schema, and time range.',
     inputSchema: {
       type: z.string().optional().describe('Attestation type to filter by'),
-      subject: hexId.optional().describe('Subject hex pubkey to filter by'),
-      attestor: hexId.optional().describe('Attestor hex pubkey to filter by'),
+      subject: z.string().optional().describe('Subject — name, NIP-05, npub, or hex pubkey'),
+      attestor: z.string().optional().describe('Attestor — name, NIP-05, npub, or hex pubkey'),
       schema: z.string().optional().describe('Schema URI to filter by'),
       since: z.number().int().optional().describe('Unix timestamp — only events after this time'),
       until: z.number().int().optional().describe('Unix timestamp — only events before this time'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ type, subject, attestor, schema, since, until }) => {
-    const filter = handleTrustAttestFilter({ type, subject, attestor, schema, since, until })
+    const resolvedSubject = subject ? (await resolveRecipient(subject)).pubkeyHex : undefined
+    const resolvedAttestor = attestor ? (await resolveRecipient(attestor)).pubkeyHex : undefined
+    const filter = handleTrustAttestFilter({ type, subject: resolvedSubject, attestor: resolvedAttestor, schema, since, until })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(filter, null, 2) }],
     }
@@ -279,7 +287,7 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
     inputSchema: {
       type: z.string().optional().describe('Attestation type (required unless assertionId provided)'),
       identifier: z.string().optional().describe('D-tag identifier'),
-      subject: hexId.optional().describe('Subject hex pubkey'),
+      subject: z.string().optional().describe('Subject — name, NIP-05, npub, or hex pubkey'),
       assertionId: hexId.optional().describe('Event ID of the assertion to verify'),
       assertionRelay: z.string().optional().describe('Relay hint for the assertion event'),
       summary: z.string().optional().describe('Human-readable summary'),
@@ -291,8 +299,9 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: false },
   }, async ({ type, identifier, subject, assertionId, assertionRelay, summary, content, expiration, occurredAt, validFrom, validTo }) => {
+    const resolvedSubject = subject ? (await resolveRecipient(subject)).pubkeyHex : undefined
     const result = await handleTrustAttestTemporal(deps.ctx, deps.pool, {
-      type, identifier, subject, assertionId, assertionRelay, summary, content, expiration, occurredAt, validFrom, validTo,
+      type, identifier, subject: resolvedSubject, assertionId, assertionRelay, summary, content, expiration, occurredAt, validFrom, validTo,
     })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({
@@ -306,14 +315,15 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('trust-attest-chain', {
     description: 'Follow endorsement references to build a transitive trust chain. Starting from a subject, queries attestations about that subject, then follows each attestor as a new subject up to maxDepth. Returns the full chain with validity status for each link.',
     inputSchema: {
-      startSubject: hexId.describe('Hex pubkey of the initial subject to trace from'),
+      startSubject: z.string().describe('Initial subject to trace from — name, NIP-05, npub, or hex pubkey'),
       type: z.string().optional().describe('Filter by attestation type (narrows the chain)'),
       maxDepth: z.number().int().min(1).max(10).default(3).describe('Maximum chain depth to traverse (default 3, max 10)'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ startSubject, type, maxDepth }) => {
+    const resolvedStart = (await resolveRecipient(startSubject)).pubkeyHex
     const result = await handleTrustAttestChain(deps.pool, deps.ctx.activeNpub, {
-      startSubject, type, maxDepth,
+      startSubject: resolvedStart, type, maxDepth,
     })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],

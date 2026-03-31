@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
 import { hexId } from '../validation.js'
+import { resolveRecipient } from '../resolve.js'
 import { handleKeyEncrypt, handleKeyDecrypt } from './ncryptsec.js'
 import {
   handleDecode,
@@ -101,26 +102,28 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('nip44-encrypt', {
     description: 'Encrypt a plaintext string using NIP-44 for a recipient pubkey. Uses the active identity\'s private key.',
     inputSchema: {
-      recipientPubkeyHex: hexId.describe('Recipient hex pubkey'),
+      recipientPubkeyHex: z.string().describe('Recipient — name, NIP-05, npub, or hex pubkey'),
       plaintext: z.string().describe('Text to encrypt'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ recipientPubkeyHex, plaintext }) => {
+    const resolved = await resolveRecipient(recipientPubkeyHex)
     const skHex = Buffer.from(deps.ctx.activePrivateKey).toString('hex')
-    const ciphertext = handleEncrypt(skHex, recipientPubkeyHex, plaintext)
+    const ciphertext = handleEncrypt(skHex, resolved.pubkeyHex, plaintext)
     return { content: [{ type: 'text' as const, text: ciphertext }] }
   })
 
   server.registerTool('nip44-decrypt', {
     description: 'Decrypt a NIP-44 ciphertext using the active identity\'s private key.',
     inputSchema: {
-      senderPubkeyHex: hexId.describe('Sender hex pubkey'),
+      senderPubkeyHex: z.string().describe('Sender — name, NIP-05, npub, or hex pubkey'),
       ciphertext: z.string().describe('NIP-44 ciphertext to decrypt'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ senderPubkeyHex, ciphertext }) => {
+    const resolved = await resolveRecipient(senderPubkeyHex)
     const skHex = Buffer.from(deps.ctx.activePrivateKey).toString('hex')
-    const plaintext = handleDecrypt(skHex, senderPubkeyHex, ciphertext)
+    const plaintext = handleDecrypt(skHex, resolved.pubkeyHex, ciphertext)
     return { content: [{ type: 'text' as const, text: plaintext }] }
   })
 
