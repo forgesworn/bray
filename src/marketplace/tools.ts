@@ -26,7 +26,6 @@ import {
   handleListingSearch,
   handleListingClose,
 } from './listings.js'
-import { resolveRecipient } from '../resolve.js'
 import { toolResponse } from '../tool-response.js'
 import * as fmt from '../format.js'
 
