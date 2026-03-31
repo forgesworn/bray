@@ -7,6 +7,7 @@
  */
 
 import { decode } from 'nostr-tools/nip19'
+import type { RelayPool } from './relay-pool.js'
 import { handleNip05Lookup } from './identity/nip05.js'
 
 const HEX_64 = /^[0-9a-f]{64}$/
@@ -17,6 +18,7 @@ export interface ResolvedRecipient {
   pubkeyHex: string
   resolvedVia: ResolvedVia
   displayName?: string
+  relayHints?: string[]
 }
 
 /**
@@ -50,10 +52,14 @@ export async function resolveRecipient(
       ? decoded.data
       : (decoded.data as { pubkey: string }).pubkey
     const name = knownNames ? reverseLookup(knownNames, hex) : undefined
+    const relayHints = typeof decoded.data !== 'string'
+      ? (decoded.data as { pubkey: string; relays?: string[] }).relays?.filter(Boolean)
+      : undefined
     return {
       pubkeyHex: hex,
       resolvedVia: decoded.type === 'npub' ? 'npub' : 'nprofile',
       displayName: name,
+      relayHints: relayHints?.length ? relayHints : undefined,
     }
   }
 
@@ -90,6 +96,60 @@ export async function resolveRecipients(
   knownNames?: Map<string, string>,
 ): Promise<ResolvedRecipient[]> {
   return Promise.all(inputs.map(input => resolveRecipient(input, knownNames)))
+}
+
+export interface ResolvedWithProfile extends ResolvedRecipient {
+  profile?: Record<string, unknown>
+}
+
+/**
+ * Resolve a recipient and attempt to fetch their kind 0 profile using
+ * relay hints embedded in nprofile or NIP-05 relay lists (NIP-65 chasing).
+ *
+ * If relay hints are available, queries those relays directly for the profile.
+ * Falls back gracefully — the profile field will be undefined if no hints
+ * are present or the query fails.
+ */
+export async function resolveWithProfile(
+  input: string,
+  pool: RelayPool,
+  npub: string,
+): Promise<ResolvedWithProfile> {
+  const resolved = await resolveRecipient(input)
+
+  // If we have relay hints (from nprofile), query them directly for the kind 0 profile
+  if (resolved.relayHints && resolved.relayHints.length > 0) {
+    try {
+      const events = await pool.queryDirect(resolved.relayHints, {
+        kinds: [0],
+        authors: [resolved.pubkeyHex],
+      })
+      if (events.length > 0) {
+        const best = events.reduce((a, b) => b.created_at > a.created_at ? b : a)
+        try {
+          const profile = JSON.parse(best.content)
+          return { ...resolved, profile }
+        } catch { /* fall through */ }
+      }
+    } catch { /* relay hint query failed, fall through */ }
+  }
+
+  // No relay hints or hint query failed — try standard pool query
+  try {
+    const events = await pool.query(npub, {
+      kinds: [0],
+      authors: [resolved.pubkeyHex],
+    })
+    if (events.length > 0) {
+      const best = events.reduce((a, b) => b.created_at > a.created_at ? b : a)
+      try {
+        const profile = JSON.parse(best.content)
+        return { ...resolved, profile }
+      } catch { /* fall through */ }
+    }
+  } catch { /* profile fetch failed, return without profile */ }
+
+  return { ...resolved }
 }
 
 function reverseLookup(map: Map<string, string>, hex: string): string | undefined {
