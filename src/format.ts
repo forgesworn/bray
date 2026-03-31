@@ -314,6 +314,20 @@ export function formatListings(listings: any[]): string {
   }).join('\n\n---\n\n')
 }
 
+export function formatCapabilities(cards: any[]): string {
+  if (cards.length === 0) return 'No dispatch-capable agents found.'
+  return cards.map(c => {
+    const lines = [`${c.name}  (${c.pubkey?.slice(0, 12)}...)`]
+    if (c.description) lines.push(`  ${c.description}`)
+    lines.push(`  Tasks: ${(c.taskTypes ?? []).join(', ')}`)
+    if (c.repos?.length > 0) lines.push(`  Repos: ${c.repos.join(', ')}`)
+    lines.push(`  Status: ${c.availability ?? 'unknown'}`)
+    if (c.maxDepth !== undefined) lines.push(`  Max depth: ${c.maxDepth}`)
+    if (c.slug) lines.push(`  Slug: ${c.slug}`)
+    return lines.join('\n')
+  }).join('\n\n')
+}
+
 export function formatDispatchReplyResult(result: any): string {
   const del = result.deleted ? ' (original message deleted)' : ''
   return `Sent ${result.messageType}${del}`

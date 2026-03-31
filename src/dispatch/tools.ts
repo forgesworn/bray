@@ -16,6 +16,11 @@ import {
   handleDispatchFailure,
   handleDispatchQuery,
 } from './handlers.js'
+import {
+  handleCapabilityPublish,
+  handleCapabilityDiscover,
+  handleCapabilityRead,
+} from './capabilities.js'
 
 export function registerDispatchTools(server: McpServer, deps: ToolDeps & { dispatchIdentitiesPath?: string }): void {
   // Load identities once at registration time
@@ -268,5 +273,71 @@ export function registerDispatchTools(server: McpServer, deps: ToolDeps & { disp
       question,
     })
     return toolResponse(result, output, fmt.formatDispatchReplyResult)
+  })
+
+  // --- dispatch-capability-publish ---
+
+  server.registerTool('dispatch-capability-publish', {
+    description: 'Publish your agent\'s dispatch capabilities as a NIP-89 capability card (kind 31990). Lets other agents discover you on Nostr without needing a pre-shared identities file. The card advertises what task types you support, which repos you can work on, and your availability.',
+    inputSchema: {
+      name: z.string().describe('Agent name (e.g. "prometheus", "forge-worker")'),
+      description: z.string().describe('What this agent does (e.g. "Full-stack TypeScript agent for TROTT ecosystem")'),
+      task_types: z.array(z.string()).describe('Supported task types: "think", "build", or custom types'),
+      repos: z.array(z.string()).optional().describe('Repository names this agent can work on (e.g. ["toll-booth", "trott-sdk"])'),
+      availability: z.enum(['available', 'busy', 'offline']).optional().describe('Current availability status (default: "available")'),
+      max_depth: z.number().optional().describe('Maximum delegation depth this agent accepts'),
+      slug: z.string().optional().describe('Unique d-tag identifier (defaults to slugified name)'),
+      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ name, description, task_types, repos, availability, max_depth, slug, output }) => {
+    const result = await handleCapabilityPublish(deps.ctx, deps.pool, {
+      name,
+      description,
+      taskTypes: task_types,
+      repos,
+      availability,
+      maxDepth: max_depth,
+      slug,
+    })
+    return toolResponse(result, output, fmt.formatPublish)
+  })
+
+  // --- dispatch-capability-discover ---
+
+  server.registerTool('dispatch-capability-discover', {
+    description: 'Discover dispatch-capable agents on Nostr. Searches for NIP-89 capability cards (kind 31990) tagged with the dispatch protocol. Optionally filter by task type. Returns agent names, descriptions, supported task types, repos, and availability.',
+    inputSchema: {
+      task_type: z.string().optional().describe('Filter by task type (e.g. "think", "build")'),
+      limit: z.number().optional().describe('Maximum number of results (default: 20)'),
+      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ task_type, limit, output }) => {
+    const result = await handleCapabilityDiscover(deps.pool, deps.ctx.activeNpub, {
+      taskType: task_type,
+      limit,
+    })
+    return toolResponse(result, output, fmt.formatCapabilities)
+  })
+
+  // --- dispatch-capability-read ---
+
+  server.registerTool('dispatch-capability-read', {
+    description: 'Read a specific agent\'s dispatch capability card. Fetches their NIP-89 kind 31990 event to see what task types they support, which repos they work on, and their current availability.',
+    inputSchema: {
+      pubkey: z.string().describe('Agent pubkey — name ("alice"), NIP-05 ("alice@example.com"), npub, or hex pubkey'),
+      output: z.enum(['json', 'human']).default('json').describe('Response format'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ pubkey, output }) => {
+    const resolved = await resolveRecipient(pubkey, identities)
+    const result = await handleCapabilityRead(deps.pool, deps.ctx.activeNpub, {
+      pubkey: resolved.pubkeyHex,
+    })
+    if (!result) {
+      return toolResponse({ found: false, pubkey: resolved.pubkeyHex }, output, () => 'No dispatch capability card found for this agent.')
+    }
+    return toolResponse(result, output, (c) => fmt.formatCapabilities([c]))
   })
 }
