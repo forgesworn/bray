@@ -288,6 +288,32 @@ export function formatRsvp(result: any): string {
   return `${status} RSVP ${rsvpStatus} for ${coord}`
 }
 
+// --- Listing formatters ---
+
+export function formatListings(listings: any[]): string {
+  if (listings.length === 0) return 'No listings found.'
+  return listings.map(l => {
+    const lines = [`# ${l.title}`]
+    if (l.slug) lines.push(`Slug: ${l.slug}`)
+    if (l.price) {
+      const freq = l.price.frequency ? ` ${l.price.frequency}` : ''
+      lines.push(`Price: ${l.price.amount} ${l.price.currency}${freq}`)
+    }
+    if (l.location) lines.push(`Location: ${l.location}`)
+    if (l.summary) lines.push(`Summary: ${l.summary}`)
+    if (l.hashtags?.length > 0) lines.push(`Tags: ${l.hashtags.join(', ')}`)
+    if (l.image) lines.push(`Image: ${l.image}`)
+    if (l.status) lines.push(`Status: ${l.status}`)
+    const time = l.publishedAt ? new Date(l.publishedAt * 1000).toLocaleString() : 'unknown'
+    lines.push(`Published: ${time}`)
+    if (l.content) {
+      lines.push('')
+      lines.push(l.content)
+    }
+    return lines.join('\n')
+  }).join('\n\n---\n\n')
+}
+
 export function formatDispatchReplyResult(result: any): string {
   const del = result.deleted ? ' (original message deleted)' : ''
   return `Sent ${result.messageType}${del}`

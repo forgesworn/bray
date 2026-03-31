@@ -20,6 +20,15 @@ import {
   parseL402ChallengeHeader,
 } from './handlers.js'
 import { handleZapSend, handleZapDecode } from '../zap/handlers.js'
+import {
+  handleListingCreate,
+  handleListingRead,
+  handleListingSearch,
+  handleListingClose,
+} from './listings.js'
+import { resolveRecipient } from '../resolve.js'
+import { toolResponse } from '../tool-response.js'
+import * as fmt from '../format.js'
 
 export function registerMarketplaceTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('marketplace-discover', {
@@ -355,6 +364,109 @@ export function registerMarketplaceTools(server: McpServer, deps: ToolDeps): voi
     clearCredentials()
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({ cleared: true }, null, 2) }],
+    }
+  })
+
+  // --- NIP-99 Classified Listings (kind 30402) ---
+
+  server.registerTool('listing-create', {
+    description:
+      'Create a classified listing (NIP-99, kind 30402). Publishes a replaceable event with title, ' +
+      'description, price, and optional location/hashtags. The slug (d-tag) defaults to a slugified title.',
+    inputSchema: {
+      title: z.string().min(1).describe('Listing title'),
+      content: z.string().min(1).describe('Full listing description (markdown)'),
+      price: z.object({
+        amount: z.string().describe('Price amount as string (e.g. "100")'),
+        currency: z.string().describe('Currency code (e.g. "USD", "SAT", "GBP")'),
+        frequency: z.string().optional().describe('Pricing frequency (e.g. "per hour", "per month") — omit for one-off'),
+      }).describe('Price tuple'),
+      summary: z.string().optional().describe('Short summary'),
+      location: z.string().optional().describe('Human-readable location'),
+      geohash: z.string().optional().describe('Geohash for location-based search'),
+      hashtags: z.array(z.string()).optional().describe('Hashtags for discovery (e.g. ["furniture", "london"])'),
+      image: z.string().url().optional().describe('Image URL'),
+      slug: z.string().optional().describe('Custom d-tag identifier — defaults to slugified title'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async (args) => {
+    const result = await handleListingCreate(deps.ctx, deps.pool, args)
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          published: true,
+          id: result.event.id,
+          slug: result.event.tags.find((t: string[]) => t[0] === 'd')?.[1],
+          publish: result.publish,
+        }, null, 2),
+      }],
+    }
+  })
+
+  server.registerTool('listing-read', {
+    description:
+      'Read classified listing(s) (NIP-99, kind 30402) by author and optional slug. ' +
+      'Accepts any identifier for author: name, NIP-05, npub, or hex pubkey.',
+    inputSchema: {
+      author: z.string().optional().describe('Author — name, NIP-05, npub, or hex pubkey'),
+      slug: z.string().optional().describe('Listing slug (d-tag) — omit to fetch all listings by author'),
+      limit: z.number().int().min(1).max(200).default(50).describe('Maximum listings to return'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ author, slug, limit, output }) => {
+    let authorHex: string | undefined
+    if (author) {
+      const resolved = await resolveRecipient(author)
+      authorHex = resolved.pubkeyHex
+    }
+    const listings = await handleListingRead(deps.pool, deps.ctx.activeNpub, {
+      author: authorHex, slug, limit,
+    })
+    return toolResponse(listings, output, fmt.formatListings)
+  })
+
+  server.registerTool('listing-search', {
+    description:
+      'Search classified listings (NIP-99, kind 30402) by hashtag or geohash location. ' +
+      'Provide at least one of hashtag or geohash.',
+    inputSchema: {
+      hashtag: z.string().optional().describe('Hashtag to search for (e.g. "furniture")'),
+      geohash: z.string().optional().describe('Geohash prefix for location-based search'),
+      limit: z.number().int().min(1).max(200).default(50).describe('Maximum listings to return'),
+      output: z.enum(['json', 'human']).default('human').describe('Response format'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ hashtag, geohash, limit, output }) => {
+    const listings = await handleListingSearch(deps.pool, deps.ctx.activeNpub, {
+      hashtag, geohash, limit,
+    })
+    return toolResponse(listings, output, fmt.formatListings)
+  })
+
+  server.registerTool('listing-close', {
+    description:
+      'Mark a classified listing as sold or closed (NIP-99, kind 30402). ' +
+      'Fetches the existing listing, preserves all tags, and republishes with a status tag.',
+    inputSchema: {
+      slug: z.string().describe('Listing slug (d-tag) to close'),
+      status: z.enum(['sold', 'closed']).describe('New status — "sold" or "closed"'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async ({ slug, status }) => {
+    const result = await handleListingClose(deps.ctx, deps.pool, { slug, status })
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          closed: true,
+          slug,
+          status,
+          id: result.event.id,
+          publish: result.publish,
+        }, null, 2),
+      }],
     }
   })
 }
