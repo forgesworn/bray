@@ -210,11 +210,12 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('dm-read', {
     description: 'Read direct messages addressed to the active identity. Decrypts both NIP-17 (gift wrap) and NIP-04 (legacy). Each message includes { from, content, protocol, decrypted }. Gracefully handles decryption failures without crashing.',
     inputSchema: {
+      since: z.number().optional().describe('Unix timestamp — only return DMs after this time'),
       output: z.enum(['json', 'human']).default('human').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ output }) => {
-    const messages = await handleDmRead(deps.ctx, deps.pool)
+  }, async ({ since, output }) => {
+    const messages = await handleDmRead(deps.ctx, deps.pool, { since })
     return toolResponse(messages, output, fmt.formatDms)
   })
 
