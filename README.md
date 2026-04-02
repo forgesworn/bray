@@ -1,6 +1,6 @@
 # nostr-bray
 
-**Trust-aware Nostr MCP for AI and humans.** 227 tools. Model-agnostic. Works with Claude, ChatGPT, Gemini, Cursor, Windsurf, or any MCP client.
+**Trust-aware Nostr MCP for AI and humans.** 234 tools. Model-agnostic. Works with Claude, ChatGPT, Gemini, Cursor, Windsurf, or any MCP client.
 
 [![npm](https://img.shields.io/npm/v/nostr-bray)](https://www.npmjs.com/package/nostr-bray)
 [![CI](https://github.com/forgesworn/bray/actions/workflows/ci.yml/badge.svg)](https://github.com/forgesworn/bray/actions/workflows/ci.yml)
@@ -34,7 +34,7 @@ Add to your MCP client config:
 
 Then ask your AI to call `whoami` to verify it works.
 
-For production use, prefer NIP-46 bunker auth (your key never leaves your device):
+For production use, prefer [Heartwood](https://github.com/forgesworn/heartwood) or any NIP-46 bunker (your key never leaves your signing device):
 
 ```json
 {
@@ -51,7 +51,15 @@ For production use, prefer NIP-46 bunker auth (your key never leaves your device
 }
 ```
 
-Auth tier progression (safest to least safe): **bunker** > **ncryptsec** > **file** > **env var**
+### Auth tiers (best to worst)
+
+| Tier | Method | Key exposure |
+|------|--------|-------------|
+| **Heartwood** | Dedicated signing appliance (`BUNKER_URI`) | Key never leaves the signing device. Supports nsec-tree derivation, per-client permissions, and device-backed attestations. |
+| **Software bunker** | Any NIP-46 bunker (`BUNKER_URI`) | Key held by a separate process. Never seen by bray. |
+| **ncryptsec** | NIP-49 encrypted key (`NOSTR_NCRYPTSEC`) | Key encrypted at rest, decrypted in memory at startup. |
+| **Key file** | File path (`NOSTR_SECRET_KEY_FILE`) | Key on disk, read once, env var deleted. |
+| **Env var** | Inline secret (`NOSTR_SECRET_KEY`) | Key visible in process environment. Use only for development. |
 
 ## Tool Groups
 
@@ -62,7 +70,7 @@ Auth tier progression (safest to least safe): **bunker** > **ncryptsec** > **fil
 | **Direct Messages** | 4 | `dm-send`, `dm-read`, `dm-conversation` |
 | **Trust** | 22 | `trust-attest`, `trust-ring-prove`, `trust-spoken-challenge`, `trust-attest-chain` |
 | **Dispatch** | 13 | `dispatch-send`, `dispatch-check`, `dispatch-reply`, `dispatch-capability-discover` |
-| **Relay** | 12 | `relay-query`, `relay-set`, `relay-discover`, `relay-health`, `relay-recommend` |
+| **Relay** | 13 | `relay-query`, `relay-set`, `relay-discover`, `cast-spell`, `relay-health` |
 | **Moderation** | 16 | `label-create`, `list-mute`, `list-bookmark`, `list-followset-create`, `moderation-filter` |
 | **Marketplace** | 16 | `marketplace-discover`, `marketplace-call`, `listing-create`, `listing-search` |
 | **Safety** | 14 | `canary-session-create`, `canary-group-create`, `canary-duress-signal`, `safety-activate` |
@@ -81,7 +89,7 @@ Auth tier progression (safest to least safe): **bunker** > **ncryptsec** > **fil
 | **Search** | 3 | `search-notes`, `search-profiles`, `hashtag-feed` |
 | **Scheduling** | 3 | `post-schedule`, `post-queue-list`, `post-queue-cancel` |
 | **Community NIPs** | 2 | `nip-publish`, `nip-read` |
-| **Utility** | 19 | `decode`, `encode-npub`, `nip44-encrypt`, `verify-event`, `nip-list` |
+| **Utility** | 20 | `decode`, `encode-npub`, `nip44-encrypt`, `verify-event`, `publish-event` |
 | **Catalog** | 2 | `search-actions`, `execute-action` |
 
 Use `search-actions` to find tools by keyword, then `execute-action` to run them.
@@ -157,6 +165,7 @@ nostr-bray implements or integrates the following NIPs:
 | **NIP-89** | Recommended applications (dispatch capability discovery) |
 | **NIP-96** | HTTP file storage (Blossom) |
 | **NIP-99** | Classified listings |
+| **NIP-A7** | Spells (kind 777 — cast saved queries) |
 | **NIP-VA** | Verifiable attestations (kind 31000) |
 
 ## Configuration
