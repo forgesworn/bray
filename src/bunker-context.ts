@@ -23,21 +23,21 @@ useWebSocketImplementation(WebSocket)
 
 export interface BunkerConfig {
   pubkey: string
-  relay: string
+  relays: string[]
   secret?: string  // client secret key hex
 }
 
 /** Parse a bunker:// URI */
 export function parseBunkerUri(uri: string): BunkerConfig {
-  // bunker://<pubkey>?relay=<url>&secret=<hex>
+  // bunker://<pubkey>?relay=<url>&relay=<url>&secret=<hex>
   const url = new URL(uri)
   const pubkey = url.hostname || url.pathname.replace('//', '')
-  const relay = url.searchParams.get('relay')
+  const relays = url.searchParams.getAll('relay')
   const secret = url.searchParams.get('secret') ?? undefined
-  if (!pubkey || !relay) {
+  if (!pubkey || relays.length === 0) {
     throw new Error('Invalid bunker URI: missing pubkey or relay')
   }
-  return { pubkey, relay, secret }
+  return { pubkey, relays, secret }
 }
 
 export class BunkerContext implements SigningContext {
@@ -62,7 +62,7 @@ export class BunkerContext implements SigningContext {
 
     const signer = BunkerSigner.fromBunker(
       clientSk,
-      { pubkey: config.pubkey, relays: [config.relay], secret: null },
+      { pubkey: config.pubkey, relays: config.relays, secret: null },
       { pool },
     )
 
