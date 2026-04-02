@@ -7,6 +7,7 @@ import * as fmt from '../format.js'
 import { handleRelayList, handleRelaySet, handleRelayAdd, handleRelayInfo, handleRelayQuery } from './handlers.js'
 import { handleRelayCount } from './count.js'
 import { handleRelayAuth } from './auth.js'
+import { handleCastSpell } from './spell.js'
 
 export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('relay-list', {
@@ -130,6 +131,22 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
     }
 
     const result = await handleRelayCount(relays, filter, poolQuery)
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    }
+  })
+
+  // --- NIP-A7 Spells ---
+
+  server.registerTool('cast-spell', {
+    description: 'Execute a NIP-A7 Spell (kind 777). Fetches the Spell event, resolves runtime variables ($me → your pubkey, $contacts → your follow list) and relative timestamps (e.g. "7d", "30d"), builds a REQ filter, and queries relays. Pass either an event ID or a Spell event object from a prior relay-query.',
+    inputSchema: {
+      eventId: z.string().optional().describe('Event ID (hex) of the kind 777 Spell to cast'),
+      relays: z.array(relayUrl).optional().describe('Override relays for the result query'),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ eventId, relays }) => {
+    const result = await handleCastSpell(deps.ctx, deps.pool, { eventId, relays })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }

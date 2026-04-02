@@ -19,6 +19,7 @@ import {
   handleContactsUnfollow,
   handleSocialDelete,
   handleSocialRepost,
+  handlePublishEvent,
 } from './handlers.js'
 import { handleDmSend, handleDmRead, handleDmConversation } from './dm.js'
 import { handleNotifications, handleFeed } from './notifications.js'
@@ -1123,6 +1124,29 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   }, async ({ output }) => {
     const entries = handlePostQueueList()
     return toolResponse(entries, output, fmt.formatScheduledQueue)
+  })
+
+  // --- Arbitrary event publishing ---
+
+  server.registerTool('publish-event', {
+    description: 'Sign and publish a Nostr event with any kind, content, and tags. Use for custom or experimental event kinds not covered by dedicated tools.',
+    inputSchema: {
+      kind: z.number().int().min(0).describe('Event kind number'),
+      content: z.string().describe('Event content'),
+      tags: z.array(z.array(z.string())).optional().describe('Event tags as [[key, value, ...], ...]'),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true },
+  }, async ({ kind, content, tags }) => {
+    const result = await handlePublishEvent(deps.ctx, deps.pool, { kind, content, tags })
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({
+        id: result.event.id,
+        pubkey: result.event.pubkey,
+        kind: result.event.kind,
+        tags: result.event.tags,
+        publish: result.publish,
+      }, null, 2) }],
+    }
   })
 
   server.registerTool('post-queue-cancel', {

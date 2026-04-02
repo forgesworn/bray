@@ -433,3 +433,20 @@ export async function handleContactsUnfollow(
   const publish = await pool.publish(ctx.activeNpub, event)
   return { event, publish }
 }
+
+/** Sign and publish an event with arbitrary kind, content, and tags */
+export async function handlePublishEvent(
+  ctx: SigningContext,
+  pool: RelayPool,
+  args: { kind: number; content: string; tags?: string[][] },
+): Promise<PostResult> {
+  const sign = ctx.getSigningFunction()
+  const event = await sign({
+    kind: args.kind,
+    created_at: Math.floor(Date.now() / 1000),
+    tags: args.tags ?? [],
+    content: args.content,
+  })
+  const publish = await pool.publish(ctx.activeNpub, event)
+  return { event, publish }
+}

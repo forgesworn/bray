@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>nostr-bray | Trust-aware Nostr MCP for AI and humans</title>
-  <meta name="description" content="Trust-aware Nostr MCP for AI and humans. 227 tools. Model-agnostic. Sovereign identity, trust-scored feeds, encrypted vaults, AI-to-AI dispatch.">
+  <meta name="description" content="Trust-aware Nostr MCP for AI and humans. 234 tools. Model-agnostic. Sovereign identity, trust-scored feeds, encrypted vaults, AI-to-AI dispatch.">
   <meta name="theme-color" content="#0a0a0f">
   <meta property="og:title" content="nostr-bray | Trust-aware Nostr MCP for AI and humans">
-  <meta property="og:description" content="Trust-aware Nostr MCP for AI and humans. 227 tools. Model-agnostic. Sovereign identity, trust-scored feeds, encrypted vaults, AI-to-AI dispatch.">
+  <meta property="og:description" content="Trust-aware Nostr MCP for AI and humans. 234 tools. Model-agnostic. Sovereign identity, trust-scored feeds, encrypted vaults, AI-to-AI dispatch.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://bray.forgesworn.dev">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="nostr-bray | Trust-aware Nostr MCP for AI and humans">
-  <meta name="twitter:description" content="Trust-aware Nostr MCP for AI and humans. 227 tools. Model-agnostic. Sovereign identity, trust-scored feeds, encrypted vaults, AI-to-AI dispatch.">
+  <meta name="twitter:description" content="Trust-aware Nostr MCP for AI and humans. 234 tools. Model-agnostic. Sovereign identity, trust-scored feeds, encrypted vaults, AI-to-AI dispatch.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a0f'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='%23e8a838' font-family='serif'>b</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1184,7 +1184,7 @@
         <div class="hero-badge">MCP Server + CLI</div>
         <h1>Trust-aware Nostr MCP for <em>AI and humans</em></h1>
         <p class="hero-sub">
-          Sovereign Nostr identity for AI agents and humans. 227&nbsp;tools. Model-agnostic. Works with Claude, ChatGPT, Gemini, Cursor, or any MCP client.
+          Sovereign Nostr identity for AI agents and humans. 234&nbsp;tools. Model-agnostic. Works with Claude, ChatGPT, Gemini, Cursor, or any MCP client.
         </p>
         <div class="hero-actions">
           <div class="install-block" id="installBlock" title="Click to copy">
@@ -1199,7 +1199,7 @@
         </div>
         <div class="hero-stats">
           <div class="stat">
-            <span class="stat-value">227</span>
+            <span class="stat-value">234</span>
             <span class="stat-label">Tools</span>
           </div>
           <div class="stat">
@@ -1406,7 +1406,7 @@
       <div class="section-divider">
         <span class="section-label">Tool Groups</span>
       </div>
-      <h2 class="reveal">227 tools. 22 groups.<br>One coherent surface.</h2>
+      <h2 class="reveal">234 tools. 22 groups.<br>One coherent surface.</h2>
       <p class="text-muted reveal" style="max-width:620px;">
         Every tool operates as the active identity. Switch persona, and your posts, DMs, attestations, and payments all follow. No configuration changes needed.
       </p>
@@ -1888,7 +1888,7 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
       </div>
       <h2 class="reveal">Two interfaces.<br>Same engine.</h2>
       <p class="text-muted reveal" style="max-width:580px;">
-        Use bray as an MCP server for AI agents (Claude, ChatGPT, Gemini, Cursor, Windsurf) or as a standalone CLI. The MCP server exposes all 227 tools; the CLI surfaces the most common operations. Both share the same handlers, identity engine, and security guarantees.
+        Use bray as an MCP server for AI agents (Claude, ChatGPT, Gemini, Cursor, Windsurf) or as a standalone CLI. The MCP server exposes all 234 tools; the CLI surfaces the most common operations. Both share the same handlers, identity engine, and security guarantees.
       </p>
       <div class="how-grid reveal">
         <!-- MCP Server -->
@@ -1899,7 +1899,7 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
           </div>
           <div class="code-block">
 <pre><span class="comment">// claude_desktop_config.json</span>
-<span class="comment">// Option A: bunker (safest; key stays in bunker)</span>
+<span class="comment">// Option A: Heartwood or NIP-46 bunker (safest)</span>
 {
   <span class="key">"mcpServers"</span>: {
     <span class="key">"nostr"</span>: {
@@ -1967,8 +1967,8 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
             <path d="M12 14h12M12 19h8" stroke-linecap="round"/>
             <circle cx="18" cy="27" r="2" fill="var(--accent-blue)"/>
           </svg>
-          <h3>NIP-46 bunker auth</h3>
-          <p>Your private key never leaves your signer. Bray connects via NIP-46 remote signing so the agent signs events without ever seeing the nsec.</p>
+          <h3>Device-first signing</h3>
+          <p>Best with <a href="https://github.com/forgesworn/heartwood" style="color: var(--accent-blue)">Heartwood</a> (dedicated signing appliance with nsec-tree derivation), then any NIP-46 bunker, then ncryptsec, then key file. Your private key never leaves your signer.</p>
         </div>
         <div class="trust-card">
           <svg class="trust-icon" viewBox="0 0 36 36" fill="none" stroke="var(--accent-green)" stroke-width="1.5">
@@ -2071,7 +2071,7 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
           <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">NIP-46 bunker auth <span style="color: var(--text-muted); font-size: 0.75rem;">(key never leaves signer)</span></div>
         </div>
         <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1.5rem; line-height: 1.6;">
-          All bundled into a single MCP server with 227 tools, so an AI agent gets a complete trust-aware Nostr identity out of the box without stitching together multiple tools.
+          All bundled into a single MCP server with 234 tools, so an AI agent gets a complete trust-aware Nostr identity out of the box without stitching together multiple tools.
         </p>
       </div>
     </div>
