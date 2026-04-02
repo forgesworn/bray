@@ -24,6 +24,8 @@ interface Subscription {
   ws: WebSocket
 }
 
+let subCounter = 0
+
 /** Check if an event matches a single filter */
 function matchFilter(filter: Filter, event: NostrEvent): boolean {
   if (filter.ids && !filter.ids.includes(event.id)) return false
@@ -140,7 +142,7 @@ export function startRelay(opts: ServeOptions = {}): { url: string; close: () =>
 
         // Register subscription
         const sub: Subscription = { id: subId, filters, ws }
-        const key = `${subId}-${Date.now()}`
+        const key = `${subId}-${++subCounter}`
         subscriptions.set(key, sub)
         clientSubs.add(key)
 
