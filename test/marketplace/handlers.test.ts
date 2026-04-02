@@ -1,9 +1,17 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   parseAnnounceEvent,
   parseL402ChallengeHeader,
   extractBolt11AmountSats,
   handleMarketplaceCompare,
+  handleMarketplaceDiscover,
+  handleMarketplaceInspect,
+  handleMarketplaceSearch,
+  handleMarketplaceReputation,
+  handleMarketplaceProbe,
+  handleMarketplaceCall,
+  handleMarketplaceAnnounce,
+  handleMarketplaceRetire,
   storeCredential,
   getCredential,
   clearCredentials,
@@ -11,6 +19,7 @@ import {
   L402_ANNOUNCE_KIND,
 } from '../../src/marketplace/handlers.js'
 import type { ParsedService } from '../../src/marketplace/handlers.js'
+import { IdentityContext } from '../../src/context.js'
 
 // --- parseAnnounceEvent ---
 
@@ -478,5 +487,666 @@ describe('buildL402AuthHeader', () => {
 
   it('returns null for unknown credential', () => {
     expect(buildL402AuthHeader('nonexistent')).toBeNull()
+  })
+})
+
+// --- Async handler tests ---
+
+const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
+
+function mockPool(events: any[] = []) {
+  return {
+    query: vi.fn().mockResolvedValue(events),
+    queryDirect: vi.fn().mockResolvedValue(events),
+    publish: vi.fn().mockResolvedValue({ success: true, accepted: ['wss://relay.test'], rejected: [], errors: [] }),
+    getRelays: vi.fn().mockReturnValue({ read: [], write: ['wss://relay.test'] }),
+  }
+}
+
+function makeAnnounceEvent(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'a'.repeat(64),
+    pubkey: 'b'.repeat(64),
+    kind: L402_ANNOUNCE_KIND,
+    created_at: 1700000000,
+    tags: [
+      ['d', 'svc-1'],
+      ['name', 'Test Service'],
+      ['url', 'https://api.example.com'],
+      ['about', 'A test service'],
+      ['pmi', 'l402', 'https://api.example.com'],
+      ['price', 'query', '100', 'sats'],
+      ['t', 'ai'],
+    ],
+    content: JSON.stringify({
+      capabilities: [{ name: 'query', description: 'Run queries' }],
+      version: '1.0.0',
+    }),
+    sig: 'c'.repeat(128),
+    ...overrides,
+  }
+}
+
+// --- handleMarketplaceDiscover ---
+
+describe('handleMarketplaceDiscover', () => {
+  it('returns parsed services from relay query', async () => {
+    const pool = mockPool([makeAnnounceEvent()])
+    const results = await handleMarketplaceDiscover(pool as any, 'npub1test', {})
+
+    expect(results).toHaveLength(1)
+    expect(results[0].name).toBe('Test Service')
+    expect(results[0].identifier).toBe('svc-1')
+  })
+
+  it('deduplicates replaceable events by pubkey + d-tag', async () => {
+    const old = makeAnnounceEvent({ created_at: 1000 })
+    const newer = makeAnnounceEvent({ created_at: 2000 })
+    const pool = mockPool([old, newer])
+
+    const results = await handleMarketplaceDiscover(pool as any, 'npub1test', {})
+    expect(results).toHaveLength(1)
+    expect(results[0].createdAt).toBe(2000)
+  })
+
+  it('filters by max price and currency', async () => {
+    const cheap = makeAnnounceEvent({
+      id: '1'.repeat(64),
+      tags: [
+        ['d', 'cheap'], ['name', 'Cheap'], ['url', 'https://a.com'], ['about', 'A'],
+        ['pmi', 'l402'], ['price', 'query', '50', 'sats'],
+      ],
+    })
+    const expensive = makeAnnounceEvent({
+      id: '2'.repeat(64),
+      pubkey: 'c'.repeat(64),
+      tags: [
+        ['d', 'expensive'], ['name', 'Expensive'], ['url', 'https://b.com'], ['about', 'B'],
+        ['pmi', 'l402'], ['price', 'query', '500', 'sats'],
+      ],
+    })
+    const pool = mockPool([cheap, expensive])
+
+    const results = await handleMarketplaceDiscover(pool as any, 'npub1test', {
+      maxPrice: 100,
+      currency: 'sats',
+    })
+
+    expect(results).toHaveLength(1)
+    expect(results[0].identifier).toBe('cheap')
+  })
+
+  it('passes topic filters to relay query', async () => {
+    const pool = mockPool([])
+    await handleMarketplaceDiscover(pool as any, 'npub1test', { topics: ['ai', 'search'] })
+
+    expect(pool.query).toHaveBeenCalledWith('npub1test', expect.objectContaining({
+      '#t': ['ai', 'search'],
+    }))
+  })
+
+  it('passes payment method filter to relay query', async () => {
+    const pool = mockPool([])
+    await handleMarketplaceDiscover(pool as any, 'npub1test', { paymentMethod: 'l402' })
+
+    expect(pool.query).toHaveBeenCalledWith('npub1test', expect.objectContaining({
+      '#pmi': ['l402'],
+    }))
+  })
+
+  it('uses queryDirect when relays specified', async () => {
+    const pool = mockPool([])
+    await handleMarketplaceDiscover(pool as any, 'npub1test', { relays: ['wss://custom.relay'] })
+
+    expect(pool.queryDirect).toHaveBeenCalledWith(['wss://custom.relay'], expect.any(Object))
+    expect(pool.query).not.toHaveBeenCalled()
+  })
+
+  it('returns empty array when no events found', async () => {
+    const pool = mockPool([])
+    const results = await handleMarketplaceDiscover(pool as any, 'npub1test', {})
+    expect(results).toEqual([])
+  })
+})
+
+// --- handleMarketplaceInspect ---
+
+describe('handleMarketplaceInspect', () => {
+  it('fetches by event ID', async () => {
+    const pool = mockPool([makeAnnounceEvent()])
+    const result = await handleMarketplaceInspect(pool as any, 'npub1test', {
+      eventId: 'a'.repeat(64),
+    })
+
+    expect(result).not.toBeNull()
+    expect(result!.name).toBe('Test Service')
+    expect(pool.query).toHaveBeenCalledWith('npub1test', expect.objectContaining({
+      ids: ['a'.repeat(64)],
+    }))
+  })
+
+  it('fetches by pubkey + identifier', async () => {
+    const pool = mockPool([makeAnnounceEvent()])
+    const result = await handleMarketplaceInspect(pool as any, 'npub1test', {
+      pubkey: 'b'.repeat(64),
+      identifier: 'svc-1',
+    })
+
+    expect(result).not.toBeNull()
+    expect(pool.query).toHaveBeenCalledWith('npub1test', expect.objectContaining({
+      authors: ['b'.repeat(64)],
+      '#d': ['svc-1'],
+    }))
+  })
+
+  it('returns null when not found', async () => {
+    const pool = mockPool([])
+    const result = await handleMarketplaceInspect(pool as any, 'npub1test', {
+      eventId: 'x'.repeat(64),
+    })
+    expect(result).toBeNull()
+  })
+
+  it('throws when neither eventId nor pubkey+identifier provided', async () => {
+    const pool = mockPool([])
+    await expect(
+      handleMarketplaceInspect(pool as any, 'npub1test', {}),
+    ).rejects.toThrow('Provide either eventId, or both pubkey and identifier')
+  })
+
+  it('returns newest event when multiple match', async () => {
+    const old = makeAnnounceEvent({ created_at: 1000 })
+    const newer = makeAnnounceEvent({ created_at: 2000 })
+    const pool = mockPool([old, newer])
+
+    const result = await handleMarketplaceInspect(pool as any, 'npub1test', {
+      pubkey: 'b'.repeat(64),
+      identifier: 'svc-1',
+    })
+
+    expect(result!.createdAt).toBe(2000)
+  })
+})
+
+// --- handleMarketplaceSearch ---
+
+describe('handleMarketplaceSearch', () => {
+  it('filters by text match in name', async () => {
+    const matching = makeAnnounceEvent({
+      id: '1'.repeat(64),
+      tags: [
+        ['d', 'ai-search'], ['name', 'AI Search Engine'], ['url', 'https://a.com'],
+        ['about', 'Search stuff'], ['pmi', 'l402'], ['price', 'q', '10', 'sats'],
+      ],
+    })
+    const notMatching = makeAnnounceEvent({
+      id: '2'.repeat(64),
+      pubkey: 'c'.repeat(64),
+      tags: [
+        ['d', 'weather'], ['name', 'Weather API'], ['url', 'https://b.com'],
+        ['about', 'Weather data'], ['pmi', 'l402'], ['price', 'q', '10', 'sats'],
+      ],
+    })
+    const pool = mockPool([matching, notMatching])
+
+    const results = await handleMarketplaceSearch(pool as any, 'npub1test', { query: 'search' })
+    expect(results).toHaveLength(1)
+    expect(results[0].identifier).toBe('ai-search')
+  })
+
+  it('matches against about field', async () => {
+    const event = makeAnnounceEvent({
+      tags: [
+        ['d', 'svc'], ['name', 'Generic'], ['url', 'https://a.com'],
+        ['about', 'Powerful translation engine'], ['pmi', 'l402'], ['price', 'q', '10', 'sats'],
+      ],
+    })
+    const pool = mockPool([event])
+
+    const results = await handleMarketplaceSearch(pool as any, 'npub1test', { query: 'translation' })
+    expect(results).toHaveLength(1)
+  })
+
+  it('matches against capability names', async () => {
+    const event = makeAnnounceEvent()
+    const pool = mockPool([event])
+
+    // The default event has capability { name: 'query', description: 'Run queries' }
+    const results = await handleMarketplaceSearch(pool as any, 'npub1test', { query: 'query' })
+    expect(results).toHaveLength(1)
+  })
+
+  it('is case-insensitive', async () => {
+    const event = makeAnnounceEvent()
+    const pool = mockPool([event])
+
+    const results = await handleMarketplaceSearch(pool as any, 'npub1test', { query: 'TEST SERVICE' })
+    expect(results).toHaveLength(1)
+  })
+
+  it('respects limit parameter', async () => {
+    const events = Array.from({ length: 5 }, (_, i) => makeAnnounceEvent({
+      id: String(i).repeat(64),
+      pubkey: String(i).repeat(64),
+      tags: [
+        ['d', `svc-${i}`], ['name', 'Match Service'], ['url', 'https://a.com'],
+        ['about', 'Match'], ['pmi', 'l402'], ['price', 'q', '10', 'sats'],
+      ],
+    }))
+    const pool = mockPool(events)
+
+    const results = await handleMarketplaceSearch(pool as any, 'npub1test', { query: 'match', limit: 2 })
+    expect(results).toHaveLength(2)
+  })
+})
+
+// --- handleMarketplaceReputation ---
+
+describe('handleMarketplaceReputation', () => {
+  it('returns service count and topic aggregation', async () => {
+    const events = [
+      makeAnnounceEvent({ tags: [['d', 'svc-1'], ['t', 'ai'], ['t', 'search']] }),
+      makeAnnounceEvent({
+        id: 'x'.repeat(64),
+        tags: [['d', 'svc-2'], ['t', 'ai'], ['t', 'translation']],
+        created_at: 1700001000,
+      }),
+    ]
+    const pool = mockPool(events)
+
+    const result = await handleMarketplaceReputation(pool as any, 'npub1test', {
+      pubkey: 'b'.repeat(64),
+    })
+
+    expect(result.pubkey).toBe('b'.repeat(64))
+    expect(result.serviceCount).toBe(2)
+    expect(result.topics).toContain('ai')
+    expect(result.topics).toContain('search')
+    expect(result.topics).toContain('translation')
+  })
+
+  it('deduplicates by pubkey + d-tag', async () => {
+    const old = makeAnnounceEvent({ created_at: 1000 })
+    const newer = makeAnnounceEvent({ created_at: 2000 })
+    const pool = mockPool([old, newer])
+
+    const result = await handleMarketplaceReputation(pool as any, 'npub1test', {
+      pubkey: 'b'.repeat(64),
+    })
+
+    expect(result.serviceCount).toBe(1)
+    expect(result.newestAnnouncement).toBe(2000)
+  })
+
+  it('returns empty state for unknown pubkey', async () => {
+    const pool = mockPool([])
+    const result = await handleMarketplaceReputation(pool as any, 'npub1test', {
+      pubkey: 'z'.repeat(64),
+    })
+
+    expect(result.serviceCount).toBe(0)
+    expect(result.oldestAnnouncement).toBeUndefined()
+    expect(result.newestAnnouncement).toBeUndefined()
+    expect(result.topics).toEqual([])
+  })
+})
+
+// --- handleMarketplaceProbe ---
+
+describe('handleMarketplaceProbe', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('returns status and parsed challenge for 402 response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      status: 402,
+      headers: new Headers({
+        'www-authenticate': 'L402 macaroon="AgEEbHNhdA==", invoice="lnbc100n1abc123"',
+      }),
+      text: vi.fn().mockResolvedValue('{}'),
+    }))
+
+    const result = await handleMarketplaceProbe('https://api.example.com/resource')
+
+    expect(result.status).toBe(402)
+    expect(result.challenge).toBeDefined()
+    expect(result.challenge!.macaroon).toBe('AgEEbHNhdA==')
+    expect(result.challenge!.invoice).toBe('lnbc100n1abc123')
+    expect(result.costSats).toBe(10)
+  })
+
+  it('returns status without challenge for non-402 response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      status: 200,
+      headers: new Headers(),
+      text: vi.fn().mockResolvedValue('{"ok": true}'),
+    }))
+
+    const result = await handleMarketplaceProbe('https://api.example.com/open')
+
+    expect(result.status).toBe(200)
+    expect(result.challenge).toBeUndefined()
+    expect(result.body).toEqual({ ok: true })
+  })
+
+  it('rejects private network URLs', async () => {
+    await expect(
+      handleMarketplaceProbe('http://localhost:8080/internal'),
+    ).rejects.toThrow('private network')
+  })
+
+  it('handles non-JSON response body gracefully', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      status: 200,
+      headers: new Headers(),
+      text: vi.fn().mockResolvedValue('plain text response'),
+    }))
+
+    const result = await handleMarketplaceProbe('https://api.example.com/text')
+    // Non-JSON text should not throw, body may be undefined or the text
+    expect(result.status).toBe(200)
+  })
+})
+
+// --- handleMarketplaceCall ---
+
+describe('handleMarketplaceCall', () => {
+  afterEach(() => {
+    clearCredentials()
+    vi.restoreAllMocks()
+  })
+
+  it('makes authenticated call with L402 header', async () => {
+    storeCredential('cred-1', 'AgEEbHNhdA==', 'deadbeef')
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      text: vi.fn().mockResolvedValue('{"result": "success"}'),
+    }))
+
+    const result = await handleMarketplaceCall({
+      url: 'https://api.example.com/query',
+      credentialId: 'cred-1',
+    })
+
+    expect(result.status).toBe(200)
+    expect(result.body).toEqual({ result: 'success' })
+
+    const fetchCall = (fetch as any).mock.calls[0]
+    expect(fetchCall[1].headers.Authorization).toBe('L402 AgEEbHNhdA==:deadbeef')
+  })
+
+  it('throws when credential not found', async () => {
+    await expect(
+      handleMarketplaceCall({
+        url: 'https://api.example.com/query',
+        credentialId: 'nonexistent',
+      }),
+    ).rejects.toThrow('No credentials found')
+  })
+
+  it('rejects private network URLs', async () => {
+    storeCredential('cred-1', 'mac', 'pre')
+
+    await expect(
+      handleMarketplaceCall({
+        url: 'http://127.0.0.1:8080/internal',
+        credentialId: 'cred-1',
+      }),
+    ).rejects.toThrow('private network')
+  })
+
+  it('strips set-cookie headers from response', async () => {
+    storeCredential('cred-1', 'mac', 'pre')
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      status: 200,
+      headers: new Headers({
+        'content-type': 'application/json',
+        'set-cookie': 'session=abc123',
+        'x-custom': 'kept',
+      }),
+      text: vi.fn().mockResolvedValue('{}'),
+    }))
+
+    const result = await handleMarketplaceCall({
+      url: 'https://api.example.com/query',
+      credentialId: 'cred-1',
+    })
+
+    expect(result.headers['x-custom']).toBe('kept')
+    expect(result.headers['set-cookie']).toBeUndefined()
+  })
+})
+
+// --- handleMarketplaceAnnounce ---
+
+describe('handleMarketplaceAnnounce', () => {
+  let ctx: IdentityContext
+
+  beforeEach(() => {
+    ctx = new IdentityContext(TEST_NSEC, 'nsec')
+  })
+
+  it('publishes a valid announcement event', async () => {
+    const pool = mockPool()
+    const result = await handleMarketplaceAnnounce(ctx, pool as any, {
+      identifier: 'my-api',
+      name: 'My API',
+      urls: ['https://api.example.com'],
+      about: 'A useful API service',
+      pricing: [{ capability: 'query', price: 100, currency: 'sats' }],
+      paymentMethods: [['l402', 'https://api.example.com']],
+    })
+
+    expect(result.event.kind).toBe(L402_ANNOUNCE_KIND)
+
+    const dTag = result.event.tags.find((t: string[]) => t[0] === 'd')
+    expect(dTag).toEqual(['d', 'my-api'])
+
+    const nameTag = result.event.tags.find((t: string[]) => t[0] === 'name')
+    expect(nameTag).toEqual(['name', 'My API'])
+
+    expect(pool.publish).toHaveBeenCalledOnce()
+  })
+
+  it('includes optional fields when provided', async () => {
+    const pool = mockPool()
+    const result = await handleMarketplaceAnnounce(ctx, pool as any, {
+      identifier: 'full',
+      name: 'Full Service',
+      urls: ['https://api.example.com'],
+      about: 'Full featured',
+      pricing: [{ capability: 'q', price: 10, currency: 'sats' }],
+      paymentMethods: [['l402']],
+      picture: 'https://example.com/logo.png',
+      topics: ['ai', 'search'],
+      capabilities: [{ name: 'query', description: 'Search' }],
+      version: '2.0.0',
+    })
+
+    const picTag = result.event.tags.find((t: string[]) => t[0] === 'picture')
+    expect(picTag).toEqual(['picture', 'https://example.com/logo.png'])
+
+    const tTags = result.event.tags.filter((t: string[]) => t[0] === 't')
+    expect(tTags).toEqual([['t', 'ai'], ['t', 'search']])
+
+    const content = JSON.parse(result.event.content)
+    expect(content.capabilities[0].name).toBe('query')
+    expect(content.version).toBe('2.0.0')
+  })
+
+  // --- Validation tests ---
+
+  it('rejects empty identifier', async () => {
+    const pool = mockPool()
+    await expect(handleMarketplaceAnnounce(ctx, pool as any, {
+      identifier: '',
+      name: 'Test',
+      urls: ['https://a.com'],
+      about: 'Test',
+      pricing: [{ capability: 'q', price: 10, currency: 'sats' }],
+      paymentMethods: [['l402']],
+    })).rejects.toThrow('identifier must not be empty')
+  })
+
+  it('rejects identifier exceeding 256 chars', async () => {
+    const pool = mockPool()
+    await expect(handleMarketplaceAnnounce(ctx, pool as any, {
+      identifier: 'x'.repeat(257),
+      name: 'Test',
+      urls: ['https://a.com'],
+      about: 'Test',
+      pricing: [{ capability: 'q', price: 10, currency: 'sats' }],
+      paymentMethods: [['l402']],
+    })).rejects.toThrow('identifier must not exceed 256')
+  })
+
+  it('rejects empty name', async () => {
+    const pool = mockPool()
+    await expect(handleMarketplaceAnnounce(ctx, pool as any, {
+      identifier: 'test',
+      name: '',
+      urls: ['https://a.com'],
+      about: 'Test',
+      pricing: [{ capability: 'q', price: 10, currency: 'sats' }],
+      paymentMethods: [['l402']],
+    })).rejects.toThrow('name must not be empty')
+  })
+
+  it('rejects empty URL list', async () => {
+    const pool = mockPool()
+    await expect(handleMarketplaceAnnounce(ctx, pool as any, {
+      identifier: 'test',
+      name: 'Test',
+      urls: [],
+      about: 'Test',
+      pricing: [{ capability: 'q', price: 10, currency: 'sats' }],
+      paymentMethods: [['l402']],
+    })).rejects.toThrow('At least one URL')
+  })
+
+  it('rejects more than 10 URLs', async () => {
+    const pool = mockPool()
+    const urls = Array.from({ length: 11 }, (_, i) => `https://api${i}.example.com`)
+    await expect(handleMarketplaceAnnounce(ctx, pool as any, {
+      identifier: 'test',
+      name: 'Test',
+      urls,
+      about: 'Test',
+      pricing: [{ capability: 'q', price: 10, currency: 'sats' }],
+      paymentMethods: [['l402']],
+    })).rejects.toThrow('Maximum 10 URLs')
+  })
+
+  it('rejects empty about', async () => {
+    const pool = mockPool()
+    await expect(handleMarketplaceAnnounce(ctx, pool as any, {
+      identifier: 'test',
+      name: 'Test',
+      urls: ['https://a.com'],
+      about: '',
+      pricing: [{ capability: 'q', price: 10, currency: 'sats' }],
+      paymentMethods: [['l402']],
+    })).rejects.toThrow('about must not be empty')
+  })
+
+  it('rejects empty pricing list', async () => {
+    const pool = mockPool()
+    await expect(handleMarketplaceAnnounce(ctx, pool as any, {
+      identifier: 'test',
+      name: 'Test',
+      urls: ['https://a.com'],
+      about: 'Test',
+      pricing: [],
+      paymentMethods: [['l402']],
+    })).rejects.toThrow('At least one pricing entry')
+  })
+
+  it('rejects negative price', async () => {
+    const pool = mockPool()
+    await expect(handleMarketplaceAnnounce(ctx, pool as any, {
+      identifier: 'test',
+      name: 'Test',
+      urls: ['https://a.com'],
+      about: 'Test',
+      pricing: [{ capability: 'q', price: -1, currency: 'sats' }],
+      paymentMethods: [['l402']],
+    })).rejects.toThrow('finite non-negative')
+  })
+
+  it('rejects empty payment methods', async () => {
+    const pool = mockPool()
+    await expect(handleMarketplaceAnnounce(ctx, pool as any, {
+      identifier: 'test',
+      name: 'Test',
+      urls: ['https://a.com'],
+      about: 'Test',
+      pricing: [{ capability: 'q', price: 10, currency: 'sats' }],
+      paymentMethods: [],
+    })).rejects.toThrow('At least one payment method')
+  })
+
+  it('rejects invalid payment method rail', async () => {
+    const pool = mockPool()
+    await expect(handleMarketplaceAnnounce(ctx, pool as any, {
+      identifier: 'test',
+      name: 'Test',
+      urls: ['https://a.com'],
+      about: 'Test',
+      pricing: [{ capability: 'q', price: 10, currency: 'sats' }],
+      paymentMethods: [['invalid-rail']],
+    })).rejects.toThrow('Payment method rail must be one of')
+  })
+})
+
+// --- handleMarketplaceRetire ---
+
+describe('handleMarketplaceRetire', () => {
+  let ctx: IdentityContext
+
+  beforeEach(() => {
+    ctx = new IdentityContext(TEST_NSEC, 'nsec')
+  })
+
+  it('publishes a kind 5 deletion event with correct a-tag', async () => {
+    const pool = mockPool()
+    const result = await handleMarketplaceRetire(ctx, pool as any, {
+      identifier: 'old-service',
+    })
+
+    expect(result.event.kind).toBe(5)
+
+    const aTag = result.event.tags.find((t: string[]) => t[0] === 'a')
+    expect(aTag?.[1]).toBe(`${L402_ANNOUNCE_KIND}:${ctx.activePublicKeyHex}:old-service`)
+    expect(pool.publish).toHaveBeenCalledOnce()
+  })
+
+  it('includes reason in content when provided', async () => {
+    const pool = mockPool()
+    const result = await handleMarketplaceRetire(ctx, pool as any, {
+      identifier: 'old-service',
+      reason: 'Service discontinued',
+    })
+
+    expect(result.event.content).toBe('Service discontinued')
+  })
+
+  it('uses empty content when no reason provided', async () => {
+    const pool = mockPool()
+    const result = await handleMarketplaceRetire(ctx, pool as any, {
+      identifier: 'old-service',
+    })
+
+    expect(result.event.content).toBe('')
+  })
+
+  it('rejects empty identifier', async () => {
+    const pool = mockPool()
+    await expect(
+      handleMarketplaceRetire(ctx, pool as any, { identifier: '' }),
+    ).rejects.toThrow('identifier must not be empty')
   })
 })
