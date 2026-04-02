@@ -424,3 +424,21 @@ export function formatDispatchReplyResult(result: any): string {
   const del = result.deleted ? ' (original message deleted)' : ''
   return `Sent ${result.messageType}${del}`
 }
+
+// --- Handler formatters ---
+
+export function formatHandlers(handlers: any[]): string {
+  if (handlers.length === 0) return 'No MCP handlers found.'
+  return handlers.map(h => {
+    const lines = [`${h.name}  (${h.pubkey?.slice(0, 12)}...)`]
+    if (h.about) lines.push(`  ${h.about}`)
+    if (h.kinds?.length > 0) lines.push(`  Kinds: ${h.kinds.join(', ')}`)
+    if (h.transports?.length > 0) {
+      const transports = h.transports.map((t: any) => `${t.transport}: ${t.endpoint}`).join(', ')
+      lines.push(`  Transports: ${transports}`)
+    }
+    if (h.dTag) lines.push(`  d-tag: ${h.dTag}`)
+    if (h.picture) lines.push(`  Picture: ${h.picture}`)
+    return lines.join('\n')
+  }).join('\n\n')
+}

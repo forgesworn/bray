@@ -21,6 +21,7 @@ import type { SigningContext } from './signing-context.js'
 import { registerSignetTools } from './signet/tools.js'
 import { registerVaultTools } from './vault/tools.js'
 import { registerDispatchTools } from './dispatch/tools.js'
+import { registerHandlerTools } from './handler/tools.js'
 import { ActionCatalog, createCatalogProxy } from './catalog.js'
 
 const config = await loadConfig()
@@ -121,6 +122,7 @@ registerModerationTools(proxy, deps)
 registerSignetTools(proxy, deps)
 registerVaultTools(proxy, deps)
 registerDispatchTools(proxy, { ...deps, dispatchIdentitiesPath: config.dispatchIdentities })
+registerHandlerTools(proxy, deps)
 
 // Add search-actions and execute-action meta-tools to the real server
 catalog.registerMetaTools(server)
