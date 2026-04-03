@@ -49,12 +49,13 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
   const bunkerPk = getPublicKey(bunkerSk)
   const bunkerNpub = npubEncode(bunkerPk)
 
-  // Authorised clients: CLI flag + persisted approvals
+  // Authorised clients: CLI flag controls the gate, persisted approvals supplement
   const APPROVALS_FILE = 'approved-clients.json'
   const persisted = readStateFile<Record<string, string[]>>(APPROVALS_FILE, opts.stateDir)
   const bunkerApprovals = persisted[bunkerPk] ?? []
+  const cliAuthorizedKeys = new Set(opts.authorizedKeys ?? [])
   const authorizedKeys = new Set([
-    ...(opts.authorizedKeys ?? []),
+    ...cliAuthorizedKeys,
     ...bunkerApprovals,
   ])
 
@@ -78,8 +79,8 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
   async function handleRequest(event: NostrEvent): Promise<void> {
     const clientPk = event.pubkey
 
-    // Check authorization
-    if (authorizedKeys.size > 0 && !authorizedKeys.has(clientPk)) {
+    // Check authorization — gate only activates when CLI --authorized-keys were set
+    if (cliAuthorizedKeys.size > 0 && !authorizedKeys.has(clientPk)) {
       log(`Rejected request from unauthorized key: ${clientPk.slice(0, 12)}...`)
       return
     }
@@ -234,8 +235,8 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
   log(`Bunker started: ${bunkerNpub}`)
   log(`URI: ${bunkerUrl}`)
   log(`Signing as: ${ctx.activeNpub}`)
-  if (authorizedKeys.size > 0) {
-    log(`Authorized keys: ${authorizedKeys.size}`)
+  if (cliAuthorizedKeys.size > 0) {
+    log(`Authorized keys: ${authorizedKeys.size} (${cliAuthorizedKeys.size} CLI + ${bunkerApprovals.length} persisted)`)
   } else {
     log('WARNING: No authorized keys set — accepting requests from anyone')
   }
