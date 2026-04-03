@@ -80,4 +80,76 @@ describe('bunker round-trip', () => {
     expect(list[0].purpose).toBe('bunker')
     client.destroy()
   }, 15_000)
+
+  it('persists approved client pubkey after connect', async () => {
+    const { mkdtempSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const { tmpdir } = await import('node:os')
+    const { readStateFile } = await import('../src/state.js')
+
+    const stateDir = mkdtempSync(join(tmpdir(), 'bray-approval-test-'))
+
+    // Start a separate bunker with stateDir
+    const bunker2 = startBunker({
+      ctx,
+      relays: [relay.url],
+      quiet: true,
+      stateDir,
+    })
+
+    // Connect a client — this should auto-approve and persist
+    const client = await BunkerContext.connect(bunker2.url)
+    // Give the bunker a moment to process and persist
+    await new Promise(r => setTimeout(r, 200))
+
+    const approvals = readStateFile<Record<string, string[]>>('approved-clients.json', stateDir)
+    expect(approvals[bunker2.pubkey]).toBeDefined()
+    expect(approvals[bunker2.pubkey].length).toBeGreaterThanOrEqual(1)
+
+    client.destroy()
+    bunker2.close()
+  }, 15_000)
+
+  it('loads persisted approvals on startup', async () => {
+    const { mkdtempSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const { tmpdir } = await import('node:os')
+    const { writeStateFile } = await import('../src/state.js')
+    const { getPublicKey, generateSecretKey } = await import('nostr-tools/pure')
+
+    const stateDir = mkdtempSync(join(tmpdir(), 'bray-load-test-'))
+
+    // Pre-generate a stable bunker key so bunker3 reuses the same pubkey
+    const bunkerSk = generateSecretKey()
+    const bunkerKeyHex = Buffer.from(bunkerSk).toString('hex')
+
+    // Pre-generate a client key
+    const clientSk = generateSecretKey()
+    const clientPk = getPublicKey(clientSk)
+    const bunkerPk = getPublicKey(bunkerSk)
+
+    // Write the client key as pre-approved for this bunker pubkey
+    writeStateFile('approved-clients.json', {
+      [bunkerPk]: [clientPk],
+    }, stateDir)
+
+    // Start bunker with a dummy authorised key only — no open access
+    const bunker3 = startBunker({
+      ctx,
+      relays: [relay.url],
+      quiet: true,
+      authorizedKeys: ['0'.repeat(64)],
+      bunkerKeyHex,
+      stateDir,
+    })
+
+    // Persisted approval should be loaded at startup — clientPk is now authorised
+    // Connect using a bunker URI with the pre-approved client secret key
+    const uri = `${bunker3.url}&secret=${Buffer.from(clientSk).toString('hex')}`
+    const client = await BunkerContext.connect(uri)
+    expect(client.activeNpub).toBe(ctx.activeNpub)
+
+    client.destroy()
+    bunker3.close()
+  }, 15_000)
 })
