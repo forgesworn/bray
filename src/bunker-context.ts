@@ -12,7 +12,7 @@
 
 import { BunkerSigner } from 'nostr-tools/nip46'
 import { useWebSocketImplementation, SimplePool } from 'nostr-tools/pool'
-import { generateSecretKey, getPublicKey } from 'nostr-tools/pure'
+import { generateSecretKey } from 'nostr-tools/pure'
 import { npubEncode } from 'nostr-tools/nip19'
 import WebSocket from 'ws'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
