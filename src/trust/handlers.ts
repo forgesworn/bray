@@ -1,13 +1,13 @@
 import { createAttestation, createRevocation } from 'nostr-attestations'
 import { validateAttestation } from 'nostr-attestations'
 import { attestationFilter } from 'nostr-attestations'
-import { wrapEvent } from 'nostr-tools/nip17'
 import { toUnsignedEvent } from 'nsec-tree/event'
 import { decode } from 'nostr-tools/nip19'
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
 import type { SigningContext } from '../signing-context.js'
 import { hasExtendedIdentity } from '../signing-context.js'
 import type { IdentityContext } from '../context.js'
+import { wrapEventAsync } from '../nip17-wrap.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 
@@ -150,8 +150,8 @@ export async function handleTrustRequest(
     message: args.message,
   })
 
-  const event = wrapEvent(
-    (ctx as IdentityContext).activePrivateKey,
+  const event = await wrapEventAsync(
+    ctx,
     { publicKey: args.recipientPubkeyHex },
     payload,
   )

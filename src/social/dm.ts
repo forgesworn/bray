@@ -1,4 +1,3 @@
-import { wrapEvent } from 'nostr-tools/nip17'
 import * as nip04 from 'nostr-tools/nip04'
 import { decode, npubEncode } from 'nostr-tools/nip19'
 import type { Event as NostrEvent } from 'nostr-tools'
@@ -10,6 +9,7 @@ import type { PublishResult } from '../types.js'
 import type { VeilScoring } from '../veil/scoring.js'
 import type { TrustContext, TrustAnnotation } from '../trust-context.js'
 import { toAnnotation } from '../trust-context.js'
+import { wrapEventAsync, unwrapEventAsync } from '../nip17-wrap.js'
 
 export interface DmSendResult {
   event: NostrEvent
@@ -50,8 +50,12 @@ export async function handleDmSend(
       throw new Error('NIP-04 is not enabled. Set NIP04_ENABLED=1 to use legacy DMs.')
     }
 
-    // NIP-04 legacy DM (kind 4)
-    const encrypted = await nip04.encrypt((ctx as IdentityContext).activePrivateKey, args.recipientPubkeyHex, args.message)
+    // NIP-04 legacy DM (kind 4) — requires local key (not available in bunker mode)
+    const localCtx = ctx as IdentityContext
+    if (!localCtx.activePrivateKey) {
+      throw new Error('NIP-04 is not supported in bunker mode. Use NIP-17 (the default) instead.')
+    }
+    const encrypted = await nip04.encrypt(localCtx.activePrivateKey, args.recipientPubkeyHex, args.message)
     const sign = ctx.getSigningFunction()
     const event = await sign({
       kind: 4,
@@ -78,8 +82,8 @@ export async function handleDmSend(
   const recipientRelayHint = args.recipientRelay ?? recipientRelays[0]
 
   // Wrap for recipient
-  const event = wrapEvent(
-    (ctx as IdentityContext).activePrivateKey,
+  const event = await wrapEventAsync(
+    ctx,
     { publicKey: args.recipientPubkeyHex, relayUrl: recipientRelayHint },
     args.message,
   )
@@ -96,11 +100,11 @@ export async function handleDmSend(
   }
 
   // Sender copy — wrap the same message addressed to ourselves so our client shows sent DMs.
-  // The inner rumor's p-tag (set by wrapEvent) points to us, but clients use the
+  // The inner rumor's p-tag (set by wrapEventAsync) points to us, but clients use the
   // outer gift-wrap's p-tag to route, and the inner content to display.
   const senderHex = (decode(ctx.activeNpub).data as string)
-  const senderCopy = wrapEvent(
-    (ctx as IdentityContext).activePrivateKey,
+  const senderCopy = await wrapEventAsync(
+    ctx,
     { publicKey: senderHex, relayUrl: recipientRelayHint },
     args.message,
   )
@@ -172,8 +176,7 @@ async function decryptDmEvents(
     if (event.kind === 1059) {
       // NIP-17 gift wrap — try to unwrap
       try {
-        const { unwrapEvent } = await import('nostr-tools/nip17')
-        const unwrapped = unwrapEvent(event, (ctx as IdentityContext).activePrivateKey)
+        const unwrapped = await unwrapEventAsync(ctx, event)
         results.push({
           id: event.id,
           from: unwrapped.pubkey,
@@ -193,9 +196,21 @@ async function decryptDmEvents(
         })
       }
     } else if (event.kind === 4) {
-      // NIP-04 legacy DM
+      // NIP-04 legacy DM — needs local key; silently skip in bunker mode
+      const localCtx = ctx as IdentityContext
+      if (!localCtx.activePrivateKey) {
+        results.push({
+          id: event.id,
+          from: event.pubkey,
+          createdAt: event.created_at,
+          protocol: 'nip04-deprecated',
+          decrypted: false,
+          error: 'NIP-04 decryption not available in bunker mode',
+        })
+        continue
+      }
       try {
-        const decrypted = await nip04.decrypt((ctx as IdentityContext).activePrivateKey, event.pubkey, event.content)
+        const decrypted = await nip04.decrypt(localCtx.activePrivateKey, event.pubkey, event.content)
         results.push({
           id: event.id,
           from: event.pubkey,
