@@ -17,6 +17,7 @@ import { useWebSocketImplementation, SimplePool } from 'nostr-tools/pool'
 import WebSocket from 'ws'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 import type { IdentityContext } from './context.js'
+import { readStateFile, writeStateFile } from './state.js'
 
 useWebSocketImplementation(WebSocket)
 
@@ -27,6 +28,7 @@ export interface BunkerOptions {
   bunkerKeyHex?: string      // persistent bunker keypair (hex) — if not provided, generates ephemeral
   quiet?: boolean
   heartwoodExtensions?: boolean
+  stateDir?: string          // override state directory (for tests)
 }
 
 export interface BunkerInstance {
@@ -38,15 +40,23 @@ export interface BunkerInstance {
 
 export function startBunker(opts: BunkerOptions): BunkerInstance {
   const { ctx, relays, quiet } = opts
-  const authorizedKeys = new Set(opts.authorizedKeys ?? [])
   const log = quiet ? () => {} : (...args: unknown[]) => console.error('[bunker]', ...args)
 
-  // Use persistent key if provided, otherwise generate ephemeral
+  // Bunker keypair — must be computed first so we can load persisted approvals
   const bunkerSk = opts.bunkerKeyHex
     ? Buffer.from(opts.bunkerKeyHex, 'hex')
     : generateSecretKey()
   const bunkerPk = getPublicKey(bunkerSk)
   const bunkerNpub = npubEncode(bunkerPk)
+
+  // Authorised clients: CLI flag + persisted approvals
+  const APPROVALS_FILE = 'approved-clients.json'
+  const persisted = readStateFile<Record<string, string[]>>(APPROVALS_FILE, opts.stateDir)
+  const bunkerApprovals = persisted[bunkerPk] ?? []
+  const authorizedKeys = new Set([
+    ...(opts.authorizedKeys ?? []),
+    ...bunkerApprovals,
+  ])
 
   const pool = new SimplePool()
 
@@ -92,6 +102,15 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
 
     switch (request.method) {
       case 'connect':
+        // Persist newly-approved client
+        if (!bunkerApprovals.includes(clientPk)) {
+          bunkerApprovals.push(clientPk)
+          authorizedKeys.add(clientPk)
+          const current = readStateFile<Record<string, string[]>>(APPROVALS_FILE, opts.stateDir)
+          current[bunkerPk] = bunkerApprovals
+          writeStateFile(APPROVALS_FILE, current, opts.stateDir)
+          log(`Approved and persisted client: ${clientPk.slice(0, 12)}...`)
+        }
         result = 'ack'
         break
 
