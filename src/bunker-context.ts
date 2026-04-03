@@ -18,6 +18,7 @@ import WebSocket from 'ws'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 import type { PublicIdentity, SignFn } from './types.js'
 import type { SigningContext } from './signing-context.js'
+import { readStateFile, writeStateFile } from './state.js'
 
 useWebSocketImplementation(WebSocket)
 
@@ -40,6 +41,28 @@ export function parseBunkerUri(uri: string): BunkerConfig {
   return { pubkey, relays, secret }
 }
 
+const CLIENT_KEYS_FILE = 'client-keys.json'
+
+/** Resolve the client secret key: URI secret > cached > generate & persist. */
+export function resolveClientKey(
+  config: BunkerConfig,
+  stateDir?: string,
+): Uint8Array {
+  if (config.secret) {
+    return Buffer.from(config.secret, 'hex')
+  }
+
+  const cache = readStateFile<Record<string, string>>(CLIENT_KEYS_FILE, stateDir)
+  if (cache[config.pubkey]) {
+    return Buffer.from(cache[config.pubkey], 'hex')
+  }
+
+  const sk = generateSecretKey()
+  cache[config.pubkey] = Buffer.from(sk).toString('hex')
+  writeStateFile(CLIENT_KEYS_FILE, cache, stateDir)
+  return sk
+}
+
 export class BunkerContext implements SigningContext {
   protected signer: BunkerSigner
   protected pool: SimplePool
@@ -55,9 +78,7 @@ export class BunkerContext implements SigningContext {
   /** Connect to a remote bunker. Blocks until the connection is established. */
   static async connect(uri: string, timeoutMs = 15_000): Promise<BunkerContext> {
     const config = parseBunkerUri(uri)
-    const clientSk = config.secret
-      ? Buffer.from(config.secret, 'hex')
-      : generateSecretKey()
+    const clientSk = resolveClientKey(config)
     const pool = new SimplePool()
 
     const signer = BunkerSigner.fromBunker(
