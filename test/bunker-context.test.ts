@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { mkdtempSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { getPublicKey } from 'nostr-tools/pure'
 import { readStateFile } from '../src/state.js'
 import { resolveClientKey } from '../src/bunker-context.js'
 
