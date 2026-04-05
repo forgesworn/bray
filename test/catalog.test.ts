@@ -234,4 +234,129 @@ describe('execute-action parameter forwarding', () => {
     const text = (result.content as Array<{ text: string }>)[0].text
     expect(text).toContain('Unknown action')
   })
+
+  // --- String-coercion regression tests ---
+  //
+  // Some MCP clients (notably the Claude Code harness observed April 2026)
+  // serialise schema fields typed as z.record(z.unknown()) as a JSON string
+  // rather than a nested object, because the compiled JSON Schema produces
+  // {"type":"object","additionalProperties":true} with no fixed properties
+  // list. The execute-action meta-tool must coerce such strings before the
+  // catalog dispatch, or every call from that harness fails with
+  //   "expected record, received string"
+  // on the outer SDK validation.
+  describe('string-coerced params (client serialisation quirk)', () => {
+    it('parses a JSON string literal passed as parameters', async () => {
+      capturedArgs['contacts-follow'] = {}
+      const result = await client.callTool({
+        name: 'execute-action',
+        arguments: {
+          action: 'contacts-follow',
+          parameters: JSON.stringify({ pubkeyHex: validHex, petname: 'Ninja42' }),
+        },
+      })
+      const text = (result.content as Array<{ text: string }>)[0].text
+      expect(text).not.toContain('Invalid parameters')
+      expect(capturedArgs['contacts-follow'].pubkeyHex).toEqual(validHex)
+      expect(capturedArgs['contacts-follow'].petname).toEqual('Ninja42')
+    })
+
+    it('parses a JSON string literal passed as params', async () => {
+      capturedArgs['nip05-lookup'] = {}
+      const result = await client.callTool({
+        name: 'execute-action',
+        arguments: {
+          action: 'nip05-lookup',
+          params: JSON.stringify({ identifier: 'alice@example.com' }),
+        },
+      })
+      const text = (result.content as Array<{ text: string }>)[0].text
+      expect(text).not.toContain('Invalid parameters')
+      expect(capturedArgs['nip05-lookup']).toEqual({ identifier: 'alice@example.com' })
+    })
+
+    it('still accepts an object for parameters (happy path unchanged)', async () => {
+      capturedArgs['contacts-follow'] = {}
+      const result = await client.callTool({
+        name: 'execute-action',
+        arguments: {
+          action: 'contacts-follow',
+          parameters: { pubkeyHex: validHex },
+        },
+      })
+      const text = (result.content as Array<{ text: string }>)[0].text
+      expect(text).not.toContain('Invalid parameters')
+      expect(capturedArgs['contacts-follow'].pubkeyHex).toEqual(validHex)
+    })
+
+    it('still accepts an object for params (happy path unchanged)', async () => {
+      capturedArgs['nip05-lookup'] = {}
+      const result = await client.callTool({
+        name: 'execute-action',
+        arguments: {
+          action: 'nip05-lookup',
+          params: { identifier: 'bob@example.com' },
+        },
+      })
+      const text = (result.content as Array<{ text: string }>)[0].text
+      expect(text).not.toContain('Invalid parameters')
+      expect(capturedArgs['nip05-lookup']).toEqual({ identifier: 'bob@example.com' })
+    })
+
+    it('returns a useful parse error for malformed JSON in parameters', async () => {
+      // Reset so we can assert the handler was not invoked on malformed input.
+      delete capturedArgs['contacts-follow']
+      const result = await client.callTool({
+        name: 'execute-action',
+        arguments: {
+          action: 'contacts-follow',
+          parameters: '{not valid json',
+        },
+      })
+      const text = (result.content as Array<{ text: string }>)[0].text
+      expect(text).toContain('could not parse JSON string')
+      expect(text).toContain('hint')
+      // Handler must not have been invoked on malformed input.
+      expect(capturedArgs['contacts-follow']).toBeUndefined()
+    })
+
+    it('returns a useful parse error for malformed JSON in params', async () => {
+      const result = await client.callTool({
+        name: 'execute-action',
+        arguments: {
+          action: 'nip05-lookup',
+          params: 'definitely-not-json',
+        },
+      })
+      const text = (result.content as Array<{ text: string }>)[0].text
+      expect(text).toContain('could not parse JSON string')
+      expect(text).toContain('hint')
+    })
+
+    it('rejects a JSON string that decodes to a non-object (array)', async () => {
+      const result = await client.callTool({
+        name: 'execute-action',
+        arguments: {
+          action: 'nip05-lookup',
+          params: JSON.stringify(['not', 'an', 'object']),
+        },
+      })
+      const text = (result.content as Array<{ text: string }>)[0].text
+      expect(text).toContain('JSON string must decode to an object')
+    })
+
+    it('treats an empty string as empty params', async () => {
+      capturedArgs['marketplace-discover'] = {}
+      const result = await client.callTool({
+        name: 'execute-action',
+        arguments: {
+          action: 'marketplace-discover',
+          params: '',
+        },
+      })
+      const text = (result.content as Array<{ text: string }>)[0].text
+      expect(text).not.toContain('Invalid parameters')
+      expect(capturedArgs['marketplace-discover']).toEqual({ limit: undefined })
+    })
+  })
 })

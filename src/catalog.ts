@@ -133,26 +133,54 @@ export class ActionCatalog {
       }
     })
 
+    // Accept either an object (the natural shape) or a JSON string literal.
+    // Some MCP clients (notably the Claude Code harness as of April 2026)
+    // serialise schema fields typed as z.record(z.unknown()) as a JSON string
+    // rather than a nested object, because the compiled JSON Schema has no
+    // fixed `properties` list. The handler below coerces strings by parsing
+    // them, returning a clean error on malformed JSON.
+    const paramsSchema = z.union([
+      z.record(z.string(), z.unknown()),
+      z.string(),
+    ])
     server.registerTool('execute-action', {
       description:
         'Execute an action found via search-actions. Pass the exact action name and its parameters.',
       inputSchema: {
         action: z.string().describe('Action name from search-actions results'),
-        params: z.record(z.string(), z.unknown()).optional().describe(
-          'Parameters for the action (see search-actions results for expected params). Alias: parameters.',
+        params: paramsSchema.optional().describe(
+          'Parameters for the action (see search-actions results for expected params). ' +
+          'Alias: parameters. Accepts a JSON object or a JSON string literal.',
         ),
         // Alias for clients that naturally reach for "parameters" rather than "params".
         // Without this, MCP SDK strips unknown keys from the validated args and the
         // inner action handler receives an empty object, causing spurious
         // "expected string, received undefined" validation failures.
-        parameters: z.record(z.string(), z.unknown()).optional().describe(
-          'Alias for params. Either field is accepted.',
+        parameters: paramsSchema.optional().describe(
+          'Alias for params. Either field is accepted. ' +
+          'Accepts a JSON object or a JSON string literal.',
         ),
       },
       annotations: { openWorldHint: true },
     }, async ({ action, params, parameters }) => {
-      const resolved = (params ?? parameters ?? {}) as Record<string, unknown>
-      return catalog.execute(action, resolved)
+      const raw = params ?? parameters
+      const coerced = coerceActionParams(raw)
+      if (!coerced.ok) {
+        return {
+          content: [{
+            type: 'text' as const,
+            text: JSON.stringify({
+              error: coerced.error,
+              action,
+              hint:
+                'Pass params (or parameters) as a JSON object like ' +
+                '{"pubkeyHex":"..."}, or as a JSON string literal of the ' +
+                'same shape. Malformed JSON strings are rejected.',
+            }, null, 2),
+          }],
+        }
+      }
+      return catalog.execute(action, coerced.value)
     })
   }
 }
@@ -190,4 +218,58 @@ function extractParams(schema?: Record<string, any>): Record<string, string> | u
     params[key] = zodType?.description ?? '(no description)'
   }
   return params
+}
+
+/**
+ * Coerce execute-action's `params`/`parameters` argument into a plain object.
+ *
+ * Accepts either:
+ *   - an object (the canonical shape), passed through unchanged
+ *   - a JSON string literal that parses to an object (some MCP clients serialise
+ *     record-typed fields this way because the compiled JSON Schema has no
+ *     fixed properties list)
+ *   - undefined (returns an empty object)
+ *
+ * Rejects malformed JSON strings and JSON that does not parse to a plain object
+ * (e.g. arrays, numbers, null), returning a structured error the caller can
+ * surface to the client without crashing.
+ */
+export function coerceActionParams(
+  raw: unknown,
+):
+  | { ok: true; value: Record<string, unknown> }
+  | { ok: false; error: string } {
+  if (raw === undefined || raw === null) {
+    return { ok: true, value: {} }
+  }
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim()
+    if (trimmed === '') {
+      return { ok: true, value: {} }
+    }
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(trimmed)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      return {
+        ok: false,
+        error: `Invalid parameters: could not parse JSON string (${message})`,
+      }
+    }
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {
+        ok: false,
+        error: 'Invalid parameters: JSON string must decode to an object, not an array or primitive',
+      }
+    }
+    return { ok: true, value: parsed as Record<string, unknown> }
+  }
+  if (typeof raw === 'object' && !Array.isArray(raw)) {
+    return { ok: true, value: raw as Record<string, unknown> }
+  }
+  return {
+    ok: false,
+    error: `Invalid parameters: expected an object or JSON string, received ${typeof raw}`,
+  }
 }
