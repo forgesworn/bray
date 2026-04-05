@@ -138,13 +138,21 @@ export class ActionCatalog {
         'Execute an action found via search-actions. Pass the exact action name and its parameters.',
       inputSchema: {
         action: z.string().describe('Action name from search-actions results'),
-        params: z.record(z.string(), z.unknown()).default({}).describe(
-          'Parameters for the action (see search-actions results for expected params)',
+        params: z.record(z.string(), z.unknown()).optional().describe(
+          'Parameters for the action (see search-actions results for expected params). Alias: parameters.',
+        ),
+        // Alias for clients that naturally reach for "parameters" rather than "params".
+        // Without this, MCP SDK strips unknown keys from the validated args and the
+        // inner action handler receives an empty object, causing spurious
+        // "expected string, received undefined" validation failures.
+        parameters: z.record(z.string(), z.unknown()).optional().describe(
+          'Alias for params. Either field is accepted.',
         ),
       },
       annotations: { openWorldHint: true },
-    }, async ({ action, params }) => {
-      return catalog.execute(action, params as Record<string, unknown>)
+    }, async ({ action, params, parameters }) => {
+      const resolved = (params ?? parameters ?? {}) as Record<string, unknown>
+      return catalog.execute(action, resolved)
     })
   }
 }
