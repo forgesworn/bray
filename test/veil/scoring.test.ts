@@ -22,7 +22,7 @@ const mockVerifyProof = vi.mocked(verifyProof)
 function mockPool(events: NostrEvent[] = []) {
   return {
     query: vi.fn().mockResolvedValue(events),
-    publish: vi.fn().mockResolvedValue({ success: true, accepted: [], rejected: [], errors: [] }),
+    publish: vi.fn().mockResolvedValue({ success: true, allAccepted: true, accepted: [], rejected: [], errors: [] }),
     getRelays: vi.fn().mockReturnValue({ read: ['wss://relay.test'], write: ['wss://relay.test'] }),
   }
 }

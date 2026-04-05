@@ -189,7 +189,12 @@ export async function handlePublishScheduled(
         unlinkSync(filePath)
         published++
       } else {
-        console.error(`Failed to publish ${data.event.id}: rejected by all relays`)
+        // success is the majority-quorum flag: treat as failure only when
+        // we did not reach at least 50% of attempted relays.
+        const reason = result.accepted.length === 0
+          ? 'rejected by all relays'
+          : `only ${result.accepted.length}/${result.accepted.length + result.rejected.length} relays accepted`
+        console.error(`Failed to publish ${data.event.id}: ${reason}`)
         failed++
       }
     } catch (err: any) {

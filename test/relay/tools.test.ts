@@ -47,7 +47,7 @@ describe('relay-query filter forwarding', () => {
       return []
     },
     getRelays: () => ({ read: ['wss://read.example.com'], write: ['wss://write.example.com'] }),
-    publish: async () => ({ success: true, accepted: [], rejected: [], errors: [] }),
+    publish: async () => ({ success: true, allAccepted: true, accepted: [], rejected: [], errors: [] }),
     reconfigure: () => {},
     checkSharedRelays: () => [],
   }
@@ -252,7 +252,7 @@ describe('relay-count filter forwarding', () => {
       return []
     },
     getRelays: () => ({ read: ['wss://read.example.com'], write: ['wss://write.example.com'] }),
-    publish: async () => ({ success: true, accepted: [], rejected: [], errors: [] }),
+    publish: async () => ({ success: true, allAccepted: true, accepted: [], rejected: [], errors: [] }),
     reconfigure: () => {},
     checkSharedRelays: () => [],
   }
@@ -394,7 +394,7 @@ describe('relay-count via execute-action (catalog inner strip)', () => {
       return []
     },
     getRelays: () => ({ read: ['wss://read.example.com'], write: ['wss://write.example.com'] }),
-    publish: async () => ({ success: true, accepted: [], rejected: [], errors: [] }),
+    publish: async () => ({ success: true, allAccepted: true, accepted: [], rejected: [], errors: [] }),
     reconfigure: () => {},
     checkSharedRelays: () => [],
   }

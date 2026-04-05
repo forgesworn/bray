@@ -30,6 +30,7 @@ function mockPool(success = true) {
     query: vi.fn().mockResolvedValue([]),
     publish: vi.fn().mockResolvedValue({
       success,
+      allAccepted: success,
       accepted: success ? ['wss://relay.example.com'] : [],
       rejected: success ? [] : ['wss://relay.example.com'],
       errors: [],

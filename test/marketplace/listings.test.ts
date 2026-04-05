@@ -13,8 +13,8 @@ const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364
 function mockPool(events: any[] = []) {
   return {
     query: vi.fn().mockResolvedValue(events),
-    publish: vi.fn().mockResolvedValue({ success: true, accepted: ['wss://relay.trotters.cc'], rejected: [], errors: [] }),
-    publishDirect: vi.fn().mockResolvedValue({ success: true, accepted: [], rejected: [], errors: [] }),
+    publish: vi.fn().mockResolvedValue({ success: true, allAccepted: true, accepted: ['wss://relay.trotters.cc'], rejected: [], errors: [] }),
+    publishDirect: vi.fn().mockResolvedValue({ success: true, allAccepted: true, accepted: [], rejected: [], errors: [] }),
     getRelays: vi.fn().mockReturnValue({ read: [], write: ['wss://relay.trotters.cc'] }),
   }
 }

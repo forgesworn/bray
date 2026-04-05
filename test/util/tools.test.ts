@@ -33,7 +33,7 @@ describe('util count filter forwarding (catalog-routed)', () => {
     },
     queryDirect: async () => [],
     getRelays: () => ({ read: ['wss://read.example.com'], write: ['wss://write.example.com'] }),
-    publish: async () => ({ success: true, accepted: [], rejected: [], errors: [] }),
+    publish: async () => ({ success: true, allAccepted: true, accepted: [], rejected: [], errors: [] }),
     reconfigure: () => {},
     checkSharedRelays: () => [],
   }

@@ -58,7 +58,7 @@ const mockAttestation = {
 function mockPool(events: any[] = []) {
   return {
     query: vi.fn().mockResolvedValue(events),
-    publish: vi.fn().mockResolvedValue({ success: true, accepted: ['wss://relay.example.com'], rejected: [], errors: [] }),
+    publish: vi.fn().mockResolvedValue({ success: true, allAccepted: true, accepted: ['wss://relay.example.com'], rejected: [], errors: [] }),
     getRelays: vi.fn().mockReturnValue({ read: ['wss://relay.example.com'], write: ['wss://relay.example.com'] }),
   }
 }

@@ -26,7 +26,18 @@ export interface RelaySet {
 
 /** Result of a publish operation */
 export interface PublishResult {
+  /**
+   * True when the event is reliably published: at least one relay accepted
+   * AND at least 50% of attempted relays accepted. Captures both "reached
+   * the network" and "reached a majority", which matches real-world
+   * expectations where paywalled or whitelisted relays routinely reject.
+   */
   success: boolean
+  /**
+   * True when every attempted relay accepted. Use this for high-assurance
+   * publishing to a small curated list of private relays.
+   */
+  allAccepted: boolean
   accepted: string[]   // relay URLs that accepted
   rejected: string[]   // relay URLs that rejected
   errors: string[]     // error messages

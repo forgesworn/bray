@@ -14,7 +14,7 @@ function mockPool(events: any[] = []) {
   return {
     query: vi.fn().mockResolvedValue(events),
     queryDirect: vi.fn().mockResolvedValue(events),
-    publish: vi.fn().mockResolvedValue({ success: true, accepted: ['wss://relay.example.com'], rejected: [], errors: [] }),
+    publish: vi.fn().mockResolvedValue({ success: true, allAccepted: true, accepted: ['wss://relay.example.com'], rejected: [], errors: [] }),
     getRelays: vi.fn().mockReturnValue({ read: ['wss://read.example.com'], write: ['wss://write.example.com'] }),
     reconfigure: vi.fn(),
     checkSharedRelays: vi.fn().mockReturnValue([]),

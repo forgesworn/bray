@@ -9,7 +9,7 @@ const VALID_PUBKEY = '818b1ff78425c45464e7400d764ffc980dfdf522787e0c0309036b5293
 function mockPool(events: any[] = []) {
   return {
     query: vi.fn().mockResolvedValue(events),
-    publish: vi.fn().mockResolvedValue({ success: true, accepted: ['wss://relay.example.com'], rejected: [], errors: [] }),
+    publish: vi.fn().mockResolvedValue({ success: true, allAccepted: true, accepted: ['wss://relay.example.com'], rejected: [], errors: [] }),
   }
 }
 
@@ -24,8 +24,8 @@ describe('DM module', () => {
     it('adds relayWarning when recipient relays all rejected', async () => {
       const pool = {
         query: vi.fn().mockResolvedValue([]),
-        publish: vi.fn().mockResolvedValue({ success: false, accepted: [], rejected: ['wss://relay.example.com'], errors: [] }),
-        publishDirect: vi.fn().mockResolvedValue({ success: false, accepted: [], rejected: ['wss://recipient.relay.com'], errors: [] }),
+        publish: vi.fn().mockResolvedValue({ success: false, allAccepted: false, accepted: [], rejected: ['wss://relay.example.com'], errors: [] }),
+        publishDirect: vi.fn().mockResolvedValue({ success: false, allAccepted: false, accepted: [], rejected: ['wss://recipient.relay.com'], errors: [] }),
         getRelays: vi.fn().mockReturnValue({ read: [], write: [] }),
       }
       const mockNip65 = {
@@ -43,7 +43,7 @@ describe('DM module', () => {
     it('does not add relayWarning when no recipient relays were used', async () => {
       const pool = {
         query: vi.fn().mockResolvedValue([]),
-        publish: vi.fn().mockResolvedValue({ success: true, accepted: ['wss://relay.example.com'], rejected: [], errors: [] }),
+        publish: vi.fn().mockResolvedValue({ success: true, allAccepted: true, accepted: ['wss://relay.example.com'], rejected: [], errors: [] }),
         getRelays: vi.fn().mockReturnValue({ read: [], write: [] }),
       }
       const result = await handleDmSend(ctx, pool as any, {
@@ -57,8 +57,8 @@ describe('DM module', () => {
     it('does not add relayWarning when at least one relay accepted', async () => {
       const pool = {
         query: vi.fn().mockResolvedValue([]),
-        publish: vi.fn().mockResolvedValue({ success: true, accepted: ['wss://relay.example.com'], rejected: [], errors: [] }),
-        publishDirect: vi.fn().mockResolvedValue({ success: true, accepted: ['wss://recipient.relay.com'], rejected: [], errors: [] }),
+        publish: vi.fn().mockResolvedValue({ success: true, allAccepted: true, accepted: ['wss://relay.example.com'], rejected: [], errors: [] }),
+        publishDirect: vi.fn().mockResolvedValue({ success: true, allAccepted: true, accepted: ['wss://recipient.relay.com'], rejected: [], errors: [] }),
         getRelays: vi.fn().mockReturnValue({ read: [], write: [] }),
       }
       const mockNip65 = {

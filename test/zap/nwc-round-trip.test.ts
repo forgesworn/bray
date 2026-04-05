@@ -34,7 +34,7 @@ describe('NWC round-trip integration', () => {
     return {
       query: vi.fn().mockResolvedValue([]),
       publish: vi.fn().mockImplementation(async (_npub: string, event: any) => {
-        return { success: true, accepted: ['wss://mock.relay'], rejected: [], errors: [] }
+        return { success: true, allAccepted: true, accepted: ['wss://mock.relay'], rejected: [], errors: [] }
       }),
       getRelays: vi.fn().mockReturnValue({ read: ['wss://mock.relay'], write: ['wss://mock.relay'] }),
     }
