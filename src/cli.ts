@@ -27,10 +27,26 @@ import * as fmt from './format.js'
 const args = process.argv.slice(2)
 const command = args[0]
 
-// No command = start MCP server
+// No command = start MCP server.
+//
+// index.js's top-level await sets up the StdioServerTransport (or HTTP
+// transport) and registers tools. Once that chain resolves, the transport
+// keeps the event loop alive on its own, BUT we must prevent cli.ts from
+// falling through to the per-command handlers below (which re-loadConfig
+// and build a second ctx, racing with index.js's state and throwing when
+// run in MCP mode because there is no command to dispatch to).
+//
+// The old version of this block called process.exit(0) after the import,
+// which terminated the MCP server immediately -- before Claude Code's MCP
+// client could send its `initialize` request. The other long-running
+// commands in this file use `await new Promise(() => {})` to hold cli.ts
+// open until SIGINT/SIGTERM; matching that pattern here keeps the MCP
+// server process alive forever without executing any more cli.ts code.
+// SIGINT/SIGTERM are caught by the shutdown handler at the bottom of
+// index.ts which calls ctx.destroy() + pool.close() + process.exit(0).
 if (!command) {
   await import('./index.js')
-  process.exit(0)
+  await new Promise(() => {})
 }
 
 // Bunker = NIP-46 remote signer
