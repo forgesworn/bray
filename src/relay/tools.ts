@@ -57,21 +57,49 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('relay-query', {
-    description: 'Query events from Nostr relays by kind, author, tags, or time range. Useful for discovering events, scanning for specific kinds, or investigating unknown event schemas. Uses explicit relays if provided, otherwise the active identity\'s read relays.',
+    description: 'Query events from Nostr relays by kind, author, ids, tags, or time range. Useful for discovering events, scanning for specific kinds, or investigating unknown event schemas. Uses explicit relays if provided, otherwise the active identity\'s read relays. Filter fields may be supplied either as top-level arguments or wrapped in a single "filter" object (both shapes are accepted).',
     inputSchema: {
+      ids: z.array(z.string()).optional().describe('Event IDs (hex) to fetch directly'),
       kinds: z.array(z.number().int()).optional().describe('Event kinds to filter by (e.g. [30301, 31000])'),
       authors: z.array(z.string()).optional().describe('Hex pubkeys of event authors'),
       tags: z.record(z.string(), z.array(z.string())).optional().describe('Tag filters as key-value pairs (e.g. {"#p": ["hex..."], "#d": ["prefix"]})'),
-      since: z.number().int().optional().describe('Unix timestamp — only events created after this time'),
-      until: z.number().int().optional().describe('Unix timestamp — only events created before this time'),
-      limit: z.number().int().min(1).max(500).default(50).describe('Maximum number of events to return (default 50, max 500)'),
+      since: z.number().int().optional().describe('Unix timestamp, only events created after this time'),
+      until: z.number().int().optional().describe('Unix timestamp, only events created before this time'),
+      limit: z.number().int().min(1).max(500).optional().describe('Maximum number of events to return (default 50, max 500)'),
       relays: z.array(relayUrl).optional().describe('Explicit relay URLs to query (overrides identity relay set)'),
       search: z.string().optional().describe('Full-text search query (NIP-50). Only works on relays that support NIP-50; others will ignore it.'),
+      // Alias: some MCP clients naturally wrap the whole filter in a single "filter" object.
+      // Without this alias the MCP SDK silently strips the unknown key, leaving the handler
+      // with an empty argument set and returning a broad firehose of events.
+      filter: z.object({
+        ids: z.array(z.string()).optional(),
+        kinds: z.array(z.number().int()).optional(),
+        authors: z.array(z.string()).optional(),
+        tags: z.record(z.string(), z.array(z.string())).optional(),
+        since: z.number().int().optional(),
+        until: z.number().int().optional(),
+        limit: z.number().int().min(1).max(500).optional(),
+        search: z.string().optional(),
+      }).optional().describe('Alias: all filter fields wrapped in a single object. Merged with any top-level fields; top-level values win on conflict.'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ kinds, authors, tags, since, until, limit, relays, search }) => {
+  }, async (args) => {
+    // Merge nested "filter" alias with top-level fields. Top-level values win on conflict so
+    // the canonical form stays authoritative, but a caller that only supplies "filter" still
+    // gets everything through. Without this merge the MCP SDK strips the unknown top-level
+    // "filter" key and the handler receives an empty object, yielding a firehose response.
+    const f = args.filter ?? {}
+    const mergedLimit = args.limit ?? f.limit ?? 50
     const events = await handleRelayQuery(deps.pool, deps.ctx.activeNpub, {
-      kinds, authors, tags, since, until, limit, relays, search,
+      ids: args.ids ?? f.ids,
+      kinds: args.kinds ?? f.kinds,
+      authors: args.authors ?? f.authors,
+      tags: args.tags ?? f.tags,
+      since: args.since ?? f.since,
+      until: args.until ?? f.until,
+      limit: mergedLimit,
+      relays: args.relays,
+      search: args.search ?? f.search,
     })
     const summary = events.map(e => ({
       id: e.id,
