@@ -131,12 +131,23 @@ export class BunkerContext implements SigningContext {
       { pool },
     )
 
-    // Connect and verify
+    // The NIP-46 `connect` handshake is the only strictly-necessary
+    // round-trip at startup. We used to also call signer.ping() and
+    // signer.getPublicKey() here for extra verification, but each of
+    // those adds another full round-trip over relays (~1-1.5s each) and
+    // Claude Code's MCP stdio health check has a short window before it
+    // marks the server as "Failed to connect". Cutting them shaves
+    // 2-3 seconds off startup without losing correctness:
+    //
+    //   - ping is redundant; if `connect` succeeded the signer is alive.
+    //     The first real tool call will detect any subsequent dead bunker.
+    //   - getPublicKey can be avoided entirely by trusting the URI's
+    //     own pubkey field, which is authoritative (the signer's keypair
+    //     produced both it and the bunker URI in the first place).
     await signer.connect()
-    await signer.ping()
 
     const ctx = new BunkerContext(signer, pool, clientSk)
-    ctx.pubkeyHex = await signer.getPublicKey()
+    ctx.pubkeyHex = config.pubkey
     return ctx
   }
 
