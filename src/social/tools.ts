@@ -5,6 +5,7 @@ import { hexId } from '../validation.js'
 import { resolveRecipient, resolveRecipients, resolveWithProfile } from '../resolve.js'
 import { toolResponse } from '../tool-response.js'
 import * as fmt from '../format.js'
+import { flatOrWrapped, mergeFlatAndWrapped } from '../util/schema.js'
 import { VeilScoring } from '../veil/scoring.js'
 import { TrustCache } from '../veil/cache.js'
 import {
@@ -156,22 +157,53 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('social-profile-set', {
-    description: 'Set the kind 0 profile for the active identity. Warns if profile already exists — set confirm: true to overwrite.',
+    description: 'Set the kind 0 profile for the active identity. Warns if profile already exists — set confirm: true to overwrite. Profile fields may be supplied either as top-level arguments or wrapped in a single "profile" object (both shapes are accepted).',
     inputSchema: {
-      name: z.string().optional().describe('Display name'),
-      about: z.string().optional().describe('About / bio text'),
-      picture: z.string().optional().describe('Profile picture URL'),
-      nip05: z.string().optional().describe('NIP-05 identifier'),
-      banner: z.string().optional().describe('Banner image URL'),
-      lud16: z.string().optional().describe('Lightning address'),
+      ...flatOrWrapped({
+        name: z.string().optional().describe('Display name'),
+        about: z.string().optional().describe('About / bio text'),
+        picture: z.string().optional().describe('Profile picture URL'),
+        nip05: z.string().optional().describe('NIP-05 identifier'),
+        banner: z.string().optional().describe('Banner image URL'),
+        lud16: z.string().optional().describe('Lightning address'),
+      }, 'profile'),
       confirm: z.boolean().default(false).describe('Set true to overwrite existing profile'),
     },
     annotations: { readOnlyHint: false, destructiveHint: true },
-  }, async ({ confirm, ...fields }) => {
-    // Filter out undefined fields
+  }, async (args) => {
+    // Honour either the canonical flat shape or a nested `profile` wrapper. The
+    // handler's own interface takes `{ profile, confirm }`, so clients reading
+    // that contract naturally send the wrapped shape. Without the merge the
+    // MCP SDK strips the unknown top-level key and `handleSocialProfileSet`
+    // receives an empty profile, which with `confirm: true` would wipe the
+    // user's kind 0 content.
+    const { confirm } = args as { confirm?: boolean }
+    const merged = mergeFlatAndWrapped<{
+      name?: string
+      about?: string
+      picture?: string
+      nip05?: string
+      banner?: string
+      lud16?: string
+    }>(args, 'profile')
+    // Re-strip `confirm` which lives at the top level alongside the profile
+    // fields but is not part of the kind 0 content.
     const profile: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(fields)) {
+    for (const [k, v] of Object.entries(merged)) {
+      if (k === 'confirm') continue
       if (v !== undefined) profile[k] = v
+    }
+    // Data-loss guard: refuse to publish a kind 0 event with no content even
+    // when `confirm: true` is set. This is belt-and-braces against future
+    // regressions of the wrapper-stripping bug: if every profile field is
+    // stripped somewhere upstream, we stop here rather than signing an empty
+    // event that would wipe the user's existing profile.
+    if (Object.keys(profile).length === 0) {
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({
+          error: 'Refusing to publish an empty profile. Supply at least one field (name, about, picture, nip05, banner, or lud16), either at the top level or inside a "profile" object.',
+        }, null, 2) }],
+      }
     }
     const result = await handleSocialProfileSet(deps.ctx, deps.pool, { profile, confirm })
     if (!result.published && result.warning) {

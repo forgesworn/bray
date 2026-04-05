@@ -8,6 +8,7 @@ import { handleRelayList, handleRelaySet, handleRelayAdd, handleRelayInfo, handl
 import { handleRelayCount } from './count.js'
 import { handleRelayAuth } from './auth.js'
 import { handleCastSpell } from './spell.js'
+import { flatOrWrapped, mergeFlatAndWrapped } from '../util/schema.js'
 
 export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('relay-list', {
@@ -131,24 +132,47 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('relay-count', {
-    description: 'Count events matching a filter without fetching them (NIP-45). Sends a COUNT request to each relay. Falls back to fetch-and-count (capped at 1000) if the relay does not support NIP-45. Results show per-relay counts with fallback/estimated flags.',
+    description: 'Count events matching a filter without fetching them (NIP-45). Sends a COUNT request to each relay. Falls back to fetch-and-count (capped at 1000) if the relay does not support NIP-45. Results show per-relay counts with fallback/estimated flags. Filter fields may be supplied either as top-level arguments or wrapped in a single "filter" object (both shapes are accepted).',
     inputSchema: {
       relays: z.array(relayUrl).describe('Relay URLs to count from'),
-      kinds: z.array(z.number().int()).optional().describe('Event kinds to filter by'),
-      authors: z.array(z.string()).optional().describe('Hex pubkeys of event authors'),
-      tags: z.record(z.string(), z.array(z.string())).optional().describe('Tag filters as key-value pairs'),
-      since: z.number().int().optional().describe('Unix timestamp lower bound'),
-      until: z.number().int().optional().describe('Unix timestamp upper bound'),
+      ...flatOrWrapped({
+        ids: z.array(z.string()).optional().describe('Event IDs (hex) to count'),
+        kinds: z.array(z.number().int()).optional().describe('Event kinds to filter by'),
+        authors: z.array(z.string()).optional().describe('Hex pubkeys of event authors'),
+        tags: z.record(z.string(), z.array(z.string())).optional().describe('Tag filters as key-value pairs'),
+        since: z.number().int().optional().describe('Unix timestamp lower bound'),
+        until: z.number().int().optional().describe('Unix timestamp upper bound'),
+        limit: z.number().int().min(1).max(500).optional().describe('Maximum number of events to count per relay'),
+        search: z.string().optional().describe('Full-text search query (NIP-50)'),
+      }, 'filter'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ relays, kinds, authors, tags, since, until }) => {
+  }, async (args) => {
+    // Honour either the canonical top-level shape or a nested `filter` wrapper
+    // alias. Without the merge the MCP SDK strips the unknown top-level key and
+    // COUNT is sent with no selector, returning relay-wide totals.
+    const merged = mergeFlatAndWrapped<{
+      ids?: string[]
+      kinds?: number[]
+      authors?: string[]
+      tags?: Record<string, string[]>
+      since?: number
+      until?: number
+      limit?: number
+      search?: string
+    }>(args, 'filter')
+    const relays = (args as { relays: string[] }).relays
+
     const filter: Record<string, unknown> = {}
-    if (kinds?.length) filter.kinds = kinds
-    if (authors?.length) filter.authors = authors
-    if (since) filter.since = since
-    if (until) filter.until = until
-    if (tags) {
-      for (const [key, values] of Object.entries(tags)) {
+    if (merged.ids?.length) filter.ids = merged.ids
+    if (merged.kinds?.length) filter.kinds = merged.kinds
+    if (merged.authors?.length) filter.authors = merged.authors
+    if (merged.since) filter.since = merged.since
+    if (merged.until) filter.until = merged.until
+    if (merged.limit !== undefined) filter.limit = merged.limit
+    if (merged.search) filter.search = merged.search
+    if (merged.tags) {
+      for (const [key, values] of Object.entries(merged.tags)) {
         const tagKey = key.startsWith('#') ? key : `#${key}`
         filter[tagKey] = values
       }
