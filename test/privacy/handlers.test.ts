@@ -138,8 +138,8 @@ describe('privacy handlers', () => {
     function mockPool() {
       return {
         query: vi.fn().mockResolvedValue([]),
-        publish: vi.fn().mockResolvedValue({ success: true, accepted: ['wss://relay.test'], rejected: [], errors: [] }),
-        publishDirect: vi.fn().mockResolvedValue({ success: true, accepted: [], rejected: [], errors: [] }),
+        publish: vi.fn().mockResolvedValue({ success: true, allAccepted: true, accepted: ['wss://relay.test'], rejected: [], errors: [] }),
+        publishDirect: vi.fn().mockResolvedValue({ success: true, allAccepted: true, accepted: [], rejected: [], errors: [] }),
         getRelays: vi.fn().mockReturnValue({ read: [], write: ['wss://relay.test'] }),
       }
     }

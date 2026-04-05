@@ -43,7 +43,7 @@ describe('TrustContext', () => {
     return {
       query: vi.fn().mockResolvedValue([]),
       queryDirect: vi.fn().mockResolvedValue([]),
-      publish: vi.fn().mockResolvedValue({ success: true, accepted: [], rejected: [], errors: [] }),
+      publish: vi.fn().mockResolvedValue({ success: true, allAccepted: true, accepted: [], rejected: [], errors: [] }),
       getRelays: vi.fn().mockReturnValue({ read: ['wss://relay.test'], write: ['wss://relay.test'] }),
       reconfigure: vi.fn(),
       checkSharedRelays: vi.fn().mockReturnValue([]),

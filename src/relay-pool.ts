@@ -8,6 +8,32 @@ export interface PoolLike {
   destroy(): void
 }
 
+/**
+ * Summarise a publish attempt into the two boolean flags on {@link PublishResult}.
+ *
+ * `success` is true when the event reached the network as a majority: at least
+ * one relay accepted AND at least 50% of attempted relays accepted. This is the
+ * default "did my publish work" signal. Paywalled, whitelisted, or transient
+ * failures routinely leave some relays in the rejected list, so requiring every
+ * relay to accept produces far too many false negatives.
+ *
+ * `allAccepted` preserves the strict "every attempted relay accepted" semantic
+ * for callers that genuinely need it (e.g. high-assurance publishing to a
+ * small curated list of private relays).
+ *
+ * Zero attempted relays is treated as failure on both flags.
+ */
+export function summarisePublish(
+  acceptedCount: number,
+  attempted: number,
+): { success: boolean; allAccepted: boolean } {
+  if (attempted <= 0) return { success: false, allAccepted: false }
+  return {
+    success: acceptedCount >= 1 && acceptedCount * 2 >= attempted,
+    allAccepted: acceptedCount === attempted,
+  }
+}
+
 export interface RelayPoolConfig {
   torProxy?: string
   allowClearnet: boolean
@@ -98,7 +124,7 @@ export class RelayPool {
     const relays = this.getRelays(npub)
     const writeRelays = relays.write
     if (writeRelays.length === 0) {
-      return { success: false, accepted: [], rejected: [], errors: ['no write relays configured'] }
+      return { success: false, allAccepted: false, accepted: [], rejected: [], errors: ['no write relays configured'] }
     }
 
     const promises = pool.publish(writeRelays, event)
@@ -119,7 +145,7 @@ export class RelayPool {
     }
 
     return {
-      success: accepted.length === writeRelays.length,
+      ...summarisePublish(accepted.length, writeRelays.length),
       accepted,
       rejected,
       errors,
@@ -130,7 +156,7 @@ export class RelayPool {
   async publishDirect(relays: string[], event: NostrEvent): Promise<PublishResult> {
     const pool = await this.poolReady
     if (relays.length === 0) {
-      return { success: false, accepted: [], rejected: [], errors: ['no relays specified'] }
+      return { success: false, allAccepted: false, accepted: [], rejected: [], errors: ['no relays specified'] }
     }
 
     const promises = pool.publish(relays, event)
@@ -151,7 +177,7 @@ export class RelayPool {
     }
 
     return {
-      success: accepted.length === relays.length,
+      ...summarisePublish(accepted.length, relays.length),
       accepted,
       rejected,
       errors,

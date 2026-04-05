@@ -43,7 +43,7 @@ describe('social-profile-set wrapper forwarding and data-loss guard', () => {
     getRelays: () => ({ read: ['wss://read.example.com'], write: ['wss://write.example.com'] }),
     publish: async (_npub: string, event: NostrEvent) => {
       publishedEvents.push(event)
-      return { success: true, accepted: ['wss://write.example.com'], rejected: [], errors: [] }
+      return { success: true, allAccepted: true, accepted: ['wss://write.example.com'], rejected: [], errors: [] }
     },
     reconfigure: () => {},
     checkSharedRelays: () => [],

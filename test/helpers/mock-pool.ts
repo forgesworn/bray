@@ -44,6 +44,7 @@ export function createValidatingMockPool(events: any[] = []) {
     }),
     publish: vi.fn().mockResolvedValue({
       success: true,
+      allAccepted: true,
       accepted: ['wss://mock.relay'],
       rejected: [],
       errors: [],

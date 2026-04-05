@@ -20,7 +20,7 @@ function createStatefulPool() {
   return {
     publish: vi.fn().mockImplementation(async (_npub: string, event: any) => {
       store.push(event)
-      return { success: true, accepted: ['wss://test'], rejected: [], errors: [] }
+      return { success: true, allAccepted: true, accepted: ['wss://test'], rejected: [], errors: [] }
     }),
     query: vi.fn().mockImplementation(async (_npub: string, filter: any) => {
       return store.filter(e => {

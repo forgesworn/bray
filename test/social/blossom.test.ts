@@ -701,7 +701,7 @@ describe('blossom handlers', () => {
 
   describe('handleBlossomServersSet', () => {
     it('publishes kind 10063 with server tags', async () => {
-      const publishResult = { success: true, accepted: ['wss://r.com'], rejected: [], errors: [] }
+      const publishResult = { success: true, allAccepted: true, accepted: ['wss://r.com'], rejected: [], errors: [] }
       const mockPool = {
         publish: vi.fn().mockResolvedValue(publishResult),
       }

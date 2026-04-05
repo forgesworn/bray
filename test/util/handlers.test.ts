@@ -343,7 +343,7 @@ describe('util handlers', () => {
       const { IdentityContext } = await import('../../src/context.js')
       const ctx = new IdentityContext('nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8', 'nsec')
       const pool = {
-        publish: vi.fn().mockResolvedValue({ success: true, accepted: ['wss://relay.test'], rejected: [], errors: [] }),
+        publish: vi.fn().mockResolvedValue({ success: true, allAccepted: true, accepted: ['wss://relay.test'], rejected: [], errors: [] }),
       }
 
       const result = await handleTombstone(ctx, pool as any, { kind: 30817, dTag: 'nip-broken' })

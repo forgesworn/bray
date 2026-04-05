@@ -54,7 +54,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('social-post', {
-    description: 'Post a text note (kind 1) signed by the active identity and publish to relays. Returns { id, pubkey, publish: { success, accepted, rejected } }. The most common social action.',
+    description: 'Post a text note (kind 1) signed by the active identity and publish to relays. Returns { id, pubkey, publish: { success, allAccepted, accepted, rejected } } where success is the majority-quorum signal (true when at least one relay accepted and at least half of attempted relays accepted) and allAccepted is true only when every attempted relay accepted. The most common social action.',
     inputSchema: {
       content: z.string().describe('Text content of the note'),
     },

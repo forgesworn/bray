@@ -25,12 +25,14 @@ function mockPool() {
     query: vi.fn().mockResolvedValue([]),
     publish: vi.fn().mockResolvedValue({
       success: true,
+      allAccepted: true,
       accepted: ['wss://relay.trotters.cc'],
       rejected: [],
       errors: [],
     }),
     publishDirect: vi.fn().mockResolvedValue({
       success: true,
+      allAccepted: true,
       accepted: [],
       rejected: [],
       errors: [],

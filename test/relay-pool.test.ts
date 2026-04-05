@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { RelayPool } from '../src/relay-pool.js'
+import { RelayPool, summarisePublish } from '../src/relay-pool.js'
 import type { PoolLike } from '../src/relay-pool.js'
 
 const NPUB_A = 'npub1abc111111111111111111111111111111111111111111111111abcdef01'
@@ -169,7 +169,69 @@ describe('RelayPool', () => {
       const result = await pool.publish(NPUB_A, fakeEvent)
       expect(result.accepted.length).toBe(1)
       expect(result.rejected.length).toBe(1)
+      // 1 of 2 accepted meets the majority-quorum rule (>= 50%), so success is true.
+      // allAccepted stays false because not every relay accepted.
+      expect(result.success).toBe(true)
+      expect(result.allAccepted).toBe(false)
+      pool.close()
+    })
+
+    it('treats a minority of accepts as failure', async () => {
+      const inner = mockPool({
+        publish: vi.fn().mockReturnValue([
+          Promise.resolve('ok'),
+          Promise.reject(new Error('paywall')),
+          Promise.reject(new Error('whitelist')),
+          Promise.reject(new Error('offline')),
+        ]),
+      })
+      const pool = new RelayPool(
+        { allowClearnet: true, defaultRelays: ['wss://default.example.com'] },
+        inner,
+      )
+      pool.reconfigure(NPUB_A, {
+        read: [],
+        write: [
+          'wss://ok.example.com',
+          'wss://paywall.example.com',
+          'wss://whitelist.example.com',
+          'wss://offline.example.com',
+        ],
+      })
+      const fakeEvent = { id: 'abc', kind: 1, pubkey: '1234', sig: 'dead', created_at: 0, tags: [], content: '' } as any
+      const result = await pool.publish(NPUB_A, fakeEvent)
+      expect(result.accepted.length).toBe(1)
+      expect(result.rejected.length).toBe(3)
+      // 1 of 4 is below the 50% threshold, so success is false.
       expect(result.success).toBe(false)
+      expect(result.allAccepted).toBe(false)
+      pool.close()
+    })
+
+    it('reports allAccepted when every relay accepts', async () => {
+      const inner = mockPool({
+        publish: vi.fn().mockReturnValue([
+          Promise.resolve('ok'),
+          Promise.resolve('ok'),
+          Promise.resolve('ok'),
+        ]),
+      })
+      const pool = new RelayPool(
+        { allowClearnet: true, defaultRelays: ['wss://default.example.com'] },
+        inner,
+      )
+      pool.reconfigure(NPUB_A, {
+        read: [],
+        write: [
+          'wss://a.example.com',
+          'wss://b.example.com',
+          'wss://c.example.com',
+        ],
+      })
+      const fakeEvent = { id: 'abc', kind: 1, pubkey: '1234', sig: 'dead', created_at: 0, tags: [], content: '' } as any
+      const result = await pool.publish(NPUB_A, fakeEvent)
+      expect(result.success).toBe(true)
+      expect(result.allAccepted).toBe(true)
       pool.close()
     })
   })
@@ -253,8 +315,47 @@ describe('RelayPool', () => {
       const fakeEvent = { id: 'abc', kind: 1, pubkey: '1234', sig: 'dead', created_at: 0, tags: [], content: '' } as any
       const result = await pool.publish(NPUB_A, fakeEvent)
       expect(result.success).toBe(false)
+      expect(result.allAccepted).toBe(false)
       expect(result.errors).toContain('no write relays configured')
       pool.close()
     })
+  })
+})
+
+describe('summarisePublish', () => {
+  it('all relays accept — success and allAccepted both true', () => {
+    expect(summarisePublish(10, 10)).toEqual({ success: true, allAccepted: true })
+  })
+
+  it('clear majority accepts — success true, allAccepted false', () => {
+    expect(summarisePublish(7, 10)).toEqual({ success: true, allAccepted: false })
+  })
+
+  it('exact 50% accepts — success true, allAccepted false', () => {
+    expect(summarisePublish(5, 10)).toEqual({ success: true, allAccepted: false })
+  })
+
+  it('minority accepts — success false, allAccepted false', () => {
+    expect(summarisePublish(3, 10)).toEqual({ success: false, allAccepted: false })
+  })
+
+  it('single accept out of many — success false, allAccepted false', () => {
+    expect(summarisePublish(1, 10)).toEqual({ success: false, allAccepted: false })
+  })
+
+  it('zero accepted with some rejected — success false, allAccepted false', () => {
+    expect(summarisePublish(0, 6)).toEqual({ success: false, allAccepted: false })
+  })
+
+  it('zero attempted — success false, allAccepted false', () => {
+    expect(summarisePublish(0, 0)).toEqual({ success: false, allAccepted: false })
+  })
+
+  it('single relay accepts — success true, allAccepted true', () => {
+    expect(summarisePublish(1, 1)).toEqual({ success: true, allAccepted: true })
+  })
+
+  it('one of two accepts — success true (50% rule), allAccepted false', () => {
+    expect(summarisePublish(1, 2)).toEqual({ success: true, allAccepted: false })
   })
 })

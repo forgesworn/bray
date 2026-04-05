@@ -20,6 +20,7 @@ function mockPool(queryEvents: any[] = []) {
     query: vi.fn().mockResolvedValue(queryEvents),
     publish: vi.fn().mockResolvedValue({
       success: true,
+      allAccepted: true,
       accepted: ['wss://relay.test'],
       rejected: [],
       errors: [],
@@ -181,7 +182,7 @@ describe('vault handlers', () => {
 
     it('counts failed publishes when pool rejects', async () => {
       const pool = mockPool()
-      pool.publish.mockResolvedValue({ success: false, accepted: [], rejected: ['wss://relay.test'], errors: ['rejected'] })
+      pool.publish.mockResolvedValue({ success: false, allAccepted: false, accepted: [], rejected: ['wss://relay.test'], errors: ['rejected'] })
       const result = await handleVaultShare(ctx, pool as any, {
         tier: 'friends',
         recipients: [BOB],
