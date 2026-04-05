@@ -126,6 +126,7 @@ export function handleRelayAdd(
 }
 
 export interface RelayQueryArgs {
+  ids?: string[]
   kinds?: number[]
   authors?: string[]
   tags?: Record<string, string[]>
@@ -143,6 +144,7 @@ export async function handleRelayQuery(
   args: RelayQueryArgs,
 ): Promise<NostrEvent[]> {
   const filter: Filter = {}
+  if (args.ids?.length) filter.ids = args.ids
   if (args.kinds?.length) filter.kinds = args.kinds
   if (args.authors?.length) filter.authors = args.authors
   if (args.since) filter.since = args.since
