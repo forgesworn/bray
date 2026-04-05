@@ -3,6 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
 import { hexId } from '../validation.js'
 import { resolveRecipient } from '../resolve.js'
+import { flatOrWrapped, mergeFlatAndWrapped } from './schema.js'
 import { handleKeyEncrypt, handleKeyDecrypt } from './ncryptsec.js'
 import {
   handleDecode,
@@ -126,18 +127,48 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('count', {
-    description: 'Count events matching a filter on the active identity\'s relays.',
+    description: 'Count events matching a filter on the active identity\'s relays. Filter fields may be supplied either as top-level arguments or wrapped in a single "filter" object (both shapes are accepted).',
     inputSchema: {
-      kinds: z.array(z.number().int()).optional().describe('Event kinds to count'),
-      authors: z.array(hexId).optional().describe('Author hex pubkeys'),
-      since: z.number().optional().describe('Unix timestamp lower bound'),
+      ...flatOrWrapped({
+        ids: z.array(z.string()).optional().describe('Event IDs (hex) to count'),
+        kinds: z.array(z.number().int()).optional().describe('Event kinds to count'),
+        authors: z.array(hexId).optional().describe('Author hex pubkeys'),
+        tags: z.record(z.string(), z.array(z.string())).optional().describe('Tag filters as key-value pairs'),
+        since: z.number().int().optional().describe('Unix timestamp lower bound'),
+        until: z.number().int().optional().describe('Unix timestamp upper bound'),
+        limit: z.number().int().min(1).max(500).optional().describe('Maximum number of events to count'),
+        search: z.string().optional().describe('Full-text search query (NIP-50)'),
+      }, 'filter'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ kinds, authors, since }) => {
+  }, async (args) => {
+    // Honour either the canonical top-level shape or a nested `filter` wrapper
+    // alias. Without the merge the MCP SDK strips the unknown top-level key and
+    // the count runs against an empty filter, inflating the result.
+    const merged = mergeFlatAndWrapped<{
+      ids?: string[]
+      kinds?: number[]
+      authors?: string[]
+      tags?: Record<string, string[]>
+      since?: number
+      until?: number
+      limit?: number
+      search?: string
+    }>(args, 'filter')
     const filter: Record<string, unknown> = {}
-    if (kinds) filter.kinds = kinds
-    if (authors) filter.authors = authors
-    if (since) filter.since = since
+    if (merged.ids?.length) filter.ids = merged.ids
+    if (merged.kinds?.length) filter.kinds = merged.kinds
+    if (merged.authors?.length) filter.authors = merged.authors
+    if (merged.since) filter.since = merged.since
+    if (merged.until) filter.until = merged.until
+    if (merged.limit !== undefined) filter.limit = merged.limit
+    if (merged.search) filter.search = merged.search
+    if (merged.tags) {
+      for (const [key, values] of Object.entries(merged.tags)) {
+        const tagKey = key.startsWith('#') ? key : `#${key}`
+        filter[tagKey] = values
+      }
+    }
     const result = await handleCount(deps.pool, deps.ctx.activeNpub, filter as any)
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
