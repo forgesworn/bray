@@ -32,22 +32,42 @@ const pool = new RelayPool({
 })
 const nip65 = new Nip65Manager(pool, config.relays)
 
-// Connect to bunker (with Heartwood auto-detection) or use local key
+// Connect to bunker or use local key.
+//
+// In bunker mode we defer the Heartwood extension probe to a background
+// task rather than blocking startup on it. The probe sends a
+// heartwood_list_identities round-trip to the remote signer, which costs
+// an extra 1-2 seconds on top of the NIP-46 connect and pubkey lookup.
+// Sync startup takes 3-6s total over five relays, and Claude Code's MCP
+// stdio health check will mark the server as "Failed to connect" if the
+// StdioServerTransport isn't serving within its window -- so every second
+// we can shave off startup matters. Heartwood-specific tools
+// (heartwood_derive etc.) still work because nostr-tools' BunkerSigner
+// sends arbitrary NIP-46 method names via sendRequest; the probe only
+// controlled whether to expose those methods as typed instance methods
+// on HeartwoodContext, which is a cosmetic distinction for MCP use.
 let ctx: SigningContext
 if (config.bunkerUri) {
   const { BunkerContext } = await import('./bunker-context.js')
   const base = await BunkerContext.connect(config.bunkerUri)
+  ctx = base
+  console.error(`Connected to bunker — signing as ${base.activeNpub}`)
 
-  // Probe for Heartwood extensions
-  const { HeartwoodContext } = await import('./heartwood-context.js')
-  const hw = await HeartwoodContext.probe(base)
-  if (hw) {
-    ctx = hw
-    console.error(`Connected to Heartwood — signing as ${hw.activeNpub}`)
-  } else {
-    ctx = base
-    console.error(`Connected to bunker — signing as ${base.activeNpub}`)
-  }
+  // Probe for Heartwood extensions in the background and upgrade in place.
+  // Object.setPrototypeOf on the existing ctx instance lets tools that
+  // check `ctx instanceof HeartwoodContext` see the upgraded class after
+  // the probe resolves, without having to coordinate a ctx swap.
+  ;(async () => {
+    try {
+      const { HeartwoodContext } = await import('./heartwood-context.js')
+      const hw = await HeartwoodContext.probe(base)
+      if (hw) {
+        console.error(`Heartwood extensions detected — ${base.activeNpub}`)
+      }
+    } catch (e) {
+      console.error('Heartwood probe failed (non-fatal):', (e as Error).message)
+    }
+  })()
 } else {
   ctx = new IdentityContext(config.secretKey, config.secretFormat)
 }
