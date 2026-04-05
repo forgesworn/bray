@@ -165,14 +165,22 @@ export async function handleVaultCreate(
   }
 }
 
-/** Encrypt content with a content key derived from the active identity for a given tier + epoch. */
+/**
+ * Encrypt content with the active identity's content key for the given epoch.
+ *
+ * The `tier` is recorded on the returned result for caller bookkeeping but is
+ * not part of the content key derivation itself. dominion-protocol's content
+ * keys rotate per-epoch via HKDF(privkey, "epoch:{epochId}"); tier-level
+ * access control is implemented by sharing the CK to different subsets of
+ * pubkeys (addToTier / addIndividualGrant), not by tier-scoped keys.
+ */
 export async function handleVaultEncrypt(
   ctx: SigningContext,
   args: { content: string; tier: string; epoch?: string },
 ): Promise<VaultEncryptResult> {
   const privkeyHex = Buffer.from((ctx as IdentityContext).activePrivateKey).toString('hex')
   const epoch = args.epoch ?? getCurrentEpochId()
-  const ck = deriveContentKey(privkeyHex, epoch, args.tier)
+  const ck = deriveContentKey(privkeyHex, epoch)
   try {
     const ciphertext = await encrypt(args.content, ck)
     return { ciphertext, tier: args.tier, epoch }
@@ -191,7 +199,9 @@ export async function handleVaultShare(
   const privkeyBytes = Buffer.from(privkeyHex, 'hex')
   const epoch = args.epoch ?? getCurrentEpochId()
   const authorPubkeyHex = ctx.activePublicKeyHex
-  const ck = deriveContentKey(privkeyHex, epoch, args.tier)
+  // Content key is per-epoch; the tier field is carried on the share event
+  // (buildVaultShareEvent tags it separately) but is not part of CK derivation.
+  const ck = deriveContentKey(privkeyHex, epoch)
   let published = 0
   let failed = 0
   const successfulRecipients: string[] = []
@@ -235,13 +245,18 @@ export async function handleVaultShare(
   return { published, failed, recipients: successfulRecipients }
 }
 
-/** Decrypt ciphertext using the content key for the active identity's tier + epoch. */
+/**
+ * Decrypt ciphertext using the active identity's content key for the given epoch.
+ *
+ * `tier` is carried on the result for caller bookkeeping but not used in CK
+ * derivation (see handleVaultEncrypt for the same note).
+ */
 export async function handleVaultRead(
   ctx: SigningContext,
   args: { ciphertext: string; tier: string; epoch: string },
 ): Promise<VaultReadResult> {
   const privkeyHex = Buffer.from((ctx as IdentityContext).activePrivateKey).toString('hex')
-  const ck = deriveContentKey(privkeyHex, args.epoch, args.tier)
+  const ck = deriveContentKey(privkeyHex, args.epoch)
   try {
     const plaintext = await decrypt(args.ciphertext, ck)
     return { plaintext, tier: args.tier, epoch: args.epoch }
