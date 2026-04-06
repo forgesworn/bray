@@ -131,34 +131,44 @@ export class BunkerContext implements SigningContext {
       { pool },
     )
 
-    // The NIP-46 `connect` handshake is the only strictly-necessary
-    // round-trip at startup. We used to also call signer.ping() and
-    // signer.getPublicKey() here for extra verification, but each of
-    // those adds another full round-trip over relays (~1-1.5s each) and
-    // Claude Code's MCP stdio health check has a short window before it
-    // marks the server as "Failed to connect". Cutting them shaves
-    // 2-3 seconds off startup without losing correctness:
-    //
-    //   - ping is redundant; if `connect` succeeded the signer is alive.
-    //     The first real tool call will detect any subsequent dead bunker.
-    //   - getPublicKey can be avoided entirely by trusting the URI's
-    //     own pubkey field, which is authoritative (the signer's keypair
-    //     produced both it and the bunker URI in the first place).
+    // Only the `connect` handshake is needed at startup. Ping is
+    // redundant (if connect succeeded the signer is alive), and
+    // getPublicKey is deferred to first access so startup stays fast.
     await signer.connect()
 
     const ctx = new BunkerContext(signer, pool, clientSk)
-    ctx.pubkeyHex = config.pubkey
+    // Do NOT use config.pubkey here — that is the bunker's transport
+    // key from the URI, not the signing identity. The actual identity
+    // pubkey is resolved lazily via getPublicKey() on first access.
     return ctx
+  }
+
+  /**
+   * Resolve the signing identity pubkey from the remote bunker.
+   * Called lazily on first access so startup stays fast (no extra
+   * NIP-46 round-trip). The result is cached for subsequent calls.
+   */
+  async resolvePublicKey(): Promise<string> {
+    if (!this.pubkeyHex) {
+      this.pubkeyHex = await this.signer.getPublicKey()
+    }
+    return this.pubkeyHex
   }
 
   /** The remote identity's npub */
   get activeNpub(): string {
-    return npubEncode(this.pubkeyHex!)
+    if (!this.pubkeyHex) {
+      throw new Error('pubkey not yet resolved — call resolvePublicKey() first')
+    }
+    return npubEncode(this.pubkeyHex)
   }
 
   /** The remote identity's hex pubkey */
   get activePublicKeyHex(): string {
-    return this.pubkeyHex!
+    if (!this.pubkeyHex) {
+      throw new Error('pubkey not yet resolved — call resolvePublicKey() first')
+    }
+    return this.pubkeyHex
   }
 
   /** Sign an event via the remote bunker */
