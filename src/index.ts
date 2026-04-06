@@ -50,6 +50,7 @@ let ctx: SigningContext
 if (config.bunkerUri) {
   const { BunkerContext } = await import('./bunker-context.js')
   const base = await BunkerContext.connect(config.bunkerUri)
+  await base.resolvePublicKey()
   ctx = base
   console.error(`Connected to bunker — signing as ${base.activeNpub}`)
 
