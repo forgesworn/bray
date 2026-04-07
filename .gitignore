@@ -5,5 +5,7 @@ dist/
 coverage/
 
 .claude/worktrees/
+.claude/settings.local.json
 .idea/
 .playwright-mcp/
+.mcp.json
