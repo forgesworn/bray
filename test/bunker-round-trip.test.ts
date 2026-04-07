@@ -49,6 +49,7 @@ describe('bunker round-trip', () => {
 
   it('client connects to bunker and gets public key', async () => {
     const client = await BunkerContext.connect(bunkerServer.url)
+    await client.resolvePublicKey()
     expect(client.activeNpub).toBe(ctx.activeNpub)
     expect(client.activePublicKeyHex).toBe(ctx.activePublicKeyHex)
     client.destroy()
@@ -75,6 +76,7 @@ describe('bunker round-trip', () => {
 
   it('client lists identities', async () => {
     const client = await BunkerContext.connect(bunkerServer.url)
+    await client.resolvePublicKey()
     const list = await client.listIdentities()
     expect(list.length).toBe(1)
     expect(list[0].purpose).toBe('bunker')
@@ -133,6 +135,12 @@ describe('bunker round-trip', () => {
       [bunkerPk]: [clientPk],
     }, stateDir)
 
+    // Also write the client secret into client-keys.json so resolveClientKey()
+    // reuses this key instead of generating a new random one
+    writeStateFile('client-keys.json', {
+      [bunkerPk]: Buffer.from(clientSk).toString('hex'),
+    }, stateDir)
+
     // Start bunker with a dummy authorised key only — no open access
     const bunker3 = startBunker({
       ctx,
@@ -144,9 +152,9 @@ describe('bunker round-trip', () => {
     })
 
     // Persisted approval should be loaded at startup — clientPk is now authorised
-    // Connect using a bunker URI with the pre-approved client secret key
-    const uri = `${bunker3.url}&secret=${Buffer.from(clientSk).toString('hex')}`
-    const client = await BunkerContext.connect(uri)
+    // Connect using the stateDir so resolveClientKey finds the pre-seeded client key
+    const client = await BunkerContext.connect(bunker3.url, 15_000, stateDir)
+    await client.resolvePublicKey()
     expect(client.activeNpub).toBe(ctx.activeNpub)
 
     client.destroy()
