@@ -1,10 +1,10 @@
 # nostr-bray -- Full Documentation for AI Assistants
 
-> Trust-aware Nostr MCP server for AI agents and humans. 230 tools across 22 groups. Three dimensions of trust -- verification (Signet), proximity (web-of-trust), and access (Dominion) -- woven into every interaction. Model-agnostic: works with Claude, ChatGPT, Gemini, Cursor, or any MCP client.
+> Trust-aware Nostr MCP server for AI agents and humans. 235 tools across 27 groups. Three dimensions of trust -- verification (Signet), proximity (web-of-trust), and access (Dominion) -- woven into every interaction. Model-agnostic: works with Claude, ChatGPT, Gemini, Cursor, or any MCP client.
 
 ## Architecture
 
-Single-process MCP server (stdio or HTTP transport) with 230 tools in 22 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction. Universal identity resolution across all tools: names, NIP-05, npubs, and hex pubkeys are accepted anywhere a pubkey is needed.
+Single-process MCP server (stdio or HTTP transport) with 235 tools in 27 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction. Universal identity resolution across all tools: names, NIP-05, npubs, and hex pubkeys are accepted anywhere a pubkey is needed.
 
 ## Configuration
 

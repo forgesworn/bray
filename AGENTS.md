@@ -4,7 +4,7 @@ Generic AI agent instructions. For Claude Code see `CLAUDE.md`, for Cursor see `
 
 ## What this is
 
-MCP server + CLI giving AI agents sovereign Nostr identities. 235 tools across 24 groups.
+MCP server + CLI giving AI agents sovereign Nostr identities. 235 tools across 27 groups.
 
 ## Build & Test
 
@@ -57,21 +57,23 @@ src/
 | Group | Tools | Key tools |
 |-------|------:|-----------|
 | identity | 16 | `whoami`, `identity-derive`, `identity-switch`, `identity-prove`, `identity-backup-shamir`, `nip05-lookup` |
-| social (core) | 9 | `social-post`, `social-reply`, `social-feed`, `social-react`, `social-delete`, `social-repost` |
+| social | 15 | `social-post`, `social-reply`, `social-feed`, `social-react`, `social-delete`, `social-repost` |
 | dm | 4 | `dm-send`, `dm-read`, `dm-conversation`, `dm-by-name` |
-| contacts & groups | 8 | `contacts-follow`, `contacts-get`, `group-info`, `group-chat`, `group-send` |
 | blossom | 10 | `blossom-upload`, `blossom-list`, `blossom-discover`, `blossom-verify`, `blossom-repair` |
-| articles & wiki | 6 | `article-publish`, `article-read`, `article-list`, `wiki-publish`, `wiki-read` |
-| badges & communities | 9 | `badge-create`, `badge-award`, `badge-accept`, `community-create`, `community-post`, `community-approve` |
+| articles | 3 | `article-publish`, `article-read`, `article-list` |
+| wiki | 3 | `wiki-publish`, `wiki-read`, `wiki-list` |
+| badges | 4 | `badge-create`, `badge-award`, `badge-accept`, `badge-list` |
+| communities | 5 | `community-create`, `community-feed`, `community-post`, `community-approve`, `community-list` |
+| groups (NIP-29) | 4 | `group-info`, `group-chat`, `group-send`, `group-members` |
 | calendar | 3 | `calendar-create`, `calendar-read`, `calendar-rsvp` |
-| search, feed & nips | 7 | `search-notes`, `search-profiles`, `hashtag-feed`, `nip-publish`, `nip-read` |
-| scheduled posts | 4 | `post-schedule`, `post-queue-list`, `post-queue-cancel`, `publish-event` |
+| search | 3 | `search-notes`, `search-profiles`, `hashtag-feed` |
+| community NIPs | 2 | `nip-publish`, `nip-read` |
+| scheduling | 4 | `post-schedule`, `post-queue-list`, `post-queue-cancel`, `publish-event` |
 | trust | 22 | `trust-attest`, `trust-verify`, `trust-ring-prove`, `trust-ring-lsag-sign`, `trust-spoken-challenge` |
-| relay | 8 | `relay-query`, `relay-list`, `relay-set`, `relay-add`, `relay-info`, `relay-count`, `relay-auth` |
-| relay intelligence | 5 | `relay-discover`, `relay-nip-search`, `relay-compare`, `relay-diversity`, `relay-recommend` |
+| relay | 13 | `relay-query`, `relay-list`, `relay-set`, `relay-add`, `relay-info`, `relay-count`, `relay-auth`, `relay-discover`, `relay-nip-search`, `relay-compare`, `relay-diversity`, `relay-recommend`, `cast-spell` |
 | zap | 9 | `zap-send`, `zap-balance`, `zap-make-invoice`, `zap-list-transactions`, `zap-receipts` |
 | safety | 14 | `safety-activate`, `canary-session-create`, `canary-group-create`, `canary-beacon-create`, `canary-duress-detect` |
-| util | 19 | `decode`, `nip44-encrypt`, `nip44-decrypt`, `verify-event`, `key-encrypt`, `key-decrypt`, `nip-list` |
+| utility | 19 | `decode`, `nip44-encrypt`, `nip44-decrypt`, `verify-event`, `key-encrypt`, `key-decrypt`, `nip-list` |
 | workflow | 7 | `trust-score`, `verify-person`, `feed-discover`, `identity-setup`, `relay-health`, `onboard-verified` |
 | marketplace | 16 | `marketplace-discover`, `marketplace-search`, `marketplace-pay`, `listing-create`, `listing-search` |
 | privacy | 10 | `privacy-prove-range`, `privacy-verify-range`, `privacy-prove-age`, `privacy-prove-threshold` |
@@ -79,7 +81,8 @@ src/
 | signet | 7 | `signet-badge`, `signet-vouch`, `signet-credentials`, `signet-policy-check`, `signet-challenge` |
 | vault | 9 | `vault-create`, `vault-encrypt`, `vault-read`, `vault-share`, `vault-rotate`, `vault-members` |
 | dispatch | 13 | `dispatch-send`, `dispatch-check`, `dispatch-reply`, `dispatch-ack`, `dispatch-propose`, `dispatch-capability-publish` |
-| handler + meta | 4 | `handler-publish`, `handler-discover`, `search-actions`, `execute-action` |
+| handler | 2 | `handler-publish`, `handler-discover` |
+| catalog | 2 | `search-actions`, `execute-action` |
 
 ## Promoted vs catalogued
 
