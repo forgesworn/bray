@@ -1,0 +1,45 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.forgesworn/bray",
+  "description": "Trust-aware Nostr MCP server -- 235 tools across 27 groups. Social posting, encrypted DMs, Lightning zaps, trust scoring, ring signatures, AI-to-AI dispatch, and more. Three dimensions of trust: verification, proximity, and access.",
+  "repository": {
+    "url": "https://github.com/forgesworn/bray",
+    "source": "github"
+  },
+  "version_detail": {
+    "version": "1.27.5"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "nostr-bray",
+      "version": "1.27.5",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "Nostr secret key (nsec, hex, or BIP-39 mnemonic)",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": true,
+          "name": "NOSTR_SECRET_KEY"
+        },
+        {
+          "description": "Comma-separated list of Nostr relay WebSocket URLs",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": false,
+          "name": "NOSTR_RELAYS"
+        },
+        {
+          "description": "Nostr Wallet Connect URI for Lightning zaps",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true,
+          "name": "NWC_URI"
+        }
+      ]
+    }
+  ]
+}
