@@ -112,9 +112,9 @@ export class BunkerContext implements SigningContext {
   }
 
   /** Connect to a remote bunker. Blocks until the connection is established. */
-  static async connect(uri: string, _timeoutMs = 15_000): Promise<BunkerContext> {
+  static async connect(uri: string, _timeoutMs = 15_000, stateDir?: string): Promise<BunkerContext> {
     const config = parseBunkerUri(uri)
-    const clientSk = resolveClientKey(config)
+    const clientSk = resolveClientKey(config, stateDir)
     const pool = new SimplePool()
 
     const signer = BunkerSigner.fromBunker(

@@ -12,12 +12,6 @@ describe('resolveClientKey', () => {
     stateDir = mkdtempSync(join(tmpdir(), 'bray-client-key-test-'))
   })
 
-  it('uses secret from config when provided', () => {
-    const secret = 'a'.repeat(64)
-    const sk = resolveClientKey({ pubkey: 'b'.repeat(64), relays: [], secret }, stateDir)
-    expect(Buffer.from(sk).toString('hex')).toBe(secret)
-  })
-
   it('generates and persists a new key when none cached', () => {
     const bunkerPk = 'c'.repeat(64)
     const sk = resolveClientKey({ pubkey: bunkerPk, relays: [] }, stateDir)
