@@ -10,19 +10,19 @@ If not, propose adding one:
 ```markdown
 ### MCP Servers / AI Agents
 
-- [nostr-bray](https://github.com/forgesworn/bray) — Trust-aware Nostr MCP server. 234 tools for identity, social, DMs, trust scoring, AI-to-AI dispatch, Lightning payments, privacy proofs, and media. Model-agnostic.
+- [nostr-bray](https://github.com/forgesworn/bray) — Trust-aware Nostr MCP server. 235 tools for identity, social, DMs, trust scoring, AI-to-AI dispatch, Lightning payments, privacy proofs, and media. Model-agnostic.
 ```
 
 If no AI/MCP section exists, add to **Tools**:
 
 ```markdown
-- [nostr-bray](https://github.com/forgesworn/bray) — MCP server giving AI agents sovereign Nostr identities. 234 tools, 22 groups. Trust-scored feeds, NIP-46 bunker auth, AI-to-AI dispatch, ring signatures, zero-knowledge proofs, and L402 marketplace. `npx nostr-bray`.
+- [nostr-bray](https://github.com/forgesworn/bray) — MCP server giving AI agents sovereign Nostr identities. 235 tools, 27 groups. Trust-scored feeds, NIP-46 bunker auth, AI-to-AI dispatch, ring signatures, zero-knowledge proofs, and L402 marketplace. `npx nostr-bray`.
 ```
 
 ## PR title
 
 ```
-feat: add nostr-bray MCP server (234 tools, trust-aware, AI-to-AI dispatch)
+feat: add nostr-bray MCP server (235 tools, trust-aware, AI-to-AI dispatch)
 ```
 
 ## PR body
@@ -33,7 +33,7 @@ Adds nostr-bray to the tools list.
 **What it is:** An MCP (Model Context Protocol) server that gives AI agents sovereign Nostr identities. Works with Claude, ChatGPT, Gemini, Cursor, or any MCP client.
 
 **Why it's notable:**
-- 234 tools across 22 groups — by far the most comprehensive Nostr MCP server
+- 235 tools across 27 groups — by far the most comprehensive Nostr MCP server
 - Trust-aware by default: feeds and DMs score and filter untrusted content automatically
 - NIP-46 bunker auth: key never leaves the signing device
 - AI-to-AI dispatch protocol: agents send and receive structured tasks over encrypted NIP-17 DMs

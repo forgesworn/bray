@@ -1,6 +1,6 @@
 # nostr-bray
 
-**Trust-aware Nostr MCP for AI and humans.** 236 tools. Model-agnostic. Works with Claude, ChatGPT, Gemini, Cursor, Windsurf, or any MCP client.
+**Trust-aware Nostr MCP for AI and humans.** 235 tools across 27 groups. Model-agnostic. Works with Claude, ChatGPT, Gemini, Cursor, Windsurf, or any MCP client.
 
 [![npm](https://img.shields.io/npm/v/nostr-bray)](https://www.npmjs.com/package/nostr-bray)
 [![CI](https://github.com/forgesworn/bray/actions/workflows/ci.yml/badge.svg)](https://github.com/forgesworn/bray/actions/workflows/ci.yml)
@@ -65,7 +65,7 @@ For production use, prefer [Heartwood](https://github.com/forgesworn/heartwood) 
 
 | Group | Tools | Key examples |
 |-------|------:|--------------|
-| **Identity** | 15 | `whoami`, `identity-derive-persona`, `identity-switch`, `identity-prove`, `nip05-lookup` |
+| **Identity** | 16 | `whoami`, `identity-derive-persona`, `identity-switch`, `identity-prove`, `nip05-lookup` |
 | **Social** | 15 | `social-post`, `social-reply`, `social-feed`, `contacts-follow`, `social-notifications` |
 | **Direct Messages** | 4 | `dm-send`, `dm-read`, `dm-conversation` |
 | **Trust** | 22 | `trust-attest`, `trust-ring-prove`, `trust-spoken-challenge`, `trust-attest-chain` |
@@ -87,9 +87,10 @@ For production use, prefer [Heartwood](https://github.com/forgesworn/heartwood) 
 | **Calendar** | 3 | `calendar-create`, `calendar-read`, `calendar-rsvp` |
 | **Wiki** | 3 | `wiki-publish`, `wiki-read`, `wiki-list` |
 | **Search** | 3 | `search-notes`, `search-profiles`, `hashtag-feed` |
-| **Scheduling** | 3 | `post-schedule`, `post-queue-list`, `post-queue-cancel` |
+| **Scheduling** | 4 | `post-schedule`, `post-queue-list`, `post-queue-cancel`, `publish-event` |
 | **Community NIPs** | 2 | `nip-publish`, `nip-read` |
-| **Utility** | 20 | `decode`, `encode-npub`, `nip44-encrypt`, `verify-event`, `publish-event` |
+| **Utility** | 19 | `decode`, `encode-npub`, `nip44-encrypt`, `verify-event`, `tombstone` |
+| **Handler** | 2 | `handler-publish`, `handler-discover` |
 | **Catalog** | 2 | `search-actions`, `execute-action` |
 
 Use `search-actions` to find tools by keyword, then `execute-action` to run them.

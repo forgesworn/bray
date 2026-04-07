@@ -1,6 +1,6 @@
 # CLAUDE.md — nostr-bray
 
-MCP server giving AI agents sovereign Nostr identities. 236 tools across 15 groups.
+MCP server giving AI agents sovereign Nostr identities. 235 tools across 27 groups.
 
 ## Commands
 
@@ -24,7 +24,7 @@ Single-process MCP server. Entry points:
 - `src/<group>/tools.ts` — Zod schemas + `server.registerTool()` wiring
 - `test/<group>/handlers.test.ts` — unit tests for handlers
 
-Tool groups: `identity/`, `social/` (includes blossom, dm, groups, nips, notifications), `trust/`, `relay/`, `zap/`, `safety/`, `signet/`, `vault/`, `util/`, `workflow/` (trust-score, feed-discover, verify-person, identity-setup, identity-recover, relay-health), `dispatch/` (13 tools: send, check, reply, ack, status, cancel, refuse, failure, query, propose, capability-publish, capability-discover, capability-read), `handler/`, `marketplace/`, `moderation/`, `privacy/`, `widgets/`
+Source directories (16): `identity/`, `social/` (includes blossom, dm, groups, nips, notifications), `trust/`, `relay/`, `zap/`, `safety/`, `signet/`, `vault/`, `util/`, `workflow/` (trust-score, feed-discover, verify-person, identity-setup, identity-recover, relay-health), `dispatch/` (13 tools: send, check, reply, ack, status, cancel, refuse, failure, query, propose, capability-publish, capability-discover, capability-read), `handler/`, `marketplace/`, `moderation/`, `privacy/`, `widgets/`. The 27 user-facing groups in README/llms.txt split `social/` into sub-groups (dm, blossom, articles, calendar, badges, communities, groups, wiki, search, scheduling, community NIPs).
 
 **Shared modules:**
 - `src/config.ts` — env var + file secret loading, format detection
