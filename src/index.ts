@@ -158,15 +158,12 @@ if (config.transport === 'stdio') {
   const { StreamableHTTPServerTransport } = await import(
     '@modelcontextprotocol/sdk/server/streamableHttp.js'
   )
-  const { randomUUID } = await import('node:crypto')
+  const { isInitializeRequest } = await import('@modelcontextprotocol/sdk/types.js')
+  const { randomUUID, timingSafeEqual } = await import('node:crypto')
 
   const token = process.env.BRAY_HTTP_TOKEN ?? randomUUID()
   console.error(`nostr-bray HTTP auth token: ${token}`)
 
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => randomUUID() })
-  await server.connect(transport)
-
-  const { timingSafeEqual } = await import('node:crypto')
   const expectedAuth = Buffer.from(`Bearer ${token}`)
 
   // Sliding window rate limiter (per-IP)
@@ -183,6 +180,25 @@ if (config.transport === 'stdio') {
     }
     entry.count++
     return entry.count <= RATE_LIMIT
+  }
+
+  // Session map — each MCP session gets its own transport.
+  // The underlying McpServer is reused across sessions: when a session ends its
+  // transport closes, which sets server._transport = undefined, allowing the next
+  // session to call server.connect(newTransport).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sessions = new Map<string, any>()
+
+  async function createSession() {
+    // Close the current server connection so it can be reconnected below.
+    if (server.isConnected()) await server.close()
+    const t = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => randomUUID(),
+      onsessioninitialized: (id) => { sessions.set(id, t) },
+    })
+    t.onclose = () => { if (t.sessionId) sessions.delete(t.sessionId) }
+    await server.connect(t)
+    return t
   }
 
   const httpServer = createServer(async (req, res) => {
@@ -214,6 +230,7 @@ if (config.transport === 'stdio') {
     }
 
     // Parse body for POST requests (1MB limit)
+    let body: unknown
     if (req.method === 'POST') {
       const MAX_BODY = 1_048_576
       const chunks: Buffer[] = []
@@ -227,7 +244,6 @@ if (config.transport === 'stdio') {
         }
         chunks.push(chunk as Buffer)
       }
-      let body: unknown
       try {
         body = JSON.parse(Buffer.concat(chunks).toString())
       } catch {
@@ -235,10 +251,22 @@ if (config.transport === 'stdio') {
         res.end(JSON.stringify({ error: 'Invalid JSON' }))
         return
       }
-      await transport.handleRequest(req, res, body)
-    } else {
-      await transport.handleRequest(req, res)
     }
+
+    // Route to existing session or create a new one for initialize requests
+    const sessionId = req.headers['mcp-session-id'] as string | undefined
+    let transport = sessionId ? sessions.get(sessionId) : undefined
+
+    if (!transport) {
+      if (req.method !== 'POST' || !isInitializeRequest(body)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message: 'Bad Request: no active session' }, id: null }))
+        return
+      }
+      transport = await createSession()
+    }
+
+    await transport.handleRequest(req, res, body)
   })
 
   httpServer.listen(config.port, config.bindAddress, () => {
