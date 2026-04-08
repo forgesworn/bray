@@ -183,6 +183,19 @@ export class BunkerContext implements SigningContext {
     return [{ npub: this.activeNpub, purpose: 'bunker', index: 0 }]
   }
 
+  /** Not supported in bunker mode — seed material is not available remotely */
+  async derive(_purpose: string, _index: number): Promise<never> {
+    throw new Error('derive() is not supported in bunker mode — use --key <mnemonic> to derive child identities')
+  }
+
+  async derivePersona(_name: string, _index: number): Promise<never> {
+    throw new Error('derivePersona() is not supported in bunker mode — use --key <mnemonic> to derive personas')
+  }
+
+  async switch(_target: string, _index?: number): Promise<never> {
+    throw new Error('switch() is not supported in bunker mode — use --key <mnemonic> to switch personas')
+  }
+
   /** NIP-44 encrypt via the remote bunker */
   async nip44Encrypt(recipientPubkey: string, plaintext: string): Promise<string> {
     return this.signer.nip44Encrypt(recipientPubkey, plaintext)
