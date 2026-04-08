@@ -385,6 +385,7 @@ async function run(cmdArgs: string[]): Promise<void> {
 
     case 'switch':
       await ctx.switch(req(1, 'switch <target> [index]'), cmdArgs[2] ? parseInt(cmdArgs[2], 10) : undefined)
+      console.error(`Now signing as ${ctx.activeNpub}`)
       console.log(ctx.activeNpub)
       break
 

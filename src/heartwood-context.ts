@@ -48,7 +48,12 @@ export class HeartwoodContext extends BunkerContext implements ExtendedSigningCo
       'heartwood_derive_persona',
       [name, String(index)],
     )
-    return JSON.parse(result) as PublicIdentity
+    const identity = JSON.parse(result) as PublicIdentity
+    // Log purpose so we can verify it matches nostr:persona:{name} convention
+    if (identity.purpose && identity.purpose !== `nostr:persona:${name}`) {
+      console.error(`[heartwood] note: device returned purpose "${identity.purpose}", bray uses "nostr:persona:${name}"`)
+    }
+    return identity
   }
 
   /** List all known identities on the Heartwood device. */
@@ -63,10 +68,26 @@ export class HeartwoodContext extends BunkerContext implements ExtendedSigningCo
       ? [purposeOrName, String(index)]
       : [purposeOrName]
     const raw = await this.signer.sendRequest('heartwood_switch', params)
-    // The server returns { npub } — decode it to refresh the local pubkey cache
-    // (BunkerSigner caches getPublicKey() so we cannot rely on it after a switch)
-    const { npub } = JSON.parse(raw) as { npub: string }
-    const { decode } = await import('nostr-tools/nip19')
+    // Parse response — device may return { npub } object or a bare npub string
+    const { decode, npubEncode } = await import('nostr-tools/nip19')
+    let npub: string | undefined
+    try {
+      const parsed = JSON.parse(raw)
+      if (typeof parsed === 'string') {
+        npub = parsed
+      } else if (parsed && typeof parsed.npub === 'string') {
+        npub = parsed.npub
+      } else if (parsed && typeof parsed.pubkey === 'string') {
+        // Some devices return { pubkey: hex }
+        npub = npubEncode(parsed.pubkey)
+      }
+    } catch {
+      // raw may itself be a bare npub (no JSON wrapping)
+      if (typeof raw === 'string' && raw.startsWith('npub1')) npub = raw
+    }
+    if (!npub) {
+      throw new Error(`heartwood_switch returned unexpected response: ${JSON.stringify(raw)}`)
+    }
     const decoded = decode(npub)
     if (decoded.type === 'npub') {
       this.pubkeyHex = decoded.data as unknown as string
