@@ -1,5 +1,4 @@
 import { fromNsec, fromMnemonic, derive, zeroise } from 'nsec-tree'
-import { derivePersona } from 'nsec-tree/persona'
 import { createBlindProof, createFullProof } from 'nsec-tree/proof'
 import { finalizeEvent, getPublicKey } from 'nostr-tools/pure'
 import { decode, npubEncode, nsecEncode } from 'nostr-tools/nip19'
@@ -114,21 +113,17 @@ export class IdentityContext implements ExtendedSigningContext {
       }
     }
 
-    const persona = derivePersona(this.root, name, index)
+    const purpose = `persona/${name}`
+    const identity = derive(this.root, purpose, index)
     const entry: CacheEntry = {
-      identity: persona.identity,
-      purpose: persona.identity.purpose,
-      index: persona.index,
+      identity,
+      purpose,
+      index,
       personaName: name,
       lastUsed: Date.now(),
     }
-    this.putCache(persona.identity.npub, entry)
-    return {
-      npub: persona.identity.npub,
-      purpose: persona.identity.purpose,
-      index: persona.index,
-      personaName: name,
-    }
+    this.putCache(identity.npub, entry)
+    return { npub: identity.npub, purpose, index, personaName: name }
   }
 
   /** Switch active identity by purpose+index, persona name, or "master" */
@@ -157,9 +152,8 @@ export class IdentityContext implements ExtendedSigningContext {
     let purpose: string
     let personaName: string | undefined
     if (isPersonaName) {
-      const persona = derivePersona(this.root, purposeOrName, index ?? 0)
-      identity = persona.identity
-      purpose = persona.identity.purpose
+      purpose = `persona/${purposeOrName}`
+      identity = derive(this.root, purpose, index ?? 0)
       personaName = purposeOrName
     } else {
       identity = derive(this.root, purposeOrName, index ?? 0)
