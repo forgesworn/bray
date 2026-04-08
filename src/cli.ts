@@ -25,6 +25,18 @@ import { getCommandHelp } from './help.js'
 import * as fmt from './format.js'
 
 const args = process.argv.slice(2)
+
+// Strip global flags before command detection so `--bunker <uri> whoami` works.
+// Inject into env so loadConfig() picks them up via its normal path.
+for (const flag of ['--bunker', '--key']) {
+  const i = args.indexOf(flag)
+  if (i !== -1) {
+    const envKey = flag === '--bunker' ? 'BUNKER_URI' : 'NOSTR_SECRET_KEY'
+    process.env[envKey] = args[i + 1]
+    args.splice(i, 2)
+  }
+}
+
 const command = args[0]
 
 // No command = start MCP server.
@@ -241,21 +253,6 @@ Learn more:
 if (command === 'help' || command === '--help' || command === '-h') {
   console.log(HELP)
   process.exit(0)
-}
-
-// Allow key/bunker overrides on the command line
-// These are injected into env before loadConfig() so all loading logic stays centralised.
-// Note: loadConfig() deletes BUNKER_URI / NOSTR_SECRET_KEY from env after reading them.
-if (args.includes('--bunker')) {
-  process.env.BUNKER_URI = args[args.indexOf('--bunker') + 1]
-  // Remove from args so commands don't see it as a positional argument
-  const i = args.indexOf('--bunker')
-  args.splice(i, 2)
-}
-if (args.includes('--key')) {
-  process.env.NOSTR_SECRET_KEY = args[args.indexOf('--key') + 1]
-  const i = args.indexOf('--key')
-  args.splice(i, 2)
 }
 
 // Commands that work purely offline — no relay connection needed
