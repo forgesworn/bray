@@ -48,12 +48,7 @@ export class HeartwoodContext extends BunkerContext implements ExtendedSigningCo
       'heartwood_derive_persona',
       [name, String(index)],
     )
-    const identity = JSON.parse(result) as PublicIdentity
-    // Log purpose so we can verify it matches nostr:persona:{name} convention
-    if (identity.purpose && identity.purpose !== `nostr:persona:${name}`) {
-      console.error(`[heartwood] note: device returned purpose "${identity.purpose}", bray uses "nostr:persona:${name}"`)
-    }
-    return identity
+    return JSON.parse(result) as PublicIdentity
   }
 
   /** List all known identities on the Heartwood device. */
