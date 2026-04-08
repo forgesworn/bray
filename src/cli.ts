@@ -276,9 +276,12 @@ const nip65 = new Nip65Manager(pool, config.relays)
 let ctx: any
 if (config.bunkerUri) {
   const { BunkerContext } = await import('./bunker-context.js')
+  const { HeartwoodContext } = await import('./heartwood-context.js')
   ctx = await BunkerContext.connect(config.bunkerUri)
   await ctx.resolvePublicKey()
-  console.error(`Connected to bunker — signing as ${ctx.activeNpub}`)
+  const hw = await HeartwoodContext.probe(ctx)
+  if (hw) ctx = hw
+  console.error(`Connected to ${hw ? 'Heartwood' : 'bunker'} — signing as ${ctx.activeNpub}`)
 } else {
   ctx = new IdentityContext(config.secretKey, config.secretFormat)
 }
