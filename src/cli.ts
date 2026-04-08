@@ -277,6 +277,7 @@ let ctx: any
 if (config.bunkerUri) {
   const { BunkerContext } = await import('./bunker-context.js')
   ctx = await BunkerContext.connect(config.bunkerUri)
+  await ctx.resolvePublicKey()
   console.error(`Connected to bunker — signing as ${ctx.activeNpub}`)
 } else {
   ctx = new IdentityContext(config.secretKey, config.secretFormat)
