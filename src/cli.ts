@@ -225,6 +225,8 @@ Quick examples:
   nostr-bray shell                            # interactive mode
 
 Flags:
+  --bunker <uri>                      Use bunker:// URI (overrides env/config)
+  --key <nsec|hex|mnemonic>           Use this secret key (overrides env/config)
   --json                              Output raw JSON (for piping/scripts)
   --human                             Force human-readable output
   --help                              Show help for a command
@@ -239,6 +241,21 @@ Learn more:
 if (command === 'help' || command === '--help' || command === '-h') {
   console.log(HELP)
   process.exit(0)
+}
+
+// Allow key/bunker overrides on the command line
+// These are injected into env before loadConfig() so all loading logic stays centralised.
+// Note: loadConfig() deletes BUNKER_URI / NOSTR_SECRET_KEY from env after reading them.
+if (args.includes('--bunker')) {
+  process.env.BUNKER_URI = args[args.indexOf('--bunker') + 1]
+  // Remove from args so commands don't see it as a positional argument
+  const i = args.indexOf('--bunker')
+  args.splice(i, 2)
+}
+if (args.includes('--key')) {
+  process.env.NOSTR_SECRET_KEY = args[args.indexOf('--key') + 1]
+  const i = args.indexOf('--key')
+  args.splice(i, 2)
 }
 
 // Commands that work purely offline — no relay connection needed

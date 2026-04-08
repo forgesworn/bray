@@ -150,12 +150,26 @@ export class IdentityContext implements ExtendedSigningContext {
       }
     }
 
-    // Not in cache — derive on the fly
-    const identity = derive(this.root, purposeOrName, index ?? 0)
+    // Not in cache — derive on the fly.
+    // If no colon, treat as a persona name (nostr:persona:{name}); otherwise raw purpose.
+    const isPersonaName = !purposeOrName.includes(':')
+    let identity: Identity
+    let purpose: string
+    let personaName: string | undefined
+    if (isPersonaName) {
+      const persona = derivePersona(this.root, purposeOrName, index ?? 0)
+      identity = persona.identity
+      purpose = persona.identity.purpose
+      personaName = purposeOrName
+    } else {
+      identity = derive(this.root, purposeOrName, index ?? 0)
+      purpose = purposeOrName
+    }
     const entry: CacheEntry = {
       identity,
-      purpose: purposeOrName,
+      purpose,
       index: index ?? 0,
+      personaName,
       lastUsed: Date.now(),
     }
     this.putCache(identity.npub, entry)
