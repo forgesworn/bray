@@ -163,7 +163,7 @@ if (config.transport === 'stdio') {
   const token = randomUUID()
   console.error(`nostr-bray HTTP auth token: ${token}`)
 
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
+  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => randomUUID() })
   await server.connect(transport)
 
   const { timingSafeEqual } = await import('node:crypto')
