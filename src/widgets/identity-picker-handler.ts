@@ -12,6 +12,7 @@ import { fetchProfileImage } from './profile-images.js'
 
 export interface IdentityPickerEntry {
   npub: string
+  purpose: string
   personaName?: string
   displayName?: string
   pictureDataUri?: string
@@ -48,6 +49,7 @@ export async function handleIdentityPickerWidget(
 
     entries.push({
       npub: id.npub,
+      purpose: id.purpose ?? 'master',
       personaName: id.personaName,
       displayName,
       pictureDataUri,

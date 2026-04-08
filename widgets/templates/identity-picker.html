@@ -33,7 +33,7 @@ const { App } = globalThis.ExtApps;
   app.ontoolresult = ({ content }) => {
     try {
       const data = JSON.parse(content[0].text);
-      render(data);
+      if (data.identities) render(data);
     } catch (e) {
       clearAndShowMessage("Failed to parse identity data.");
     }
@@ -42,6 +42,10 @@ const { App } = globalThis.ExtApps;
   await app.connect();
   const hostCtx = app.getHostContext();
   if (hostCtx) applyTheme(hostCtx.theme);
+  const caps = app.getHostCapabilities();
+  const canCallTools = !!caps?.serverTools;
+  console.debug("[identity-picker] hostCapabilities:", JSON.stringify(caps));
+  console.debug("[identity-picker] canCallTools:", canCallTools);
 
   function clearAndShowMessage(msg) {
     while (root.firstChild) root.removeChild(root.firstChild);
@@ -102,14 +106,21 @@ const { App } = globalThis.ExtApps;
         card.appendChild(badge);
       }
 
-      card.addEventListener("click", () => {
+      card.addEventListener("click", async () => {
         if (id.isActive) return;
-        const target = id.personaName || "master";
-        app.callServerTool("identity-switch", { target: target });
-        // Re-fetch identities after switch
-        setTimeout(() => {
-          app.callServerTool("identity-picker-widget", {});
-        }, 500);
+        if (!canCallTools) {
+          clearAndShowMessage(`Host doesn't support widget tool calls. Ask the AI to switch to "${id.personaName || id.purpose}".`);
+          return;
+        }
+        const target = id.personaName || id.purpose;
+        try {
+          await app.callServerTool({ name: "identity-switch", arguments: { target } });
+          const result = await app.callServerTool({ name: "identity-picker-widget", arguments: {} });
+          const data = JSON.parse(result.content[0].text);
+          render(data);
+        } catch (e) {
+          clearAndShowMessage("Switch failed: " + (e?.message ?? e));
+        }
       });
 
       grid.appendChild(card);

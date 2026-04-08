@@ -101,11 +101,36 @@ describe('IdentityContext', () => {
       ctx.destroy()
     })
 
-    it('switch to unknown persona derives on the fly', async () => {
+    it('switch to unknown purpose string derives on the fly', async () => {
       const ctx = new IdentityContext(TEST_NSEC, 'nsec')
-      await ctx.switch('brand-new-purpose', 0)
+      await ctx.switch('nostr:custom:thing', 0)
       expect(ctx.activeNpub).toMatch(/^npub1/)
       ctx.destroy()
+    })
+
+    it('switch to colon-free name treats it as a persona (not raw purpose)', async () => {
+      const ctx = new IdentityContext(TEST_NSEC, 'nsec')
+      // Derive explicitly as persona and record the npub
+      const persona = await ctx.derivePersona('veil-demo-journalist', 0)
+      // Switch via a fresh context so nothing is cached
+      const ctx2 = new IdentityContext(TEST_NSEC, 'nsec')
+      await ctx2.switch('veil-demo-journalist', 0)
+      expect(ctx2.activeNpub).toBe(persona.npub)
+      ctx.destroy()
+      ctx2.destroy()
+    })
+
+    it('switch to persona name produces different npub than raw derive with the same string', async () => {
+      const ctx = new IdentityContext(TEST_NSEC, 'nsec')
+      const rawId = await ctx.derive('work', 0)
+      const personaId = await ctx.derivePersona('work', 0)
+      expect(rawId.npub).not.toBe(personaId.npub)
+      // switch('work') should resolve to the persona, not the raw derive
+      const ctx2 = new IdentityContext(TEST_NSEC, 'nsec')
+      await ctx2.switch('work', 0)
+      expect(ctx2.activeNpub).toBe(personaId.npub)
+      ctx.destroy()
+      ctx2.destroy()
     })
   })
 

@@ -133,7 +133,7 @@ const { App } = globalThis.ExtApps;
       loadMore.className = "load-more";
       loadMore.textContent = "Load more";
       loadMore.addEventListener("click", () => {
-        app.callServerTool("social-feed-widget", { since: lastSince });
+        app.callServerTool({ name: "social-feed-widget", arguments: { since: lastSince } });
       });
       root.appendChild(loadMore);
     }

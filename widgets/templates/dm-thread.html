@@ -163,11 +163,11 @@ const { App } = globalThis.ExtApps;
   function sendReply() {
     const message = replyInput.value.trim();
     if (!message || !partnerPubkeyHex) return;
-    app.callServerTool("dm-send", { recipientPubkeyHex: partnerPubkeyHex, message: message });
+    app.callServerTool({ name: "dm-send", arguments: { recipientPubkeyHex: partnerPubkeyHex, message } });
     replyInput.value = "";
     // Refresh conversation after short delay
     setTimeout(() => {
-      app.callServerTool("dm-thread-widget", { withPubkeyHex: partnerPubkeyHex });
+      app.callServerTool({ name: "dm-thread-widget", arguments: { withPubkeyHex: partnerPubkeyHex } });
     }, 1500);
   }
 
