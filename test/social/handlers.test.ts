@@ -309,7 +309,7 @@ describe('social handlers', () => {
           ]),
         publish: vi.fn(),
       }
-      const result = await handleContactsSearch(pool as any, 'npub', 'mypub', 'morgs')
+      const result = await handleContactsSearch(pool as any, 'npub', 'mypub', 'frosty')
       expect(result.length).toBe(1)
       expect(result[0].pubkey).toBe('aaa111')
       expect(result[0].name).toBe('frosty')
@@ -327,7 +327,7 @@ describe('social handlers', () => {
           ]),
         publish: vi.fn(),
       }
-      const result = await handleContactsSearch(pool as any, 'npub', 'mypub', 'morgan')
+      const result = await handleContactsSearch(pool as any, 'npub', 'mypub', 'frosty')
       expect(result.length).toBe(1)
       expect(result[0].pubkey).toBe('aaa111')
     })
@@ -343,7 +343,7 @@ describe('social handlers', () => {
           ]),
         publish: vi.fn(),
       }
-      const result = await handleContactsSearch(pool as any, 'npub', 'mypub', 'morgs')
+      const result = await handleContactsSearch(pool as any, 'npub', 'mypub', 'frosty')
       expect(result.length).toBe(1)
       expect(result[0].nip05).toBe('frosty@nostr.com')
     })
@@ -359,7 +359,7 @@ describe('social handlers', () => {
           ]),
         publish: vi.fn(),
       }
-      const result = await handleContactsSearch(pool as any, 'npub', 'mypub', 'morgs')
+      const result = await handleContactsSearch(pool as any, 'npub', 'mypub', 'frosty')
       expect(result).toEqual([])
     })
 
@@ -368,7 +368,7 @@ describe('social handlers', () => {
         query: vi.fn().mockResolvedValueOnce([]),
         publish: vi.fn(),
       }
-      const result = await handleContactsSearch(pool as any, 'npub', 'mypub', 'morgs')
+      const result = await handleContactsSearch(pool as any, 'npub', 'mypub', 'frosty')
       expect(result).toEqual([])
     })
 
@@ -383,7 +383,7 @@ describe('social handlers', () => {
           ]),
         publish: vi.fn(),
       }
-      const result = await handleContactsSearch(pool as any, 'npub', 'mypub', 'morgan')
+      const result = await handleContactsSearch(pool as any, 'npub', 'mypub', 'frosty')
       expect(result.length).toBe(2)
     })
   })

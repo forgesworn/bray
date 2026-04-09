@@ -28,7 +28,7 @@ describe('parseIdentities', () => {
   it('parses a full markdown table', () => {
     const map = parseIdentities(FULL_TABLE)
     expect(map.size).toBe(2)
-    expect(map.get('darren')).toBe(VALID_HEX)
+    expect(map.get('admin')).toBe(VALID_HEX)
     expect(map.get('alice')).toBe(VALID_HEX_2)
   })
 
@@ -119,7 +119,7 @@ describe('loadIdentities', () => {
     try {
       const map = loadIdentities(tmpFile)
       expect(map.size).toBe(2)
-      expect(map.get('darren')).toBe(VALID_HEX)
+      expect(map.get('admin')).toBe(VALID_HEX)
     } finally {
       unlinkSync(tmpFile)
     }

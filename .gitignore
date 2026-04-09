@@ -9,3 +9,6 @@ coverage/
 .idea/
 .playwright-mcp/
 .mcp.json
+
+docs/superpowers/
+docs/ai-discoverability-audit-2026-04.md
