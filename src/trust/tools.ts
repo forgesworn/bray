@@ -61,12 +61,14 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
       summary: z.string().optional().describe('Human-readable summary'),
       content: z.string().optional().describe('Event content (text or JSON)'),
       expiration: z.number().optional().describe('Unix timestamp for attestation expiry'),
+      assertionAddress: z.string().optional().describe('Addressable event coordinate kind:pubkey:d-tag (produces an a-tag with "assertion" marker, e.g. for attesting authorship of a kind 30817 community NIP)'),
+      assertionRelay: z.string().optional().describe('Relay hint for the assertion address'),
     },
     annotations: { readOnlyHint: false },
-  }, async ({ type, subject, identifier, summary, content, expiration }) => {
+  }, async ({ type, subject, identifier, summary, content, expiration, assertionAddress, assertionRelay }) => {
     const resolvedSubject = subject ? (await resolveRecipient(subject)).pubkeyHex : undefined
     const result = await handleTrustAttest(deps.ctx, deps.pool, {
-      type, subject: resolvedSubject, identifier, summary, content, expiration,
+      type, subject: resolvedSubject, identifier, summary, content, expiration, assertionAddress, assertionRelay,
     })
     const response: Record<string, unknown> = {
       id: result.event.id,

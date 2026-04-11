@@ -26,24 +26,32 @@ export async function handleTrustAttest(
     identifier?: string
     subject?: string
     assertionId?: string
+    assertionAddress?: string
     assertionRelay?: string
     summary?: string
     content?: string
     expiration?: number
   },
 ): Promise<AttestResult> {
-  if (!args.type && !args.assertionId) {
-    throw new Error('at least one of type or assertionId must be provided')
+  if (!args.type && !args.assertionId && !args.assertionAddress) {
+    throw new Error('at least one of type, assertionId, or assertionAddress must be provided')
   }
+
+  if (args.assertionId && args.assertionAddress) {
+    throw new Error('cannot supply both assertionId and assertionAddress')
+  }
+
+  const assertion = args.assertionId
+    ? { id: args.assertionId, relay: args.assertionRelay }
+    : args.assertionAddress
+      ? { address: args.assertionAddress, relay: args.assertionRelay }
+      : undefined
 
   const template = createAttestation({
     type: args.type,
     identifier: args.identifier,
     subject: args.subject,
-    assertion: args.assertionId ? {
-      id: args.assertionId,
-      relay: args.assertionRelay,
-    } : undefined,
+    assertion,
     summary: args.summary,
     content: args.content,
     expiration: args.expiration,

@@ -556,12 +556,14 @@ async function run(cmdArgs: string[]): Promise<void> {
     }
 
     case 'claim': {
-      const type = req(1, 'claim <type> [--subject <hex>] [--identifier <string>] [--summary <text>]')
+      const type = req(1, 'claim <type> [--subject <hex>] [--identifier <string>] [--summary <text>] [--assertion-address kind:pubkey:d-tag]')
       out(await handleTrustAttest(ctx, pool, {
         type,
         subject: flag('subject'),
         identifier: flag('identifier'),
         summary: flag('summary'),
+        assertionAddress: flag('assertion-address'),
+        assertionRelay: flag('relay'),
       }))
       break
     }

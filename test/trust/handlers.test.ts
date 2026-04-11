@@ -89,7 +89,33 @@ describe('trust handlers', () => {
       await expect(handleTrustAttest(ctx, pool as any, {
         subject: 'def456'.padEnd(64, '0'),
         summary: 'Missing both',
-      })).rejects.toThrow(/type or assertionId/)
+      })).rejects.toThrow(/type, assertionId, or assertionAddress/)
+    })
+
+    it('creates assertion-first attestation with a-tag from addressable coordinate', async () => {
+      const pool = mockPool()
+      const address = '30817:da19f1cd34beca44be74da4b306d9d1dd86b6343cef94ce22c49c6f59816e5bd:nip-dominion'
+      const result = await handleTrustAttest(ctx, pool as any, {
+        type: 'authorship',
+        identifier: 'nip-dominion',
+        assertionAddress: address,
+        summary: 'Original author of NIP-DOMINION',
+      })
+      const aTags = result.event.tags.filter((t: string[]) => t[0] === 'a' && t[3] === 'assertion')
+      expect(aTags.length).toBe(1)
+      expect(aTags[0][1]).toBe(address)
+      // type tag should still be present
+      const typeTag = result.event.tags.find((t: string[]) => t[0] === 'type')
+      expect(typeTag![1]).toBe('authorship')
+    })
+
+    it('rejects when both assertionId and assertionAddress provided', async () => {
+      const pool = mockPool()
+      await expect(handleTrustAttest(ctx, pool as any, {
+        type: 'authorship',
+        assertionId: 'e'.repeat(64),
+        assertionAddress: '30817:abc:nip-dominion',
+      })).rejects.toThrow(/cannot supply both/)
     })
   })
 
