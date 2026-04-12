@@ -72,7 +72,7 @@
     "dominion-protocol": "^1.0.0",
     "nostr-attestations": "^2.5.4",
     "nostr-tools": "^2.23.3",
-    "nostr-veil": "^0.1.0",
+    "nostr-veil": "^0.8.4",
     "nsec-tree": "^1.4.2",
     "signet-protocol": "^1.1.0",
     "socks-proxy-agent": "^9.0.0",
