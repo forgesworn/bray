@@ -63,7 +63,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@forgesworn/range-proof": "^1.0.3",
+    "@forgesworn/range-proof": "^2.0.1",
     "@forgesworn/ring-sig": "^1.0.2",
     "@forgesworn/shamir-words": "^1.0.4",
     "@modelcontextprotocol/ext-apps": "^1.3.1",
