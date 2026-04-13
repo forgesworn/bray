@@ -25,7 +25,7 @@ export interface ContactGuardWarning {
 export async function handleSocialPost(
   ctx: SigningContext,
   pool: RelayPool,
-  args: { content: string; tags?: string[][] },
+  args: { content: string; tags?: string[][]; relays?: string[] },
 ): Promise<PostResult> {
   const sign = ctx.getSigningFunction()
   const event = await sign({
@@ -34,7 +34,9 @@ export async function handleSocialPost(
     tags: args.tags ?? [],
     content: args.content,
   })
-  const publish = await pool.publish(ctx.activeNpub, event)
+  const publish = args.relays?.length
+    ? await pool.publishDirect(args.relays, event)
+    : await pool.publish(ctx.activeNpub, event)
   return { event, publish }
 }
 
@@ -42,7 +44,7 @@ export async function handleSocialPost(
 export async function handleSocialReply(
   ctx: SigningContext,
   pool: RelayPool,
-  args: { content: string; replyTo: string; replyToPubkey: string; relay?: string; _scoring?: VeilScoring },
+  args: { content: string; replyTo: string; replyToPubkey: string; relay?: string; relays?: string[]; _scoring?: VeilScoring },
 ): Promise<ReplyResult> {
   const tags: string[][] = [
     ['e', args.replyTo, args.relay ?? '', 'reply'],
@@ -55,7 +57,9 @@ export async function handleSocialReply(
     tags,
     content: args.content,
   })
-  const publish = await pool.publish(ctx.activeNpub, event)
+  const publish = args.relays?.length
+    ? await pool.publishDirect(args.relays, event)
+    : await pool.publish(ctx.activeNpub, event)
   const result: ReplyResult = { event, publish }
 
   if (args._scoring) {
@@ -74,7 +78,7 @@ export async function handleSocialReply(
 export async function handleSocialReact(
   ctx: SigningContext,
   pool: RelayPool,
-  args: { eventId: string; eventPubkey: string; reaction?: string },
+  args: { eventId: string; eventPubkey: string; reaction?: string; relays?: string[] },
 ): Promise<PostResult> {
   const sign = ctx.getSigningFunction()
   const event = await sign({
@@ -86,7 +90,9 @@ export async function handleSocialReact(
     ],
     content: args.reaction ?? '+',
   })
-  const publish = await pool.publish(ctx.activeNpub, event)
+  const publish = args.relays?.length
+    ? await pool.publishDirect(args.relays, event)
+    : await pool.publish(ctx.activeNpub, event)
   return { event, publish }
 }
 
@@ -94,7 +100,7 @@ export async function handleSocialReact(
 export async function handleSocialDelete(
   ctx: SigningContext,
   pool: RelayPool,
-  args: { eventId: string; reason?: string },
+  args: { eventId: string; reason?: string; relays?: string[] },
 ): Promise<PostResult> {
   const sign = ctx.getSigningFunction()
   const event = await sign({
@@ -103,7 +109,9 @@ export async function handleSocialDelete(
     tags: [['e', args.eventId]],
     content: args.reason ?? '',
   })
-  const publish = await pool.publish(ctx.activeNpub, event)
+  const publish = args.relays?.length
+    ? await pool.publishDirect(args.relays, event)
+    : await pool.publish(ctx.activeNpub, event)
   return { event, publish }
 }
 
@@ -111,7 +119,7 @@ export async function handleSocialDelete(
 export async function handleSocialRepost(
   ctx: SigningContext,
   pool: RelayPool,
-  args: { eventId: string; eventPubkey: string; relay?: string },
+  args: { eventId: string; eventPubkey: string; relay?: string; relays?: string[] },
 ): Promise<PostResult> {
   const sign = ctx.getSigningFunction()
   const event = await sign({
@@ -123,7 +131,9 @@ export async function handleSocialRepost(
     ],
     content: '',
   })
-  const publish = await pool.publish(ctx.activeNpub, event)
+  const publish = args.relays?.length
+    ? await pool.publishDirect(args.relays, event)
+    : await pool.publish(ctx.activeNpub, event)
   return { event, publish }
 }
 
@@ -163,7 +173,7 @@ export interface ProfileSetResult {
 export async function handleSocialProfileSet(
   ctx: SigningContext,
   pool: RelayPool,
-  args: { profile: Record<string, unknown>; confirm?: boolean },
+  args: { profile: Record<string, unknown>; confirm?: boolean; relays?: string[] },
 ): Promise<ProfileSetResult> {
   // Check for existing profile
   const existing = await pool.query(ctx.activeNpub, {
@@ -213,7 +223,11 @@ export async function handleSocialProfileSet(
     tags: [],
     content: JSON.stringify(args.profile),
   })
-  await pool.publish(ctx.activeNpub, event)
+  if (args.relays?.length) {
+    await pool.publishDirect(args.relays, event)
+  } else {
+    await pool.publish(ctx.activeNpub, event)
+  }
 
   return { published: true, event }
 }
@@ -337,7 +351,7 @@ export async function handleContactsSearch(
 export async function handleContactsFollow(
   ctx: SigningContext,
   pool: RelayPool,
-  args: { pubkeyHex: string; relay?: string; petname?: string; confirm?: boolean },
+  args: { pubkeyHex: string; relay?: string; petname?: string; confirm?: boolean; relays?: string[] },
 ): Promise<PostResult | ContactGuardWarning> {
   // Fetch existing contacts
   const existing = await pool.query(ctx.activeNpub, {
@@ -384,7 +398,9 @@ export async function handleContactsFollow(
     tags,
     content: '',
   })
-  const publish = await pool.publish(ctx.activeNpub, event)
+  const publish = args.relays?.length
+    ? await pool.publishDirect(args.relays, event)
+    : await pool.publish(ctx.activeNpub, event)
   return { event, publish }
 }
 
@@ -392,7 +408,7 @@ export async function handleContactsFollow(
 export async function handleContactsUnfollow(
   ctx: SigningContext,
   pool: RelayPool,
-  args: { pubkeyHex: string; confirm?: boolean },
+  args: { pubkeyHex: string; confirm?: boolean; relays?: string[] },
 ): Promise<PostResult | ContactGuardWarning> {
   const existing = await pool.query(ctx.activeNpub, {
     kinds: [3],
@@ -430,7 +446,9 @@ export async function handleContactsUnfollow(
     tags,
     content: '',
   })
-  const publish = await pool.publish(ctx.activeNpub, event)
+  const publish = args.relays?.length
+    ? await pool.publishDirect(args.relays, event)
+    : await pool.publish(ctx.activeNpub, event)
   return { event, publish }
 }
 
@@ -438,7 +456,7 @@ export async function handleContactsUnfollow(
 export async function handlePublishEvent(
   ctx: SigningContext,
   pool: RelayPool,
-  args: { kind: number; content: string; tags?: string[][] },
+  args: { kind: number; content: string; tags?: string[][]; relays?: string[] },
 ): Promise<PostResult> {
   const sign = ctx.getSigningFunction()
   const event = await sign({
@@ -447,6 +465,8 @@ export async function handlePublishEvent(
     tags: args.tags ?? [],
     content: args.content,
   })
-  const publish = await pool.publish(ctx.activeNpub, event)
+  const publish = args.relays?.length
+    ? await pool.publishDirect(args.relays, event)
+    : await pool.publish(ctx.activeNpub, event)
   return { event, publish }
 }

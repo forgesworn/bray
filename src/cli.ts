@@ -483,7 +483,7 @@ async function run(cmdArgs: string[]): Promise<void> {
     // === Social ===
 
     case 'post':
-      out(await handleSocialPost(ctx, pool, { content: req(1, 'post "message"') }), fmt.formatPost)
+      out(await handleSocialPost(ctx, pool, { content: req(1, 'post "message"'), relays: flags('relay') }), fmt.formatPost)
       break
 
     case 'reply':
@@ -491,6 +491,7 @@ async function run(cmdArgs: string[]): Promise<void> {
         content: req(3, 'reply <event-id> <pubkey> "text"'),
         replyTo: req(1, 'reply <event-id> <pubkey> "text"'),
         replyToPubkey: req(2, 'reply <event-id> <pubkey> "text"'),
+        relays: flags('relay'),
       }))
       break
 
@@ -499,6 +500,7 @@ async function run(cmdArgs: string[]): Promise<void> {
         eventId: req(1, 'react <event-id> <pubkey> [emoji]'),
         eventPubkey: req(2, 'react <event-id> <pubkey> [emoji]'),
         reaction: cmdArgs[3] ?? '+',
+        relays: flags('relay'),
       }))
       break
 
@@ -508,7 +510,7 @@ async function run(cmdArgs: string[]): Promise<void> {
 
     case 'profile-set': {
       const profile = JSON.parse(req(1, 'profile-set \'{"name":"..."}\''))
-      out(await handleSocialProfileSet(ctx, pool, { profile, confirm: hasFlag('confirm') }))
+      out(await handleSocialProfileSet(ctx, pool, { profile, confirm: hasFlag('confirm'), relays: flags('relay') }))
       break
     }
 
@@ -516,6 +518,7 @@ async function run(cmdArgs: string[]): Promise<void> {
       out(await handleSocialDelete(ctx, pool, {
         eventId: req(1, 'delete <event-id> [reason]'),
         reason: cmdArgs[2],
+        relays: flags('relay'),
       }))
       break
 
@@ -523,6 +526,7 @@ async function run(cmdArgs: string[]): Promise<void> {
       out(await handleSocialRepost(ctx, pool, {
         eventId: req(1, 'repost <event-id> <pubkey>'),
         eventPubkey: req(2, 'repost <event-id> <pubkey>'),
+        relays: flags('relay'),
       }))
       break
 
@@ -535,12 +539,14 @@ async function run(cmdArgs: string[]): Promise<void> {
         pubkeyHex: req(1, 'follow <pubkey-hex> [relay] [petname]'),
         relay: cmdArgs[2],
         petname: cmdArgs[3],
+        relays: flags('relay'),
       }))
       break
 
     case 'unfollow':
       out(await handleContactsUnfollow(ctx, pool, {
         pubkeyHex: req(1, 'unfollow <pubkey-hex>'),
+        relays: flags('relay'),
       }))
       break
 
@@ -550,6 +556,7 @@ async function run(cmdArgs: string[]): Promise<void> {
         message: req(2, 'dm <pubkey-hex> "message"'),
         nip04: hasFlag('nip04'),
         nip04Enabled: config.nip04Enabled,
+        relays: flags('relay'),
       }))
       break
 
@@ -570,7 +577,7 @@ async function run(cmdArgs: string[]): Promise<void> {
       if (existsSync(content)) content = readFileSync(content, 'utf-8')
       const kindsStr = flag('kinds')
       const kinds = kindsStr ? kindsStr.split(',').map(Number) : undefined
-      out(await handleNipPublish(ctx, pool, { identifier: id, title, content, kinds }))
+      out(await handleNipPublish(ctx, pool, { identifier: id, title, content, kinds, relays: flags('relay') }))
       break
     }
 
@@ -595,7 +602,8 @@ async function run(cmdArgs: string[]): Promise<void> {
         subject: flag('subject'),
         type: flag('type'),
         summary: flag('summary'),
-        assertionRelay: flag('relay'),
+        assertionRelay: flag('assertion-relay'),
+        relays: flags('relay'),
       }))
       break
     }
@@ -608,7 +616,8 @@ async function run(cmdArgs: string[]): Promise<void> {
         identifier: flag('identifier'),
         summary: flag('summary'),
         assertionAddress: flag('assertion-address'),
-        assertionRelay: flag('relay'),
+        assertionRelay: flag('assertion-relay'),
+        relays: flags('relay'),
       }))
       break
     }

@@ -22,6 +22,7 @@ export async function handleNipPublish(
     title: string
     content: string
     kinds?: number[]
+    relays?: string[]
   },
 ): Promise<{ event: NostrEvent; publish: PublishResult }> {
   const tags: string[][] = [
@@ -41,7 +42,9 @@ export async function handleNipPublish(
     tags,
     content: args.content,
   })
-  const publish = await pool.publish(ctx.activeNpub, event)
+  const publish = args.relays?.length
+    ? await pool.publishDirect(args.relays, event)
+    : await pool.publish(ctx.activeNpub, event)
   return { event, publish }
 }
 

@@ -489,6 +489,72 @@ describe('NIP publishing — local relay', { timeout: 20_000 }, () => {
   })
 })
 
+describe('per-command --relay flag', { timeout: 30_000 }, () => {
+  let anchorEventId: string
+  let authorHex: string
+
+  beforeAll(() => {
+    authorHex = (cliJson(OFF, 'key-public', TEST_NSEC) as any).pubkeyHex
+    const result = cliJson(online(), 'post', 'relay-flag anchor') as any
+    anchorEventId = result.event.id
+  })
+
+  it('post accepts --relay and creates kind 1', () => {
+    const out = cliJson(online(), 'post', 'relay-flag post', '--relay', localRelay) as any
+    expect(out.event.kind).toBe(1)
+    expect(out.event.id).toMatch(/^[0-9a-f]{64}$/)
+  })
+
+  it('reply accepts --relay and creates kind 1 with e-tag', () => {
+    const out = cliJson(online(), 'reply', anchorEventId, authorHex, 'relay-flag reply', '--relay', localRelay) as any
+    expect(out.event.kind).toBe(1)
+    expect(out.event.tags.some((t: string[]) => t[0] === 'e' && t[1] === anchorEventId)).toBe(true)
+  })
+
+  it('react accepts --relay and creates kind 7', () => {
+    const out = cliJson(online(), 'react', anchorEventId, authorHex, '+', '--relay', localRelay) as any
+    expect(out.event.kind).toBe(7)
+  })
+
+  it('repost accepts --relay and creates kind 6', () => {
+    const out = cliJson(online(), 'repost', anchorEventId, authorHex, '--relay', localRelay) as any
+    expect(out.event.kind).toBe(6)
+  })
+
+  it('delete accepts --relay and creates kind 5', () => {
+    const toDelete = cliJson(online(), 'post', 'relay-flag delete target') as any
+    const out = cliJson(online(), 'delete', toDelete.event.id, '--relay', localRelay) as any
+    expect(out.event.kind).toBe(5)
+  })
+
+  it('dm accepts --relay and sends NIP-17 gift wrap', () => {
+    const out = cliJson(online(), 'dm', authorHex, 'relay-flag dm', '--relay', localRelay) as any
+    expect(out.protocol).toBe('nip17')
+  })
+
+  it('follow accepts --relay', () => {
+    const target = '0'.repeat(63) + '2'
+    const out = cliJson(online(), 'follow', target, '--relay', localRelay) as any
+    expect(out !== null && typeof out === 'object').toBe(true)
+  })
+
+  it('unfollow accepts --relay', () => {
+    const target = '0'.repeat(63) + '2'
+    const out = cliJson(online(), 'unfollow', target, '--relay', localRelay) as any
+    expect(out !== null && typeof out === 'object').toBe(true)
+  })
+
+  it('nip-publish accepts --relay and creates kind 30817', () => {
+    const out = cliJson(online(), 'nip-publish', 'relay-flag-nip', 'Relay Flag NIP', 'test content', '--relay', localRelay) as any
+    expect(out.event.kind).toBe(30817)
+  })
+
+  it('claim accepts --relay and publishes attestation', () => {
+    const out = cliJson(online(), 'claim', 'endorsement', '--subject', authorHex, '--relay', localRelay) as any
+    expect(out !== null && typeof out === 'object').toBe(true)
+  })
+})
+
 describe('publish-raw — local relay', { timeout: 20_000 }, () => {
   it('signs and broadcasts an unsigned event from stdin', () => {
     const unsigned = { kind: 1, content: 'publish-raw smoke test', tags: [], created_at: Math.floor(Date.now() / 1000) }

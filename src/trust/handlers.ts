@@ -31,6 +31,7 @@ export async function handleTrustAttest(
     summary?: string
     content?: string
     expiration?: number
+    relays?: string[]
   },
 ): Promise<AttestResult> {
   if (!args.type && !args.assertionId && !args.assertionAddress) {
@@ -65,7 +66,9 @@ export async function handleTrustAttest(
     content: template.content,
   })
 
-  const publish = await pool.publish(ctx.activeNpub, event)
+  const publish = args.relays?.length
+    ? await pool.publishDirect(args.relays, event)
+    : await pool.publish(ctx.activeNpub, event)
 
   // Warn if attesting as a derived persona
   const identities = await ctx.listIdentities()

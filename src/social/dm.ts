@@ -43,6 +43,7 @@ export async function handleDmSend(
     nip04Enabled?: boolean
     recipientRelay?: string
     nip65?: Nip65Manager
+    relays?: string[]
   },
 ): Promise<DmSendResult> {
   if (args.nip04) {
@@ -88,9 +89,12 @@ export async function handleDmSend(
     args.message,
   )
 
-  // Publish to recipient's relays (primary) and sender's relays (fallback)
+  // Publish to recipient's relays (primary) and sender's relays (fallback).
+  // If the caller supplied explicit relays via --relay, use those directly.
   let publish: PublishResult
-  if (recipientRelays.length > 0) {
+  if (args.relays?.length) {
+    publish = await pool.publishDirect(args.relays, event)
+  } else if (recipientRelays.length > 0) {
     // Merge recipient read relays with sender write relays for best coverage
     const senderRelays = pool.getRelays(ctx.activeNpub).write
     const allRelays = [...new Set([...recipientRelays, ...senderRelays])]
