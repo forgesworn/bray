@@ -9,8 +9,10 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { startRelay } from '../../src/serve.js'
+import { startBunker } from '../../src/bunker.js'
+import { IdentityContext } from '../../src/context.js'
 
 const CLI = 'dist/cli.js'
 
@@ -522,5 +524,62 @@ describe('publish-raw — local relay', { timeout: 20_000 }, () => {
     expect(out.event.kind).toBe(1)
     expect(out.event.created_at).toBeGreaterThan(0)
     expect(out.signed).toBe(true)
+  })
+})
+
+describe('bunker sign — local relay', { timeout: 30_000 }, () => {
+  // Bunker needs a real connectable relay URL. The smoke suite's outer relay
+  // uses port 0 and returns 'ws://localhost:0' (the pre-bind value), which is
+  // not a valid connection target. Use a dedicated fixed-port relay instead.
+  let bunkerRelayServer: ReturnType<typeof startRelay>
+  let bunkerRelayUrl: string
+  let bunkerInstance: ReturnType<typeof startBunker>
+  let bunkerCtx: InstanceType<typeof IdentityContext>
+
+  beforeAll(async () => {
+    bunkerRelayServer = startRelay({ port: 19747, quiet: true })
+    bunkerRelayUrl = bunkerRelayServer.url  // ws://localhost:19747
+    bunkerCtx = new IdentityContext(TEST_NSEC, 'nsec')
+    bunkerInstance = startBunker({ ctx: bunkerCtx, relays: [bunkerRelayUrl], quiet: true })
+    // Give the relay + bunker time to establish the subscription
+    await new Promise(resolve => setTimeout(resolve, 400))
+  })
+
+  afterAll(() => {
+    bunkerInstance?.close()
+    bunkerCtx?.destroy()
+    bunkerRelayServer?.close()
+  })
+
+  // Must use spawn (async) not execFileSync (sync): execFileSync blocks the
+  // parent event loop, which prevents the relay server (also in this process)
+  // from processing the WebSocket upgrade from the CLI subprocess.
+  it('signs a template event via stdin and returns a valid Nostr event', async () => {
+    const template = { kind: 1, content: 'bunker sign smoke test', tags: [], created_at: Math.floor(Date.now() / 1000) }
+    const out = await new Promise<any>((resolve, reject) => {
+      const proc = spawn('node', [CLI, 'bunker', 'sign'], {
+        env: { PATH: process.env.PATH!, BUNKER_URI: bunkerInstance.url },
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+      proc.stdin.write(JSON.stringify(template))
+      proc.stdin.end()
+      let stdout = ''
+      proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
+      const timer = setTimeout(() => { proc.kill(); reject(new Error('bunker sign timed out')) }, 20_000)
+      proc.on('close', (code: number | null) => {
+        clearTimeout(timer)
+        if (code === 0) resolve(JSON.parse(stdout.trim()))
+        else reject(new Error(`bunker sign exited ${code}`))
+      })
+    })
+    expect(out.id).toMatch(/^[0-9a-f]{64}$/)
+    expect(out.sig).toMatch(/^[0-9a-f]{128}$/)
+    expect(out.kind).toBe(1)
+    expect(out.content).toBe('bunker sign smoke test')
+  })
+
+  it('fails gracefully when BUNKER_URI is missing', () => {
+    const err = cliExpectFail({ PATH: process.env.PATH! }, 'bunker', 'sign')
+    expect(err).toContain('missing bunker URI')
   })
 })

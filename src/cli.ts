@@ -62,8 +62,42 @@ if (!command) {
   await new Promise(() => {})
 }
 
-// Bunker = NIP-46 remote signer
+// Bunker = NIP-46 remote signer (daemon or one-shot sign)
 if (command === 'bunker' && !args.includes('--help')) {
+
+  // One-shot signing: bray bunker sign <file> [--bunker <url>]
+  // Reads an event template from a file (or stdin if no file / '-'),
+  // signs it via the bunker, prints the signed event to stdout, exits.
+  if (args[1] === 'sign') {
+    const { readFileSync } = await import('node:fs')
+    const { BunkerContext } = await import('./bunker-context.js')
+
+    const bunkerUri = process.env.BUNKER_URI
+    if (!bunkerUri) {
+      console.error('bunker sign: missing bunker URI — use --bunker <url> or set BUNKER_URI')
+      process.exit(1)
+    }
+
+    const filePath = args[2] && args[2] !== '-' ? args[2] : undefined
+    const raw = filePath ? readFileSync(filePath, 'utf-8') : readFileSync(0, 'utf-8')
+    const template = JSON.parse(raw) as Record<string, unknown>
+
+    const client = await BunkerContext.connect(bunkerUri)
+    await client.resolvePublicKey()
+
+    const sign = client.getSigningFunction()
+    const signed = await sign({
+      kind: (template.kind as number) ?? 1,
+      created_at: (template.created_at as number) ?? Math.floor(Date.now() / 1000),
+      tags: (template.tags as string[][]) ?? [],
+      content: (template.content as string) ?? '',
+    })
+
+    console.log(JSON.stringify(signed, null, 2))
+    client.destroy()
+    process.exit(0)
+  }
+
   const { startBunker } = await import('./bunker.js')
   const config = await (await import('./config.js')).loadConfig()
   const { IdentityContext: IC } = await import('./context.js')
