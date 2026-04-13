@@ -4,10 +4,84 @@
   "mcpName": "dev.forgesworn/bray",
   "description": "Trust-aware Nostr for AI and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/exports.js",
+  "types": "dist/exports.d.ts",
   "bin": {
     "nostr-bray": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/exports.js",
+      "types": "./dist/exports.d.ts"
+    },
+    "./identity": {
+      "import": "./dist/identity/index.js",
+      "types": "./dist/identity/index.d.ts"
+    },
+    "./social": {
+      "import": "./dist/social/index.js",
+      "types": "./dist/social/index.d.ts"
+    },
+    "./trust": {
+      "import": "./dist/trust/index.js",
+      "types": "./dist/trust/index.d.ts"
+    },
+    "./relay": {
+      "import": "./dist/relay/index.js",
+      "types": "./dist/relay/index.d.ts"
+    },
+    "./zap": {
+      "import": "./dist/zap/index.js",
+      "types": "./dist/zap/index.d.ts"
+    },
+    "./safety": {
+      "import": "./dist/safety/index.js",
+      "types": "./dist/safety/index.d.ts"
+    },
+    "./event": {
+      "import": "./dist/event/index.js",
+      "types": "./dist/event/index.d.ts"
+    },
+    "./util": {
+      "import": "./dist/util/index.js",
+      "types": "./dist/util/index.d.ts"
+    },
+    "./workflow": {
+      "import": "./dist/workflow/index.js",
+      "types": "./dist/workflow/index.d.ts"
+    },
+    "./dispatch": {
+      "import": "./dist/dispatch/index.js",
+      "types": "./dist/dispatch/index.d.ts"
+    },
+    "./marketplace": {
+      "import": "./dist/marketplace/index.js",
+      "types": "./dist/marketplace/index.d.ts"
+    },
+    "./privacy": {
+      "import": "./dist/privacy/index.js",
+      "types": "./dist/privacy/index.d.ts"
+    },
+    "./moderation": {
+      "import": "./dist/moderation/index.js",
+      "types": "./dist/moderation/index.d.ts"
+    },
+    "./signet": {
+      "import": "./dist/signet/index.js",
+      "types": "./dist/signet/index.d.ts"
+    },
+    "./vault": {
+      "import": "./dist/vault/index.js",
+      "types": "./dist/vault/index.d.ts"
+    },
+    "./handler": {
+      "import": "./dist/handler/index.js",
+      "types": "./dist/handler/index.d.ts"
+    },
+    "./sdk": {
+      "import": "./dist/sdk.js",
+      "types": "./dist/sdk.d.ts"
+    }
   },
   "files": [
     "dist",
