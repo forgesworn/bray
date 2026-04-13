@@ -555,6 +555,52 @@ describe('per-command --relay flag', { timeout: 30_000 }, () => {
   })
 })
 
+describe('event verb', { timeout: 20_000 }, () => {
+  it('builds and publishes an arbitrary kind with --kind --tag --content', () => {
+    const out = cliJson(
+      online(),
+      'event',
+      '--kind', '1063',
+      '--tag', 'url=https://example.com/foo.tgz',
+      '--tag', 'x=abc123',
+      '--tag', 'm=application/gzip',
+      '--content', '{}',
+    ) as any
+    expect(out.event.kind).toBe(1063)
+    expect(out.event.id).toMatch(/^[0-9a-f]{64}$/)
+    expect(out.event.tags).toContainEqual(['url', 'https://example.com/foo.tgz'])
+    expect(out.event.tags).toContainEqual(['x', 'abc123'])
+    expect(out.event.tags).toContainEqual(['m', 'application/gzip'])
+    expect(out.event.content).toBe('{}')
+  })
+
+  it('--no-publish returns signed event without broadcasting', () => {
+    const raw = execFileSync('node', [CLI, 'event', '--kind', '1', '--content', 'no-publish test', '--no-publish'], {
+      env: online(),
+      encoding: 'utf-8',
+    })
+    const event = JSON.parse(raw.trim())
+    expect(event.kind).toBe(1)
+    expect(event.id).toMatch(/^[0-9a-f]{64}$/)
+    expect(event.sig).toMatch(/^[0-9a-f]{128}$/)
+    expect(event.content).toBe('no-publish test')
+    // No publish field — it's a bare event
+    expect(event.publish).toBeUndefined()
+  })
+
+  it('accepts --relay override', () => {
+    const out = cliJson(
+      online(),
+      'event',
+      '--kind', '30078',
+      '--tag', 'd=smoke-test',
+      '--content', 'relay-override',
+      '--relay', localRelay,
+    ) as any
+    expect(out.event.kind).toBe(30078)
+  })
+})
+
 describe('publish-raw — local relay', { timeout: 20_000 }, () => {
   it('signs and broadcasts an unsigned event from stdin', () => {
     const unsigned = { kind: 1, content: 'publish-raw smoke test', tags: [], created_at: Math.floor(Date.now() / 1000) }

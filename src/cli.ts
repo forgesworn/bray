@@ -3,7 +3,7 @@ import { loadConfig } from './config.js'
 import { IdentityContext } from './context.js'
 import { RelayPool } from './relay-pool.js'
 import { Nip65Manager } from './nip65.js'
-import { handleSocialPost, handleSocialReply, handleSocialReact, handleSocialDelete, handleSocialRepost, handleSocialProfileGet, handleSocialProfileSet, handleContactsGet, handleContactsFollow, handleContactsUnfollow } from './social/handlers.js'
+import { handleSocialPost, handleSocialReply, handleSocialReact, handleSocialDelete, handleSocialRepost, handleSocialProfileGet, handleSocialProfileSet, handleContactsGet, handleContactsFollow, handleContactsUnfollow, handlePublishEvent } from './social/handlers.js'
 import { handleDmSend, handleDmRead } from './social/dm.js'
 import { handleNotifications, handleFeed } from './social/notifications.js'
 import { handleNipPublish, handleNipRead } from './social/nips.js'
@@ -229,6 +229,7 @@ Safety:
   safety-activate [persona-name]      Switch to alternative identity
 
 Utility:
+  event --kind N [--tag k=v] [--content s] [--relay url]  Build and publish an arbitrary event
   publish-raw [--file path]           Sign+broadcast event from stdin or file (--no-sign to skip signing)
   decode <nip19>                      Decode npub/nsec/note/nevent/nprofile/naddr
   encode-npub <hex>                   Encode hex pubkey as npub
@@ -812,6 +813,38 @@ async function run(cmdArgs: string[]): Promise<void> {
     // === Utility ===
 
     // === Event ===
+
+    case 'event': {
+      const kind = parseInt(flag('kind') ?? '', 10)
+      if (!kind || isNaN(kind)) throw new Error('Usage: event --kind <N> [--tag k=v] [--content s] [--relay url] [--no-publish]')
+      // Parse all --tag k=v entries into [k, v] tag arrays
+      const tagValues = flags('tag').map(t => {
+        const eq = t.indexOf('=')
+        if (eq === -1) return [t]
+        return [t.slice(0, eq), t.slice(eq + 1)]
+      })
+      const content = flag('content') ?? ''
+      const relayOverrides = flags('relay')
+      if (hasFlag('no-publish')) {
+        // Sign only — do not broadcast
+        const sign = ctx.getSigningFunction()
+        const event = await sign({
+          kind,
+          created_at: Math.floor(Date.now() / 1000),
+          tags: tagValues,
+          content,
+        })
+        console.log(JSON.stringify(event, null, 2))
+        break
+      }
+      out(await handlePublishEvent(ctx, pool, {
+        kind,
+        content,
+        tags: tagValues,
+        relays: relayOverrides.length ? relayOverrides : undefined,
+      }))
+      break
+    }
 
     case 'publish-raw': {
       const { readFileSync } = await import('node:fs')
