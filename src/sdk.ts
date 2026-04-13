@@ -70,6 +70,12 @@ export interface BrayClient {
   /** Active identity npub */
   readonly npub: string
 
+  /** Active identity pubkey in hex */
+  readonly hexPubkey: string
+
+  /** Current relay set for the active identity */
+  readonly relays: { read: string[]; write: string[] }
+
   /** Generate a fresh identity — does NOT switch active identity */
   create(): { npub: string; mnemonic: string }
 
@@ -116,6 +122,9 @@ export interface BrayClient {
   /** React to an event */
   react(eventId: string, eventPubkey: string, reaction?: string, opts?: { relays?: string[] }): Promise<unknown>
 
+  /** Like an event (react with '+') */
+  like(eventId: string, eventPubkey: string, opts?: { relays?: string[] }): Promise<unknown>
+
   /** Request deletion of your event (kind 5) */
   delete(eventId: string, reason?: string, opts?: { relays?: string[] }): Promise<unknown>
 
@@ -125,11 +134,17 @@ export interface BrayClient {
   /** Fetch a profile */
   profile(pubkeyHex: string): Promise<unknown>
 
+  /** Fetch the active identity's own profile */
+  myProfile(): Promise<unknown>
+
   /** Set profile metadata */
   profileSet(profile: Record<string, unknown>, opts?: { confirm?: boolean; relays?: string[] }): Promise<unknown>
 
   /** List who a pubkey follows */
   contacts(pubkeyHex: string): Promise<unknown>
+
+  /** List who the active identity follows */
+  myContacts(): Promise<unknown>
 
   /** Follow a pubkey */
   follow(pubkeyHex: string, opts?: { relay?: string; petname?: string; relays?: string[] }): Promise<unknown>
@@ -200,7 +215,7 @@ export interface BrayClient {
   relayInfo(url: string): Promise<unknown>
 
   /** Query events via REQ */
-  req(filter: Record<string, unknown>): Promise<NostrEvent[]>
+  req(filter: Partial<Filter>): Promise<NostrEvent[]>
 
   // ── Zap ─────────────────────────────────────────────────────────────────────
   /** Pay a bolt11 invoice via NWC */
@@ -316,6 +331,8 @@ class BrayClientImpl implements BrayClient {
   }
 
   get npub(): string { return this.#ctx.activeNpub }
+  get hexPubkey(): string { return this.#ctx.activePublicKeyHex }
+  get relays(): { read: string[]; write: string[] } { return this.#pool.getRelays(this.#ctx.activeNpub) }
 
   // ── Identity ────────────────────────────────────────────────────────────────
   create() { return handleIdentityCreate() }
@@ -361,6 +378,9 @@ class BrayClientImpl implements BrayClient {
   async react(eventId: string, eventPubkey: string, reaction = '+', opts: { relays?: string[] } = {}) {
     return handleSocialReact(this.#ctx, this.#pool, { eventId, eventPubkey, reaction, ...opts })
   }
+  async like(eventId: string, eventPubkey: string, opts: { relays?: string[] } = {}) {
+    return this.react(eventId, eventPubkey, '+', opts)
+  }
   async delete(eventId: string, reason?: string, opts: { relays?: string[] } = {}) {
     return handleSocialDelete(this.#ctx, this.#pool, { eventId, reason, ...opts })
   }
@@ -370,12 +390,14 @@ class BrayClientImpl implements BrayClient {
   async profile(pubkeyHex: string) {
     return handleSocialProfileGet(this.#pool, this.#ctx.activeNpub, pubkeyHex)
   }
+  async myProfile() { return this.profile(this.#ctx.activePublicKeyHex) }
   async profileSet(profile: Record<string, unknown>, opts: { confirm?: boolean; relays?: string[] } = {}) {
     return handleSocialProfileSet(this.#ctx, this.#pool, { profile, confirm: opts.confirm ?? false, relays: opts.relays })
   }
   async contacts(pubkeyHex: string) {
     return handleContactsGet(this.#pool, this.#ctx.activeNpub, pubkeyHex)
   }
+  async myContacts() { return this.contacts(this.#ctx.activePublicKeyHex) }
   async follow(pubkeyHex: string, opts: { relay?: string; petname?: string; relays?: string[] } = {}) {
     return handleContactsFollow(this.#ctx, this.#pool, { pubkeyHex, ...opts })
   }
@@ -441,8 +463,8 @@ class BrayClientImpl implements BrayClient {
     return handleRelaySet(this.#ctx, this.#pool, { relays, confirm: opts.confirm ?? false })
   }
   async relayInfo(url: string) { return handleRelayInfo(url) }
-  async req(filter: Record<string, unknown>) {
-    return handleRelayQuery(this.#pool, this.#ctx.activeNpub, filter as any)
+  async req(filter: Partial<Filter>) {
+    return handleRelayQuery(this.#pool, this.#ctx.activeNpub, filter as Filter)
   }
 
   // ── Zap ─────────────────────────────────────────────────────────────────────
