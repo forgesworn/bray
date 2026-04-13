@@ -299,6 +299,38 @@ describe('trust-verify — offline', () => {
   })
 })
 
+describe('space-separated compound verbs', () => {
+  it('encode npub == encode-npub (plain string output)', () => {
+    const hex = '0'.repeat(63) + '1'
+    expect(cli(OFF, 'encode', 'npub', hex)).toBe(cli(OFF, 'encode-npub', hex))
+  })
+
+  it('key encrypt == key-encrypt', () => {
+    const a = cliJson(OFF, 'key-encrypt', TEST_NSEC, 'testpass') as any
+    // Space-separated form: verify it produces ncryptsec
+    const raw = cli(OFF, 'key', 'encrypt', TEST_NSEC, 'testpass', '--json')
+    const b = JSON.parse(raw) as any
+    expect(b.pubkeyHex).toBe(a.pubkeyHex)
+  })
+
+  it('trust verify == trust-verify', () => {
+    const event = JSON.stringify({ kind: 30818, pubkey: '0'.repeat(64), id: '0'.repeat(64), sig: '0'.repeat(128), created_at: 1, tags: [], content: '' })
+    const a = cliJson(OFF, 'trust-verify', event) as any
+    const b = cliJson(OFF, 'trust', 'verify', event) as any
+    expect(b.valid).toBe(a.valid)
+  })
+
+  it('nip publish == nip-publish', () => {
+    const out = cliJson(online(), 'nip', 'publish', 'compound-test', 'Compound Test', 'content') as any
+    expect(out.event.kind).toBe(30817)
+  })
+
+  it('dm read == dm-read (returns array)', () => {
+    const out = cliJson(online(), 'dm', 'read') as any
+    expect(Array.isArray(out)).toBe(true)
+  })
+})
+
 describe('safety — offline', () => {
   it('safety-configure returns configured:true + npub', () => {
     const out = cliJson(OFF, 'safety-configure', 'emergency') as any

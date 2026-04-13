@@ -63,6 +63,9 @@ if (!command) {
 }
 
 // Bunker = NIP-46 remote signer (daemon or one-shot sign)
+// Accept `bunker daemon` as an alias for `bunker` (start daemon).
+if (args[0] === 'bunker' && args[1] === 'daemon') args.splice(1, 1)
+
 if (command === 'bunker' && !args.includes('--help')) {
 
   // One-shot signing: bray bunker sign <file> [--bunker <url>]
@@ -164,7 +167,7 @@ Identity:
   persona <name> [index]              Derive a named persona
   switch <target> [index]             Switch active identity
   prove [blind|full]                  Create a linkage proof
-  proof-publish [blind|full]          Publish linkage proof to relays (irreversible)
+  proof publish [blind|full]          Publish linkage proof to relays (irreversible)
   backup <dir> [threshold] [shares]   Shamir backup (default 3-of-5)
   restore <file1> <file2> ... -t <n>  Restore from Shamir shards
   identity-backup <pubkey-hex>        Fetch profile/contacts/relays as bundle
@@ -178,16 +181,16 @@ Social:
   delete <event-id> [reason]          Request deletion of your event (kind 5)
   repost <event-id> <pubkey>          Repost/boost an event (kind 6)
   profile <pubkey-hex>                Fetch a profile
-  profile-set <json>                  Set profile (add --confirm to overwrite)
+  profile set <json>                  Set profile (add --confirm to overwrite)
   contacts <pubkey-hex>               List who a pubkey follows
   follow <pubkey-hex> [relay] [name]  Follow a pubkey
   unfollow <pubkey-hex>               Unfollow a pubkey
   dm <pubkey-hex> "message"           Send NIP-17 encrypted DM
-  dm-read                             Read received DMs
+  dm read                             Read received DMs
   feed [--limit N]                    Fetch text note feed
   notifications [--limit N]           Fetch mentions, replies, reactions, zaps
-  nip-publish <id> <title> <file>     Publish a community NIP (kind 30817)
-  nip-read [--author X] [--kind N]    Fetch community NIPs
+  nip publish <id> <title> <file>     Publish a community NIP (kind 30817)
+  nip read [--author X] [--kind N]    Fetch community NIPs
   blossom-upload <server> <file>      Upload file to blossom media server
   blossom-list <server> <pubkey>      List blobs on blossom server
   blossom-delete <server> <sha256>    Delete blob from blossom server
@@ -199,20 +202,20 @@ Social:
 Trust:
   attest <event-id>                     Verify someone's assertion (assertion-first)
   claim <type>                          Make a direct claim (endorsement, vouch, review)
-  trust-read [--subject X] [--type X]   Read attestations
-  trust-verify <event-json>             Validate attestation structure
-  trust-revoke <type> <identifier>      Revoke an attestation
+  trust read [--subject X] [--type X]   Read attestations
+  trust verify <event-json>             Validate attestation structure
+  trust revoke <type> <identifier>      Revoke an attestation
   trust-request <pubkey> <subject> <type>  Send attestation request via DM
   trust-request-list                    Scan DMs for attestation requests
-  ring-prove <type> <pk1,pk2,...>       Create ring signature proof
-  ring-verify <event-json>              Verify ring signature
+  ring prove <type> <pk1,pk2,...>       Create ring signature proof
+  ring verify <event-json>              Verify ring signature
   spoken-challenge <secret> <ctx> <ctr> Generate spoken token
   spoken-verify <secret> <ctx> <ctr> <input>  Verify spoken token
 
 Relay:
   relay-list [--compare npub]         List relays for active identity
-  relay-set <url1> <url2> ...         Publish kind 10002 relay list (add --confirm)
-  relay-add <url> [read|write]        Add relay to active identity
+  relay set <url1> <url2> ...         Publish kind 10002 relay list (add --confirm)
+  relay add <url> [read|write]        Add relay to active identity
   relay-info <wss://url>              Fetch NIP-11 relay info
 
 Zap:
@@ -233,14 +236,14 @@ Utility:
   event --kind N [--tag k=v] [--content s] [--relay url]  Build and publish an arbitrary event
   publish-raw [--file path]           Sign+broadcast event from stdin or file (--no-sign to skip signing)
   decode <nip19>                      Decode npub/nsec/note/nevent/nprofile/naddr
-  encode-npub <hex>                   Encode hex pubkey as npub
-  encode-note <hex>                   Encode hex event ID as note
-  encode-nprofile <hex> [relay,...]   Encode pubkey + relays as nprofile
-  encode-nevent <hex> [relay,...]     Encode event ID + relays as nevent
-  encode-nsec <hex>                   Encode hex private key as nsec
+  encode npub <hex>                   Encode hex pubkey as npub
+  encode note <hex>                   Encode hex event ID as note
+  encode nprofile <hex> [relay,...]   Encode pubkey + relays as nprofile
+  encode nevent <hex> [relay,...]     Encode event ID + relays as nevent
+  encode nsec <hex>                   Encode hex private key as nsec
   key-public <nsec-or-hex>            Derive pubkey from secret key
-  key-encrypt <nsec-or-hex> <pass>    Encrypt key as ncryptsec (NIP-49)
-  key-decrypt <ncryptsec> <pass>      Decrypt ncryptsec to verify pubkey
+  key encrypt <nsec-or-hex> <pass>    Encrypt key as ncryptsec (NIP-49)
+  key decrypt <ncryptsec> <pass>      Decrypt ncryptsec to verify pubkey
   filter <event-json> <filter-json>   Test if event matches filter
   nips                                List all official NIPs
   nip <number>                        Show a specific NIP
@@ -253,7 +256,7 @@ Utility:
 Modes:
   (no command)                        Start MCP server (stdio)
   serve [--port N] [--events file]    Start in-memory test relay
-  bunker [--authorized-keys pk,pk]    Start NIP-46 remote signer daemon
+  bunker daemon [--authorized-keys pk,pk]  Start NIP-46 remote signer daemon
   shell                               Interactive REPL (persistent relay connection)
 
 Environment:
@@ -269,7 +272,7 @@ Quick examples:
   nostr-bray whoami                           # show your npub
   nostr-bray post "gm nostr"                  # publish a note
   nostr-bray persona work                     # derive work identity
-  nostr-bray dm abc123... "secret message"    # send encrypted DM
+  nostr-bray dm abc123... "secret message"    # send encrypted DM (or: dm read)
   nostr-bray decode npub1...                  # decode any nip19 entity
   nostr-bray nips                             # browse official NIPs
   nostr-bray shell                            # interactive mode
@@ -292,6 +295,20 @@ if (command === 'help' || command === '--help' || command === '-h') {
   console.log(HELP)
   process.exit(0)
 }
+
+// Known two-word commands: `noun subverb` → normalised to `noun-subverb` internally.
+// Enumerated explicitly to avoid swallowing positional args (e.g. `profile <pubkey>`).
+const COMPOUND_COMMANDS = new Set([
+  'key-encrypt', 'key-decrypt',
+  'dm-read',
+  'proof-publish',
+  'profile-set',
+  'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
+  'trust-read', 'trust-verify', 'trust-revoke', 'trust-request',
+  'nip-publish', 'nip-read',
+  'relay-set', 'relay-add',
+  'ring-prove', 'ring-verify',
+])
 
 // Commands that work purely offline — no relay connection needed
 const OFFLINE_COMMANDS = new Set([
@@ -329,8 +346,10 @@ const walletsFile = config.walletsFile
 ;(config as any).secretKey = ''
 ;(config as any).nwcUri = undefined
 
-// Only fetch NIP-65 relay list for commands that need network access
-if (!OFFLINE_COMMANDS.has(command)) {
+// Only fetch NIP-65 relay list for commands that need network access.
+// Check both the bare command and the normalised compound form (e.g. `encode npub` → `encode-npub`).
+const effectiveCommand = COMPOUND_COMMANDS.has(`${command}-${args[1]}`) ? `${command}-${args[1]}` : command
+if (!OFFLINE_COMMANDS.has(effectiveCommand)) {
   const masterRelays = await nip65.loadForIdentity(ctx.activeNpub)
   pool.reconfigure(ctx.activeNpub, masterRelays)
 }
@@ -379,6 +398,17 @@ function parseShellLine(line: string): string[] {
 
 async function run(cmdArgs: string[]): Promise<void> {
   currentOutputMode = resolveOutputMode(cmdArgs)
+
+  // Normalise `noun subverb [args...]` → `noun-subverb [args...]` so that both
+  // the new space-separated form and the legacy hyphenated form reach the same
+  // switch case.
+  const maybeCompound = cmdArgs[1] && !cmdArgs[1].startsWith('-')
+    ? `${cmdArgs[0]}-${cmdArgs[1]}`
+    : undefined
+  if (maybeCompound && COMPOUND_COMMANDS.has(maybeCompound)) {
+    cmdArgs = [maybeCompound, ...cmdArgs.slice(2)]
+  }
+
   const command = cmdArgs[0]
 
   /** Require arg or throw */
