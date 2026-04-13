@@ -601,6 +601,32 @@ describe('event verb', { timeout: 20_000 }, () => {
   })
 })
 
+describe('req verb', { timeout: 20_000 }, () => {
+  it('returns an array of events with --kinds filter', () => {
+    const out = cliJson(online(), 'req', '--kinds', '1', '--limit', '5') as any
+    expect(Array.isArray(out)).toBe(true)
+  })
+
+  it('accepts JSON filter on stdin', () => {
+    const filter = JSON.stringify({ kinds: [1], limit: 3 })
+    const out = cliJsonStdin(online(), filter, 'req') as any
+    expect(Array.isArray(out)).toBe(true)
+  })
+
+  it('--jsonl emits newline-delimited JSON (empty relay returns nothing, exits 0)', () => {
+    const raw = execFileSync('node', [CLI, 'req', '--kinds', '1', '--limit', '3', '--jsonl'], {
+      env: online(),
+      encoding: 'utf-8',
+    })
+    // May be empty if relay returns nothing — just confirm it's valid (no throw)
+    const lines = raw.trim().split('\n').filter(Boolean)
+    for (const line of lines) {
+      const ev = JSON.parse(line)
+      expect(ev.id).toMatch(/^[0-9a-f]{64}$/)
+    }
+  })
+})
+
 describe('publish-raw — local relay', { timeout: 20_000 }, () => {
   it('signs and broadcasts an unsigned event from stdin', () => {
     const unsigned = { kind: 1, content: 'publish-raw smoke test', tags: [], created_at: Math.floor(Date.now() / 1000) }

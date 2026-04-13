@@ -12,7 +12,7 @@ import { handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers }
 import { handleIdentityList, handleIdentityProve, handleIdentityCreate } from './identity/handlers.js'
 import { handleBackupShamir, handleRestoreShamir } from './identity/shamir.js'
 import { handleIdentityBackup, handleIdentityRestore, handleIdentityMigrate } from './identity/migration.js'
-import { handleRelayInfo, handleRelayList, handleRelaySet, handleRelayAdd } from './relay/handlers.js'
+import { handleRelayInfo, handleRelayList, handleRelaySet, handleRelayAdd, handleRelayQuery } from './relay/handlers.js'
 import { handleTrustAttest, handleTrustRead, handleTrustVerify, handleTrustRevoke, handleTrustRequest, handleTrustRequestList, handleTrustProofPublish } from './trust/handlers.js'
 import { handleTrustRingProve, handleTrustRingVerify } from './trust/ring.js'
 import { handleTrustSpokenChallenge, handleTrustSpokenVerify } from './trust/spoken.js'
@@ -229,6 +229,7 @@ Safety:
   safety-activate [persona-name]      Switch to alternative identity
 
 Utility:
+  req [--kinds N,N] [--authors hex,hex] [--since ts] [--limit N] [--relay url]  Query events
   event --kind N [--tag k=v] [--content s] [--relay url]  Build and publish an arbitrary event
   publish-raw [--file path]           Sign+broadcast event from stdin or file (--no-sign to skip signing)
   decode <nip19>                      Decode npub/nsec/note/nevent/nprofile/naddr
@@ -813,6 +814,59 @@ async function run(cmdArgs: string[]): Promise<void> {
     // === Utility ===
 
     // === Event ===
+
+    case 'req': {
+      // Support JSON filter on stdin when stdin is a pipe
+      let stdinFilter: Record<string, unknown> | undefined
+      const isTTY = process.stdin.isTTY
+      if (!isTTY) {
+        const { readFileSync } = await import('node:fs')
+        const raw = readFileSync(0, 'utf-8').trim()
+        if (raw) stdinFilter = JSON.parse(raw)
+      }
+
+      const kindsRaw = flag('kinds')
+      const authorsRaw = flag('authors')
+      const since = flag('since') ? parseInt(flag('since')!, 10) : undefined
+      const until = flag('until') ? parseInt(flag('until')!, 10) : undefined
+      const limit = flag('limit') ? parseInt(flag('limit')!, 10) : undefined
+      const search = flag('search')
+      const relayOverrides = flags('relay')
+
+      // --tag name=val (repeatable) → tags record
+      const tagEntries = flags('tag')
+      const tags: Record<string, string[]> = {}
+      for (const t of tagEntries) {
+        const eq = t.indexOf('=')
+        if (eq !== -1) {
+          const k = t.slice(0, eq)
+          const v = t.slice(eq + 1)
+          if (!tags[k]) tags[k] = []
+          tags[k].push(v)
+        }
+      }
+
+      const queryArgs = stdinFilter ?? {
+        ...(kindsRaw ? { kinds: kindsRaw.split(',').map(Number) } : {}),
+        ...(authorsRaw ? { authors: authorsRaw.split(',') } : {}),
+        ...(since !== undefined ? { since } : {}),
+        ...(until !== undefined ? { until } : {}),
+        ...(limit !== undefined ? { limit } : {}),
+        ...(search ? { search } : {}),
+        ...(Object.keys(tags).length ? { tags } : {}),
+        ...(relayOverrides.length ? { relays: relayOverrides } : {}),
+      }
+
+      const events = await handleRelayQuery(pool, ctx.activeNpub, queryArgs as any)
+
+      const jsonl = hasFlag('jsonl') || (!process.stdout.isTTY && !args.includes('--json'))
+      if (jsonl) {
+        for (const ev of events) console.log(JSON.stringify(ev))
+      } else {
+        out(events)
+      }
+      break
+    }
 
     case 'event': {
       const kind = parseInt(flag('kind') ?? '', 10)
