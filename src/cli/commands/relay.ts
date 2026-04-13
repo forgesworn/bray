@@ -1,0 +1,94 @@
+import { handleRelayInfo, handleRelayList, handleRelaySet, handleRelayAdd, handleRelayQuery } from '../../relay/handlers.js'
+import * as fmt from '../../format.js'
+import type { Helpers } from '../dispatch.js'
+
+export async function dispatch(
+  cmd: string,
+  cmdArgs: string[],
+  h: Helpers,
+  ctx: any,
+  pool: any,
+): Promise<void> {
+  const { req, flag, flags, hasFlag, out } = h
+
+  switch (cmd) {
+    case 'relay-list':
+      out(await handleRelayList(ctx, pool, flag('compare')), fmt.formatRelays)
+      break
+
+    case 'relay-set': {
+      const urls = cmdArgs.slice(1).filter(a => !a.startsWith('--'))
+      out(await handleRelaySet(ctx, pool, {
+        relays: urls.map(u => ({ url: u })),
+        confirm: hasFlag('confirm'),
+      }))
+      break
+    }
+
+    case 'relay-add':
+      out(handleRelayAdd(ctx, pool, {
+        url: req(1, 'relay-add <url> [read|write]'),
+        mode: cmdArgs[2] as 'read' | 'write' | undefined,
+      }))
+      break
+
+    case 'relay-info':
+      out(await handleRelayInfo(req(1, 'relay-info <wss://url>')))
+      break
+
+    case 'req': {
+      // Support JSON filter on stdin when stdin is a pipe
+      let stdinFilter: Record<string, unknown> | undefined
+      const isTTY = process.stdin.isTTY
+      if (!isTTY) {
+        const { readFileSync } = await import('node:fs')
+        const raw = readFileSync(0, 'utf-8').trim()
+        if (raw) stdinFilter = JSON.parse(raw)
+      }
+
+      const kindsRaw = flag('kinds')
+      const authorsRaw = flag('authors')
+      const since = flag('since') ? parseInt(flag('since')!, 10) : undefined
+      const until = flag('until') ? parseInt(flag('until')!, 10) : undefined
+      const limit = flag('limit') ? parseInt(flag('limit')!, 10) : undefined
+      const search = flag('search')
+      const relayOverrides = flags('relay')
+
+      const tagEntries = flags('tag')
+      const tags: Record<string, string[]> = {}
+      for (const t of tagEntries) {
+        const eq = t.indexOf('=')
+        if (eq !== -1) {
+          const k = t.slice(0, eq)
+          const v = t.slice(eq + 1)
+          if (!tags[k]) tags[k] = []
+          tags[k].push(v)
+        }
+      }
+
+      const queryArgs = stdinFilter ?? {
+        ...(kindsRaw ? { kinds: kindsRaw.split(',').map(Number) } : {}),
+        ...(authorsRaw ? { authors: authorsRaw.split(',') } : {}),
+        ...(since !== undefined ? { since } : {}),
+        ...(until !== undefined ? { until } : {}),
+        ...(limit !== undefined ? { limit } : {}),
+        ...(search ? { search } : {}),
+        ...(Object.keys(tags).length ? { tags } : {}),
+        ...(relayOverrides.length ? { relays: relayOverrides } : {}),
+      }
+
+      const events = await handleRelayQuery(pool, ctx.activeNpub, queryArgs as any)
+
+      const jsonl = hasFlag('jsonl') || (!process.stdout.isTTY && !cmdArgs.includes('--json'))
+      if (jsonl) {
+        for (const ev of events) console.log(JSON.stringify(ev))
+      } else {
+        out(events)
+      }
+      break
+    }
+
+    default:
+      throw new Error(`Unknown command: ${cmd}. Run --help for usage.`)
+  }
+}
