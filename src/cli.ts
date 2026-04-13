@@ -20,6 +20,7 @@ import { handleDuressConfigure, handleDuressActivate } from './safety/handlers.j
 import { handleZapSend, handleZapBalance, handleZapMakeInvoice, handleZapLookupInvoice, handleZapListTransactions, handleZapReceipts, handleZapDecode, resolveNwcUri } from './zap/handlers.js'
 import { handleDecode, handleEncodeNpub, handleEncodeNote, handleEncodeNprofile, handleEncodeNevent, handleVerify, handleEncrypt, handleDecrypt, handleCount, handleFetch, handleKeyPublic, handleEncodeNsec, handleFilter, handleNipList, handleNipShow } from './util/handlers.js'
 import { handleKeyEncrypt, handleKeyDecrypt } from './util/ncryptsec.js'
+import { handlePublishRaw } from './event/handlers.js'
 
 import { getCommandHelp } from './help.js'
 import * as fmt from './format.js'
@@ -194,6 +195,7 @@ Safety:
   safety-activate [persona-name]      Switch to alternative identity
 
 Utility:
+  publish-raw [--file path]           Sign+broadcast event from stdin or file (--no-sign to skip signing)
   decode <nip19>                      Decode npub/nsec/note/nevent/nprofile/naddr
   encode-npub <hex>                   Encode hex pubkey as npub
   encode-note <hex>                   Encode hex event ID as note
@@ -358,6 +360,15 @@ async function run(cmdArgs: string[]): Promise<void> {
 
   function hasFlag(name: string): boolean {
     return cmdArgs.includes(`--${name}`)
+  }
+
+  /** Collect all values for a repeatable flag (e.g. --relay url1 --relay url2) */
+  function flags(name: string): string[] {
+    const result: string[] = []
+    for (let i = 0; i < cmdArgs.length - 1; i++) {
+      if (cmdArgs[i] === `--${name}`) result.push(cmdArgs[i + 1])
+    }
+    return result
   }
 
   switch (command) {
@@ -757,6 +768,23 @@ async function run(cmdArgs: string[]): Promise<void> {
 
     // === Utility ===
 
+    // === Event ===
+
+    case 'publish-raw': {
+      const { readFileSync } = await import('node:fs')
+      const raw = hasFlag('file')
+        ? readFileSync(flag('file')!, 'utf-8')
+        : readFileSync(0, 'utf-8')  // fd 0 = stdin
+      const inputEvent = JSON.parse(raw)
+      const relayOverrides = flags('relay')
+      out(await handlePublishRaw(ctx, pool, {
+        event: inputEvent,
+        noSign: hasFlag('no-sign'),
+        relays: relayOverrides.length ? relayOverrides : undefined,
+      }))
+      break
+    }
+
     case 'decode':
       out(handleDecode(req(1, 'decode <nip19>')), fmt.formatDecode)
       break
@@ -871,6 +899,7 @@ const ALL_COMMANDS = [
   'safety-configure', 'safety-activate',
   'blossom-upload', 'blossom-list', 'blossom-delete',
   'group-info', 'group-chat', 'group-send', 'group-members',
+  'publish-raw',
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
   'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'encrypt', 'decrypt', 'count', 'fetch',
   'bunker',

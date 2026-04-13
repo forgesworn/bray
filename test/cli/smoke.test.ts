@@ -46,6 +46,22 @@ function cliJson(env: Record<string, string | undefined>, ...args: string[]): un
   return JSON.parse(cli(env, ...args, '--json'))
 }
 
+/**
+ * Run the CLI with JSON piped to stdin and --json appended; parse stdout.
+ * Used for publish-raw and future stdin-consuming commands.
+ */
+function cliJsonStdin(env: Record<string, string | undefined>, stdinData: string, ...args: string[]): unknown {
+  return JSON.parse(
+    execFileSync('node', [CLI, ...args, '--json'], {
+      env,
+      encoding: 'utf-8',
+      timeout: 15_000,
+      input: stdinData,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim()
+  )
+}
+
 /** Run the CLI and return stderr+stdout even if the process exits non-zero. */
 function cliExpectFail(env: Record<string, string | undefined>, ...args: string[]): string {
   try {
@@ -468,5 +484,43 @@ describe('NIP publishing — local relay', { timeout: 20_000 }, () => {
   it('nip-read returns array', () => {
     const out = cliJson(online(), 'nip-read') as any
     expect(Array.isArray(out)).toBe(true)
+  })
+})
+
+describe('publish-raw — local relay', { timeout: 20_000 }, () => {
+  it('signs and broadcasts an unsigned event from stdin', () => {
+    const unsigned = { kind: 1, content: 'publish-raw smoke test', tags: [], created_at: Math.floor(Date.now() / 1000) }
+    const out = cliJsonStdin(online(), JSON.stringify(unsigned), 'publish-raw') as any
+    expect(out.event.id).toMatch(/^[0-9a-f]{64}$/)
+    expect(out.event.kind).toBe(1)
+    expect(out.event.content).toBe('publish-raw smoke test')
+    expect(out.publish.success).toBe(true)
+    expect(out.signed).toBe(true)
+  })
+
+  it('broadcasts a pre-signed event with --no-sign', () => {
+    // First get a real signed event from post, then rebroadcast it via publish-raw --no-sign
+    const posted = cliJson(online(), 'post', 'publish-raw no-sign source') as any
+    const signedEvent = posted.event
+    const out = cliJsonStdin(online(), JSON.stringify(signedEvent), 'publish-raw', '--no-sign') as any
+    expect(out.event.id).toBe(signedEvent.id)
+    expect(out.signed).toBe(false)
+    expect(out.publish.success).toBe(true)
+  })
+
+  it('respects --relay flag (per-command relay override)', () => {
+    const unsigned = { kind: 1, content: 'publish-raw relay-flag test', tags: [], created_at: Math.floor(Date.now() / 1000) }
+    const out = cliJsonStdin(online(), JSON.stringify(unsigned), 'publish-raw', '--relay', localRelay) as any
+    expect(out.event.id).toMatch(/^[0-9a-f]{64}$/)
+    expect(out.publish.success).toBe(true)
+  })
+
+  it('signs partial event (missing created_at) using defaults', () => {
+    // created_at will be set to now by the handler
+    const partial = { kind: 1, content: 'publish-raw partial', tags: [] }
+    const out = cliJsonStdin(online(), JSON.stringify(partial), 'publish-raw') as any
+    expect(out.event.kind).toBe(1)
+    expect(out.event.created_at).toBeGreaterThan(0)
+    expect(out.signed).toBe(true)
   })
 })
