@@ -79,11 +79,30 @@ export async function resolveRecipient(
     }
   }
 
-  // Nothing matched
-  const known = knownNames ? [...knownNames.keys()].join(', ') : 'none'
+  // Nothing matched.
+  // Redact the input in the error message when it looks like private key
+  // material — a mistyped nsec or ncryptsec sent through this resolver should
+  // not end up echoed into logs. Also do not enumerate known contact names,
+  // since that helps an attacker probe the identities file.
+  const redacted = redactIdentifier(input)
   throw new Error(
-    `Cannot resolve "${input}". Expected: 64-char hex, npub, nprofile, user@domain, or a known name (${known}).`,
+    `Cannot resolve "${redacted}". Expected: 64-char hex, npub, nprofile, user@domain, or a known name.`,
   )
+}
+
+/** Redact identifiers that look like private key material. */
+function redactIdentifier(input: string): string {
+  const trimmed = input.trim()
+  if (trimmed.startsWith('nsec1')) {
+    return `nsec1…<redacted>`
+  }
+  if (trimmed.startsWith('ncryptsec1')) {
+    return `ncryptsec1…<redacted>`
+  }
+  if (trimmed.length > 128) {
+    return `${trimmed.slice(0, 32)}…<${trimmed.length} chars>`
+  }
+  return trimmed
 }
 
 /**

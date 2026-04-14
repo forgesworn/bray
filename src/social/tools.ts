@@ -220,7 +220,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({
         published: true,
-        id: result.event.id,
+        id: result.event?.id,
       }, null, 2) }],
     }
   })

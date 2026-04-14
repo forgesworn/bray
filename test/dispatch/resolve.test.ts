@@ -89,13 +89,14 @@ describe('resolveRecipient', () => {
       .rejects.toThrow(/charlie/)
   })
 
-  it('includes known names in error message', async () => {
+  it('does not enumerate known contact names in the error message', async () => {
+    // Security: enumerating helps an attacker probe the identities file.
     try {
       await resolveRecipient('charlie', makeIdentities())
       expect.fail('Should have thrown')
     } catch (err: any) {
-      expect(err.message).toContain('alice')
-      expect(err.message).toContain('bob')
+      expect(err.message).not.toContain('alice')
+      expect(err.message).not.toContain('bob')
     }
   })
 

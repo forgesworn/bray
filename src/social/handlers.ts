@@ -242,7 +242,7 @@ export async function handleSocialProfileGet(
 
 export interface ProfileSetResult {
   published: boolean
-  event: NostrEvent
+  event?: NostrEvent
   warning?: string
   diff?: Record<string, { old: unknown; new: unknown }>
 }
@@ -297,17 +297,12 @@ export async function handleSocialProfileSet(
       }
     }
 
-    const sign = ctx.getSigningFunction()
-    const event = await sign({
-      kind: 0,
-      created_at: Math.floor(Date.now() / 1000),
-      tags: [],
-      content: JSON.stringify(args.profile),
-    })
-
+    // Do not sign during preview. A signed kind-0 leak in the response payload
+    // would reveal the active persona's intent to overwrite, and any MCP log
+    // capturing the response could replay it. The caller must re-invoke with
+    // confirm: true to produce and publish a real event.
     return {
       published: false,
-      event,
       warning: 'Profile already exists. Set confirm: true to overwrite.',
       diff,
     }
