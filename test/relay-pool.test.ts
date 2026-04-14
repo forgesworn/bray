@@ -73,7 +73,7 @@ describe('RelayPool', () => {
       const pool = new RelayPool({
         torProxy: 'socks5h://127.0.0.1:9050',
         allowClearnet: false,
-        defaultRelays: ['ws://abc123def456.onion'],
+        defaultRelays: ['ws://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion'],
       }, mockPool())
       expect(pool).toBeDefined()
       pool.close()
@@ -295,7 +295,7 @@ describe('RelayPool', () => {
       const pool = new RelayPool({
         torProxy: 'socks5h://127.0.0.1:9050',
         allowClearnet: false,
-        defaultRelays: ['ws://abc.onion'],
+        defaultRelays: ['ws://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion'],
       }, mockPool())
       expect(() => pool.reconfigure(NPUB_A, {
         read: ['wss://clearnet.example.com'],

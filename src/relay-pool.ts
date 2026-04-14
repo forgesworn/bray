@@ -1,5 +1,11 @@
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
 import type { PublishResult, RelaySet } from './types.js'
+import { validatePublicUrl } from './validation.js'
+
+// 512 KiB cap on any inbound relay frame. Protects against malicious relays
+// pushing 100 MB EVENTs that would exhaust memory (ws library defaults to
+// 100 MB maxPayload, which is far more than any legitimate Nostr event).
+const WS_MAX_PAYLOAD = 512 * 1024
 
 export interface Subscription {
   close(): void
@@ -57,12 +63,17 @@ async function createRealPool(torProxy?: string): Promise<PoolLike> {
     const agent = new SocksProxyAgent(torProxy)
     const ProxiedWebSocket = class extends WS {
       constructor(url: string | URL, protocols?: any, options?: any) {
-        super(url, protocols, { ...options, agent })
+        super(url, protocols, { ...options, agent, maxPayload: WS_MAX_PAYLOAD })
       }
     }
     useWebSocketImplementation(ProxiedWebSocket)
   } else {
-    useWebSocketImplementation(WS)
+    const CappedWebSocket = class extends WS {
+      constructor(url: string | URL, protocols?: any, options?: any) {
+        super(url, protocols, { ...options, maxPayload: WS_MAX_PAYLOAD })
+      }
+    }
+    useWebSocketImplementation(CappedWebSocket)
   }
 
   const pool = new SimplePool()
@@ -112,9 +123,24 @@ export class RelayPool {
 
   /** Store relay set for an identity and flush any queued writes */
   reconfigure(npub: string, relays: RelaySet): void {
-    // Enforce Tor policy on runtime relay additions
+    const allUrls = [...relays.read, ...relays.write]
+
+    // Always reject private/malformed URLs regardless of Tor mode — closes SSRF
+    // vectors where callers (NIP-65 events, relay-add, workflow tools) could
+    // inject a loopback or cloud-metadata URL when Tor is off.
+    for (const url of allUrls) {
+      if (!/^wss?:\/\//i.test(url) || url.length > 512) {
+        throw new Error(`Invalid relay URL: ${url.slice(0, 128)}`)
+      }
+      // .onion hosts bypass validatePublicUrl (they don't resolve in DNS and
+      // cannot be private-network aliases); everything else must pass.
+      if (!this.isOnion(url)) {
+        validatePublicUrl(url)
+      }
+    }
+
+    // Tor policy: when Tor is required (no allowClearnet), only .onion allowed.
     if (this.torProxy && !this.allowClearnet) {
-      const allUrls = [...relays.read, ...relays.write]
       const clearnet = allUrls.filter(r => !this.isOnion(r))
       if (clearnet.length > 0) {
         throw new Error(`Clearnet relays not allowed with Tor proxy: ${clearnet.join(', ')}`)
@@ -261,7 +287,10 @@ export class RelayPool {
   private isOnion(url: string): boolean {
     try {
       const parsed = new URL(url)
-      return parsed.hostname.endsWith('.onion')
+      const host = parsed.hostname.toLowerCase()
+      // v3 onion: 56 base32 chars + .onion (lowercase a-z, digits 2-7)
+      // v2 onion (deprecated): 16 base32 chars + .onion
+      return /^[a-z2-7]{16}\.onion$/.test(host) || /^[a-z2-7]{56}\.onion$/.test(host)
     } catch {
       return false
     }

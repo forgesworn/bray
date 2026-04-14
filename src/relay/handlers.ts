@@ -2,6 +2,7 @@ import type { Event as NostrEvent, Filter } from 'nostr-tools'
 import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { RelaySet, PublishResult } from '../types.js'
+import { validatePublicUrl } from '../validation.js'
 
 export interface RelayHealthEntry {
   url: string
@@ -99,6 +100,9 @@ export async function handleRelaySet(
   pool: RelayPool,
   args: { relays: RelayEntry[]; confirm?: boolean },
 ): Promise<{ event: NostrEvent; published: boolean; publish?: PublishResult; warning?: string }> {
+  // Reject malformed or private-network URLs before publishing or reconfiguring
+  for (const r of args.relays) validateRelayUrl(r.url)
+
   // Check for existing relay list
   const existing = await pool.query(ctx.activeNpub, {
     kinds: [10002],
@@ -154,6 +158,7 @@ export function handleRelayAdd(
   pool: RelayPool,
   args: { url: string; mode?: 'read' | 'write' },
 ): { reconfigured: boolean } {
+  validateRelayUrl(args.url)
   const current = pool.getRelays(ctx.activeNpub)
   const read = [...current.read]
   const write = [...current.write]
@@ -253,19 +258,16 @@ export async function handleRelayQuery(
  * validateRelayUrl('http://relay.damus.io')      // throws — wrong scheme
  */
 export function validateRelayUrl(url: string): void {
+  if (typeof url !== 'string') {
+    throw new Error('Relay URL must be a string')
+  }
+  if (url.length > 512) {
+    throw new Error('Relay URL too long (max 512 characters)')
+  }
   if (!/^wss?:\/\//i.test(url)) {
     throw new Error('Relay URL must use wss:// or ws:// scheme')
   }
-  const parsed = new URL(url)
-  const host = parsed.hostname.toLowerCase()
-  if (
-    host === 'localhost' || host === '[::1]' ||
-    host.startsWith('127.') || host.startsWith('10.') ||
-    host.startsWith('192.168.') || host === '169.254.169.254' ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(host)
-  ) {
-    throw new Error('Relay URL must not point to private network addresses')
-  }
+  validatePublicUrl(url)
 }
 
 /**
