@@ -32,7 +32,18 @@ export interface FeedEntry {
   _trust?: TrustAnnotation
 }
 
-/** Fetch notifications (mentions, replies, reactions, zaps) for the active identity */
+/**
+ * Fetch notifications (mentions, replies, reactions, zaps) for the active identity.
+ *
+ * @param opts.since - Optional Unix timestamp; only return events newer than this.
+ * @param opts.limit - Maximum number of events to fetch (default 50).
+ * @param opts.trust - Trust filter mode (`'strict'`, `'permissive'`, or `'off'`). Has no effect without `_scoring`.
+ * @param opts._scoring - Optional Veil scoring engine; scores and filters events by trust when supplied.
+ * @returns Classified notifications sorted newest first, each typed as `reply`, `reaction`, `mention`, `zap`, or `other`.
+ * @example
+ * const notifications = await handleNotifications(ctx, pool, { limit: 25 })
+ * notifications.forEach(n => console.log(n.type, n.from, n.content))
+ */
 export async function handleNotifications(
   ctx: SigningContext,
   pool: RelayPool,
@@ -118,7 +129,23 @@ function parseZapReceipt(event: NostrEvent, base: Omit<Notification, 'type'>): N
   return { ...base, type: 'zap', amountMsats, zapSender, zapMessage }
 }
 
-/** Fetch feed (kind 1 events) */
+/**
+ * Fetch feed (kind 1 events).
+ *
+ * @param opts.authors - Optional list of pubkeys (hex) to restrict the feed to.
+ * @param opts.since - Optional Unix timestamp; only return events newer than this.
+ * @param opts.limit - Maximum number of events to return (default 20).
+ * @param opts.trust - Trust filter mode (`'strict'`, `'permissive'`, or `'off'`). Has no effect without `_scoring`.
+ * @param opts._scoring - Optional Veil scoring engine; scores and filters events by trust when supplied.
+ * @param opts._trustCtx - Optional trust context; populates `_trust` annotation on each entry.
+ * @returns Feed entries sorted by trust then time, each containing `id`, `pubkey`, `content`, `createdAt`, `tags`, and optional trust data.
+ * @example
+ * const feed = await handleFeed(ctx, pool, {
+ *   authors: ['abc123...', 'def456...'],
+ *   limit: 10,
+ * })
+ * feed.forEach(e => console.log(e.pubkey, e.content))
+ */
 export async function handleFeed(
   ctx: SigningContext,
   pool: RelayPool,

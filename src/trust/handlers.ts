@@ -17,7 +17,29 @@ export interface AttestResult {
   warning?: string
 }
 
-/** Create and publish a kind 31000 attestation */
+/**
+ * Create and publish a kind 31000 attestation.
+ *
+ * @param args.type - Attestation type string (e.g. `"identity"`, `"skill"`).
+ * @param args.identifier - Value being attested (e.g. a domain or username).
+ * @param args.subject - Hex public key of the subject being attested.
+ * @param args.assertionId - Event ID of the assertion to reference (mutually exclusive with `assertionAddress`).
+ * @param args.assertionAddress - NIP-33 address of the assertion to reference (mutually exclusive with `assertionId`).
+ * @param args.assertionRelay - Optional hint relay for the referenced assertion.
+ * @param args.summary - Short human-readable summary of the attestation.
+ * @param args.content - Free-form content body for the attestation event.
+ * @param args.expiration - Unix timestamp after which the attestation expires (NIP-40).
+ * @param args.relays - Explicit relay URLs to publish to; omit to use the active identity's NIP-65 outbox.
+ * @returns The signed event, publish result, and an optional warning if attesting from a non-master identity.
+ * @example
+ * const result = await handleTrustAttest(ctx, pool, {
+ *   type: 'identity',
+ *   subject: 'a1b2c3d4...', // hex pubkey
+ *   identifier: 'alice@example.com',
+ *   summary: 'Verified email identity',
+ * })
+ * console.log(result.event.id, result.warning)
+ */
 export async function handleTrustAttest(
   ctx: SigningContext,
   pool: RelayPool,
@@ -81,7 +103,21 @@ export async function handleTrustAttest(
   return { event, publish, warning }
 }
 
-/** Read attestations from relays, filtered by subject/type/attestor */
+/**
+ * Read attestations from relays, filtered by subject/type/attestor.
+ *
+ * @param npub - The npub used to resolve outbox relays for the query.
+ * @param args.subject - Hex public key of the subject to filter by.
+ * @param args.type - Attestation type string to filter by.
+ * @param args.attestor - Hex public key of the attestor to filter by.
+ * @returns Array of raw kind 31000 Nostr events matching the filter.
+ * @example
+ * const events = await handleTrustRead(pool, 'npub1...', {
+ *   subject: 'a1b2c3d4...',
+ *   type: 'identity',
+ * })
+ * console.log(`Found ${events.length} attestations`)
+ */
 export async function handleTrustRead(
   pool: RelayPool,
   npub: string,
@@ -96,13 +132,34 @@ export async function handleTrustRead(
   return pool.query(npub, filter)
 }
 
-/** Validate attestation event structure */
+/**
+ * Validate attestation event structure.
+ *
+ * @param event - A raw Nostr event expected to be a kind 31000 attestation.
+ * @returns `valid` flag and an array of validation error messages (empty when valid).
+ * @example
+ * const { valid, errors } = handleTrustVerify(event)
+ * if (!valid) console.error('Invalid attestation:', errors)
+ */
 export function handleTrustVerify(event: NostrEvent): { valid: boolean; errors: string[] } {
   const result = validateAttestation(event)
   return { valid: result.valid, errors: result.errors ?? [] }
 }
 
-/** Create and publish a revocation for an attestation */
+/**
+ * Create and publish a revocation for an attestation.
+ *
+ * @param args.type - Attestation type of the original attestation being revoked.
+ * @param args.identifier - Identifier value of the original attestation being revoked.
+ * @param args.originalAttestorPubkey - Hex public key of the original attestor; if supplied, the active identity must match or an error is thrown.
+ * @returns The signed revocation event and publish result.
+ * @example
+ * const { event, publish } = await handleTrustRevoke(ctx, pool, {
+ *   type: 'identity',
+ *   identifier: 'alice@example.com',
+ *   originalAttestorPubkey: 'a1b2c3d4...',
+ * })
+ */
 export async function handleTrustRevoke(
   ctx: SigningContext,
   pool: RelayPool,
@@ -142,7 +199,22 @@ export async function handleTrustRevoke(
 
 const ATTESTATION_REQUEST_TYPE = 'nip-va/attestation-request'
 
-/** Send an attestation request as a NIP-17 structured DM */
+/**
+ * Send an attestation request as a NIP-17 structured DM.
+ *
+ * @param args.recipientPubkeyHex - Hex public key of the intended attestor.
+ * @param args.subject - Hex public key of the subject for whom attestation is being requested.
+ * @param args.attestationType - Attestation type string being requested (e.g. `"identity"`).
+ * @param args.message - Optional human-readable note to include in the request.
+ * @returns The sealed NIP-17 DM event and publish result.
+ * @example
+ * const { event } = await handleTrustRequest(ctx, pool, {
+ *   recipientPubkeyHex: 'a1b2c3d4...',
+ *   subject: 'b2c3d4e5...',
+ *   attestationType: 'skill',
+ *   message: 'Can you vouch for my Rust skills?',
+ * })
+ */
 export async function handleTrustRequest(
   ctx: SigningContext,
   pool: RelayPool,
@@ -170,7 +242,16 @@ export async function handleTrustRequest(
   return { event, publish }
 }
 
-/** Scan NIP-17 DMs for attestation request payloads */
+/**
+ * Scan NIP-17 DMs for attestation request payloads.
+ *
+ * @returns Array of parsed attestation requests extracted from incoming DMs, each containing the sender pubkey, subject, attestation type, and optional message.
+ * @example
+ * const requests = await handleTrustRequestList(ctx, pool)
+ * for (const req of requests) {
+ *   console.log(`${req.from} wants attestation of type "${req.attestationType}" for ${req.subject}`)
+ * }
+ */
 export async function handleTrustRequestList(
   ctx: SigningContext,
   pool: RelayPool,
@@ -199,7 +280,20 @@ export async function handleTrustRequestList(
 
 // --- Task 15: Linkage proof publishing ---
 
-/** Publish a linkage proof as a kind 30078 event. Requires confirmation. */
+/**
+ * Publish a linkage proof as a kind 30078 event. Requires confirmation.
+ *
+ * @param args.mode - `"blind"` (default) reveals only group membership; `"full"` also reveals the derivation purpose and index. This is irreversible.
+ * @param args.confirm - Must be `true` to actually publish; pass `false` to receive a warning preview without side effects.
+ * @returns The signed event and publish result when confirmed; otherwise `published: false` with a descriptive warning. Returns a warning immediately if the active context does not support linkage proofs.
+ * @example
+ * // Preview first
+ * const preview = await handleTrustProofPublish(ctx, pool, { confirm: false })
+ * console.log(preview.warning)
+ *
+ * // Then confirm
+ * const { event, published } = await handleTrustProofPublish(ctx, pool, { mode: 'blind', confirm: true })
+ */
 export async function handleTrustProofPublish(
   ctx: SigningContext,
   pool: RelayPool,

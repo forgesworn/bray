@@ -21,7 +21,20 @@ export interface ContactGuardWarning {
   proposedCount: number
 }
 
-/** Create and publish a kind 1 text note */
+/**
+ * Create and publish a kind 1 text note.
+ *
+ * @param args.content - The plain-text body of the note.
+ * @param args.tags - Optional NIP-10 or custom tags to attach (e.g. `[['t', 'nostr']]`).
+ * @param args.relays - Optional explicit relay URLs to publish to; falls back to the identity's write relays.
+ * @returns The signed event and a publish result describing relay acceptance.
+ * @example
+ * const result = await handleSocialPost(ctx, pool, {
+ *   content: 'Hello Nostr!',
+ *   tags: [['t', 'introduction']],
+ * })
+ * console.log(result.event.id)
+ */
 export async function handleSocialPost(
   ctx: SigningContext,
   pool: RelayPool,
@@ -40,7 +53,23 @@ export async function handleSocialPost(
   return { event, publish }
 }
 
-/** Create and publish a reply (kind 1 with e-tag and p-tag) */
+/**
+ * Create and publish a reply (kind 1 with e-tag and p-tag).
+ *
+ * @param args.content - The reply text.
+ * @param args.replyTo - Event ID (hex) of the note being replied to.
+ * @param args.replyToPubkey - Pubkey (hex) of the note's author.
+ * @param args.relay - Optional relay hint for the referenced event.
+ * @param args.relays - Optional explicit relay URLs to publish to.
+ * @param args._scoring - Optional Veil scoring engine; populates `trustWarning` / `authorTrustScore` when supplied.
+ * @returns The signed event, publish result, and an optional trust annotation for the original author.
+ * @example
+ * const result = await handleSocialReply(ctx, pool, {
+ *   content: 'Great post!',
+ *   replyTo: 'abc123...',
+ *   replyToPubkey: 'def456...',
+ * })
+ */
 export async function handleSocialReply(
   ctx: SigningContext,
   pool: RelayPool,
@@ -74,7 +103,21 @@ export async function handleSocialReply(
   return result
 }
 
-/** Create and publish a reaction (kind 7) */
+/**
+ * Create and publish a reaction (kind 7).
+ *
+ * @param args.eventId - ID (hex) of the event to react to.
+ * @param args.eventPubkey - Pubkey (hex) of the event's author.
+ * @param args.reaction - Reaction content; defaults to `'+'` (like). Use `'-'` for a dislike or an emoji.
+ * @param args.relays - Optional explicit relay URLs to publish to.
+ * @returns The signed kind 7 event and publish result.
+ * @example
+ * const result = await handleSocialReact(ctx, pool, {
+ *   eventId: 'abc123...',
+ *   eventPubkey: 'def456...',
+ *   reaction: '🤙',
+ * })
+ */
 export async function handleSocialReact(
   ctx: SigningContext,
   pool: RelayPool,
@@ -96,7 +139,19 @@ export async function handleSocialReact(
   return { event, publish }
 }
 
-/** Delete an event (kind 5 deletion request) */
+/**
+ * Delete an event (kind 5 deletion request).
+ *
+ * @param args.eventId - ID (hex) of the event to request deletion of.
+ * @param args.reason - Optional human-readable reason for deletion.
+ * @param args.relays - Optional explicit relay URLs to publish to.
+ * @returns The signed kind 5 event and publish result.
+ * @example
+ * const result = await handleSocialDelete(ctx, pool, {
+ *   eventId: 'abc123...',
+ *   reason: 'Posted in error',
+ * })
+ */
 export async function handleSocialDelete(
   ctx: SigningContext,
   pool: RelayPool,
@@ -115,7 +170,21 @@ export async function handleSocialDelete(
   return { event, publish }
 }
 
-/** Repost/boost an event (kind 6) */
+/**
+ * Repost/boost an event (kind 6).
+ *
+ * @param args.eventId - ID (hex) of the event to repost.
+ * @param args.eventPubkey - Pubkey (hex) of the original event's author.
+ * @param args.relay - Optional relay hint for the original event.
+ * @param args.relays - Optional explicit relay URLs to publish the repost to.
+ * @returns The signed kind 6 event and publish result.
+ * @example
+ * const result = await handleSocialRepost(ctx, pool, {
+ *   eventId: 'abc123...',
+ *   eventPubkey: 'def456...',
+ *   relay: 'wss://relay.damus.io',
+ * })
+ */
 export async function handleSocialRepost(
   ctx: SigningContext,
   pool: RelayPool,
@@ -137,7 +206,16 @@ export async function handleSocialRepost(
   return { event, publish }
 }
 
-/** Fetch and parse the kind 0 profile for a pubkey */
+/**
+ * Fetch and parse the kind 0 profile for a pubkey.
+ *
+ * @param npub - The npub of the identity whose relay list is used for querying.
+ * @param pubkeyHex - Pubkey (hex) of the profile to fetch.
+ * @returns Parsed profile fields (e.g. `name`, `about`, `picture`, `nip05`), or an empty object if not found.
+ * @example
+ * const profile = await handleSocialProfileGet(pool, 'npub1...', 'abc123...')
+ * console.log(profile.name) // 'Alice'
+ */
 export async function handleSocialProfileGet(
   pool: RelayPool,
   npub: string,
@@ -169,7 +247,27 @@ export interface ProfileSetResult {
   diff?: Record<string, { old: unknown; new: unknown }>
 }
 
-/** Set the kind 0 profile for the active identity, with overwrite safety guard */
+/**
+ * Set the kind 0 profile for the active identity, with overwrite safety guard.
+ *
+ * @param args.profile - Profile fields to publish (e.g. `{ name, about, picture, nip05 }`).
+ * @param args.confirm - Set to `true` to overwrite an existing profile; omit to receive a diff preview instead.
+ * @param args.relays - Optional explicit relay URLs to publish to.
+ * @returns An object indicating whether the profile was published, the signed event, an optional overwrite warning, and a diff of changed fields.
+ * @example
+ * // Preview changes first
+ * const preview = await handleSocialProfileSet(ctx, pool, {
+ *   profile: { name: 'Alice', about: 'Nostr dev' },
+ * })
+ * if (!preview.published) {
+ *   console.log('Changes:', preview.diff)
+ *   // Then confirm
+ *   await handleSocialProfileSet(ctx, pool, {
+ *     profile: { name: 'Alice', about: 'Nostr dev' },
+ *     confirm: true,
+ *   })
+ * }
+ */
 export async function handleSocialProfileSet(
   ctx: SigningContext,
   pool: RelayPool,
@@ -246,7 +344,16 @@ export interface EnrichedContact extends Contact {
   nip05?: string
 }
 
-/** Fetch the kind 3 contact list for a pubkey */
+/**
+ * Fetch the kind 3 contact list for a pubkey.
+ *
+ * @param npub - The npub of the identity whose relay list is used for querying.
+ * @param pubkeyHex - Pubkey (hex) of the account whose contacts to fetch.
+ * @returns Array of contacts, each with `pubkey`, optional `relay` hint, and optional `petname`.
+ * @example
+ * const contacts = await handleContactsGet(pool, 'npub1...', 'abc123...')
+ * console.log(contacts.length) // 42
+ */
 export async function handleContactsGet(
   pool: RelayPool,
   npub: string,
@@ -303,7 +410,17 @@ async function batchFetchProfiles(
   return profiles
 }
 
-/** Search contacts by name/display_name/nip05 — resolves profiles in a single batch query */
+/**
+ * Search contacts by name/display_name/nip05 — resolves profiles in a single batch query.
+ *
+ * @param npub - The npub of the identity whose relay list is used for querying.
+ * @param pubkeyHex - Pubkey (hex) of the account whose contact list to search.
+ * @param query - Case-insensitive substring to match against `name`, `display_name`, `nip05`, or `petname`.
+ * @returns Matching contacts enriched with profile metadata (`name`, `displayName`, `nip05`).
+ * @example
+ * const results = await handleContactsSearch(pool, 'npub1...', 'abc123...', 'alice')
+ * results.forEach(c => console.log(c.name, c.pubkey))
+ */
 export async function handleContactsSearch(
   pool: RelayPool,
   npub: string,
@@ -347,7 +464,24 @@ export async function handleContactsSearch(
   return results
 }
 
-/** Follow a pubkey — fetches current contacts, adds, publishes new kind 3 */
+/**
+ * Follow a pubkey — fetches current contacts, adds, publishes new kind 3.
+ *
+ * @param args.pubkeyHex - Pubkey (hex) to follow.
+ * @param args.relay - Optional relay hint to include in the contact tag.
+ * @param args.petname - Optional local nickname for this contact.
+ * @param args.confirm - Set to `true` to bypass the shrinkage safety guard.
+ * @param args.relays - Optional explicit relay URLs to publish to.
+ * @returns The signed kind 3 event and publish result, or a `ContactGuardWarning` if the list would shrink by more than 20 %.
+ * @example
+ * const result = await handleContactsFollow(ctx, pool, {
+ *   pubkeyHex: 'abc123...',
+ *   petname: 'alice',
+ * })
+ * if ('guarded' in result) {
+ *   console.warn(result.warning)
+ * }
+ */
 export async function handleContactsFollow(
   ctx: SigningContext,
   pool: RelayPool,
@@ -404,7 +538,19 @@ export async function handleContactsFollow(
   return { event, publish }
 }
 
-/** Unfollow a pubkey — fetches current contacts, removes, publishes new kind 3 */
+/**
+ * Unfollow a pubkey — fetches current contacts, removes, publishes new kind 3.
+ *
+ * @param args.pubkeyHex - Pubkey (hex) to remove from the contact list.
+ * @param args.confirm - Set to `true` to bypass the shrinkage safety guard.
+ * @param args.relays - Optional explicit relay URLs to publish to.
+ * @returns The signed kind 3 event and publish result, or a `ContactGuardWarning` if the list would shrink by more than 20 %.
+ * @example
+ * const result = await handleContactsUnfollow(ctx, pool, {
+ *   pubkeyHex: 'abc123...',
+ *   confirm: true,
+ * })
+ */
 export async function handleContactsUnfollow(
   ctx: SigningContext,
   pool: RelayPool,
@@ -452,7 +598,21 @@ export async function handleContactsUnfollow(
   return { event, publish }
 }
 
-/** Sign and publish an event with arbitrary kind, content, and tags */
+/**
+ * Sign and publish an event with arbitrary kind, content, and tags.
+ *
+ * @param args.kind - Nostr event kind number.
+ * @param args.content - Raw content string for the event.
+ * @param args.tags - Optional tag array (e.g. `[['d', 'my-identifier']]`).
+ * @param args.relays - Optional explicit relay URLs to publish to.
+ * @returns The signed event and publish result.
+ * @example
+ * const result = await handlePublishEvent(ctx, pool, {
+ *   kind: 30023,
+ *   content: '# My Article\n\nBody text here.',
+ *   tags: [['d', 'my-article'], ['title', 'My Article']],
+ * })
+ */
 export async function handlePublishEvent(
   ctx: SigningContext,
   pool: RelayPool,

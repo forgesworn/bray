@@ -6,7 +6,20 @@ import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 import type { Event as NostrEvent } from 'nostr-tools'
 
-/** Create a ring signature proving membership in a group */
+/**
+ * Create a ring signature proving membership in a group.
+ *
+ * @param args.ring - Ordered array of hex x-only public keys forming the ring. The active identity's key must appear in this list.
+ * @param args.attestationType - Attestation type label embedded in the event tags (e.g. `"employment"`).
+ * @param args.message - Optional canonical message to sign; defaults to `ring-membership:<type>:<timestamp>`.
+ * @returns The raw `RingSignature` object, the signed kind 30078 event, and the publish result.
+ * @example
+ * const { signature, event } = await handleTrustRingProve(ctx, pool, {
+ *   ring: ['a1b2c3...', 'b2c3d4...', 'c3d4e5...'],
+ *   attestationType: 'employment',
+ * })
+ * console.log('Ring size:', signature.ring.length)
+ */
 export async function handleTrustRingProve(
   ctx: SigningContext,
   pool: RelayPool,
@@ -55,7 +68,18 @@ export async function handleTrustRingProve(
   return { signature, event, publish }
 }
 
-/** Verify a ring signature */
+/**
+ * Verify a ring signature.
+ *
+ * @param signatureOrEvent - Either a `RingSignature` object or a kind 30078 Nostr event whose `content` is a JSON-serialised `RingSignature`.
+ * @returns `{ valid: true }` if the signature is cryptographically sound; `{ valid: false }` otherwise (including if the event content cannot be parsed).
+ * @example
+ * // From a raw signature object
+ * const { valid } = handleTrustRingVerify(signature)
+ *
+ * // Or directly from a fetched event
+ * const { valid } = handleTrustRingVerify(event)
+ */
 export function handleTrustRingVerify(
   signatureOrEvent: RingSignature | NostrEvent,
 ): { valid: boolean } {

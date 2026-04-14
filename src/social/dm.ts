@@ -32,7 +32,24 @@ export interface DmReadEntry {
   _trust?: TrustAnnotation
 }
 
-/** Send a DM. Uses NIP-17 gift wrap by default. NIP-04 only if explicitly requested and enabled. */
+/**
+ * Send a DM. Uses NIP-17 gift wrap by default. NIP-04 only if explicitly requested and enabled.
+ *
+ * @param args.recipientPubkeyHex - Pubkey (hex) of the intended recipient.
+ * @param args.message - Plaintext message body.
+ * @param args.nip04 - Set to `true` to send a legacy NIP-04 kind 4 DM instead of NIP-17. Requires `nip04Enabled`.
+ * @param args.nip04Enabled - Whether NIP-04 support has been enabled via `NIP04_ENABLED=1`.
+ * @param args.recipientRelay - Optional relay hint for the recipient's inbox.
+ * @param args.nip65 - Optional NIP-65 manager used to look up the recipient's inbox relays automatically.
+ * @param args.relays - Optional explicit relay URLs; overrides all relay auto-detection.
+ * @returns The gift-wrapped event, an optional sender copy, the protocol used, and publish results for both.
+ * @example
+ * const result = await handleDmSend(ctx, pool, {
+ *   recipientPubkeyHex: 'abc123...',
+ *   message: 'Hey, fancy a chat?',
+ * })
+ * console.log(result.protocol) // 'nip17'
+ */
 export async function handleDmSend(
   ctx: SigningContext,
   pool: RelayPool,
@@ -123,7 +140,18 @@ export async function handleDmSend(
   return result
 }
 
-/** Read DMs addressed to the active identity */
+/**
+ * Read DMs addressed to the active identity.
+ *
+ * @param args.since - Optional Unix timestamp; only return messages newer than this.
+ * @param args.limit - Maximum number of events to fetch (default 50).
+ * @param args._scoring - Optional Veil scoring engine; populates `senderTrustScore` on each entry.
+ * @param args._trustCtx - Optional trust context; populates `_trust` annotation on each entry.
+ * @returns Array of decrypted (or failed) DM entries, newest first.
+ * @example
+ * const messages = await handleDmRead(ctx, pool, { limit: 20 })
+ * messages.filter(m => m.decrypted).forEach(m => console.log(m.from, m.content))
+ */
 export async function handleDmRead(
   ctx: SigningContext,
   pool: RelayPool,
@@ -157,7 +185,21 @@ export async function handleDmRead(
   return entries
 }
 
-/** Read DM conversation with a specific pubkey — filters to messages from that person only */
+/**
+ * Read DM conversation with a specific pubkey — filters to messages from that person only.
+ *
+ * @param args.withPubkeyHex - Pubkey (hex) of the person whose messages to return.
+ * @param args.limit - Maximum number of total DM events to scan (default 100).
+ * @param args._scoring - Optional Veil scoring engine; populates `senderTrustScore` on each entry.
+ * @param args._trustCtx - Optional trust context; populates `_trust` annotation on each entry.
+ * @returns Decrypted messages from `withPubkeyHex`, sorted chronologically (oldest first).
+ * @example
+ * const thread = await handleDmConversation(ctx, pool, {
+ *   withPubkeyHex: 'abc123...',
+ *   limit: 50,
+ * })
+ * thread.forEach(m => console.log(m.createdAt, m.content))
+ */
 export async function handleDmConversation(
   ctx: SigningContext,
   pool: RelayPool,

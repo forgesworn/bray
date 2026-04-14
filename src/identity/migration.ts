@@ -30,7 +30,18 @@ export interface MigrateResult {
   summary: MigrateSummary
 }
 
-/** Fetch all relevant events for a pubkey (profile, contacts, relay list, attestations) */
+/**
+ * Fetch all relevant events for a pubkey (profile, contacts, relay list, attestations).
+ *
+ * @param pubkeyHex - Hex-encoded public key whose events should be fetched.
+ * @param npub - Bech32 npub used to resolve the relay set for the query.
+ * @returns A {@link BackupBundle} containing the hex pubkey and all fetched events
+ *   of kinds 0 (profile), 3 (contacts), 10002 (relay list), and 31000 (attestations).
+ *
+ * @example
+ * const bundle = await handleIdentityBackup(pool, 'abcdef01...', 'npub1...')
+ * console.log(bundle.events.length)  // number of events retrieved
+ */
 export async function handleIdentityBackup(
   pool: RelayPool,
   pubkeyHex: string,
@@ -44,7 +55,19 @@ export async function handleIdentityBackup(
   return { pubkeyHex, events }
 }
 
-/** Re-sign migratable events under the active identity. Skips attestations (trust chain protection). */
+/**
+ * Re-sign migratable events under the active identity. Skips attestations (trust chain protection).
+ *
+ * @param backup - The {@link BackupBundle} produced by {@link handleIdentityBackup}.
+ * @returns A {@link RestoreResult} with two arrays: `restored` lists events that were
+ *   re-signed (kinds 0, 3, 10002); `skipped` lists events that were omitted with a reason
+ *   (failed verification, author mismatch, or un-resignable kind such as attestations).
+ *
+ * @example
+ * const result = await handleIdentityRestore(ctx, pool, bundle)
+ * console.log(result.restored.length)  // events successfully re-signed
+ * console.log(result.skipped)          // [{ kind: 31000, reason: '...' }, ...]
+ */
 export async function handleIdentityRestore(
   ctx: SigningContext,
   pool: RelayPool,
@@ -87,7 +110,35 @@ export async function handleIdentityRestore(
   return { restored, skipped }
 }
 
-/** Migrate identity: preview first, then execute when confirmed */
+/**
+ * Migrate identity: preview first, then execute when confirmed.
+ *
+ * @param args - Migration parameters.
+ * @param args.oldPubkeyHex - Hex-encoded public key of the source identity.
+ * @param args.oldNpub - Bech32 npub of the source identity (used for relay resolution).
+ * @param args.confirm - When `false`, returns a dry-run `'preview'` summary without writing
+ *   any events. Set to `true` to execute the migration and publish re-signed events.
+ * @returns A {@link MigrateResult} with `status` (`'preview'` or `'migrated'`) and a
+ *   {@link MigrateSummary} describing what was found (profile fields, contact count, relay
+ *   count, attestation count).
+ *
+ * @example
+ * // First call — preview only
+ * const preview = await handleIdentityMigrate(ctx, pool, {
+ *   oldPubkeyHex: 'abcdef01...',
+ *   oldNpub: 'npub1old...',
+ *   confirm: false,
+ * })
+ * console.log(preview.summary.contactCount)  // e.g. 42
+ *
+ * // Second call — execute
+ * const result = await handleIdentityMigrate(ctx, pool, {
+ *   oldPubkeyHex: 'abcdef01...',
+ *   oldNpub: 'npub1old...',
+ *   confirm: true,
+ * })
+ * console.log(result.status)  // 'migrated'
+ */
 export async function handleIdentityMigrate(
   ctx: SigningContext,
   pool: RelayPool,

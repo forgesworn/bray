@@ -13,7 +13,16 @@ export interface DecodeResult {
   data: unknown
 }
 
-/** Decode any nip19 entity (npub, nsec, note, nevent, nprofile, naddr) to its components */
+/**
+ * Decode any nip19 entity (npub, nsec, note, nevent, nprofile, naddr) to its components.
+ *
+ * @param input - A bech32 nip19 string, optionally prefixed with `nostr:`.
+ * @returns An object with `type` (the entity kind) and `data` (decoded payload).
+ *   For `nsec` inputs the private key is never returned; only the derived pubkey is included.
+ * @example
+ * handleDecode('npub1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3s0yrs')
+ * // { type: 'npub', data: '000...0' }
+ */
 export function handleDecode(input: string): DecodeResult {
   // Strip nostr: prefix if present
   const cleaned = input.replace(/^nostr:/, '')
@@ -30,34 +39,89 @@ export function handleDecode(input: string): DecodeResult {
 
 // --- Encode ---
 
-/** Encode a hex pubkey as npub */
+/**
+ * Encode a hex pubkey as npub.
+ *
+ * @param hex - 32-byte public key as a lowercase hex string.
+ * @returns bech32-encoded `npub1…` string.
+ * @example
+ * handleEncodeNpub('3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d')
+ * // 'npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6'
+ */
 export function handleEncodeNpub(hex: string): string {
   return npubEncode(hex)
 }
 
-/** Encode a hex event ID as note */
+/**
+ * Encode a hex event ID as note.
+ *
+ * @param hex - 32-byte event ID as a lowercase hex string.
+ * @returns bech32-encoded `note1…` string.
+ * @example
+ * handleEncodeNote('b3e392...')
+ * // 'note1kdkqm...'
+ */
 export function handleEncodeNote(hex: string): string {
   return noteEncode(hex)
 }
 
-/** Encode a hex pubkey + relay hints as nprofile */
+/**
+ * Encode a hex pubkey + relay hints as nprofile.
+ *
+ * @param pubkey - 32-byte public key as a lowercase hex string.
+ * @param relays - Optional list of relay WebSocket URLs to embed as hints.
+ * @returns bech32-encoded `nprofile1…` string.
+ * @example
+ * handleEncodeNprofile('3bf0c6...', ['wss://relay.damus.io'])
+ * // 'nprofile1qqsrhuxx8...'
+ */
 export function handleEncodeNprofile(pubkey: string, relays?: string[]): string {
   return nprofileEncode({ pubkey, relays })
 }
 
-/** Encode event pointer as nevent */
+/**
+ * Encode event pointer as nevent.
+ *
+ * @param id - 32-byte event ID as a lowercase hex string.
+ * @param relays - Optional relay WebSocket URLs to embed as fetch hints.
+ * @param author - Optional hex pubkey of the event author.
+ * @returns bech32-encoded `nevent1…` string.
+ * @example
+ * handleEncodeNevent('b3e392...', ['wss://nos.lol'], '3bf0c6...')
+ * // 'nevent1qqsr9...'
+ */
 export function handleEncodeNevent(id: string, relays?: string[], author?: string): string {
   return neventEncode({ id, relays, author })
 }
 
-/** Encode addressable event as naddr */
+/**
+ * Encode addressable event as naddr.
+ *
+ * @param pubkey - 32-byte public key of the event author as a lowercase hex string.
+ * @param kind - Event kind number (must be in the addressable range 30000–39999).
+ * @param identifier - The `d` tag value that uniquely identifies the event.
+ * @param relays - Optional relay WebSocket URLs to embed as fetch hints.
+ * @returns bech32-encoded `naddr1…` string.
+ * @example
+ * handleEncodeNaddr('3bf0c6...', 30023, 'my-article', ['wss://relay.nostr.band'])
+ * // 'naddr1qqxnzdesxqmrs...'
+ */
 export function handleEncodeNaddr(pubkey: string, kind: number, identifier: string, relays?: string[]): string {
   return naddrEncode({ pubkey, kind, identifier, relays })
 }
 
 // --- Verify ---
 
-/** Verify an event's id hash and signature */
+/**
+ * Verify an event's id hash and signature.
+ *
+ * @param event - A complete Nostr event object including `id`, `pubkey`, `sig`, `kind`, and `created_at`.
+ * @returns `{ valid, errors }` — `valid` is `true` only when all required fields are present and
+ *   the Schnorr signature checks out. `errors` lists every problem found.
+ * @example
+ * handleVerify({ id: 'abc...', pubkey: '3bf...', sig: 'def...', kind: 1, created_at: 1700000000, tags: [], content: 'hello' })
+ * // { valid: true, errors: [] }
+ */
 export function handleVerify(event: NostrEvent): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
@@ -78,7 +142,17 @@ export function handleVerify(event: NostrEvent): { valid: boolean; errors: strin
 
 // --- NIP-44 Encrypt/Decrypt ---
 
-/** Encrypt a plaintext string using NIP-44 */
+/**
+ * Encrypt a plaintext string using NIP-44.
+ *
+ * @param privateKeyHex - Sender's 32-byte private key as a lowercase hex string.
+ * @param recipientPubkeyHex - Recipient's 32-byte public key as a lowercase hex string.
+ * @param plaintext - The message to encrypt.
+ * @returns NIP-44 versioned ciphertext string (base64 payload with version prefix).
+ * @example
+ * handleEncrypt('a1b2c3...', 'd4e5f6...', 'Hello!')
+ * // 'AgA...'
+ */
 export function handleEncrypt(
   privateKeyHex: string,
   recipientPubkeyHex: string,
@@ -93,7 +167,17 @@ export function handleEncrypt(
   }
 }
 
-/** Decrypt a NIP-44 ciphertext */
+/**
+ * Decrypt a NIP-44 ciphertext.
+ *
+ * @param privateKeyHex - Recipient's 32-byte private key as a lowercase hex string.
+ * @param senderPubkeyHex - Sender's 32-byte public key as a lowercase hex string.
+ * @param ciphertext - NIP-44 versioned ciphertext string as produced by `handleEncrypt`.
+ * @returns The decrypted plaintext string.
+ * @example
+ * handleDecrypt('a1b2c3...', 'd4e5f6...', 'AgA...')
+ * // 'Hello!'
+ */
 export function handleDecrypt(
   privateKeyHex: string,
   senderPubkeyHex: string,
@@ -110,7 +194,15 @@ export function handleDecrypt(
 
 // --- Count ---
 
-/** Query relay for event count matching a filter */
+/**
+ * Query relay for event count matching a filter.
+ *
+ * @param filter - A Nostr filter object (kinds, authors, since, until, etc.).
+ * @returns `{ count }` — number of matching events found on the relay set.
+ * @example
+ * await handleCount(pool, 'npub1...', { authors: ['3bf0c6...'], kinds: [1] })
+ * // { count: 42 }
+ */
 export async function handleCount(
   pool: RelayPool,
   npub: string,
@@ -123,7 +215,16 @@ export async function handleCount(
 
 // --- Fetch by nip19 ---
 
-/** Fetch an event by its nip19 code (nevent, nprofile, naddr, note) */
+/**
+ * Fetch an event by its nip19 code (nevent, nprofile, naddr, note).
+ *
+ * @param nip19Code - A bech32 nip19 string: `note1…`, `nevent1…`, `nprofile1…`, `npub1…`, or `naddr1…`.
+ *   A `nostr:` URI prefix is accepted and stripped automatically.
+ * @returns Array of matching Nostr events (may be empty if nothing was found).
+ * @example
+ * await handleFetch(pool, 'npub1...', 'note1kdkqm...')
+ * // [{ id: 'b3e392...', kind: 1, content: 'hello', ... }]
+ */
 export async function handleFetch(
   pool: RelayPool,
   npub: string,
@@ -165,7 +266,15 @@ export async function handleFetch(
 
 // --- Key Public ---
 
-/** Derive a public key from a secret key (nsec, hex, or raw bytes) */
+/**
+ * Derive a public key from a secret key (nsec, hex, or raw bytes).
+ *
+ * @param secret - The private key as a `nsec1…` bech32 string or a 64-character lowercase hex string.
+ * @returns `{ pubkeyHex, npub }` — the derived public key in both hex and bech32 form.
+ * @example
+ * handleKeyPublic('nsec1...')
+ * // { pubkeyHex: '3bf0c6...', npub: 'npub180cvv...' }
+ */
 export function handleKeyPublic(secret: string): { pubkeyHex: string; npub: string } {
   let bytes: Uint8Array
   if (secret.startsWith('nsec1')) {
@@ -184,21 +293,45 @@ export function handleKeyPublic(secret: string): { pubkeyHex: string; npub: stri
 
 // --- Encode nsec ---
 
-/** Encode a hex private key as bech32 nsec */
+/**
+ * Encode a hex private key as bech32 nsec.
+ *
+ * @param hex - 32-byte private key as a lowercase hex string.
+ * @returns bech32-encoded `nsec1…` string.
+ * @example
+ * handleEncodeNsec('a1b2c3...')
+ * // 'nsec1...'
+ */
 export function handleEncodeNsec(hex: string): string {
   return nsecEncode(Buffer.from(hex, 'hex'))
 }
 
 // --- Filter match ---
 
-/** Test if an event matches a Nostr filter */
+/**
+ * Test if an event matches a Nostr filter.
+ *
+ * @param event - A complete Nostr event object.
+ * @param filter - A Nostr filter object to test against.
+ * @returns `{ matches: true }` if the event satisfies all filter conditions, `{ matches: false }` otherwise.
+ * @example
+ * handleFilter({ kind: 1, pubkey: '3bf0c6...', ...rest }, { kinds: [1], authors: ['3bf0c6...'] })
+ * // { matches: true }
+ */
 export function handleFilter(event: NostrEvent, filter: Filter): { matches: boolean } {
   return { matches: matchFilter(filter, event) }
 }
 
 // --- NIP list/show ---
 
-/** Fetch the list of official NIPs from GitHub */
+/**
+ * Fetch the list of official NIPs from GitHub.
+ *
+ * @returns Array of `{ number, title }` objects parsed from the NIP repository README.
+ * @example
+ * await handleNipList()
+ * // [{ number: 1, title: 'Basic protocol flow description' }, ...]
+ */
 export async function handleNipList(): Promise<Array<{ number: number; title: string }>> {
   const response = await fetch('https://raw.githubusercontent.com/nostr-protocol/nips/master/README.md', {
     signal: AbortSignal.timeout(10_000),
@@ -216,7 +349,6 @@ export async function handleNipList(): Promise<Array<{ number: number; title: st
   return nips
 }
 
-/** Fetch a specific NIP's content from GitHub */
 // --- Tombstone ---
 
 export interface TombstoneResult {
@@ -230,6 +362,12 @@ export interface TombstoneResult {
 /**
  * Overwrite an addressable event (kind 30000-39999) with empty content.
  * This effectively deletes it from relays that support NIP-01 replaceable semantics.
+ *
+ * @param args - `{ kind, dTag }` — the kind number and `d` tag value identifying the event to tombstone.
+ * @returns A `TombstoneResult` describing whether the empty replacement event was published.
+ * @example
+ * await handleTombstone(ctx, pool, { kind: 30023, dTag: 'my-article' })
+ * // { kind: 30023, dTag: 'my-article', published: true, eventId: 'abc...', message: 'Tombstoned...' }
  */
 export async function handleTombstone(
   ctx: SigningContext,
@@ -263,6 +401,15 @@ export async function handleTombstone(
 
 // --- NIP Show ---
 
+/**
+ * Fetch a specific NIP's content from GitHub.
+ *
+ * @param number - The NIP number (e.g. `44` for NIP-44).
+ * @returns `{ number, content }` — the raw Markdown text of the NIP document.
+ * @example
+ * await handleNipShow(44)
+ * // { number: 44, content: '# NIP-44\n\nVersioned Encryption...' }
+ */
 export async function handleNipShow(number: number): Promise<{ number: number; content: string }> {
   const padded = String(number).padStart(2, '0')
   const response = await fetch(`https://raw.githubusercontent.com/nostr-protocol/nips/master/${padded}.md`, {

@@ -21,7 +21,20 @@ export interface RelayEntry {
   mode?: 'read' | 'write' // undefined means both
 }
 
-/** Get relay list for the active identity, optionally checking for shared relays with another identity */
+/**
+ * Get relay list for the active identity, optionally checking for shared relays with another identity.
+ *
+ * @param compareWithNpub - Optional npub to compare against; if provided, any relays shared with
+ *   this identity are reported in `sharedWarning` as a privacy notice.
+ * @returns An object containing separate `read` and `write` relay URL arrays, an optional
+ *   `sharedWarning` string, and a `health` array with reachability and response-time data for
+ *   every unique relay.
+ * @example
+ * const result = await handleRelayList(ctx, pool, 'npub1abc...')
+ * console.log(result.read)          // ['wss://relay.damus.io']
+ * console.log(result.sharedWarning) // 'Shared relays with npub1abc...: ...'
+ * result.health.forEach(h => console.log(h.url, h.reachable, h.responseTime))
+ */
 export async function handleRelayList(
   ctx: SigningContext,
   pool: RelayPool,
@@ -60,7 +73,27 @@ export async function handleRelayList(
   return result
 }
 
-/** Publish a kind 10002 relay list */
+/**
+ * Publish a kind 10002 relay list.
+ *
+ * @param args - Configuration for the relay list.
+ * @param args.relays - Array of relay entries, each with a URL and an optional `mode`
+ *   (`'read'` | `'write'`; omit for both).
+ * @param args.confirm - Set to `true` to overwrite an existing relay list. When `false` (default)
+ *   and a list already exists, the event is built but not published and `warning` is populated.
+ * @returns An object containing the signed `event`, a `published` boolean, the raw `publish`
+ *   result from the pool (when published), and an optional `warning` string when a pre-existing
+ *   list was found and `confirm` was not set.
+ * @example
+ * const { event, published, warning } = await handleRelaySet(ctx, pool, {
+ *   relays: [
+ *     { url: 'wss://relay.damus.io' },
+ *     { url: 'wss://nos.lol', mode: 'read' },
+ *   ],
+ *   confirm: true,
+ * })
+ * console.log(published, event.id)
+ */
 export async function handleRelaySet(
   ctx: SigningContext,
   pool: RelayPool,
@@ -104,7 +137,18 @@ export async function handleRelaySet(
   return { event, published: true, publish }
 }
 
-/** Add a single relay to the active identity's relay set */
+/**
+ * Add a single relay to the active identity's relay set.
+ *
+ * @param args - Details of the relay to add.
+ * @param args.url - WebSocket URL of the relay (must use `wss://` or `ws://`).
+ * @param args.mode - Optional mode: `'read'` adds only to the read list, `'write'` adds only to
+ *   the write list. Omit to add to both.
+ * @returns `{ reconfigured: true }` once the pool has been updated in-memory.
+ * @example
+ * const result = handleRelayAdd(ctx, pool, { url: 'wss://relay.snort.social', mode: 'read' })
+ * console.log(result.reconfigured) // true
+ */
 export function handleRelayAdd(
   ctx: SigningContext,
   pool: RelayPool,
@@ -137,7 +181,31 @@ export interface RelayQueryArgs {
   search?: string
 }
 
-/** Query events from relays by arbitrary filter. Uses explicit relays if provided, otherwise the active identity's read relays. */
+/**
+ * Query events from relays by arbitrary filter. Uses explicit relays if provided, otherwise the active identity's read relays.
+ *
+ * @param npub - The npub whose configured read relays are used when `args.relays` is not supplied.
+ * @param args - Filter parameters for the query.
+ * @param args.ids - Restrict to specific event IDs.
+ * @param args.kinds - Restrict to specific event kinds.
+ * @param args.authors - Restrict to specific author public keys (hex).
+ * @param args.tags - Tag filters keyed by tag name (with or without leading `#`),
+ *   e.g. `{ p: ['<hex>'] }` or `{ '#d': ['<identifier>'] }`.
+ * @param args.since - Unix timestamp lower bound (inclusive).
+ * @param args.until - Unix timestamp upper bound (inclusive).
+ * @param args.limit - Maximum number of events to return (default `50`).
+ * @param args.relays - Explicit relay URLs to query instead of the identity's read relays.
+ *   Each URL is validated before use.
+ * @param args.search - NIP-50 full-text search string (only effective on supporting relays).
+ * @returns Array of matching Nostr events, ordered as returned by the relay(s).
+ * @example
+ * const events = await handleRelayQuery(pool, 'npub1abc...', {
+ *   kinds: [1],
+ *   authors: ['deadbeef...'],
+ *   limit: 20,
+ * })
+ * events.forEach(e => console.log(e.id, e.content))
+ */
 export async function handleRelayQuery(
   pool: RelayPool,
   npub: string,
@@ -172,7 +240,18 @@ export async function handleRelayQuery(
   return pool.query(npub, filter)
 }
 
-/** Validate a relay URL — must be wss:// or ws://, no private networks */
+/**
+ * Validate a relay URL — must be wss:// or ws://, no private networks.
+ *
+ * @param url - The relay WebSocket URL to validate.
+ * @returns `void` if the URL is acceptable.
+ * @throws {Error} If the scheme is not `wss://` or `ws://`, or if the host resolves to a private
+ *   or loopback address (localhost, 127.x, 10.x, 172.16–31.x, 192.168.x, 169.254.169.254, ::1).
+ * @example
+ * validateRelayUrl('wss://relay.damus.io')       // passes silently
+ * validateRelayUrl('wss://localhost')            // throws — private address
+ * validateRelayUrl('http://relay.damus.io')      // throws — wrong scheme
+ */
 export function validateRelayUrl(url: string): void {
   if (!/^wss?:\/\//i.test(url)) {
     throw new Error('Relay URL must use wss:// or ws:// scheme')
@@ -189,7 +268,19 @@ export function validateRelayUrl(url: string): void {
   }
 }
 
-/** Fetch NIP-11 relay information document */
+/**
+ * Fetch NIP-11 relay information document.
+ *
+ * @param url - WebSocket URL of the relay (`wss://` or `ws://`). The URL is validated before
+ *   the HTTP request is made.
+ * @returns Parsed JSON object from the relay's NIP-11 information document. Shape varies per relay
+ *   but typically includes `name`, `description`, `pubkey`, `supported_nips`, and `software`.
+ * @throws {Error} If the URL is invalid, the HTTP response is not OK, the document exceeds 1 MiB,
+ *   or the response body is not valid JSON.
+ * @example
+ * const info = await handleRelayInfo('wss://relay.damus.io')
+ * console.log(info.name, info.supported_nips)
+ */
 export async function handleRelayInfo(
   url: string,
 ): Promise<Record<string, unknown>> {

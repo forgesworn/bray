@@ -32,6 +32,16 @@ export interface PublishRawResult {
  *
  * Full per-relay reporting, quorum semantics, and timeout flags are
  * Phase 4 item B. This implementation returns the standard PublishResult.
+ *
+ * @param args - `{ event, noSign?, relays? }` — the event object to publish, an optional flag to
+ *   skip signing, and an optional list of relay WebSocket URLs to target.
+ * @returns `{ event, publish, signed }` — the final event (post-signing if applicable),
+ *   the relay publish result, and whether this handler signed the event.
+ * @example
+ * await handlePublishRaw(ctx, pool, {
+ *   event: { kind: 1, content: 'Hello Nostr!', tags: [] },
+ * })
+ * // { event: { id: 'abc...', sig: 'def...', ... }, publish: { success: true, ... }, signed: true }
  */
 export async function handlePublishRaw(
   ctx: SigningContext,
