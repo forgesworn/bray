@@ -8,6 +8,7 @@ import {
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
 import type { RelayPool } from '../relay-pool.js'
 
+/** @experimental */
 export interface SignetAssessment {
   tier: 1 | 2 | 3 | 4 | null
   score: number

@@ -81,6 +81,10 @@
     "./sdk": {
       "import": "./dist/sdk.js",
       "types": "./dist/sdk.d.ts"
+    },
+    "./types": {
+      "import": "./dist/types-public.js",
+      "types": "./dist/types-public.d.ts"
     }
   },
   "files": [

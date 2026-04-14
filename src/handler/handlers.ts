@@ -14,11 +14,13 @@ import type { PublishResult } from '../types.js'
 // Types
 // ---------------------------------------------------------------------------
 
+/** @experimental */
 export interface HandlerTransport {
   endpoint: string
   transport: 'stdio' | 'http'
 }
 
+/** @experimental */
 export interface HandlerCard {
   pubkey: string
   name: string
@@ -29,6 +31,7 @@ export interface HandlerCard {
   picture?: string
 }
 
+/** @experimental */
 export interface HandlerPublishResult {
   event: NostrEvent
   publish: PublishResult

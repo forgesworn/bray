@@ -14,6 +14,7 @@ import type { TrustContext, TrustAssessment } from '../trust-context.js'
 // 1. trust-score
 // ---------------------------------------------------------------------------
 
+/** @experimental */
 export interface TrustScoreResponse {
   pubkey: string
   npub: string
@@ -153,6 +154,7 @@ function extractContactPubkeys(events: NostrEvent[]): Set<string> {
 // 2. feed-discover
 // ---------------------------------------------------------------------------
 
+/** @experimental */
 export interface FeedSuggestion {
   pubkey: string
   npub: string
@@ -365,6 +367,7 @@ async function batchFetchProfiles(
 // 3. verify-person
 // ---------------------------------------------------------------------------
 
+/** @experimental */
 export interface VerificationResult {
   pubkey: string
   npub: string
@@ -528,6 +531,7 @@ function computeConfidence(
 // 4. identity-setup
 // ---------------------------------------------------------------------------
 
+/** @experimental */
 export interface IdentitySetupPreview {
   confirmed: false
   masterNpub: string
@@ -536,6 +540,7 @@ export interface IdentitySetupPreview {
   message: string
 }
 
+/** @experimental */
 export interface IdentitySetupResult {
   confirmed: true
   masterNpub: string
@@ -631,6 +636,7 @@ export async function handleIdentitySetup(
 // 5. identity-recover
 // ---------------------------------------------------------------------------
 
+/** @experimental */
 export interface IdentityRecoverResult {
   masterNpub: string
   recovered: boolean
@@ -691,6 +697,7 @@ export async function handleIdentityRecover(
 // 6. relay-health
 // ---------------------------------------------------------------------------
 
+/** @experimental */
 export interface RelayHealthReport {
   url: string
   reachable: boolean
@@ -792,6 +799,7 @@ async function checkRelayHealth(
 // 7. onboard-verified
 // ---------------------------------------------------------------------------
 
+/** @experimental */
 export interface OnboardStep {
   step: number
   title: string
@@ -800,6 +808,7 @@ export interface OnboardStep {
   optional?: boolean
 }
 
+/** @experimental */
 export interface OnboardVerifiedResult {
   currentTier: number | null
   currentScore: number

@@ -2,6 +2,7 @@ import { getCurrentEpochId } from 'dominion-protocol'
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { RelayPool } from '../relay-pool.js'
 
+/** @experimental */
 export interface VaultAccess {
   vaultTiers: string[]
   theirVaultTiers: string[]

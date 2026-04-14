@@ -29,6 +29,7 @@ import { handleSocialDelete } from '../social/handlers.js'
 // Result types
 // ---------------------------------------------------------------------------
 
+/** @experimental */
 export interface DispatchSendResult {
   sent: boolean
   taskId: string
@@ -38,6 +39,7 @@ export interface DispatchSendResult {
   publish: PublishResult
 }
 
+/** @experimental */
 export interface CheckedDispatchMessage {
   eventId: string
   from: string
@@ -46,6 +48,7 @@ export interface CheckedDispatchMessage {
   createdAt: number
 }
 
+/** @experimental */
 export interface DispatchReplyResult {
   sent: boolean
   messageType: 'dispatch-result' | 'dispatch-ack' | 'dispatch-status' | 'dispatch-cancel' | 'dispatch-refuse' | 'dispatch-failure' | 'dispatch-query' | 'dispatch-propose'

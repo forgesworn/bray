@@ -9,12 +9,14 @@ export const L402_ANNOUNCE_KIND = 31402
 
 // --- Parsed types ---
 
+/** @experimental */
 export interface ParsedPricing {
   capability: string
   amount: string
   currency: string
 }
 
+/** @experimental */
 export interface ParsedCapability {
   name: string
   description: string
@@ -23,6 +25,7 @@ export interface ParsedCapability {
   outputSchema?: unknown
 }
 
+/** @experimental */
 export interface ParsedService {
   /** Nostr event ID */
   id: string
@@ -41,11 +44,13 @@ export interface ParsedService {
   createdAt: number
 }
 
+/** @experimental */
 export interface L402Challenge {
   macaroon: string
   invoice: string
 }
 
+/** @experimental */
 export interface ProbeResult {
   url: string
   status: number
@@ -55,6 +60,7 @@ export interface ProbeResult {
   body?: unknown
 }
 
+/** @experimental */
 export interface ServiceComparison {
   services: Array<{
     name: string
@@ -140,6 +146,7 @@ export function parseAnnounceEvent(event: NostrEvent): ParsedService {
 
 // --- Discovery ---
 
+/** @experimental */
 export interface DiscoverArgs {
   topics?: string[]
   paymentMethod?: string
@@ -280,6 +287,7 @@ export async function handleMarketplaceSearch(
 
 // --- Reputation ---
 
+/** @experimental */
 export interface ReputationResult {
   pubkey: string
   serviceCount: number
@@ -493,6 +501,7 @@ export function extractBolt11AmountSats(bolt11: string): number | undefined {
  *  that can be used for authenticated API calls.
  *
  *  SECURITY: Credentials are used internally only — never returned raw to the caller. */
+/** @experimental */
 export interface PayResult {
   paid: boolean
   /** Opaque credential handle — use with marketplace-call */
@@ -524,6 +533,7 @@ export function buildL402AuthHeader(credentialId: string): string | null {
 
 // --- Call ---
 
+/** @experimental */
 export interface CallResult {
   status: number
   headers: Record<string, string>
@@ -586,6 +596,7 @@ export async function handleMarketplaceCall(
 
 // --- Announce ---
 
+/** @experimental */
 export interface AnnounceArgs {
   identifier: string
   name: string

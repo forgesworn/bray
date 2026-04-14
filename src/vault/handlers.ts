@@ -22,30 +22,35 @@ import type { PublishResult } from '../types.js'
 
 // ─── Result types ─────────────────────────────────────────────────────────────
 
+/** @experimental */
 export interface VaultCreateResult {
   event: NostrEvent
   publish: PublishResult
   tiers: string[]
 }
 
+/** @experimental */
 export interface VaultEncryptResult {
   ciphertext: string
   tier: string
   epoch: string
 }
 
+/** @experimental */
 export interface VaultShareResult {
   published: number
   failed: number
   recipients: string[]
 }
 
+/** @experimental */
 export interface VaultReadResult {
   plaintext: string
   tier: string
   epoch: string
 }
 
+/** @experimental */
 export interface VaultReadSharedResult {
   plaintext: string
   tier: string
@@ -53,12 +58,14 @@ export interface VaultReadSharedResult {
   sharedBy: string
 }
 
+/** @experimental */
 export interface VaultRevokeResult {
   event: NostrEvent
   publish: PublishResult
   revokedPubkey: string
 }
 
+/** @experimental */
 export interface VaultMemberEntry {
   pubkey: string
   npub: string
@@ -66,11 +73,13 @@ export interface VaultMemberEntry {
   trust?: TrustAnnotation
 }
 
+/** @experimental */
 export interface VaultMembersResult {
   members: VaultMemberEntry[]
   total: number
 }
 
+/** @experimental */
 export interface VaultConfigResult {
   tierNames: string[]
   tierCounts: Record<string, number>
@@ -80,6 +89,7 @@ export interface VaultConfigResult {
   authorNpub: string
 }
 
+/** @experimental */
 export interface VaultRotateResult {
   currentEpoch: string
   message: string

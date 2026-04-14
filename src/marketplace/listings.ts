@@ -8,12 +8,14 @@ export const CLASSIFIED_LISTING_KIND = 30402
 
 // --- Parsed types ---
 
+/** @experimental */
 export interface ListingPrice {
   amount: string
   currency: string
   frequency: string
 }
 
+/** @experimental */
 export interface ParsedListing {
   id: string
   pubkey: string
@@ -31,6 +33,7 @@ export interface ParsedListing {
   status: string
 }
 
+/** @experimental */
 export interface ListingPublishResult {
   event: NostrEvent
   publish: PublishResult

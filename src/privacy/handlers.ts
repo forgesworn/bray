@@ -17,6 +17,7 @@ import type { PublishResult } from '../types.js'
 
 // --- Commitment primitives ---
 
+/** @experimental */
 export interface CommitResult {
   /** Public commitment point (compressed hex) — safe to share */
   commitment: string
@@ -45,6 +46,7 @@ export function handlePrivacyOpen(
 
 // --- Range proof primitives ---
 
+/** @experimental */
 export interface RangeProveResult {
   /** Serialised range proof (JSON string) */
   proof: string
@@ -74,6 +76,7 @@ export function handlePrivacyVerifyRange(
 
 // --- Application-level: age proofs ---
 
+/** @experimental */
 export interface AgeProveResult {
   /** Serialised range proof (JSON string) */
   proof: string
@@ -106,6 +109,7 @@ export function handlePrivacyVerifyAge(
 
 // --- Application-level: threshold proofs ---
 
+/** @experimental */
 export interface ThresholdProveResult {
   /** Serialised range proof (JSON string) */
   proof: string
@@ -145,6 +149,7 @@ export function handlePrivacyVerifyThreshold(
 /** The kind used for application-specific data (NIP-78) */
 const RANGE_PROOF_KIND = 30078
 
+/** @experimental */
 export interface PublishProofResult {
   event: NostrEvent
   publish: PublishResult
@@ -186,6 +191,7 @@ export async function handlePrivacyPublishProof(
   return { event, publish }
 }
 
+/** @experimental */
 export interface ReadProofResult {
   id: string
   pubkey: string

@@ -21,6 +21,7 @@ let idCounter = 0
 // Message types
 // ---------------------------------------------------------------------------
 
+/** @experimental */
 export interface DispatchThink {
   v: 1
   type: 'dispatch-think'
@@ -34,6 +35,7 @@ export interface DispatchThink {
   depends_on?: string[]
 }
 
+/** @experimental */
 export interface DispatchBuild {
   v: 1
   type: 'dispatch-build'
@@ -48,6 +50,7 @@ export interface DispatchBuild {
   depends_on?: string[]
 }
 
+/** @experimental */
 export interface DispatchResult {
   v: 1
   type: 'dispatch-result'
@@ -62,6 +65,7 @@ export interface DispatchResult {
   pr?: string
 }
 
+/** @experimental */
 export interface DispatchAck {
   v: 1
   type: 'dispatch-ack'
@@ -70,6 +74,7 @@ export interface DispatchAck {
   note?: string
 }
 
+/** @experimental */
 export interface DispatchCancel {
   v: 1
   type: 'dispatch-cancel'
@@ -78,6 +83,7 @@ export interface DispatchCancel {
   note?: string
 }
 
+/** @experimental */
 export interface DispatchStatus {
   v: 1
   type: 'dispatch-status'
@@ -88,6 +94,7 @@ export interface DispatchStatus {
   note?: string
 }
 
+/** @experimental */
 export interface DispatchRefuse {
   v: 1
   type: 'dispatch-refuse'
@@ -96,6 +103,7 @@ export interface DispatchRefuse {
   reason: string
 }
 
+/** @experimental */
 export interface DispatchFailure {
   v: 1
   type: 'dispatch-failure'
@@ -105,6 +113,7 @@ export interface DispatchFailure {
   partial?: string
 }
 
+/** @experimental */
 export interface DispatchQuery {
   v: 1
   type: 'dispatch-query'
@@ -114,6 +123,7 @@ export interface DispatchQuery {
   respond_to: string
 }
 
+/** @experimental */
 export interface DispatchPropose {
   v: 1
   type: 'dispatch-propose'
@@ -124,6 +134,7 @@ export interface DispatchPropose {
   respond_to: string
 }
 
+/** @experimental */
 export type DispatchMessage =
   | DispatchThink
   | DispatchBuild

@@ -14,6 +14,7 @@ import type { PublishResult } from '../types.js'
 // Types
 // ---------------------------------------------------------------------------
 
+/** @experimental */
 export interface CapabilityCard {
   pubkey: string
   name: string
@@ -25,6 +26,7 @@ export interface CapabilityCard {
   slug: string
 }
 
+/** @experimental */
 export interface CapabilityPublishResult {
   event: NostrEvent
   publish: PublishResult

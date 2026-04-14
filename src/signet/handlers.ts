@@ -21,11 +21,13 @@ import { isHeartwoodContext } from '../heartwood-context.js'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+/** @experimental */
 export interface TrustContextLike {
   assess(pubkey: string): Promise<TrustAssessment>
   mode: string
 }
 
+/** @experimental */
 export interface SignetBadgeResult {
   pubkey: string
   npub: string
@@ -38,6 +40,7 @@ export interface SignetBadgeResult {
   }
 }
 
+/** @experimental */
 export interface SignetCredential {
   attestorPubkey: string
   tier: number
@@ -50,6 +53,7 @@ export interface SignetCredential {
   expired: boolean
 }
 
+/** @experimental */
 export interface SignetPolicyCheckResult {
   pubkey: string
   npub: string
@@ -62,6 +66,7 @@ export interface SignetPolicyCheckResult {
   actualScore?: number
 }
 
+/** @experimental */
 export interface SignetVerifierResult {
   pubkey: string
   npub: string

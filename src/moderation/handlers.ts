@@ -10,6 +10,7 @@ import type { TrustContext } from '../trust-context.js'
 // NIP-32 Labels (kind 1985)
 // ---------------------------------------------------------------------------
 
+/** @experimental */
 export interface LabelCreateResult {
   event: NostrEvent
   publish: PublishResult
@@ -82,6 +83,7 @@ export async function handleLabelSelf(
   return { event, publish }
 }
 
+/** @experimental */
 export interface LabelEvent {
   id: string
   pubkey: string
