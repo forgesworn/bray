@@ -5,6 +5,11 @@ import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 
+// 100 MiB cap on every inbound upload path — filePath, data, or sourceUrl
+// fetch. Keeps an attacker-chosen source from amplifying nostr-bray into a
+// megabyte-scale Blossom relay.
+const MAX_UPLOAD = 100 * 1024 * 1024
+
 export interface BlobDescriptor {
   url: string
   sha256: string
@@ -19,7 +24,6 @@ export async function handleBlossomUpload(
   args: { server: string; filePath?: string; data?: Uint8Array; contentType?: string },
 ): Promise<BlobDescriptor> {
   validatePublicUrl(args.server)
-  const MAX_UPLOAD = 100 * 1024 * 1024 // 100MB
 
   let body: Uint8Array
   if (args.filePath) {
@@ -27,6 +31,9 @@ export async function handleBlossomUpload(
     if (size > MAX_UPLOAD) throw new Error(`File too large: ${size} bytes (max ${MAX_UPLOAD})`)
     body = readFileSync(args.filePath)
   } else if (args.data) {
+    if (args.data.byteLength > MAX_UPLOAD) {
+      throw new Error(`Data too large: ${args.data.byteLength} bytes (max ${MAX_UPLOAD})`)
+    }
     body = args.data
   } else {
     throw new Error('Either filePath or data is required')
@@ -175,14 +182,52 @@ export async function handleBlossomMirror(
     validatePublicUrl(args.sourceUrl)
     const resp = await fetch(args.sourceUrl, { signal: AbortSignal.timeout(30_000) })
     if (!resp.ok) throw new Error(`Failed to fetch source: ${resp.status}`)
+    // Reject obvious oversize before reading the body.
+    const declared = Number.parseInt(resp.headers.get('content-length') ?? '', 10)
+    if (Number.isFinite(declared) && declared > MAX_UPLOAD) {
+      throw new Error(`Source too large: ${declared} bytes (max ${MAX_UPLOAD})`)
+    }
     contentType = resp.headers.get('content-type') ?? contentType
-    body = new Uint8Array(await resp.arrayBuffer())
+    // Stream and count bytes so a missing/false Content-Length can't bypass
+    // the cap via an attacker-controlled sourceUrl. Fall back to arrayBuffer
+    // if the response does not expose a ReadableStream (e.g. test mocks); in
+    // that case size is enforced post-read rather than during transfer.
+    const reader = resp.body?.getReader?.()
+    if (reader) {
+      const chunks: Uint8Array[] = []
+      let received = 0
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (value) {
+          received += value.byteLength
+          if (received > MAX_UPLOAD) {
+            await reader.cancel()
+            throw new Error(`Source too large: exceeded ${MAX_UPLOAD} bytes`)
+          }
+          chunks.push(value)
+        }
+      }
+      body = new Uint8Array(received)
+      let offset = 0
+      for (const c of chunks) {
+        body.set(c, offset)
+        offset += c.byteLength
+      }
+    } else {
+      body = new Uint8Array(await resp.arrayBuffer())
+      if (body.byteLength > MAX_UPLOAD) {
+        throw new Error(`Source too large: ${body.byteLength} bytes (max ${MAX_UPLOAD})`)
+      }
+    }
   } else if (args.filePath) {
-    const MAX_UPLOAD = 100 * 1024 * 1024
     const size = statSync(args.filePath).size
     if (size > MAX_UPLOAD) throw new Error(`File too large: ${size} bytes (max ${MAX_UPLOAD})`)
     body = readFileSync(args.filePath)
   } else if (args.data) {
+    if (args.data.byteLength > MAX_UPLOAD) {
+      throw new Error(`Data too large: ${args.data.byteLength} bytes (max ${MAX_UPLOAD})`)
+    }
     body = args.data
   } else {
     throw new Error('One of sourceUrl, filePath, or data is required')
