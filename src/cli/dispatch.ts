@@ -10,8 +10,15 @@ export const COMPOUND_COMMANDS = new Set([
   'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
   'trust-read', 'trust-verify', 'trust-revoke', 'trust-request',
   'nip-publish', 'nip-read',
-  'relay-set', 'relay-add',
+  'relay-set', 'relay-add', 'relay-curl',
   'ring-prove', 'ring-verify',
+  'musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate',
+  // sync
+  'sync-pull', 'sync-push',
+  // admin (NIP-86 relay management)
+  'admin-allowpubkey', 'admin-banpubkey', 'admin-listallowedpubkeys', 'admin-listbannedpubkeys',
+  'admin-allowkind', 'admin-bankind', 'admin-listallowedkinds', 'admin-listbannedkinds',
+  'admin-blockip', 'admin-unblockip', 'admin-listblockedips',
 ])
 
 // Commands that work purely offline — no relay connection needed
@@ -21,6 +28,7 @@ export const OFFLINE_COMMANDS = new Set([
   'ring-verify', 'zap-decode', 'safety-configure', 'safety-activate',
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
   'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'verify', 'encrypt', 'decrypt',
+  'musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate',
 ])
 
 export interface Helpers {

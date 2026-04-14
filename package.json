@@ -79,6 +79,18 @@
       "import": "./dist/handler/index.js",
       "types": "./dist/handler/index.d.ts"
     },
+    "./musig2": {
+      "import": "./dist/musig2/index.js",
+      "types": "./dist/musig2/index.d.ts"
+    },
+    "./sync": {
+      "import": "./dist/sync/index.js",
+      "types": "./dist/sync/index.d.ts"
+    },
+    "./admin": {
+      "import": "./dist/admin/index.js",
+      "types": "./dist/admin/index.d.ts"
+    },
     "./sdk": {
       "import": "./dist/sdk.js",
       "types": "./dist/sdk.d.ts"

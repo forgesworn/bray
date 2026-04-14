@@ -1,4 +1,4 @@
-import { handleRelayInfo, handleRelayList, handleRelaySet, handleRelayAdd, handleRelayQuery } from '../../relay/handlers.js'
+import { handleRelayInfo, handleRelayList, handleRelaySet, handleRelayAdd, handleRelayQuery, handleRelayCurl } from '../../exports.js'
 import * as fmt from '../../format.js'
 import type { Helpers } from '../dispatch.js'
 
@@ -8,6 +8,7 @@ export async function dispatch(
   h: Helpers,
   ctx: any,
   pool: any,
+  _activeNpub?: string,
 ): Promise<void> {
   const { req, flag, flags, hasFlag, out } = h
 
@@ -85,6 +86,23 @@ export async function dispatch(
       } else {
         out(events)
       }
+      break
+    }
+
+    case 'relay-curl': {
+      const relay = req(1, 'relay curl <relay-url> [--path /endpoint] [--method GET|POST] [--body json] [--auth]')
+      const path = flag('path')
+      const method = (flag('method') ?? 'GET').toUpperCase() as 'GET' | 'POST' | 'PUT' | 'DELETE'
+      const body = flag('body')
+      const useAuth = hasFlag('auth')
+
+      out(await handleRelayCurl(useAuth ? ctx : null, { relay, path, method, body, auth: useAuth }),
+        d => {
+          const lines = [`HTTP ${d.status} ${d.url}`]
+          if (typeof d.body === 'string') lines.push(d.body)
+          else lines.push(JSON.stringify(d.body, null, 2))
+          return lines.join('\n')
+        })
       break
     }
 

@@ -15,6 +15,9 @@ import * as safety from './commands/safety.js'
 import * as event from './commands/event.js'
 import * as util from './commands/util.js'
 import * as bunker from './commands/bunker.js'
+import * as musig2 from './commands/musig2.js'
+import * as sync from './commands/sync.js'
+import * as admin from './commands/admin.js'
 
 const args = process.argv.slice(2)
 
@@ -123,6 +126,16 @@ Relay:
   relay set <url1> <url2> ...         Publish kind 10002 relay list (add --confirm)
   relay add <url> [read|write]        Add relay to active identity
   relay-info <wss://url>              Fetch NIP-11 relay info
+  relay curl <url> [--path /ep] [--method GET|POST] [--body json] [--auth]  HTTP request to relay
+
+Sync (filter-based relay sync):
+  sync pull <relay-url> [--kinds N,N] [--authors hex] [--since ts] [--limit N]
+  sync push <relay-url> --events <jsonl-file>
+
+Admin (NIP-86 relay management):
+  admin <relay-url> allowpubkey|banpubkey|listallowedpubkeys|listbannedpubkeys
+  admin <relay-url> allowkind|bankind|listallowedkinds|listbannedkinds [kind]
+  admin <relay-url> blockip|unblockip|listblockedips [ip]
 
 Zap:
   zap-send <bolt11>                   Pay invoice via NWC
@@ -158,6 +171,12 @@ Utility:
   decrypt <pubkey-hex> <ciphertext>   NIP-44 decrypt from a sender
   count --kinds 1 [--authors <hex>]   Count events matching filter
   fetch <nip19>                       Fetch events by nip19 code
+
+MuSig2 (BIP-327 multi-signature):
+  musig2 key                                    Generate a musig2 key pair
+  musig2 nonce --sk <hex>                       Generate a signing nonce (keep secNonce secret)
+  musig2 partial-sign --sk <hex> --sec-nonce <hex> --pub-nonces <n1,n2,...> --pub-keys <pk1,pk2,...> --msg <32-byte-hex>
+  musig2 aggregate --partial-sigs <s1,s2,...> --pub-nonces <n1,n2,...> --pub-keys <pk1,pk2,...> --msg <32-byte-hex>
 
 Modes:
   (no command)                        Start MCP server (stdio)
@@ -254,13 +273,20 @@ const TRUST_CMDS = new Set([
   'attest', 'claim', 'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-request-list',
   'ring-prove', 'ring-verify', 'spoken-challenge', 'spoken-verify',
 ])
-const RELAY_CMDS = new Set(['relay-list', 'relay-set', 'relay-add', 'relay-info', 'req'])
+const RELAY_CMDS = new Set(['relay-list', 'relay-set', 'relay-add', 'relay-info', 'req', 'relay-curl'])
 const ZAP_CMDS = new Set(['zap-send', 'zap-balance', 'zap-invoice', 'zap-lookup', 'zap-transactions', 'zap-receipts', 'zap-decode'])
 const SAFETY_CMDS = new Set(['safety-configure', 'safety-activate'])
 const EVENT_CMDS = new Set(['event', 'publish-raw'])
 const UTIL_CMDS = new Set([
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
   'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'encrypt', 'decrypt', 'count', 'fetch',
+])
+const MUSIG2_CMDS = new Set(['musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate'])
+const SYNC_CMDS = new Set(['sync-pull', 'sync-push'])
+const ADMIN_CMDS = new Set([
+  'admin-allowpubkey', 'admin-banpubkey', 'admin-listallowedpubkeys', 'admin-listbannedpubkeys',
+  'admin-allowkind', 'admin-bankind', 'admin-listallowedkinds', 'admin-listbannedkinds',
+  'admin-blockip', 'admin-unblockip', 'admin-listblockedips',
 ])
 
 async function run(cmdArgs: string[]): Promise<void> {
@@ -285,6 +311,9 @@ async function run(cmdArgs: string[]): Promise<void> {
   if (SAFETY_CMDS.has(cmd)) return safety.dispatch(cmd, cmdArgs, h, ctx, pool)
   if (EVENT_CMDS.has(cmd)) return event.dispatch(cmd, cmdArgs, h, ctx, pool)
   if (UTIL_CMDS.has(cmd)) return util.dispatch(cmd, cmdArgs, h, ctx, pool)
+  if (MUSIG2_CMDS.has(cmd)) return musig2.dispatch(cmd, cmdArgs, h)
+  if (SYNC_CMDS.has(cmd)) return sync.dispatch(cmd, cmdArgs, h, ctx, pool, ctx.activeNpub)
+  if (ADMIN_CMDS.has(cmd)) return admin.dispatch(cmd, cmdArgs, h, ctx)
 
   throw new Error(`Unknown command: ${cmd}. Run --help for usage.`)
 }
@@ -305,6 +334,12 @@ const ALL_COMMANDS = [
   'publish-raw',
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
   'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'encrypt', 'decrypt', 'count', 'fetch',
+  'musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate',
+  'sync-pull', 'sync-push',
+  'admin-allowpubkey', 'admin-banpubkey', 'admin-listallowedpubkeys', 'admin-listbannedpubkeys',
+  'admin-allowkind', 'admin-bankind', 'admin-listallowedkinds', 'admin-listbannedkinds',
+  'admin-blockip', 'admin-unblockip', 'admin-listblockedips',
+  'relay-curl',
   'bunker',
   'help', 'exit',
 ]
