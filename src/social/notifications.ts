@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { decode } from 'nostr-tools/nip19'
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { SigningContext } from '../signing-context.js'
@@ -107,6 +108,17 @@ function classifyNotification(event: NostrEvent, activeNpub: string): Notificati
   return { ...base, type: 'other' }
 }
 
+// Zap receipt (kind 9735) description is relay-carried attacker-controlled JSON.
+// Validate shape before consuming so a crafted object (pubkey as a toString-
+// returning object, tags as a non-array, etc.) cannot poison the notification
+// rendering. `pubkey` is kept as any string — NIP-57 receipts sometimes carry
+// non-canonical senders and the field is informational rather than verified.
+const zapRequestSchema = z.object({
+  pubkey: z.string().max(200).optional(),
+  content: z.string().optional(),
+  tags: z.array(z.array(z.string())).optional(),
+})
+
 /** Parse zap receipt (kind 9735) for amount and sender */
 function parseZapReceipt(event: NostrEvent, base: Omit<Notification, 'type'>): Notification {
   let amountMsats: number | undefined
@@ -116,12 +128,15 @@ function parseZapReceipt(event: NostrEvent, base: Omit<Notification, 'type'>): N
   const descTag = event.tags.find(t => t[0] === 'description')
   if (descTag?.[1]) {
     try {
-      const zapRequest = JSON.parse(descTag[1])
-      zapSender = zapRequest.pubkey
-      zapMessage = zapRequest.content
-      const amountTag = zapRequest.tags?.find((t: string[]) => t[0] === 'amount')
-      if (amountTag?.[1]) {
-        amountMsats = parseInt(amountTag[1], 10)
+      const parsed = zapRequestSchema.safeParse(JSON.parse(descTag[1]))
+      if (parsed.success) {
+        zapSender = parsed.data.pubkey
+        zapMessage = parsed.data.content
+        const amountTag = parsed.data.tags?.find(t => t[0] === 'amount')
+        if (amountTag?.[1]) {
+          const n = Number.parseInt(amountTag[1], 10)
+          if (Number.isFinite(n) && n >= 0) amountMsats = n
+        }
       }
     } catch { /* ignore malformed zap request */ }
   }

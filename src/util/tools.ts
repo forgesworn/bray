@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
-import { hexId } from '../validation.js'
+import { hexId, nostrEventSchema } from '../validation.js'
 import { resolveRecipient } from '../resolve.js'
 import { flatOrWrapped, mergeFlatAndWrapped } from './schema.js'
 import { handleKeyEncrypt, handleKeyDecrypt } from './ncryptsec.js'
@@ -92,11 +92,11 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('verify-event', {
     description: 'Verify a Nostr event\'s id hash and cryptographic signature.',
     inputSchema: {
-      event: z.record(z.string(), z.unknown()).describe('The Nostr event object to verify'),
+      event: nostrEventSchema.describe('The Nostr event object to verify'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ event }) => {
-    const result = handleVerify(event as any)
+    const result = handleVerify(event)
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 

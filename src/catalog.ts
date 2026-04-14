@@ -73,26 +73,37 @@ export class ActionCatalog {
       }
     }
 
-    if (entry.inputSchema && Object.keys(entry.inputSchema).length > 0) {
-      const schema = z.object(entry.inputSchema)
-      const result = schema.safeParse(params)
-      if (!result.success) {
-        return {
-          content: [{
-            type: 'text' as const,
-            text: JSON.stringify({
-              error: 'Invalid parameters',
-              action: name,
-              issues: result.error.issues.map(i => `${i.path.join('.')}: ${i.message}`),
-              expected: extractParams(entry.inputSchema),
-            }, null, 2),
-          }],
-        }
+    // A registered catalog entry must carry an inputSchema, even if empty.
+    // Fail-closed when undefined so that a registration bug cannot silently
+    // forward unvalidated arguments to a handler.
+    if (!entry.inputSchema) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            error: 'Action has no declared input schema',
+            action: name,
+          }, null, 2),
+        }],
       }
-      return entry.handler(result.data)
     }
 
-    return entry.handler(params)
+    const schema = z.object(entry.inputSchema)
+    const result = schema.safeParse(params ?? {})
+    if (!result.success) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            error: 'Invalid parameters',
+            action: name,
+            issues: result.error.issues.map(i => `${i.path.join('.')}: ${i.message}`),
+            expected: extractParams(entry.inputSchema),
+          }, null, 2),
+        }],
+      }
+    }
+    return entry.handler(result.data)
   }
 
   registerMetaTools(server: McpServer): void {

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
-import { hexId } from '../validation.js'
+import { hexId, nostrEventSchema } from '../validation.js'
 import { resolveRecipient, resolveRecipients } from '../resolve.js'
 import {
   handleTrustAttest,
@@ -107,11 +107,11 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('trust-verify', {
     description: 'Validate the structural correctness of a kind 31000 attestation event.',
     inputSchema: {
-      event: z.record(z.string(), z.unknown()).describe('The attestation event object to validate'),
+      event: nostrEventSchema.describe('The attestation event object to validate'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ event }) => {
-    const result = handleTrustVerify(event as any)
+    const result = handleTrustVerify(event)
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }
@@ -251,11 +251,11 @@ export function registerTrustTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('trust-attest-parse', {
     description: 'Parse a kind 31000 attestation event into a fully typed object with all metadata fields: type, subject, assertion references, temporal fields (occurredAt, validFrom, validTo), expiration, schema, revocation status, and content.',
     inputSchema: {
-      event: z.record(z.string(), z.unknown()).describe('The attestation event object to parse'),
+      event: nostrEventSchema.describe('The attestation event object to parse'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ event }) => {
-    const result = handleTrustAttestParse(event as any)
+    const result = handleTrustAttestParse(event)
     if (!result) {
       return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Not a valid kind 31000 attestation event' }, null, 2) }] }
     }

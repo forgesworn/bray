@@ -57,8 +57,8 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('identity-derive', {
     description: 'Derive a child Nostr identity from the master key by purpose and index. Deterministic — same inputs always produce the same npub. Returns { npub, purpose, index }. Use identity_switch after deriving to operate as the new identity.',
     inputSchema: {
-      purpose: z.string().describe('Purpose string for derivation (e.g. "messaging", "signing")'),
-      index: z.number().int().min(0).default(0).describe('Derivation index (default 0)'),
+      purpose: z.string().regex(/^[a-z0-9-]{1,32}$/, 'purpose must be 1-32 chars: a-z, 0-9, hyphen').describe('Purpose string for derivation (e.g. "messaging", "signing")'),
+      index: z.number().int().min(0).max(2_147_483_647).default(0).describe('Derivation index (default 0)'),
     },
     annotations: { readOnlyHint: false },
   }, async ({ purpose, index }) => {
@@ -74,8 +74,8 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('identity-derive-persona', {
     description: 'Derive a named persona (e.g. "work", "personal", "anonymous"). Like identity_derive but uses a human-readable name. Returns { npub, personaName, index }. Follow with identity_switch to activate.',
     inputSchema: {
-      name: z.string().describe('Persona name (e.g. "work", "personal", "anonymous")'),
-      index: z.number().int().min(0).default(0).describe('Derivation index (default 0)'),
+      name: z.string().regex(/^[a-z0-9-]{1,32}$/, 'name must be 1-32 chars: a-z, 0-9, hyphen').describe('Persona name (e.g. "work", "personal", "anonymous")'),
+      index: z.number().int().min(0).max(2_147_483_647).default(0).describe('Derivation index (default 0)'),
     },
     annotations: { readOnlyHint: false },
   }, async ({ name, index }) => {

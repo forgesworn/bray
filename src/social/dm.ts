@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import * as nip04 from 'nostr-tools/nip04'
 import { decode, npubEncode } from 'nostr-tools/nip19'
 import type { Event as NostrEvent } from 'nostr-tools'
@@ -10,6 +11,17 @@ import type { VeilScoring } from '../veil/scoring.js'
 import type { TrustContext, TrustAnnotation } from '../trust-context.js'
 import { toAnnotation } from '../trust-context.js'
 import { wrapEventAsync, unwrapEventAsync } from '../nip17-wrap.js'
+import { hexId } from '../validation.js'
+
+// NIP-17 rumor (inner kind-14). Pubkey/content/created_at come from an
+// attacker-controlled encrypted payload, so they must be revalidated before
+// downstream trust/formatting code trusts the fields.
+const unwrappedRumorSchema = z.object({
+  pubkey: hexId,
+  content: z.string(),
+  created_at: z.number().int().min(0).max(8640000000000),
+  tags: z.array(z.array(z.string())).optional(),
+})
 
 export interface DmSendResult {
   event: NostrEvent
@@ -220,14 +232,28 @@ async function decryptDmEvents(
 
   for (const event of events) {
     if (event.kind === 1059) {
-      // NIP-17 gift wrap — try to unwrap
+      // NIP-17 gift wrap — try to unwrap.
+      // The unwrapped rumor comes from attacker-controlled encrypted payload;
+      // revalidate shape before trusting its pubkey/content fields.
       try {
         const unwrapped = await unwrapEventAsync(ctx, event)
+        const parsed = unwrappedRumorSchema.safeParse(unwrapped)
+        if (!parsed.success) {
+          results.push({
+            id: event.id,
+            from: event.pubkey,
+            createdAt: event.created_at,
+            protocol: 'nip17',
+            decrypted: false,
+            error: 'Unwrapped rumor failed shape validation',
+          })
+          continue
+        }
         results.push({
           id: event.id,
-          from: unwrapped.pubkey,
-          content: unwrapped.content,
-          createdAt: unwrapped.created_at,
+          from: parsed.data.pubkey,
+          content: parsed.data.content,
+          createdAt: parsed.data.created_at,
           protocol: 'nip17',
           decrypted: true,
         })

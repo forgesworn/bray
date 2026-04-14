@@ -3,6 +3,25 @@ import { z } from 'zod'
 /** 64-character lowercase hex string (pubkey or event ID) */
 export const hexId = z.string().regex(/^[0-9a-f]{64}$/, 'Must be a 64-character hex string')
 
+/** 128-character lowercase hex string (Schnorr signature) */
+export const hexSig = z.string().regex(/^[0-9a-f]{128}$/, 'Must be a 128-character hex string')
+
+/**
+ * Minimal-shape Nostr event schema. Use this when accepting an external event
+ * from tool inputs, decrypted payloads, or relay responses so that downstream
+ * crypto calls (verifyEvent, validateAttestation, lsagVerify) do not receive
+ * misshaped objects. Kind and timestamp are bounded to sane ranges.
+ */
+export const nostrEventSchema = z.object({
+  id: hexId,
+  pubkey: hexId,
+  sig: hexSig,
+  kind: z.number().int().min(0).max(65535),
+  created_at: z.number().int().min(0).max(8640000000000),
+  tags: z.array(z.array(z.string())),
+  content: z.string(),
+})
+
 /** Relay WebSocket URL — wss:// or ws:// only */
 export const relayUrl = z.string().regex(/^wss?:\/\//, 'Must be a wss:// or ws:// URL')
 
