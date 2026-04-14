@@ -1,10 +1,15 @@
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
 import type { PublishResult, RelaySet } from './types.js'
 
+export interface Subscription {
+  close(): void
+}
+
 /** Minimal pool interface for dependency injection (testability) */
 export interface PoolLike {
   publish(relays: string[], event: NostrEvent): Promise<string>[]
   querySync(relays: string[], filter: Filter): Promise<NostrEvent[]>
+  subscribeMany?(relays: string[], filter: Filter, handlers: { onevent(event: NostrEvent): void; oneose?(): void }): Subscription
   destroy(): void
 }
 
@@ -60,7 +65,13 @@ async function createRealPool(torProxy?: string): Promise<PoolLike> {
     useWebSocketImplementation(WS)
   }
 
-  return new SimplePool() as unknown as PoolLike
+  const pool = new SimplePool()
+  return {
+    publish: (relays, event) => pool.publish(relays, event),
+    querySync: (relays, filter) => pool.querySync(relays, filter),
+    subscribeMany: (relays, filters, handlers) => pool.subscribeMany(relays, filters, handlers),
+    destroy: () => pool.destroy(),
+  } satisfies PoolLike
 }
 
 export class RelayPool {
@@ -119,7 +130,7 @@ export class RelayPool {
   }
 
   /** Publish event to write relays for the given identity */
-  async publish(npub: string, event: NostrEvent): Promise<PublishResult> {
+  async publish(npub: string, event: NostrEvent, opts: { timeoutMs?: number } = {}): Promise<PublishResult> {
     const pool = await this.poolReady
     const relays = this.getRelays(npub)
     const writeRelays = relays.write
@@ -128,46 +139,42 @@ export class RelayPool {
     }
 
     const promises = pool.publish(writeRelays, event)
-    const accepted: string[] = []
-    const rejected: string[] = []
-    const errors: string[] = []
-
-    const results = await Promise.allSettled(promises)
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i]
-      const url = writeRelays[i] ?? `relay-${i}`
-      if (result.status === 'fulfilled') {
-        accepted.push(url)
-      } else {
-        rejected.push(url)
-        errors.push(`${url}: ${result.reason}`)
-      }
-    }
-
-    return {
-      ...summarisePublish(accepted.length, writeRelays.length),
-      accepted,
-      rejected,
-      errors,
-    }
+    return this.#settlePublish(writeRelays, promises, opts.timeoutMs)
   }
 
   /** Publish event to explicit relay URLs (not identity-bound) */
-  async publishDirect(relays: string[], event: NostrEvent): Promise<PublishResult> {
+  async publishDirect(relays: string[], event: NostrEvent, opts: { timeoutMs?: number } = {}): Promise<PublishResult> {
     const pool = await this.poolReady
     if (relays.length === 0) {
       return { success: false, allAccepted: false, accepted: [], rejected: [], errors: ['no relays specified'] }
     }
 
     const promises = pool.publish(relays, event)
+    return this.#settlePublish(relays, promises, opts.timeoutMs)
+  }
+
+  /** Settle a set of per-relay publish promises, optionally applying a deadline. */
+  async #settlePublish(
+    relayUrls: string[],
+    promises: Promise<string>[],
+    timeoutMs?: number,
+  ): Promise<PublishResult> {
+    const wrap = (p: Promise<string>): Promise<string> => {
+      if (!timeoutMs) return p
+      const deadline = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`timed out after ${timeoutMs}ms`)), timeoutMs),
+      )
+      return Promise.race([p, deadline])
+    }
+
     const accepted: string[] = []
     const rejected: string[] = []
     const errors: string[] = []
 
-    const results = await Promise.allSettled(promises)
+    const results = await Promise.allSettled(relayUrls.map((_, i) => wrap(promises[i]!)))
     for (let i = 0; i < results.length; i++) {
       const result = results[i]
-      const url = relays[i] ?? `relay-${i}`
+      const url = relayUrls[i] ?? `relay-${i}`
       if (result.status === 'fulfilled') {
         accepted.push(url)
       } else {
@@ -177,11 +184,25 @@ export class RelayPool {
     }
 
     return {
-      ...summarisePublish(accepted.length, relays.length),
+      ...summarisePublish(accepted.length, relayUrls.length),
       accepted,
       rejected,
       errors,
     }
+  }
+
+  /** Live subscription — calls onEvent for each matching event until the returned function is called. */
+  async subscribe(
+    relays: string[],
+    filter: Filter,
+    onEvent: (event: NostrEvent) => void,
+  ): Promise<() => void> {
+    const pool = await this.poolReady
+    if (!pool.subscribeMany) {
+      throw new Error('The underlying pool does not support subscriptions. Ensure nostr-tools/pool is available.')
+    }
+    const sub = pool.subscribeMany(relays, filter, { onevent: onEvent })
+    return () => sub.close()
   }
 
   /** One-shot query from read relays for the given identity */

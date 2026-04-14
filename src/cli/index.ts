@@ -153,7 +153,8 @@ Safety:
 Utility:
   req [--kinds N,N] [--authors hex,hex] [--since ts] [--limit N] [--relay url]  Query events
   event --kind N [--tag k=v] [--content s] [--relay url]  Build and publish an arbitrary event
-  publish-raw [--file path]           Sign+broadcast event from stdin or file (--no-sign to skip signing)
+  publish-raw [--file path] [--report] [--timeout ms] [--quorum n]  Sign+broadcast event (--report shows per-relay table)
+  subscribe [--kinds N,N] [--authors hex] [--relay url]  Live-tail events to stdout (JSONL) until SIGINT
   decode <nip19>                      Decode npub/nsec/note/nevent/nprofile/naddr
   encode npub <hex>                   Encode hex pubkey as npub
   encode note <hex>                   Encode hex event ID as note
@@ -273,7 +274,7 @@ const TRUST_CMDS = new Set([
   'attest', 'claim', 'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-request-list',
   'ring-prove', 'ring-verify', 'spoken-challenge', 'spoken-verify',
 ])
-const RELAY_CMDS = new Set(['relay-list', 'relay-set', 'relay-add', 'relay-info', 'req', 'relay-curl'])
+const RELAY_CMDS = new Set(['relay-list', 'relay-set', 'relay-add', 'relay-info', 'req', 'relay-curl', 'subscribe'])
 const ZAP_CMDS = new Set(['zap-send', 'zap-balance', 'zap-invoice', 'zap-lookup', 'zap-transactions', 'zap-receipts', 'zap-decode'])
 const SAFETY_CMDS = new Set(['safety-configure', 'safety-activate'])
 const EVENT_CMDS = new Set(['event', 'publish-raw'])
@@ -326,7 +327,7 @@ const ALL_COMMANDS = [
   'post', 'reply', 'react', 'delete', 'repost', 'profile', 'profile-set', 'contacts', 'follow', 'unfollow', 'dm', 'dm-read', 'feed', 'notifications', 'nip-publish', 'nip-read',
   'attest', 'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-request-list',
   'ring-prove', 'ring-verify', 'spoken-challenge', 'spoken-verify',
-  'relay-list', 'relay-set', 'relay-add', 'relay-info',
+  'relay-list', 'relay-set', 'relay-add', 'relay-info', 'subscribe',
   'zap-send', 'zap-balance', 'zap-invoice', 'zap-lookup', 'zap-transactions', 'zap-receipts', 'zap-decode',
   'safety-configure', 'safety-activate',
   'blossom-upload', 'blossom-list', 'blossom-delete',

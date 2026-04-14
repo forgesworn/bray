@@ -47,7 +47,7 @@ import { handleSocialPost as socialPost, handleDmSend } from 'nostr-bray/social'
 import { handleTrustAttest as trustAttest, handleTrustVerify } from 'nostr-bray/trust'
 
 // ── Subpath: ./relay ──────────────────────────────────────────────────────────
-import { handleRelayList as relayList, handleRelayInfo } from 'nostr-bray/relay'
+import { handleRelayList as relayList, handleRelayInfo, handleSubscribe } from 'nostr-bray/relay'
 
 // ── Subpath: ./zap ────────────────────────────────────────────────────────────
 import { handleZapSend as zapSend, handleZapDecode } from 'nostr-bray/zap'
@@ -250,6 +250,10 @@ describe('nostr-bray/relay subpath', () => {
 
   it('exports handleRelayInfo as a function', () => {
     expect(typeof handleRelayInfo).toBe('function')
+  })
+
+  it('exports handleSubscribe as a function', () => {
+    expect(typeof handleSubscribe).toBe('function')
   })
 })
 

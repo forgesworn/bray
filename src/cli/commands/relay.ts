@@ -1,4 +1,4 @@
-import { handleRelayInfo, handleRelayList, handleRelaySet, handleRelayAdd, handleRelayQuery, handleRelayCurl } from '../../exports.js'
+import { handleRelayInfo, handleRelayList, handleRelaySet, handleRelayAdd, handleRelayQuery, handleRelayCurl, handleSubscribe } from '../../exports.js'
 import * as fmt from '../../format.js'
 import type { Helpers } from '../dispatch.js'
 
@@ -103,6 +103,37 @@ export async function dispatch(
           else lines.push(JSON.stringify(d.body, null, 2))
           return lines.join('\n')
         })
+      break
+    }
+
+    case 'subscribe': {
+      const kindsRaw = flag('kinds')
+      const authorsRaw = flag('authors')
+      const since = flag('since') ? parseInt(flag('since')!, 10) : undefined
+      const until = flag('until') ? parseInt(flag('until')!, 10) : undefined
+      const limit = flag('limit') ? parseInt(flag('limit')!, 10) : undefined
+      const relayOverrides = flags('relay')
+
+      const filter = {
+        ...(kindsRaw ? { kinds: kindsRaw.split(',').map(Number) } : {}),
+        ...(authorsRaw ? { authors: authorsRaw.split(',') } : {}),
+        ...(since !== undefined ? { since } : {}),
+        ...(until !== undefined ? { until } : {}),
+        ...(limit !== undefined ? { limit } : {}),
+      }
+
+      const unsubscribe = await handleSubscribe(
+        pool,
+        ctx.activeNpub,
+        filter,
+        (event: any) => process.stdout.write(JSON.stringify(event) + '\n'),
+        relayOverrides.length ? relayOverrides : undefined,
+      )
+
+      // Run until SIGINT
+      await new Promise<void>(resolve => {
+        process.once('SIGINT', () => { unsubscribe(); resolve() })
+      })
       break
     }
 

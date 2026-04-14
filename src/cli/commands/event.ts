@@ -1,5 +1,4 @@
-import { handlePublishEvent } from '../../social/handlers.js'
-import { handlePublishRaw } from '../../event/handlers.js'
+import { handlePublishEvent, handlePublishRaw } from '../../exports.js'
 import type { Helpers } from '../dispatch.js'
 
 export async function dispatch(
@@ -49,11 +48,33 @@ export async function dispatch(
         : readFileSync(0, 'utf-8')
       const inputEvent = JSON.parse(raw)
       const relayOverrides = flags('relay')
-      out(await handlePublishRaw(ctx, pool, {
+      const timeoutMs = flag('timeout') ? parseInt(flag('timeout')!, 10) : undefined
+      const quorum = flag('quorum') ? parseInt(flag('quorum')!, 10) : undefined
+      const report = hasFlag('report')
+
+      const result = await handlePublishRaw(ctx, pool, {
         event: inputEvent,
         noSign: hasFlag('no-sign'),
         relays: relayOverrides.length ? relayOverrides : undefined,
-      }))
+        timeoutMs,
+        quorum,
+      })
+
+      if (report) {
+        const { accepted, rejected, errors } = result.publish
+        const rows = [
+          ...accepted.map(u => `  ✓  ${u}`),
+          ...rejected.map(u => {
+            const err = errors.find(e => e.startsWith(u))
+            return `  ✗  ${u}${err ? `  (${err.slice(u.length + 2)})` : ''}`
+          }),
+        ]
+        const status = result.publish.success ? 'OK' : 'FAILED'
+        console.log(`publish-raw ${status}: ${accepted.length}/${accepted.length + rejected.length} relays accepted`)
+        console.log(rows.join('\n'))
+      } else {
+        out(result)
+      }
       break
     }
 

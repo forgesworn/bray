@@ -30,16 +30,16 @@ export interface PublishRawResult {
  * - `relays` present: broadcast to those URLs only (per-command override).
  * - `relays` absent: use the identity's relay set (NOSTR_RELAYS / NIP-65).
  *
- * Full per-relay reporting, quorum semantics, and timeout flags are
- * Phase 4 item B. This implementation returns the standard PublishResult.
- *
- * @param args - `{ event, noSign?, relays? }` — the event object to publish, an optional flag to
- *   skip signing, and an optional list of relay WebSocket URLs to target.
+ * @param args - `{ event, noSign?, relays?, timeoutMs?, quorum? }` — the event object to publish,
+ *   optional signing control, optional relay overrides, optional per-relay deadline, and optional
+ *   minimum number of relays that must accept for `success` to be true.
  * @returns `{ event, publish, signed }` — the final event (post-signing if applicable),
  *   the relay publish result, and whether this handler signed the event.
  * @example
  * await handlePublishRaw(ctx, pool, {
  *   event: { kind: 1, content: 'Hello Nostr!', tags: [] },
+ *   timeoutMs: 5000,
+ *   quorum: 2,
  * })
  * // { event: { id: 'abc...', sig: 'def...', ... }, publish: { success: true, ... }, signed: true }
  */
@@ -50,6 +50,10 @@ export async function handlePublishRaw(
     event: Record<string, unknown>
     noSign?: boolean
     relays?: string[]
+    /** Per-relay deadline in milliseconds. Relays that do not respond within this window are treated as rejected. */
+    timeoutMs?: number
+    /** Minimum number of relays that must accept the event for `publish.success` to be true. Overrides the default majority rule. */
+    quorum?: number
   },
 ): Promise<PublishRawResult> {
   let event: NostrEvent
@@ -68,9 +72,16 @@ export async function handlePublishRaw(
     event = args.event as NostrEvent
   }
 
+  const opts = { timeoutMs: args.timeoutMs }
   const publish = args.relays?.length
-    ? await pool.publishDirect(args.relays, event)
-    : await pool.publish(ctx.activeNpub, event)
+    ? await pool.publishDirect(args.relays, event, opts)
+    : await pool.publish(ctx.activeNpub, event, opts)
+
+  // Apply quorum override: if caller specified a minimum, recompute success.
+  if (args.quorum !== undefined) {
+    const met = publish.accepted.length >= args.quorum
+    ;(publish as { success: boolean }).success = met
+  }
 
   return { event, publish, signed }
 }

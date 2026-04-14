@@ -304,3 +304,44 @@ export async function handleRelayInfo(
     throw new Error('Relay info document is not valid JSON')
   }
 }
+
+export interface SubscribeResult {
+  /** Resolved once the subscription is closed (SIGINT or manual close). */
+  closed: boolean
+}
+
+/**
+ * Subscribe to live Nostr events matching a filter and emit each event to a callback.
+ *
+ * The subscription runs until the returned `unsubscribe` function is called.
+ * Relays are resolved from the active identity's relay set; pass `relayOverrides`
+ * to target a specific list of relays instead.
+ *
+ * @param pool - Relay pool instance.
+ * @param npub - Active identity npub (used for relay resolution when no overrides provided).
+ * @param filter - Nostr filter object.
+ * @param onEvent - Callback invoked for each matching event.
+ * @param relayOverrides - Optional explicit relay URLs.
+ * @returns Async cleanup function.
+ * @example
+ * const stop = await handleSubscribe(pool, npub, { kinds: [1] }, ev => console.log(ev))
+ * // later:
+ * stop()
+ */
+export async function handleSubscribe(
+  pool: RelayPool,
+  npub: string | undefined,
+  filter: Filter,
+  onEvent: (event: NostrEvent) => void,
+  relayOverrides?: string[],
+): Promise<() => void> {
+  const relays = relayOverrides?.length
+    ? relayOverrides
+    : (npub ? pool.getRelays(npub).read : [])
+
+  if (relays.length === 0) {
+    throw new Error('No relays available. Set NOSTR_RELAYS or pass --relay <url>.')
+  }
+
+  return pool.subscribe(relays, filter, onEvent)
+}
