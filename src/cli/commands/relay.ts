@@ -1,6 +1,14 @@
 import { handleRelayInfo, handleRelayList, handleRelaySet, handleRelayAdd, handleRelayQuery, handleRelayCurl, handleSubscribe, handleOutboxRelays, handleOutboxPublish } from '../../exports.js'
+import { TrustContext } from '../../trust-context.js'
+import type { TrustLevel } from '../../trust-context.js'
 import * as fmt from '../../format.js'
 import type { Helpers } from '../dispatch.js'
+
+const TRUST_ORDER: TrustLevel[] = ['unknown', 'stranger', 'verified-stranger', 'known', 'trusted']
+
+function meetsTrustThreshold(level: TrustLevel, minLevel: TrustLevel): boolean {
+  return TRUST_ORDER.indexOf(level) >= TRUST_ORDER.indexOf(minLevel)
+}
 
 export async function dispatch(
   cmd: string,
@@ -78,7 +86,28 @@ export async function dispatch(
         ...(relayOverrides.length ? { relays: relayOverrides } : {}),
       }
 
-      const events = await handleRelayQuery(pool, ctx.activeNpub, queryArgs as any)
+      let events = await handleRelayQuery(pool, ctx.activeNpub, queryArgs as any)
+
+      const minTrust = flag('min-trust') as TrustLevel | undefined
+      if (minTrust) {
+        if (!TRUST_ORDER.includes(minTrust)) {
+          throw new Error(`--min-trust must be one of: ${TRUST_ORDER.join(', ')}`)
+        }
+        const trustCtx = new TrustContext(ctx, pool, {
+          cacheTtl: 5 * 60 * 1000,
+          cacheMax: 512,
+          trustMode: 'annotate',
+        })
+        const assessed = await Promise.all(
+          events.map(async ev => {
+            const assessment = await trustCtx.assess(ev.pubkey)
+            return { ev, level: assessment.composite.level }
+          }),
+        )
+        events = assessed
+          .filter(({ level }) => meetsTrustThreshold(level, minTrust))
+          .map(({ ev }) => ev)
+      }
 
       const jsonl = hasFlag('jsonl') || (!process.stdout.isTTY && !cmdArgs.includes('--json'))
       if (jsonl) {

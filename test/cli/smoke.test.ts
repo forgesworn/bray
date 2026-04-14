@@ -302,6 +302,22 @@ describe('trust-verify — offline', () => {
   })
 })
 
+describe('trust-rank — local relay', { timeout: 20_000 }, () => {
+  it('returns annotation with a known trust level field', () => {
+    const event = { kind: 1, pubkey: '0'.repeat(64), id: '0'.repeat(64), sig: '0'.repeat(128), created_at: 1, tags: [], content: 'test' }
+    const out = cliJsonStdin(online(), JSON.stringify(event), 'trust-rank') as any
+    expect(out.annotation).toBeDefined()
+    expect(['trusted', 'known', 'verified-stranger', 'stranger', 'unknown']).toContain(out.annotation.level)
+  })
+
+  it('includes the original event in the result', () => {
+    const event = { kind: 1, pubkey: '0'.repeat(64), id: '0'.repeat(64), sig: '0'.repeat(128), created_at: 1, tags: [], content: 'hello' }
+    const out = cliJsonStdin(online(), JSON.stringify(event), 'trust-rank') as any
+    expect(out.event.kind).toBe(1)
+    expect(out.event.content).toBe('hello')
+  })
+})
+
 describe('space-separated compound verbs', () => {
   it('encode npub == encode-npub (plain string output)', () => {
     const hex = '0'.repeat(63) + '1'

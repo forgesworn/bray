@@ -7,6 +7,7 @@ import {
   handleTrustRevoke,
   handleTrustRequest,
   handleTrustProofPublish,
+  handleTrustRank,
 } from '../../src/trust/handlers.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
@@ -246,6 +247,43 @@ describe('trust handlers', () => {
       const result = await listFn(ctx, pool as any)
       expect(result).toEqual([])
       vi.doUnmock('../../src/social/dm.js')
+    })
+  })
+
+  describe('handleTrustRank', () => {
+    it('returns event, assessment, and annotation', async () => {
+      const pool = mockPool()
+      const event = {
+        kind: 1,
+        pubkey: 'ab'.repeat(32),
+        id: 'ef'.repeat(32),
+        sig: '01'.repeat(64),
+        created_at: 1,
+        tags: [],
+        content: 'hello',
+      } as any
+      const result = await handleTrustRank(ctx, pool as any, { event })
+      expect(result.event).toBe(event)
+      expect(result.assessment).toBeDefined()
+      expect(result.assessment.pubkey).toBe('ab'.repeat(32))
+      expect(result.annotation).toBeDefined()
+      expect(['trusted', 'known', 'verified-stranger', 'stranger', 'unknown']).toContain(result.annotation.level)
+    })
+
+    it('annotation level is unknown for a stranger pubkey (mocked pool returns nothing)', async () => {
+      const pool = mockPool([]) // no follow-graph data, no attestations
+      const event = {
+        kind: 1,
+        pubkey: 'cd'.repeat(32),
+        id: '12'.repeat(32),
+        sig: '34'.repeat(64),
+        created_at: 2,
+        tags: [],
+        content: '',
+      } as any
+      const result = await handleTrustRank(ctx, pool as any, { event })
+      // With no data from the mock, composite level should be unknown or stranger
+      expect(['unknown', 'stranger']).toContain(result.annotation.level)
     })
   })
 

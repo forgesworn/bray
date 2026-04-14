@@ -8,7 +8,7 @@ export const COMPOUND_COMMANDS = new Set([
   'proof-publish',
   'profile-set',
   'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
-  'trust-read', 'trust-verify', 'trust-revoke', 'trust-request',
+  'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-rank',
   'nip-publish', 'nip-read',
   'relay-set', 'relay-add', 'relay-curl',
   'outbox-relays', 'outbox-publish',

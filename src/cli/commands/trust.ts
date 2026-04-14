@@ -1,6 +1,6 @@
 import {
   handleTrustAttest, handleTrustRead, handleTrustVerify, handleTrustRevoke,
-  handleTrustRequest, handleTrustRequestList,
+  handleTrustRequest, handleTrustRequestList, handleTrustRank,
   handleTrustRingProve, handleTrustRingVerify,
   handleTrustSpokenChallenge, handleTrustSpokenVerify,
 } from '../../exports.js'
@@ -103,6 +103,25 @@ export async function dispatch(
         input: req(4, 'spoken-verify <secret> <ctx> <ctr> <input>'),
       }))
       break
+
+    case 'trust-rank': {
+      const { readFileSync } = await import('node:fs')
+      const filePath = _cmdArgs[1]
+      let raw: string
+      if (filePath && filePath !== '-' && !filePath.startsWith('--')) {
+        raw = readFileSync(filePath, 'utf-8').trim()
+      } else {
+        raw = readFileSync(0, 'utf-8').trim()
+      }
+      const event = JSON.parse(raw)
+      const result = await handleTrustRank(ctx, pool, { event })
+      out(result, r => JSON.stringify({
+        event: r.event,
+        annotation: r.annotation,
+        assessment: r.assessment,
+      }, null, 2))
+      break
+    }
 
     default:
       throw new Error(`Unknown command: ${cmd}. Run --help for usage.`)

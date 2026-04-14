@@ -121,6 +121,7 @@ Trust:
   trust revoke <type> <identifier>      Revoke an attestation
   trust-request <pubkey> <subject> <type>  Send attestation request via DM
   trust-request-list                    Scan DMs for attestation requests
+  trust-rank <event.json|->             Annotate event with trust score and attesting paths
   ring prove <type> <pk1,pk2,...>       Create ring signature proof
   ring verify <event-json>              Verify ring signature
   spoken-challenge <secret> <ctx> <ctr> Generate spoken token
@@ -158,7 +159,7 @@ Safety:
   safety-activate [persona-name]      Switch to alternative identity
 
 Utility:
-  req [--kinds N,N] [--authors hex,hex] [--since ts] [--limit N] [--relay url]  Query events
+  req [--kinds N,N] [--authors hex,hex] [--since ts] [--limit N] [--relay url] [--min-trust level]  Query events
   event --kind N [--tag k=v] [--content s] [--relay url]  Build and publish an arbitrary event
   publish-raw [--file path] [--report] [--timeout ms] [--quorum n]  Sign+broadcast event (--report shows per-relay table)
   subscribe [--kinds N,N] [--authors hex] [--relay url]  Live-tail events to stdout (JSONL) until SIGINT
@@ -282,7 +283,7 @@ const SOCIAL_CMDS = new Set([
   'group-create', 'group-update', 'group-add-user', 'group-remove-user', 'group-set-roles',
 ])
 const TRUST_CMDS = new Set([
-  'attest', 'claim', 'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-request-list',
+  'attest', 'claim', 'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-request-list', 'trust-rank',
   'ring-prove', 'ring-verify', 'spoken-challenge', 'spoken-verify',
 ])
 const RELAY_CMDS = new Set(['relay-list', 'relay-set', 'relay-add', 'relay-info', 'req', 'relay-curl', 'subscribe', 'outbox-relays', 'outbox-publish'])

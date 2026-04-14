@@ -10,6 +10,8 @@ import type { IdentityContext } from '../context.js'
 import { wrapEventAsync } from '../nip17-wrap.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
+import { TrustContext, toAnnotation } from '../trust-context.js'
+import type { TrustAssessment, TrustAnnotation } from '../trust-context.js'
 
 export interface AttestResult {
   event: NostrEvent
@@ -325,4 +327,42 @@ export async function handleTrustProofPublish(
 
   const publish = await pool.publish(ctx.activeNpub, event)
   return { event, published: true, publish }
+}
+
+// ─── trust-rank ───────────────────────────────────────────────────────────────
+
+export interface TrustRankResult {
+  event: NostrEvent
+  assessment: TrustAssessment
+  annotation: TrustAnnotation
+}
+
+/**
+ * Assess the trust standing of the author of a Nostr event.
+ *
+ * Runs a full multi-dimensional assessment (Signet verification, WoT proximity,
+ * Vault access) against the active identity's TrustContext and returns the
+ * original event annotated with the resulting score and attesting paths.
+ *
+ * @param ctx - Active signing context (used as the assessor's perspective).
+ * @param pool - Relay pool for fetching attestation and follow-graph data.
+ * @param args.event - The Nostr event whose author should be assessed.
+ * @returns The event, full TrustAssessment, and a compact TrustAnnotation.
+ */
+export async function handleTrustRank(
+  ctx: SigningContext,
+  pool: RelayPool,
+  args: { event: NostrEvent },
+): Promise<TrustRankResult> {
+  const trustCtx = new TrustContext(ctx, pool, {
+    cacheTtl: 5 * 60 * 1000,
+    cacheMax: 512,
+    trustMode: 'annotate',
+  })
+  const assessment = await trustCtx.assess(args.event.pubkey)
+  return {
+    event: args.event,
+    assessment,
+    annotation: toAnnotation(assessment),
+  }
 }
