@@ -20,6 +20,8 @@ export const COMPOUND_COMMANDS = new Set([
   'admin-allowpubkey', 'admin-banpubkey', 'admin-listallowedpubkeys', 'admin-listbannedpubkeys',
   'admin-allowkind', 'admin-bankind', 'admin-listallowedkinds', 'admin-listbannedkinds',
   'admin-blockip', 'admin-unblockip', 'admin-listblockedips',
+  // wallet (NIP-47 Nostr Wallet Connect)
+  'wallet-connect', 'wallet-disconnect', 'wallet-status', 'wallet-pay', 'wallet-balance', 'wallet-history',
 ])
 
 // Commands that work purely offline — no relay connection needed
@@ -30,6 +32,8 @@ export const OFFLINE_COMMANDS = new Set([
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
   'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'verify', 'encrypt', 'decrypt',
   'musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate',
+  // wallet config subcommands don't touch the relay
+  'wallet-connect', 'wallet-disconnect', 'wallet-status',
 ])
 
 export interface Helpers {

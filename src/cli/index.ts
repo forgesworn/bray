@@ -18,6 +18,7 @@ import * as bunker from './commands/bunker.js'
 import * as musig2 from './commands/musig2.js'
 import * as sync from './commands/sync.js'
 import * as admin from './commands/admin.js'
+import * as wallet from './commands/wallet.js'
 
 const args = process.argv.slice(2)
 
@@ -144,6 +145,14 @@ Admin (NIP-86 relay management):
   admin <relay-url> allowpubkey|banpubkey|listallowedpubkeys|listbannedpubkeys
   admin <relay-url> allowkind|bankind|listallowedkinds|listbannedkinds [kind]
   admin <relay-url> blockip|unblockip|listblockedips [ip]
+
+Wallet (NIP-47 Nostr Wallet Connect):
+  wallet connect <nwc-url>            Store NWC URI for the active identity
+  wallet disconnect                   Remove stored NWC URI for the active identity
+  wallet status                       Show configured wallet pubkey and relay
+  wallet pay <bolt11>                 Pay a Lightning invoice via NWC
+  wallet balance                      Request wallet balance via NWC
+  wallet history [--limit N]          List recent Lightning transactions via NWC
 
 Zap:
   zap-send <bolt11>                   Pay invoice via NWC
@@ -301,6 +310,9 @@ const ADMIN_CMDS = new Set([
   'admin-allowkind', 'admin-bankind', 'admin-listallowedkinds', 'admin-listbannedkinds',
   'admin-blockip', 'admin-unblockip', 'admin-listblockedips',
 ])
+const WALLET_CMDS = new Set([
+  'wallet-connect', 'wallet-disconnect', 'wallet-status', 'wallet-pay', 'wallet-balance', 'wallet-history',
+])
 
 async function run(cmdArgs: string[]): Promise<void> {
   const outputMode = resolveOutputMode(cmdArgs, envDefault)
@@ -327,6 +339,7 @@ async function run(cmdArgs: string[]): Promise<void> {
   if (MUSIG2_CMDS.has(cmd)) return musig2.dispatch(cmd, cmdArgs, h)
   if (SYNC_CMDS.has(cmd)) return sync.dispatch(cmd, cmdArgs, h, ctx, pool, ctx.activeNpub)
   if (ADMIN_CMDS.has(cmd)) return admin.dispatch(cmd, cmdArgs, h, ctx)
+  if (WALLET_CMDS.has(cmd)) return wallet.dispatch(cmd, cmdArgs, h, ctx, pool, { globalNwcUri, walletsFile: walletsFile ?? '' })
 
   throw new Error(`Unknown command: ${cmd}. Run --help for usage.`)
 }
@@ -353,6 +366,7 @@ const ALL_COMMANDS = [
   'admin-allowpubkey', 'admin-banpubkey', 'admin-listallowedpubkeys', 'admin-listbannedpubkeys',
   'admin-allowkind', 'admin-bankind', 'admin-listallowedkinds', 'admin-listbannedkinds',
   'admin-blockip', 'admin-unblockip', 'admin-listblockedips',
+  'wallet-connect', 'wallet-disconnect', 'wallet-status', 'wallet-pay', 'wallet-balance', 'wallet-history',
   'relay-curl',
   'bunker',
   'help', 'exit',

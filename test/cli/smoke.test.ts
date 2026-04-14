@@ -294,6 +294,79 @@ describe('utility — offline', () => {
   })
 })
 
+describe('wallet — offline', () => {
+  let walletsDir: string
+  let walletEnv: Record<string, string>
+  const TEST_NWC = 'nostr+walletconnect://0000000000000000000000000000000000000000000000000000000000000001?relay=wss%3A%2F%2Frelay.example.com&secret=deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+
+  beforeAll(() => {
+    walletsDir = mkdtempSync(join(tmpdir(), 'bray-wallet-test-'))
+    walletEnv = {
+      ...OFF,
+      BRAY_WALLETS_FILE: join(walletsDir, 'wallets.json'),
+    }
+  })
+
+  afterAll(() => {
+    rmSync(walletsDir, { recursive: true, force: true })
+  })
+
+  it('wallet status returns configured:false when no wallet set', () => {
+    const out = cliJson(walletEnv, 'wallet', 'status') as any
+    expect(out.configured).toBe(false)
+  })
+
+  it('wallet connect stores URI and returns ok', () => {
+    const out = cliJson(walletEnv, 'wallet', 'connect', TEST_NWC) as any
+    expect(out.ok).toBe(true)
+    expect(out.identity).toMatch(/^npub1/)
+  })
+
+  it('wallet status returns configured:true after connect', () => {
+    const out = cliJson(walletEnv, 'wallet', 'status') as any
+    expect(out.configured).toBe(true)
+    expect(out.walletPubkey).toBeDefined()
+    expect(out.relay).toBe('wss://relay.example.com')
+  })
+
+  it('wallet status never exposes the NWC secret', () => {
+    const raw = cli(walletEnv, 'wallet', 'status', '--json')
+    expect(raw).not.toContain('deadbeef')
+  })
+
+  it('wallet disconnect removes URI and returns removed:true', () => {
+    const out = cliJson(walletEnv, 'wallet', 'disconnect') as any
+    expect(out.ok).toBe(true)
+    expect(out.removed).toBe(true)
+  })
+
+  it('wallet disconnect is idempotent (removed:false when nothing to remove)', () => {
+    const out = cliJson(walletEnv, 'wallet', 'disconnect') as any
+    expect(out.ok).toBe(true)
+    expect(out.removed).toBe(false)
+  })
+
+  it('wallet connect rejects invalid NWC URI', () => {
+    const err = cliExpectFail(walletEnv, 'wallet', 'connect', 'not-a-valid-uri')
+    expect(err).toMatch(/invalid|error/i)
+  })
+
+  it('wallet pay errors when no wallet configured', () => {
+    const err = cliExpectFail({ ...walletEnv, NOSTR_RELAYS: localRelay }, 'wallet', 'pay', 'lnbc10u1test')
+    expect(err).toMatch(/wallet not configured/i)
+  })
+
+  it('wallet balance errors when no wallet configured', () => {
+    const err = cliExpectFail({ ...walletEnv, NOSTR_RELAYS: localRelay }, 'wallet', 'balance')
+    expect(err).toMatch(/wallet not configured/i)
+  })
+
+  it('wallet history errors when no wallet configured', () => {
+    const err = cliExpectFail({ ...walletEnv, NOSTR_RELAYS: localRelay }, 'wallet', 'history')
+    expect(err).toMatch(/wallet not configured/i)
+  })
+})
+
 describe('trust-verify — offline', () => {
   it('trust-verify on a minimal event returns a valid field', () => {
     const event = JSON.stringify({ kind: 30818, pubkey: '0'.repeat(64), id: '0'.repeat(64), sig: '0'.repeat(128), created_at: 1, tags: [], content: '' })
@@ -396,6 +469,7 @@ describe('error handling', () => {
     expect(out).toContain('Social:')
     expect(out).toContain('Trust:')
     expect(out).toContain('Relay:')
+    expect(out).toContain('Wallet')
     expect(out).toContain('Zap:')
     expect(out).toContain('Safety:')
     expect(out).toContain('Utility:')
