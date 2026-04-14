@@ -1,9 +1,14 @@
-import { handleSocialPost, handleSocialReply, handleSocialReact, handleSocialDelete, handleSocialRepost, handleSocialProfileGet, handleSocialProfileSet, handleContactsGet, handleContactsFollow, handleContactsUnfollow } from '../../social/handlers.js'
-import { handleDmSend, handleDmRead } from '../../social/dm.js'
-import { handleNotifications, handleFeed } from '../../social/notifications.js'
-import { handleNipPublish, handleNipRead } from '../../social/nips.js'
-import { handleBlossomUpload, handleBlossomList, handleBlossomDelete } from '../../social/blossom.js'
-import { handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers } from '../../social/groups.js'
+import {
+  handleSocialPost, handleSocialReply, handleSocialReact, handleSocialDelete,
+  handleSocialRepost, handleSocialProfileGet, handleSocialProfileSet,
+  handleContactsGet, handleContactsFollow, handleContactsUnfollow,
+  handleDmSend, handleDmRead,
+  handleNotifications, handleFeed,
+  handleNipPublish, handleNipRead,
+  handleBlossomUpload, handleBlossomList, handleBlossomDelete,
+  handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers,
+  handleGroupCreate, handleGroupUpdate, handleGroupAddUser, handleGroupRemoveUser, handleGroupSetRoles,
+} from '../../exports.js'
 import * as fmt from '../../format.js'
 import type { Helpers } from '../dispatch.js'
 
@@ -175,6 +180,60 @@ export async function dispatch(
         groupId: req(1, 'group-members <group-id>'),
       }))
       break
+
+    case 'group-create':
+      out(await handleGroupCreate(ctx, pool, {
+        groupId: cmdArgs[1],
+        name: flag('name'),
+        about: flag('about'),
+        picture: flag('picture'),
+        isOpen: hasFlag('open') ? true : hasFlag('closed') ? false : undefined,
+        relays: flags('relay'),
+      }))
+      break
+
+    case 'group-update':
+      out(await handleGroupUpdate(ctx, pool, {
+        groupId: req(1, 'group-update <group-id> [--name X] [--about X] [--picture X] [--open|--closed]'),
+        name: flag('name'),
+        about: flag('about'),
+        picture: flag('picture'),
+        isOpen: hasFlag('open') ? true : hasFlag('closed') ? false : undefined,
+        relays: flags('relay'),
+      }))
+      break
+
+    case 'group-add-user':
+      out(await handleGroupAddUser(ctx, pool, {
+        groupId: req(1, 'group-add-user <group-id> <pubkey-hex> [--role admin]'),
+        pubkeyHex: req(2, 'group-add-user <group-id> <pubkey-hex> [--role admin]'),
+        role: flag('role'),
+        relays: flags('relay'),
+      }))
+      break
+
+    case 'group-remove-user':
+      out(await handleGroupRemoveUser(ctx, pool, {
+        groupId: req(1, 'group-remove-user <group-id> <pubkey-hex>'),
+        pubkeyHex: req(2, 'group-remove-user <group-id> <pubkey-hex>'),
+        relays: flags('relay'),
+      }))
+      break
+
+    case 'group-set-roles': {
+      // Accepts --role "admin:write,delete" --role "member:write" pairs
+      const rawRoles = flags('role')
+      const roles = rawRoles.map(r => {
+        const [name, perms] = r.split(':')
+        return { name, permissions: perms ? perms.split(',') : undefined }
+      })
+      out(await handleGroupSetRoles(ctx, pool, {
+        groupId: req(1, 'group-set-roles <group-id> --role name[:perm,perm]'),
+        roles,
+        relays: flags('relay'),
+      }))
+      break
+    }
 
     default:
       throw new Error(`Unknown command: ${cmd}. Run --help for usage.`)

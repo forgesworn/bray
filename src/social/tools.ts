@@ -38,7 +38,10 @@ import {
   handleBlossomServersGet,
   handleBlossomServersSet,
 } from './blossom.js'
-import { handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers } from './groups.js'
+import {
+  handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers,
+  handleGroupCreate, handleGroupUpdate, handleGroupAddUser, handleGroupRemoveUser, handleGroupSetRoles,
+} from './groups.js'
 import { handleArticlePublish, handleArticleRead, handleArticleList } from './articles.js'
 import { handleSearchNotes, handleSearchProfiles, handleHashtagFeed } from './search.js'
 import { handleCalendarCreate, handleCalendarRead, handleCalendarRsvp } from './calendar.js'
@@ -732,6 +735,73 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   }, async ({ groupId }) => {
     const members = await handleGroupMembers(deps.pool, deps.ctx.activeNpub, { groupId })
     return { content: [{ type: 'text' as const, text: JSON.stringify(members, null, 2) }] }
+  })
+
+  // --- NIP-29 group admin write ops ---
+
+  server.registerTool('group-create', {
+    description: 'Create a NIP-29 group (kind 9004 admin event). The relay assigns membership state from the event. Optionally supply a group ID; the relay may derive its own from the event ID.',
+    inputSchema: {
+      groupId: z.string().optional().describe('Desired group identifier (relay may override)'),
+      name: z.string().optional().describe('Group display name'),
+      about: z.string().optional().describe('Group description'),
+      picture: z.string().optional().describe('Group picture URL'),
+      isOpen: z.boolean().optional().describe('True = open (anyone can join); false = closed (invite-only)'),
+    },
+  }, async ({ groupId, name, about, picture, isOpen }) => {
+    const result = await handleGroupCreate(deps.ctx, deps.pool, { groupId, name, about, picture, isOpen })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('group-update', {
+    description: 'Update NIP-29 group metadata (kind 9002 admin event). Supply only the fields you want to change.',
+    inputSchema: {
+      groupId: z.string().describe('Group identifier'),
+      name: z.string().optional().describe('New group display name'),
+      about: z.string().optional().describe('New group description'),
+      picture: z.string().optional().describe('New group picture URL'),
+      isOpen: z.boolean().optional().describe('True = open; false = closed'),
+    },
+  }, async ({ groupId, name, about, picture, isOpen }) => {
+    const result = await handleGroupUpdate(deps.ctx, deps.pool, { groupId, name, about, picture, isOpen })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('group-add-user', {
+    description: 'Add or update a user\'s membership in a NIP-29 group (kind 9000 admin event). Optionally assign a role.',
+    inputSchema: {
+      groupId: z.string().describe('Group identifier'),
+      pubkeyHex: z.string().describe('Member\'s public key in hex'),
+      role: z.string().optional().describe('Role name (e.g. admin, moderator)'),
+    },
+  }, async ({ groupId, pubkeyHex, role }) => {
+    const result = await handleGroupAddUser(deps.ctx, deps.pool, { groupId, pubkeyHex, role })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('group-remove-user', {
+    description: 'Remove a user from a NIP-29 group (kind 9001 admin event).',
+    inputSchema: {
+      groupId: z.string().describe('Group identifier'),
+      pubkeyHex: z.string().describe('Member\'s public key in hex'),
+    },
+  }, async ({ groupId, pubkeyHex }) => {
+    const result = await handleGroupRemoveUser(deps.ctx, deps.pool, { groupId, pubkeyHex })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('group-set-roles', {
+    description: 'Define role names and their permissions in a NIP-29 group (kind 9007 admin event). Each role entry is { name, permissions? }.',
+    inputSchema: {
+      groupId: z.string().describe('Group identifier'),
+      roles: z.array(z.object({
+        name: z.string().describe('Role name'),
+        permissions: z.array(z.string()).optional().describe('Permission strings (e.g. write, delete, ban)'),
+      })).describe('Roles to define'),
+    },
+  }, async ({ groupId, roles }) => {
+    const result = await handleGroupSetRoles(deps.ctx, deps.pool, { groupId, roles })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 
   // --- NIP-23 Long-form Articles ---

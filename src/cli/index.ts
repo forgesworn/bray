@@ -107,6 +107,11 @@ Social:
   group-chat <group-id> [--limit N]  Fetch group chat messages
   group-send <group-id> "message"    Send message to group
   group-members <group-id>           List group members
+  group-create [<group-id>] [--name X] [--about X] [--picture X] [--open|--closed]  Create NIP-29 group
+  group-update <group-id> [--name X] [--about X] [--picture X] [--open|--closed]    Update group metadata
+  group-add-user <group-id> <pubkey-hex> [--role admin]  Add/update user in group
+  group-remove-user <group-id> <pubkey-hex>              Remove user from group
+  group-set-roles <group-id> --role name[:perm,perm] ... Define group roles
 
 Trust:
   attest <event-id>                     Verify someone's assertion (assertion-first)
@@ -271,6 +276,7 @@ const SOCIAL_CMDS = new Set([
   'nip-publish', 'nip-read',
   'blossom-upload', 'blossom-list', 'blossom-delete',
   'group-info', 'group-chat', 'group-send', 'group-members',
+  'group-create', 'group-update', 'group-add-user', 'group-remove-user', 'group-set-roles',
 ])
 const TRUST_CMDS = new Set([
   'attest', 'claim', 'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-request-list',
@@ -334,6 +340,7 @@ const ALL_COMMANDS = [
   'safety-configure', 'safety-activate',
   'blossom-upload', 'blossom-list', 'blossom-delete',
   'group-info', 'group-chat', 'group-send', 'group-members',
+  'group-create', 'group-update', 'group-add-user', 'group-remove-user', 'group-set-roles',
   'publish-raw',
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
   'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'encrypt', 'decrypt', 'count', 'fetch',

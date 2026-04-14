@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { IdentityContext } from '../../src/context.js'
-import { handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers } from '../../src/social/groups.js'
+import {
+  handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers,
+  handleGroupCreate, handleGroupUpdate, handleGroupAddUser, handleGroupRemoveUser, handleGroupSetRoles,
+  GROUP_KIND_ADD_USER, GROUP_KIND_REMOVE_USER, GROUP_KIND_EDIT_METADATA,
+  GROUP_KIND_CREATE, GROUP_KIND_SET_ROLES,
+} from '../../src/social/groups.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
 
@@ -125,6 +130,105 @@ describe('NIP-29 group handlers', () => {
       const pool = mockPool([])
       const result = await handleGroupMembers(pool as any, 'npub1test', { groupId: 'empty' })
       expect(result).toEqual([])
+    })
+  })
+
+  describe('handleGroupCreate', () => {
+    it('creates kind 9004 event with optional metadata tags', async () => {
+      const pool = mockPool()
+      const result = await handleGroupCreate(ctx, pool as any, {
+        groupId: 'my-group',
+        name: 'My Group',
+        about: 'A test group',
+        isOpen: true,
+      })
+      expect(result.event.kind).toBe(GROUP_KIND_CREATE)
+      expect(result.event.tags).toContainEqual(['h', 'my-group'])
+      expect(result.event.tags).toContainEqual(['name', 'My Group'])
+      expect(result.event.tags).toContainEqual(['about', 'A test group'])
+      expect(result.event.tags).toContainEqual(['open'])
+    })
+
+    it('omits optional fields when not supplied', async () => {
+      const pool = mockPool()
+      const result = await handleGroupCreate(ctx, pool as any, {})
+      expect(result.event.kind).toBe(GROUP_KIND_CREATE)
+      expect(result.event.tags.find(t => t[0] === 'name')).toBeUndefined()
+    })
+
+    it('adds closed tag when isOpen is false', async () => {
+      const pool = mockPool()
+      const result = await handleGroupCreate(ctx, pool as any, { groupId: 'g', isOpen: false })
+      expect(result.event.tags).toContainEqual(['closed'])
+    })
+  })
+
+  describe('handleGroupUpdate', () => {
+    it('creates kind 9002 event with h-tag and changed fields', async () => {
+      const pool = mockPool()
+      const result = await handleGroupUpdate(ctx, pool as any, {
+        groupId: 'g1',
+        name: 'Updated Name',
+      })
+      expect(result.event.kind).toBe(GROUP_KIND_EDIT_METADATA)
+      expect(result.event.tags).toContainEqual(['h', 'g1'])
+      expect(result.event.tags).toContainEqual(['name', 'Updated Name'])
+    })
+  })
+
+  describe('handleGroupAddUser', () => {
+    it('creates kind 9000 event with p-tag and optional role', async () => {
+      const pool = mockPool()
+      const result = await handleGroupAddUser(ctx, pool as any, {
+        groupId: 'g1',
+        pubkeyHex: 'aabbcc',
+        role: 'admin',
+      })
+      expect(result.event.kind).toBe(GROUP_KIND_ADD_USER)
+      expect(result.event.tags).toContainEqual(['h', 'g1'])
+      const pTag = result.event.tags.find(t => t[0] === 'p')
+      expect(pTag![1]).toBe('aabbcc')
+      expect(pTag![3]).toBe('admin')
+    })
+
+    it('omits role relay index when no role given', async () => {
+      const pool = mockPool()
+      const result = await handleGroupAddUser(ctx, pool as any, {
+        groupId: 'g1',
+        pubkeyHex: 'aabbcc',
+      })
+      const pTag = result.event.tags.find(t => t[0] === 'p')
+      expect(pTag).toEqual(['p', 'aabbcc'])
+    })
+  })
+
+  describe('handleGroupRemoveUser', () => {
+    it('creates kind 9001 event with h-tag and p-tag', async () => {
+      const pool = mockPool()
+      const result = await handleGroupRemoveUser(ctx, pool as any, {
+        groupId: 'g1',
+        pubkeyHex: 'aabbcc',
+      })
+      expect(result.event.kind).toBe(GROUP_KIND_REMOVE_USER)
+      expect(result.event.tags).toContainEqual(['h', 'g1'])
+      expect(result.event.tags).toContainEqual(['p', 'aabbcc'])
+    })
+  })
+
+  describe('handleGroupSetRoles', () => {
+    it('creates kind 9007 event with role tags', async () => {
+      const pool = mockPool()
+      const result = await handleGroupSetRoles(ctx, pool as any, {
+        groupId: 'g1',
+        roles: [
+          { name: 'admin', permissions: ['write', 'delete', 'ban'] },
+          { name: 'member' },
+        ],
+      })
+      expect(result.event.kind).toBe(GROUP_KIND_SET_ROLES)
+      expect(result.event.tags).toContainEqual(['h', 'g1'])
+      expect(result.event.tags).toContainEqual(['role', 'admin', 'write', 'delete', 'ban'])
+      expect(result.event.tags).toContainEqual(['role', 'member'])
     })
   })
 })
