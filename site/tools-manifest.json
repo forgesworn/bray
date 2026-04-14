@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Trust-aware Nostr for AI and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "homepage": "https://bray.forgesworn.dev",
-  "generated": "2026-04-14T10:14:35.050Z",
+  "generated": "2026-04-14T11:09:25.039Z",
   "totalTools": 238,
   "note": "Parameter schemas for every registered tool. Most tools live in the catalog (discoverable via search-actions + execute-action); ~48 promoted tools are exposed directly on the MCP server. This manifest covers both.",
   "tools": [
@@ -3309,6 +3309,7 @@
         "properties": {
           "purpose": {
             "type": "string",
+            "pattern": "^[a-z0-9-]{1,32}$",
             "description": "Purpose string for derivation (e.g. \"messaging\", \"signing\")"
           },
           "index": {
@@ -3316,7 +3317,7 @@
             "description": "Derivation index (default 0)",
             "type": "integer",
             "minimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 2147483647
           }
         },
         "required": [
@@ -3338,6 +3339,7 @@
         "properties": {
           "name": {
             "type": "string",
+            "pattern": "^[a-z0-9-]{1,32}$",
             "description": "Persona name (e.g. \"work\", \"personal\", \"anonymous\")"
           },
           "index": {
@@ -3345,7 +3347,7 @@
             "description": "Derivation index (default 0)",
             "type": "integer",
             "minimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 2147483647
           }
         },
         "required": [
@@ -7347,10 +7349,52 @@
         "properties": {
           "event": {
             "type": "object",
-            "propertyNames": {
-              "type": "string"
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "pubkey": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "sig": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{128}$"
+              },
+              "kind": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "created_at": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8640000000000
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "content": {
+                "type": "string"
+              }
             },
-            "additionalProperties": {},
+            "required": [
+              "id",
+              "pubkey",
+              "sig",
+              "kind",
+              "created_at",
+              "tags",
+              "content"
+            ],
+            "additionalProperties": false,
             "description": "The attestation event object to parse"
           }
         },
@@ -8024,10 +8068,52 @@
         "properties": {
           "event": {
             "type": "object",
-            "propertyNames": {
-              "type": "string"
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "pubkey": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "sig": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{128}$"
+              },
+              "kind": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "created_at": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8640000000000
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "content": {
+                "type": "string"
+              }
             },
-            "additionalProperties": {},
+            "required": [
+              "id",
+              "pubkey",
+              "sig",
+              "kind",
+              "created_at",
+              "tags",
+              "content"
+            ],
+            "additionalProperties": false,
             "description": "The attestation event object to validate"
           }
         },
@@ -8284,10 +8370,52 @@
         "properties": {
           "event": {
             "type": "object",
-            "propertyNames": {
-              "type": "string"
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "pubkey": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "sig": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{128}$"
+              },
+              "kind": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "created_at": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8640000000000
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "content": {
+                "type": "string"
+              }
             },
-            "additionalProperties": {},
+            "required": [
+              "id",
+              "pubkey",
+              "sig",
+              "kind",
+              "created_at",
+              "tags",
+              "content"
+            ],
+            "additionalProperties": false,
             "description": "The Nostr event object to verify"
           }
         },

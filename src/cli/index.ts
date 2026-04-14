@@ -248,6 +248,7 @@ const pool = new RelayPool({
   torProxy: config.torProxy,
   allowClearnet: config.allowClearnetWithTor || !config.torProxy,
   defaultRelays: config.relays,
+  allowPrivateRelays: config.allowPrivateRelays,
 })
 const nip65 = new Nip65Manager(pool, config.relays)
 

@@ -49,6 +49,12 @@ export interface RelayPoolConfig {
   torProxy?: string
   allowClearnet: boolean
   defaultRelays: string[]
+  /**
+   * Skip the private-network validatePublicUrl check. Used only for local
+   * development (in-memory test relay at ws://localhost:<port>, docker-
+   * networked relays, etc). Gated by BRAY_ALLOW_PRIVATE_RELAYS=1.
+   */
+  allowPrivateRelays?: boolean
 }
 
 /** Initialise WebSocket and create a real SimplePool — lazy-loaded to avoid side effects at import */
@@ -93,10 +99,12 @@ export class RelayPool {
   private defaults: RelaySet
   private torProxy?: string
   private allowClearnet: boolean
+  private allowPrivateRelays: boolean
 
   constructor(config: RelayPoolConfig, injectedPool?: PoolLike) {
     this.torProxy = config.torProxy
     this.allowClearnet = config.allowClearnet
+    this.allowPrivateRelays = config.allowPrivateRelays ?? false
 
     // Validate Tor/clearnet policy on default relays
     if (config.torProxy && !config.allowClearnet) {
@@ -125,16 +133,19 @@ export class RelayPool {
   reconfigure(npub: string, relays: RelaySet): void {
     const allUrls = [...relays.read, ...relays.write]
 
-    // Always reject private/malformed URLs regardless of Tor mode — closes SSRF
+    // Reject private/malformed URLs regardless of Tor mode — closes SSRF
     // vectors where callers (NIP-65 events, relay-add, workflow tools) could
-    // inject a loopback or cloud-metadata URL when Tor is off.
+    // inject a loopback or cloud-metadata URL when Tor is off. When
+    // allowPrivateRelays is explicitly set (BRAY_ALLOW_PRIVATE_RELAYS=1),
+    // only the scheme/length guard runs — used for local development against
+    // the in-memory test relay.
     for (const url of allUrls) {
       if (!/^wss?:\/\//i.test(url) || url.length > 512) {
         throw new Error(`Invalid relay URL: ${url.slice(0, 128)}`)
       }
       // .onion hosts bypass validatePublicUrl (they don't resolve in DNS and
       // cannot be private-network aliases); everything else must pass.
-      if (!this.isOnion(url)) {
+      if (!this.allowPrivateRelays && !this.isOnion(url)) {
         validatePublicUrl(url)
       }
     }

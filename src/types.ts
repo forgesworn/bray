@@ -53,6 +53,7 @@ export interface BrayConfig {
   readonly walletsFile: string
   readonly torProxy?: string
   readonly allowClearnetWithTor: boolean
+  readonly allowPrivateRelays: boolean
   readonly nip04Enabled: boolean
   readonly veilCacheTtl: number
   readonly veilCacheMax: number

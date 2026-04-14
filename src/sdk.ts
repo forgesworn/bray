@@ -60,6 +60,12 @@ export interface BrayClientConfig {
   /** SOCKS5h proxy for Tor */
   torProxy?: string
   allowClearnetWithTor?: boolean
+  /**
+   * Allow relays on private networks (localhost, RFC 1918, etc). Set only for
+   * dev/test scenarios — gated by the BRAY_ALLOW_PRIVATE_RELAYS=1 env var in
+   * the CLI and server.
+   */
+  allowPrivateRelays?: boolean
   nip04Enabled?: boolean
 }
 
@@ -550,6 +556,7 @@ export async function createBray(config: BrayClientConfig): Promise<BrayClient> 
     torProxy: config.torProxy,
     allowClearnet: config.allowClearnetWithTor || !config.torProxy,
     defaultRelays: relays,
+    allowPrivateRelays: config.allowPrivateRelays,
   })
 
   let ctx: IdentityContext
@@ -588,6 +595,7 @@ export function defaultBray(): Promise<BrayClient> {
         torProxy: config.torProxy,
         allowClearnet: config.allowClearnetWithTor || !config.torProxy,
         defaultRelays: config.relays,
+        allowPrivateRelays: config.allowPrivateRelays,
       })
       const nip65 = new Nip65Manager(pool, config.relays)
 

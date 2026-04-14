@@ -181,6 +181,9 @@ export async function loadConfig(): Promise<BrayConfig> {
   const allowClearnetWithTor = process.env.ALLOW_CLEARNET_WITH_TOR === '1' || file.allowClearnetWithTor === true
   validateTorRelays(relays, torProxy, allowClearnetWithTor)
 
+  // --- Dev: allow private-network relay URLs (for the in-memory test relay)
+  const allowPrivateRelays = process.env.BRAY_ALLOW_PRIVATE_RELAYS === '1'
+
   // --- Transport ---
   const transportRaw = process.env.TRANSPORT ?? file.transport
   const transport = (transportRaw === 'http' ? 'http' : 'stdio') as 'stdio' | 'http'
@@ -246,6 +249,7 @@ export async function loadConfig(): Promise<BrayConfig> {
     walletsFile,
     torProxy,
     allowClearnetWithTor,
+    allowPrivateRelays,
     nip04Enabled,
     veilCacheTtl,
     veilCacheMax,

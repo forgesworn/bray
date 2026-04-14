@@ -82,10 +82,14 @@ function cliExpectFail(env: Record<string, string | undefined>, ...args: string[
   }
 }
 
-// Base offline env — no relay required
+// Base offline env — no relay required.
+// BRAY_ALLOW_PRIVATE_RELAYS=1 so the in-memory test relay (ws://localhost:...)
+// is accepted by the SSRF-hardened validatePublicUrl. Production deployments
+// must not set this env var.
 const OFF: Record<string, string> = {
   NOSTR_SECRET_KEY: TEST_NSEC,
   PATH: process.env.PATH!,
+  BRAY_ALLOW_PRIVATE_RELAYS: '1',
 }
 
 // Online env pointing at the local relay (populated in beforeAll)
