@@ -4,6 +4,7 @@
   "mcpName": "dev.forgesworn/bray",
   "description": "Trust-aware Nostr for AI and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "type": "module",
+  "sideEffects": false,
   "main": "dist/exports.js",
   "types": "dist/exports.d.ts",
   "bin": {
