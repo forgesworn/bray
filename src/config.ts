@@ -109,6 +109,11 @@ export async function loadConfig(): Promise<BrayConfig> {
     bunkerUri = process.env.BUNKER_URI
   } else if (file.bunkerUriFile) {
     bunkerUri = readSecretFile(file.bunkerUriFile)
+  } else {
+    // Fall back to URI saved by `bunker connect`
+    const { readStateFile } = await import('./state.js')
+    const saved = readStateFile<{ uri?: string }>('bunker-uri')
+    if (saved.uri) bunkerUri = saved.uri
   }
 
   // --- NIP-49 ncryptsec (password-encrypted key) ---

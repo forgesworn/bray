@@ -1,5 +1,10 @@
-import { handleDecode, handleEncodeNpub, handleEncodeNote, handleEncodeNprofile, handleEncodeNevent, handleVerify, handleEncrypt, handleDecrypt, handleCount, handleFetch, handleKeyPublic, handleEncodeNsec, handleFilter, handleNipList, handleNipShow } from '../../util/handlers.js'
-import { handleKeyEncrypt, handleKeyDecrypt } from '../../util/ncryptsec.js'
+import {
+  handleDecode, handleEncodeNpub, handleEncodeNote, handleEncodeNprofile,
+  handleEncodeNevent, handleVerify, handleEncrypt, handleDecrypt,
+  handleCount, handleFetch, handleKeyPublic, handleEncodeNsec,
+  handleFilter, handleNipList, handleNipShow,
+  handleKeyEncrypt, handleKeyDecrypt,
+} from '../../exports.js'
 import * as fmt from '../../format.js'
 import type { Helpers } from '../dispatch.js'
 

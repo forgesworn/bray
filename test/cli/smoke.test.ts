@@ -10,6 +10,9 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { execFileSync, spawn } from 'node:child_process'
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { startRelay } from '../../src/serve.js'
 import { startBunker } from '../../src/bunker.js'
 import { IdentityContext } from '../../src/context.js'
@@ -751,5 +754,128 @@ describe('bunker sign — local relay', { timeout: 30_000 }, () => {
   it('fails gracefully when BUNKER_URI is missing', () => {
     const err = cliExpectFail({ PATH: process.env.PATH! }, 'bunker', 'sign')
     expect(err).toContain('missing bunker URI')
+  })
+})
+
+describe('bunker connect — async spawn (live relay)', { timeout: 30_000 }, () => {
+  // `bunker connect` makes a NIP-46 connection via the in-process relay.
+  // execFileSync blocks the event loop, so we must use spawn (async) —
+  // same pattern as the bunker sign tests.
+  let bunkerRelayServer2: ReturnType<typeof startRelay>
+  let bunkerInstance2: ReturnType<typeof startBunker>
+  let bunkerCtx2: InstanceType<typeof IdentityContext>
+
+  beforeAll(async () => {
+    bunkerRelayServer2 = startRelay({ port: 19748, quiet: true })
+    bunkerCtx2 = new IdentityContext(TEST_NSEC, 'nsec')
+    bunkerInstance2 = startBunker({ ctx: bunkerCtx2, relays: [bunkerRelayServer2.url], quiet: true })
+    await new Promise(resolve => setTimeout(resolve, 400))
+  })
+
+  afterAll(() => {
+    bunkerInstance2?.close()
+    bunkerCtx2?.destroy()
+    bunkerRelayServer2?.close()
+  })
+
+  it('saves the URI and reports the npub', async () => {
+    const tmpStateDir = mkdtempSync(join(tmpdir(), 'bray-connect-'))
+    try {
+      const out = await new Promise<any>((resolve, reject) => {
+        const proc = spawn('node', [CLI, 'bunker', 'connect', bunkerInstance2.url], {
+          env: { PATH: process.env.PATH!, XDG_CONFIG_HOME: tmpStateDir },
+          stdio: ['pipe', 'pipe', 'pipe'],
+        })
+        let stdout = ''
+        proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
+        const timer = setTimeout(() => { proc.kill(); reject(new Error('bunker connect timed out')) }, 20_000)
+        proc.on('close', (code: number | null) => {
+          clearTimeout(timer)
+          if (code === 0) resolve(JSON.parse(stdout.trim()))
+          else reject(new Error(`bunker connect exited ${code}`))
+        })
+      })
+
+      expect(out.connected).toBe(true)
+      expect(out.npub).toMatch(/^npub1/)
+      expect(out.saved).toBe(true)
+
+      const saved = JSON.parse(readFileSync(join(tmpStateDir, 'bray', 'bunker-uri'), 'utf-8'))
+      expect(saved.uri).toBe(bunkerInstance2.url)
+    } finally {
+      rmSync(tmpStateDir, { recursive: true })
+    }
+  })
+
+  it('fails gracefully when given an invalid URI', () => {
+    const err = cliExpectFail({ PATH: process.env.PATH! }, 'bunker', 'connect')
+    expect(err).toContain('usage')
+  })
+})
+
+describe('bunker status / authorize — state file', { timeout: 15_000 }, () => {
+  // These commands read/write the state file directly — no live relay needed.
+  // We pre-populate the state file with a realistic bunker URI.
+  const FAKE_BUNKER_URI = 'bunker://aabbcc1122334455aabbcc1122334455aabbcc1122334455aabbcc1122334455?relay=ws://localhost:19748'
+  let tmpStateDir: string
+
+  beforeAll(() => {
+    tmpStateDir = mkdtempSync(join(tmpdir(), 'bray-state-'))
+    mkdirSync(join(tmpStateDir, 'bray'), { recursive: true })
+    writeFileSync(
+      join(tmpStateDir, 'bray', 'bunker-uri'),
+      JSON.stringify({ uri: FAKE_BUNKER_URI }),
+      { mode: 0o600 },
+    )
+  })
+
+  afterAll(() => {
+    try { rmSync(tmpStateDir, { recursive: true }) } catch { /* ignore */ }
+  })
+
+  it('bunker status reports saved URI details', () => {
+    const raw = cli({ PATH: process.env.PATH!, XDG_CONFIG_HOME: tmpStateDir }, 'bunker', 'status')
+    const out = JSON.parse(raw)
+    expect(out.connected).toBe(true)
+    expect(out.npub).toMatch(/^npub1/)
+    expect(Array.isArray(out.relays)).toBe(true)
+    expect(out.relays[0]).toContain('localhost:19748')
+  })
+
+  it('bunker status reports not connected when no URI saved', () => {
+    const emptyDir = mkdtempSync(join(tmpdir(), 'bray-empty-'))
+    try {
+      const raw = cli({ PATH: process.env.PATH!, XDG_CONFIG_HOME: emptyDir }, 'bunker', 'status')
+      expect(JSON.parse(raw)).toMatchObject({ connected: false })
+    } finally {
+      rmSync(emptyDir, { recursive: true })
+    }
+  })
+
+  it('bunker authorize rejects a malformed pubkey', () => {
+    const err = cliExpectFail(
+      { PATH: process.env.PATH!, XDG_CONFIG_HOME: tmpStateDir },
+      'bunker', 'authorize', 'not-a-pubkey',
+    )
+    expect(err).toContain('usage')
+  })
+
+  it('bunker authorize saves a valid pubkey to approved-clients.json', () => {
+    const fakePk = 'b'.repeat(64)
+    cli({ PATH: process.env.PATH!, XDG_CONFIG_HOME: tmpStateDir }, 'bunker', 'authorize', fakePk)
+    const approvals = JSON.parse(
+      readFileSync(join(tmpStateDir, 'bray', 'approved-clients.json'), 'utf-8'),
+    )
+    const entries = Object.values(approvals).flat() as string[]
+    expect(entries).toContain(fakePk)
+  })
+
+  it('bunker authorize is idempotent for duplicate pubkeys', () => {
+    const fakePk = 'c'.repeat(64)
+    // First authorize
+    cli({ PATH: process.env.PATH!, XDG_CONFIG_HOME: tmpStateDir }, 'bunker', 'authorize', fakePk)
+    // Second should succeed without error (exit 0, stderr message)
+    // cliExpectFail would fail; instead confirm cli exits 0
+    cli({ PATH: process.env.PATH!, XDG_CONFIG_HOME: tmpStateDir }, 'bunker', 'authorize', fakePk)
   })
 })

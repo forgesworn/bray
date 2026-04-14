@@ -1,6 +1,9 @@
-import { handleTrustAttest, handleTrustRead, handleTrustVerify, handleTrustRevoke, handleTrustRequest, handleTrustRequestList } from '../../trust/handlers.js'
-import { handleTrustRingProve, handleTrustRingVerify } from '../../trust/ring.js'
-import { handleTrustSpokenChallenge, handleTrustSpokenVerify } from '../../trust/spoken.js'
+import {
+  handleTrustAttest, handleTrustRead, handleTrustVerify, handleTrustRevoke,
+  handleTrustRequest, handleTrustRequestList,
+  handleTrustRingProve, handleTrustRingVerify,
+  handleTrustSpokenChallenge, handleTrustSpokenVerify,
+} from '../../exports.js'
 import type { Helpers } from '../dispatch.js'
 
 export async function dispatch(

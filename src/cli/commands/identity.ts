@@ -1,7 +1,9 @@
-import { handleIdentityList, handleIdentityProve, handleIdentityCreate } from '../../identity/handlers.js'
-import { handleBackupShamir, handleRestoreShamir } from '../../identity/shamir.js'
-import { handleIdentityBackup, handleIdentityRestore, handleIdentityMigrate } from '../../identity/migration.js'
-import { handleTrustProofPublish } from '../../trust/handlers.js'
+import {
+  handleIdentityList, handleIdentityProve, handleIdentityCreate,
+  handleBackupShamir, handleRestoreShamir,
+  handleIdentityBackup, handleIdentityRestore, handleIdentityMigrate,
+  handleTrustProofPublish,
+} from '../../exports.js'
 import * as fmt from '../../format.js'
 import type { Helpers } from '../dispatch.js'
 

@@ -189,6 +189,9 @@ MuSig2 (BIP-327 multi-signature):
 Modes:
   (no command)                        Start MCP server (stdio)
   serve [--port N] [--events file]    Start in-memory test relay
+  bunker connect <bunker://…>              Save remote bunker URI for future commands
+  bunker authorize <hex-pubkey>           Pre-authorise an app pubkey on the local bunker
+  bunker status                           Show saved bunker connection state
   bunker daemon [--authorized-keys pk,pk]  Start NIP-46 remote signer daemon
   shell                               Interactive REPL (persistent relay connection)
 

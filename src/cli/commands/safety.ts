@@ -1,4 +1,4 @@
-import { handleDuressConfigure, handleDuressActivate } from '../../safety/handlers.js'
+import { handleDuressConfigure, handleDuressActivate } from '../../exports.js'
 import type { Helpers } from '../dispatch.js'
 
 export async function dispatch(
