@@ -244,6 +244,8 @@ if (command === 'help' || command === '--help' || command === '-h') {
 
 // All other commands need config + ctx + pool
 const config = await loadConfig()
+const { configureHttpClient } = await import('../http-client.js')
+configureHttpClient({ torProxy: config.torProxy })
 const pool = new RelayPool({
   torProxy: config.torProxy,
   allowClearnet: config.allowClearnetWithTor || !config.torProxy,

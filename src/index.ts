@@ -23,8 +23,13 @@ import { registerVaultTools } from './vault/tools.js'
 import { registerDispatchTools } from './dispatch/tools.js'
 import { registerHandlerTools } from './handler/tools.js'
 import { ActionCatalog, createCatalogProxy } from './catalog.js'
+import { configureHttpClient } from './http-client.js'
 
 const config = await loadConfig()
+// Route every fetch() in this process through the SOCKS proxy when Tor is
+// configured, before any HTTP-using code runs. Structural protection
+// against DNS/IP leaks; no callsite needs to opt in.
+configureHttpClient({ torProxy: config.torProxy })
 const pool = new RelayPool({
   torProxy: config.torProxy,
   allowClearnet: config.allowClearnetWithTor || !config.torProxy,

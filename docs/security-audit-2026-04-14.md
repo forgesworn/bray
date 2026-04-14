@@ -51,8 +51,8 @@ Tests: 1400 → 1427 (+27 new). All pass. Typecheck clean.
 
 Not fixed here because these files are your uncommitted work-in-progress. **Address before committing.** See `docs/musig2-security-notes.md` for the reviewer's reasoning.
 
-**HIGH — architectural, deferred**
-- **HTTP fetch callsites bypass Tor proxy** (`src/identity/nip05.ts`, `src/social/blossom.ts`, `src/marketplace/handlers.ts`, `src/relay/*.ts`, `src/workflow/handlers.ts`). Only WebSocket connections go through the SOCKS agent; every `fetch()` goes clearnet. On a Tor-first deployment this leaks DNS and IP on every NIP-05 lookup, Blossom operation, and relay-info fetch. Fix: introduce a shared `fetchWithOptionalTor(url, opts)` helper wired through config, plumb through all 25 `fetch(` callsites. Not surgical enough for a security-fix branch — open a dedicated PR.
+**HIGH — architectural, addressed in follow-up**
+- ~~**HTTP fetch callsites bypass Tor proxy.**~~ Originally: only WebSocket connections went through the SOCKS agent; every `fetch()` went clearnet, leaking DNS and IP on every NIP-05 lookup, Blossom operation, and relay-info fetch. Fixed in `src/http-client.ts`: when `TOR_PROXY` is set, the global undici dispatcher is swapped to a `Socks5ProxyAgent` at startup, so every `fetch()` in the process (including any added in future) flows through the proxy with `ATYP=DOMAIN` semantics — DNS happens at the proxy, no clearnet leak. Configured once from `src/index.ts`, `src/sdk.ts`, `src/cli/index.ts`. Structural protection rather than discipline-based; no callsite needs to opt in.
 
 **HIGH — profile set signing**
 - (Addressed above — item 14.)

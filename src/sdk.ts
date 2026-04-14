@@ -552,6 +552,8 @@ class BrayClientImpl implements BrayClient {
  */
 export async function createBray(config: BrayClientConfig): Promise<BrayClient> {
   const relays = config.relays ?? []
+  const { configureHttpClient } = await import('./http-client.js')
+  configureHttpClient({ torProxy: config.torProxy })
   const pool = new RelayPool({
     torProxy: config.torProxy,
     allowClearnet: config.allowClearnetWithTor || !config.torProxy,
@@ -591,6 +593,8 @@ export function defaultBray(): Promise<BrayClient> {
   if (!_default) {
     _default = (async (): Promise<BrayClient> => {
       const config = await loadConfig()
+      const { configureHttpClient } = await import('./http-client.js')
+      configureHttpClient({ torProxy: config.torProxy })
       const pool = new RelayPool({
         torProxy: config.torProxy,
         allowClearnet: config.allowClearnetWithTor || !config.torProxy,
