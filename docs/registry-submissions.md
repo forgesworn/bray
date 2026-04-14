@@ -28,7 +28,7 @@ Updated: 2026-04-07
 - **Category:** Communication / Identity
 - **Description:**
 
-> Trust-aware Nostr MCP server for AI agents and humans. 235 tools across 27 groups covering identity, social, direct
+> Trust-aware Nostr MCP server for AI agents and humans. 238 tools across 27 groups covering identity, social, direct
 > messages, trust attestations, encrypted dispatch (AI-to-AI collaboration), Lightning zaps, privacy proofs, ring
 > signatures, blossom media, and more. Model-agnostic -- works with Claude, ChatGPT, Gemini, Cursor, or any MCP client.
 > Three dimensions of trust (verification, proximity, access) woven into every interaction. Supports NIP-46 bunker auth so
@@ -42,7 +42,7 @@ Updated: 2026-04-07
 - **Tags:** nostr, identity, trust, lightning, ai-agent, mcp-server, web-of-trust, privacy
 - **Description:**
 
-> Trust-aware Nostr MCP server. 235 tools for identity, social posting, encrypted DMs, trust scoring, AI-to-AI dispatch,
+> Trust-aware Nostr MCP server. 238 tools for identity, social posting, encrypted DMs, trust scoring, AI-to-AI dispatch,
 > Lightning zaps, ring signatures, zero-knowledge proofs, and marketplace discovery. Covers 30 NIPs. Model-agnostic.
 
 ### mcphub.tools (https://mcphub.tools/submit)
@@ -52,7 +52,7 @@ Updated: 2026-04-07
 - **Category:** Communication / Social
 - **Description:**
 
-> Nostr MCP server with 235 tools across 27 groups. Trust-scored feeds, NIP-46 bunker auth, AI-to-AI dispatch over
+> Nostr MCP server with 238 tools across 27 groups. Trust-scored feeds, NIP-46 bunker auth, AI-to-AI dispatch over
 > encrypted DMs, ring signatures, zero-knowledge age/income proofs, L402 marketplace, and CANARY duress detection. The
 > most comprehensive Nostr toolkit for AI agents.
 
@@ -61,7 +61,7 @@ Updated: 2026-04-07
 Add to the **Communication** or **Social** section:
 
 ```markdown
-- [nostr-bray](https://github.com/forgesworn/bray) - Trust-aware Nostr MCP server. 235 tools covering identity, social,
+- [nostr-bray](https://github.com/forgesworn/bray) - Trust-aware Nostr MCP server. 238 tools covering identity, social,
   DMs, trust scoring, AI-to-AI dispatch, Lightning zaps, ring signatures, and privacy proofs. `npx nostr-bray`
 ```
 
@@ -70,7 +70,7 @@ Add to the **Communication** or **Social** section:
 If an "MCP Servers / AI Agents" section exists, add there. Otherwise add to **Tools**:
 
 ```markdown
-- [nostr-bray](https://github.com/forgesworn/bray) - MCP server giving AI agents sovereign Nostr identities. 235 tools,
+- [nostr-bray](https://github.com/forgesworn/bray) - MCP server giving AI agents sovereign Nostr identities. 238 tools,
   30 NIPs. Trust-scored feeds, NIP-46 bunker auth, AI-to-AI dispatch, ring signatures, zero-knowledge proofs, and L402
   marketplace. `npx nostr-bray`
 ```
@@ -78,7 +78,7 @@ If an "MCP Servers / AI Agents" section exists, add there. Otherwise add to **To
 **PR title:**
 
 ```
-feat: add nostr-bray MCP server (235 tools, trust-aware, AI-to-AI dispatch)
+feat: add nostr-bray MCP server (238 tools, trust-aware, AI-to-AI dispatch)
 ```
 
 **PR body:**
@@ -91,7 +91,7 @@ Claude, ChatGPT, Gemini, Cursor, or any MCP client.
 
 **Why it's notable:**
 
-- 235 tools across 27 groups -- the most comprehensive Nostr MCP server
+- 238 tools across 27 groups -- the most comprehensive Nostr MCP server
 - Trust-aware by default: feeds and DMs score and filter untrusted content
 - Covers 30 NIPs (NIP-01, 02, 05, 09, 11, 17, 19, 23, 29, 32, 40, 42, 44, 45, 46, 49, 50, 51, 52, 54, 57, 58, 65, 72,
   78, 85, 89, 96, 99, A7, VA)
@@ -109,7 +109,7 @@ Claude, ChatGPT, Gemini, Cursor, or any MCP client.
 
 ### Differentiator copy (for free-text fields)
 
-> Most Nostr MCP servers offer 5-15 tools for basic posting. nostr-bray provides 235 tools with trust-aware defaults:
+> Most Nostr MCP servers offer 5-15 tools for basic posting. nostr-bray provides 238 tools with trust-aware defaults:
 > feeds filter out untrusted content automatically, DMs annotate sender trust scores, and reply tools warn about unknown
 > authors. Unique capabilities include AI-to-AI dispatch over encrypted Nostr DMs, zero-knowledge age/income proofs, ring
 > signatures for anonymous group membership, CANARY duress detection, and an L402 marketplace. Supports NIP-46 bunker auth
