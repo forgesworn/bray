@@ -11,6 +11,7 @@ export const COMPOUND_COMMANDS = new Set([
   'trust-read', 'trust-verify', 'trust-revoke', 'trust-request',
   'nip-publish', 'nip-read',
   'relay-set', 'relay-add', 'relay-curl',
+  'outbox-relays', 'outbox-publish',
   'ring-prove', 'ring-verify',
   'musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate',
   // sync
@@ -39,16 +40,59 @@ export interface Helpers {
   out(data: unknown, humanFormatter?: (d: any) => string): void
 }
 
+export type OutputMode = 'json' | 'human' | 'jsonl' | 'csv' | 'tsv'
+
 export function resolveOutputMode(
   cmdArgs: string[],
   envDefault: 'json' | 'human',
-): 'json' | 'human' {
+): OutputMode {
+  if (cmdArgs.includes('--jsonl')) return 'jsonl'
+  if (cmdArgs.includes('--csv')) return 'csv'
+  if (cmdArgs.includes('--tsv')) return 'tsv'
   if (cmdArgs.includes('--json')) return 'json'
   if (cmdArgs.includes('--human')) return 'human'
   return envDefault
 }
 
-export function makeHelpers(cmdArgs: string[], outputMode: 'json' | 'human'): Helpers {
+/** Serialise a value to delimited text (CSV or TSV).
+ *
+ * - Array of objects: first row is header from keys, subsequent rows are values.
+ * - Array of primitives: one value per row.
+ * - Single object: two-column key/value table.
+ * - Primitive: single value.
+ */
+function toDelimited(data: unknown, sep: string): string {
+  const escape = (v: unknown): string => {
+    const s = v == null ? '' : String(v)
+    if (sep === ',' && (s.includes(',') || s.includes('"') || s.includes('\n'))) {
+      return `"${s.replace(/"/g, '""')}"`
+    }
+    return s.replace(/\t/g, ' ')
+  }
+
+  if (Array.isArray(data)) {
+    if (data.length === 0) return ''
+    if (typeof data[0] === 'object' && data[0] !== null) {
+      const keys = Object.keys(data[0] as object)
+      const header = keys.map(k => escape(k)).join(sep)
+      const rows = data.map(row =>
+        keys.map(k => escape((row as Record<string, unknown>)[k])).join(sep),
+      )
+      return [header, ...rows].join('\n')
+    }
+    return data.map(v => escape(v)).join('\n')
+  }
+
+  if (typeof data === 'object' && data !== null) {
+    return Object.entries(data as Record<string, unknown>)
+      .map(([k, v]) => `${escape(k)}${sep}${escape(v)}`)
+      .join('\n')
+  }
+
+  return escape(data)
+}
+
+export function makeHelpers(cmdArgs: string[], outputMode: OutputMode): Helpers {
   function req(index: number, usage: string): string {
     const val = cmdArgs[index]
     if (!val) throw new Error(`Usage: ${usage}`)
@@ -74,10 +118,29 @@ export function makeHelpers(cmdArgs: string[], outputMode: 'json' | 'human'): He
   }
 
   function out(data: unknown, humanFormatter?: (d: any) => string): void {
-    if (outputMode === 'json' || !humanFormatter) {
-      console.log(JSON.stringify(data, null, 2))
-    } else {
-      console.log(humanFormatter(data))
+    switch (outputMode) {
+      case 'jsonl':
+        if (Array.isArray(data)) {
+          for (const item of data) console.log(JSON.stringify(item))
+        } else {
+          console.log(JSON.stringify(data))
+        }
+        break
+      case 'csv':
+        console.log(toDelimited(data, ','))
+        break
+      case 'tsv':
+        console.log(toDelimited(data, '\t'))
+        break
+      case 'json':
+        console.log(JSON.stringify(data, null, 2))
+        break
+      default: // human
+        if (humanFormatter) {
+          console.log(humanFormatter(data))
+        } else {
+          console.log(JSON.stringify(data, null, 2))
+        }
     }
   }
 

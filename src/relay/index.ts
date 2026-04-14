@@ -1,6 +1,7 @@
 export * from './handlers.js'
 export * from './count.js'
 export * from './intelligence-handlers.js'
+export * from './outbox-handlers.js'
 export * from './spell.js'
 export * from './auth.js'
 export * from './curl.js'

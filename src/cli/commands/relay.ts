@@ -1,4 +1,4 @@
-import { handleRelayInfo, handleRelayList, handleRelaySet, handleRelayAdd, handleRelayQuery, handleRelayCurl, handleSubscribe } from '../../exports.js'
+import { handleRelayInfo, handleRelayList, handleRelaySet, handleRelayAdd, handleRelayQuery, handleRelayCurl, handleSubscribe, handleOutboxRelays, handleOutboxPublish } from '../../exports.js'
 import * as fmt from '../../format.js'
 import type { Helpers } from '../dispatch.js'
 
@@ -133,6 +133,45 @@ export async function dispatch(
       // Run until SIGINT
       await new Promise<void>(resolve => {
         process.once('SIGINT', () => { unsubscribe(); resolve() })
+      })
+      break
+    }
+
+    case 'outbox-relays': {
+      const targetPubkey = req(1, 'outbox relays <npub|hex|nprofile>')
+      const result = await handleOutboxRelays(ctx, pool, { targetPubkey })
+      out(result, r => {
+        const lines = [
+          `pubkey:   ${r.pubkey}`,
+          `resolved: ${r.resolved ? 'yes (kind 10002 found)' : 'no (using defaults)'}`,
+          `read:     ${r.relays.read.join(', ') || '(none)'}`,
+          `write:    ${r.relays.write.join(', ') || '(none)'}`,
+        ]
+        return lines.join('\n')
+      })
+      break
+    }
+
+    case 'outbox-publish': {
+      const { readFileSync } = await import('node:fs')
+      const filePath = cmdArgs[1]
+      let raw: string
+      if (filePath && filePath !== '-') {
+        raw = readFileSync(filePath, 'utf-8').trim()
+      } else {
+        raw = readFileSync(0, 'utf-8').trim()
+      }
+      const event = JSON.parse(raw)
+      const timeoutMs = flag('timeout') ? parseInt(flag('timeout')!, 10) : undefined
+      const result = await handleOutboxPublish(ctx, pool, { event, timeoutMs })
+      out(result, r => {
+        const lines = [
+          `event:    ${r.event.id}`,
+          `relays:   ${r.targetRelays.join(', ')}`,
+          `success:  ${r.publish.success}`,
+          `accepted: ${r.publish.relayResults?.filter((x: any) => x.accepted).length ?? '?'}/${r.publish.relayResults?.length ?? '?'}`,
+        ]
+        return lines.join('\n')
       })
       break
     }

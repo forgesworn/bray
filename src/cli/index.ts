@@ -127,6 +127,8 @@ Relay:
   relay add <url> [read|write]        Add relay to active identity
   relay-info <wss://url>              Fetch NIP-11 relay info
   relay curl <url> [--path /ep] [--method GET|POST] [--body json] [--auth]  HTTP request to relay
+  outbox relays <npub|hex|nprofile>   Resolve NIP-65 read/write relays for any pubkey
+  outbox publish <event.json|->       Publish event to author's outbox + p-tag inboxes (NIP-65)
 
 Sync (filter-based relay sync):
   sync pull <relay-url> [--kinds N,N] [--authors hex] [--since ts] [--limit N]
@@ -274,7 +276,7 @@ const TRUST_CMDS = new Set([
   'attest', 'claim', 'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-request-list',
   'ring-prove', 'ring-verify', 'spoken-challenge', 'spoken-verify',
 ])
-const RELAY_CMDS = new Set(['relay-list', 'relay-set', 'relay-add', 'relay-info', 'req', 'relay-curl', 'subscribe'])
+const RELAY_CMDS = new Set(['relay-list', 'relay-set', 'relay-add', 'relay-info', 'req', 'relay-curl', 'subscribe', 'outbox-relays', 'outbox-publish'])
 const ZAP_CMDS = new Set(['zap-send', 'zap-balance', 'zap-invoice', 'zap-lookup', 'zap-transactions', 'zap-receipts', 'zap-decode'])
 const SAFETY_CMDS = new Set(['safety-configure', 'safety-activate'])
 const EVENT_CMDS = new Set(['event', 'publish-raw'])
@@ -327,7 +329,7 @@ const ALL_COMMANDS = [
   'post', 'reply', 'react', 'delete', 'repost', 'profile', 'profile-set', 'contacts', 'follow', 'unfollow', 'dm', 'dm-read', 'feed', 'notifications', 'nip-publish', 'nip-read',
   'attest', 'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-request-list',
   'ring-prove', 'ring-verify', 'spoken-challenge', 'spoken-verify',
-  'relay-list', 'relay-set', 'relay-add', 'relay-info', 'subscribe',
+  'relay-list', 'relay-set', 'relay-add', 'relay-info', 'subscribe', 'outbox-relays', 'outbox-publish',
   'zap-send', 'zap-balance', 'zap-invoice', 'zap-lookup', 'zap-transactions', 'zap-receipts', 'zap-decode',
   'safety-configure', 'safety-activate',
   'blossom-upload', 'blossom-list', 'blossom-delete',
