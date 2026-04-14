@@ -106,6 +106,20 @@ export class RelayPool {
     this.allowClearnet = config.allowClearnet
     this.allowPrivateRelays = config.allowPrivateRelays ?? false
 
+    // Validate default relays up-front with the same rules reconfigure applies.
+    // Without this, a NOSTR_RELAYS env var or config file containing
+    // ws://127.0.0.1 would populate this.defaults and be returned by
+    // getRelays() for any npub without an explicit relay set, bypassing the
+    // per-identity checks.
+    for (const url of config.defaultRelays) {
+      if (!/^wss?:\/\//i.test(url) || url.length > 512) {
+        throw new Error(`Invalid default relay URL: ${url.slice(0, 128)}`)
+      }
+      if (!this.allowPrivateRelays && !this.isOnion(url)) {
+        validatePublicUrl(url)
+      }
+    }
+
     // Validate Tor/clearnet policy on default relays
     if (config.torProxy && !config.allowClearnet) {
       const clearnet = config.defaultRelays.filter(r => !this.isOnion(r))
