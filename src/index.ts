@@ -166,13 +166,31 @@ if (config.transport === 'stdio') {
 
   const expectedAuth = Buffer.from(`Bearer ${token}`)
 
-  // Sliding window rate limiter (per-IP)
+  // Sliding window rate limiter (per-IP).
+  // Cap the map size so a caller rotating source IPs cannot grow it without
+  // bound and exhaust memory — an IPv6-enabled attacker can mint free addresses
+  // at line rate.
   const rateLimits = new Map<string, { count: number; resetAt: number }>()
   const RATE_WINDOW = 60_000 // 60 seconds
   const RATE_LIMIT = 100     // 100 requests per window
+  const RATE_MAP_CAP = 10_000
 
   function checkRateLimit(ip: string): boolean {
     const now = Date.now()
+
+    if (rateLimits.size >= RATE_MAP_CAP) {
+      // Sweep expired entries first.
+      for (const [k, v] of rateLimits) {
+        if (now > v.resetAt) rateLimits.delete(k)
+      }
+      // If still over cap, drop oldest insertion-order entries.
+      while (rateLimits.size >= RATE_MAP_CAP) {
+        const oldest = rateLimits.keys().next().value
+        if (oldest === undefined) break
+        rateLimits.delete(oldest)
+      }
+    }
+
     const entry = rateLimits.get(ip)
     if (!entry || now > entry.resetAt) {
       rateLimits.set(ip, { count: 1, resetAt: now + RATE_WINDOW })
@@ -211,9 +229,16 @@ if (config.transport === 'stdio') {
       return
     }
 
-    // Bearer token auth (constant-time comparison)
+    // Bearer token auth (constant-time comparison).
+    // Length is folded into the constant-time compare via a padded buffer so
+    // the timing of a wrong-length token does not differ from the timing of a
+    // wrong-content token — neither short-circuits.
     const actual = Buffer.from(req.headers.authorization ?? '')
-    if (actual.length !== expectedAuth.length || !timingSafeEqual(actual, expectedAuth)) {
+    const padded = Buffer.alloc(expectedAuth.length)
+    actual.copy(padded, 0, 0, Math.min(actual.length, expectedAuth.length))
+    const lengthMatch = actual.length === expectedAuth.length
+    const contentMatch = timingSafeEqual(padded, expectedAuth)
+    if (!lengthMatch || !contentMatch) {
       res.writeHead(401, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ error: 'Unauthorised' }))
       return
@@ -233,6 +258,15 @@ if (config.transport === 'stdio') {
     let body: unknown
     if (req.method === 'POST') {
       const MAX_BODY = 1_048_576
+      // Reject up-front based on Content-Length when the client declares a size.
+      // Without the preflight, a malicious client can force a 1 MiB read before
+      // the stream-based check catches up.
+      const declared = Number.parseInt(req.headers['content-length'] ?? '', 10)
+      if (Number.isFinite(declared) && declared > MAX_BODY) {
+        res.writeHead(413, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ error: 'Request body too large' }))
+        return
+      }
       const chunks: Buffer[] = []
       let size = 0
       for await (const chunk of req) {
