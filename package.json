@@ -108,7 +108,7 @@
     "llms-full.txt"
   ],
   "scripts": {
-    "build": "tsc && node scripts/build-widgets.mjs",
+    "build": "tsc && node scripts/build-widgets.mjs && node scripts/export-tool-schemas.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
@@ -129,9 +129,13 @@
     "privacy",
     "lightning",
     "nip-46",
+    "nip-17",
+    "nip-44",
     "nsec-tree",
     "ring-signatures",
-    "attestations"
+    "attestations",
+    "ai-agents",
+    "dispatch"
   ],
   "repository": {
     "type": "git",
