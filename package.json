@@ -1,6 +1,6 @@
 {
   "name": "nostr-bray",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "mcpName": "dev.forgesworn/bray",
   "description": "Trust-aware Nostr for AI and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "type": "module",
