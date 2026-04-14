@@ -136,12 +136,19 @@ export async function loadConfig(): Promise<BrayConfig> {
     // Lazy import to avoid loading nip49 when not needed
     const { decrypt } = await import('nostr-tools/nip49')
     const { nsecEncode } = await import('nostr-tools/nip19')
-    const bytes = decrypt(ncryptsec, ncryptsecPassword)
+    let password: string | undefined = ncryptsecPassword
+    const bytes = decrypt(ncryptsec, password)
     try {
       secretKey = nsecEncode(bytes)
     } finally {
+      // Drop the password reference ASAP. V8 strings are immutable so we
+      // cannot wipe the underlying memory, but making the reference
+      // unreachable lets the GC reclaim it sooner.
+      password = undefined
       bytes.fill(0)
     }
+    // Hint: avoid referencing ncryptsecPassword past this block.
+    void password
   } else if (keyFilePath) {
     secretKey = readSecretFile(keyFilePath)
   } else if (keyEnvVar) {

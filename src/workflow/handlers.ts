@@ -670,10 +670,20 @@ export async function handleIdentityRecover(
   // 2. Reconstruct secret
   const secret = reconstructSecret(shares, threshold)
 
-  // 3. Create new context from recovered secret
+  // 3. Create new context from recovered secret.
+  // hexSecret is an immutable V8 string and cannot be wiped in place. Scope
+  // it as narrowly as possible and drop the reference immediately so it
+  // becomes GC-eligible. For stronger guarantees, extend IdentityContext to
+  // accept a Uint8Array directly (separate refactor).
   const { IdentityContext } = await import('../context.js')
-  const hexSecret = Buffer.from(secret).toString('hex')
-  const ctx = new IdentityContext(hexSecret, 'hex')
+  let hexSecret: string | undefined = Buffer.from(secret).toString('hex')
+  let ctx
+  try {
+    ctx = new IdentityContext(hexSecret, 'hex')
+  } finally {
+    hexSecret = undefined
+  }
+  void hexSecret
   const masterNpub = ctx.activeNpub
 
   // 4. Optionally configure relays

@@ -1,7 +1,14 @@
 node_modules/
 dist/
 .env
+.env.*
 *.shard
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+serviceAccountKey.json
 coverage/
 
 .claude/worktrees/
