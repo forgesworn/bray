@@ -63,8 +63,12 @@ Alternative and stronger: hold nonces server-side in memory, return only an opaq
 
 ## Checklist
 
-- [ ] NonceGen implemented per BIP-327 §NonceGen with hash binding over sk/aggpk/msg/extra.
-- [ ] `secNonce` zeroised in `finally` after parse, or (preferred) kept server-side with one-shot delete.
-- [ ] Nonce-reuse guard in place and tested.
-- [ ] BIP-327 test vectors pass.
-- [ ] CLI help text warns that `secNonce` must be consumed exactly once.
+- [x] NonceGen implemented per BIP-327 §NonceGen with hash binding over sk/aggpk/msg/extra.
+- [x] `secNonce` kept server-side with one-shot delete (preferred option). Secret material never leaves the process; callers hold an opaque `nonceId` only.
+- [x] Nonce-reuse guard in place and tested (second use of a `nonceId` throws).
+- [x] BIP-327 NonceGen official test vectors pass (all 4).
+- [x] CLI updated: `musig2 nonce` returns `nonceId`; `musig2 partial-sign` takes `--nonce-id`. The id is single-use by construction.
+
+## Remaining (Finding 4, follow-up PR)
+
+The pre-existing `keyAgg` / `handleMusig2PartialSign` / `handleMusig2Aggregate` paths use 32-byte x-only pubkeys, but BIP-327 mandates 33-byte compressed pubkeys for KeyAgg (the `L` hash concatenates 33-byte encodings; KeyAggCoeff input differs). These paths will not interop with other MuSig2 implementations until rewritten. Track separately; this PR scoped to NonceGen + custody only.
