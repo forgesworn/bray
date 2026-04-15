@@ -403,14 +403,14 @@ describe('musig2 2-of-2 flow', () => {
     const aliceNonce = handleMusig2Nonce(alice.secKey)
     const bobNonce = handleMusig2Nonce(bob.secKey)
     expect(aliceNonce.pubNonce).toMatch(/^[0-9a-f]{132}$/)
-    expect(aliceNonce.secNonce).toMatch(/^[0-9a-f]{194}$/)
+    expect(aliceNonce.nonceId).toMatch(/^[0-9a-f]{64}$/)
 
     const msg = '0101010101010101010101010101010101010101010101010101010101010101'
     const pubKeys = [alice.pubKey, bob.pubKey]
     const pubNonces = [aliceNonce.pubNonce, bobNonce.pubNonce]
 
-    const alicePSig = handleMusig2PartialSign(alice.secKey, aliceNonce.secNonce, pubNonces, pubKeys, msg)
-    const bobPSig = handleMusig2PartialSign(bob.secKey, bobNonce.secNonce, pubNonces, pubKeys, msg)
+    const alicePSig = handleMusig2PartialSign(alice.secKey, aliceNonce.nonceId, pubNonces, pubKeys, msg)
+    const bobPSig = handleMusig2PartialSign(bob.secKey, bobNonce.nonceId, pubNonces, pubKeys, msg)
     expect(alicePSig.partialSig).toMatch(/^[0-9a-f]{64}$/)
 
     const { sig } = handleMusig2Aggregate([alicePSig.partialSig, bobPSig.partialSig], pubNonces, pubKeys, msg)
