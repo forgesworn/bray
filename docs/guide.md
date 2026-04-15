@@ -118,14 +118,14 @@ social-profile-set({ name: "My Agent", about: "Updated bio", confirm: true })
 NIP-17 gift-wrapped DMs are the default -- the sender's identity is hidden behind an ephemeral key:
 
 ```
-dm-send({ recipientPubkeyHex: "<hex>", message: "Secret message" })
+dm-send({ to: "user@domain.com", message: "Secret message" })  // or npub/hex/name
 dm-read()
 ```
 
 Legacy NIP-04 requires explicit opt-in:
 
 ```
-dm-send({ recipientPubkeyHex: "<hex>", message: "Legacy DM", nip04: true })
+dm-send({ to: "user@domain.com", message: "Legacy DM", nip04: true })
 ```
 
 NIP-04 only works if `NIP04_ENABLED=1` is set in the environment.
@@ -136,13 +136,24 @@ NIP-04 only works if `NIP04_ENABLED=1` is set in the environment.
 
 Kind 31000 verifiable attestations (NIP-VA):
 
+Two patterns:
+
 ```
+// Assertion-first: subject publishes their claim; you verify it.
 trust-attest({
-  type: "identity-verification",
+  assertionId: "<subject-assertion-event-id>",
+  summary: "Verified identity in person on 2026-04-14"
+})
+
+// Direct claim: you make a statement about someone.
+trust-claim({
+  type: "endorsement",
   subject: "<subject-hex-pubkey>",
-  summary: "Verified identity in person on 2026-03-24"
+  summary: "Great collaborator"
 })
 ```
+
+Prefer `trust-attest` when the subject has already published their own assertion — it puts the individual at the centre. Use `trust-claim` for endorsements, vouches, and reviews you originate.
 
 ### Ring Signatures
 

@@ -198,7 +198,7 @@ Unfollow a Nostr pubkey. Same safety guard as contacts-follow.
 
 #### dm-send
 Send a direct message via NIP-17 (default) or NIP-04 (legacy).
-- Input: recipientPubkeyHex, message, nip04 (default false), recipientRelay (optional)
+- Input: to (name, NIP-05, npub, nprofile, or hex), message, nip04 (default false), recipientRelay (optional)
 - NIP-04 requires NIP04_ENABLED=1
 - Returns: { protocol, id, publish, senderCopyPublish, relayWarning? }
 

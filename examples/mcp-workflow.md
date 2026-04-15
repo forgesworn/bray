@@ -53,7 +53,7 @@ social-feed({ limit: 10 })
 
 ```
 # Send a NIP-17 gift-wrapped DM (default, most private)
-dm-send({ recipientPubkeyHex: "<hex>", message: "Secret message" })
+dm-send({ to: "<npub-or-hex-or-nip05>", message: "Secret message" })
 
 # Read DMs
 dm-read()
