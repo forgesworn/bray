@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.2.0 (2026-04-16)
+
+### Features
+
+- route all HTTP fetches through Tor SOCKS proxy when configured
+- BIP-327 compliant MuSig2 NonceGen with server-held nonce custody
+- wallet subcommands for NIP-47 Nostr Wallet Connect (Phase 4 D)
+- Phase 4A trust-aware req variants and trust-rank command
+- Phase 4 G — bunker connect/authorize/status subcommands
+- Phase 4 F — NIP-29 group admin write ops (create/update/add-user/remove-user/set-roles)
+- Phase 4 E+H — output format flags (--jsonl/--csv/--tsv), NIP-65 outbox helpers
+- Phase 4 B+C — publish-raw quorum/timeout/report, subscribe streaming
+- Items 17-19 — sync pull/push, NIP-86 admin, relay curl
+- add nostr-bray/types barrel and @experimental tags on unstable categories
+- barrel exports + subpath entry points — Item 9
+- add SDK factory (createBray / defaultBray) — Item 8
+- normalise CLI verbs to space-separated subcommand style
+- add req CLI verb for generic NIP-01 filter queries
+- add event CLI verb for arbitrary event construction
+- add per-command --relay flag to all publishing commands
+- add bunker sign one-shot NIP-46 signing command
+- add publish-raw command (sign+broadcast pre-built events)
+
+### Bug Fixes
+
+- update musig2 2-of-2 flow test for server-held nonce custody
+- validate default relays in RelayPool constructor
+- add BRAY_ALLOW_PRIVATE_RELAYS opt-in for dev relays
+- enforce Blossom upload cap on every input path
+- secret zeroisation discipline and .gitignore hardening
+- privacy leak in profile-set preview and resolveRecipient errors
+- tighten input validation across tool boundaries
+- HTTP transport bearer-auth and rate-limit hardening
+- harden SSRF validation and relay URL checks
+
+
+
 ## [0.1.0] — 2026-04-14
 
 First public release. Covers CLI parity with nak, the SDK surface, and trust-aware extensions.
