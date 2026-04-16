@@ -49,7 +49,7 @@ Source directories (16): `identity/`, `social/` (includes blossom, dm, groups, n
 
 - **British English** everywhere
 - **Git:** `type: description` commits. No `Co-Authored-By` lines.
-- **Branch:** work on branches, merge to main. semantic-release auto-publishes on main.
+- **Branch:** work on branches, merge to main. `forgesworn/anvil@v0` handles releases via workflow_call.
 - **Security:** never return private keys in tool responses. Zeroise buffers in `finally` blocks. Validate all external input.
 
 ## Security-Critical Paths
