@@ -1,6 +1,15 @@
-import { describe, it, expect } from 'vitest'
-import { validatePublicUrl } from '../src/validation.js'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import {
+  validatePublicUrl,
+  validateRelayScheme,
+  isOnionUrl,
+  validateInputPath,
+  getInputAllowlist,
+} from '../src/validation.js'
 import { validateRelayUrl } from '../src/relay/handlers.js'
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 
 describe('validatePublicUrl', () => {
   it('accepts a normal public URL', () => {
@@ -122,5 +131,103 @@ describe('validateRelayUrl', () => {
   it('rejects non-string input', () => {
     expect(() => validateRelayUrl(123 as unknown as string)).toThrow(/string/i)
     expect(() => validateRelayUrl(null as unknown as string)).toThrow()
+  })
+})
+
+describe('isOnionUrl', () => {
+  it('matches v3 onion (56 chars)', () => {
+    const v3 = 'a'.repeat(56) + '.onion'
+    expect(isOnionUrl(`ws://${v3}`)).toBe(true)
+    expect(isOnionUrl(`wss://${v3}`)).toBe(true)
+    expect(isOnionUrl(`http://${v3}/`)).toBe(true)
+  })
+
+  it('matches v2 onion (16 chars)', () => {
+    expect(isOnionUrl('ws://abcdefghijklmnop.onion')).toBe(true)
+  })
+
+  it('rejects bogus onion-shaped hosts', () => {
+    expect(isOnionUrl('ws://127.0.0.1.onion')).toBe(false)
+    expect(isOnionUrl('ws://shortname.onion')).toBe(false)
+    expect(isOnionUrl('ws://example.com')).toBe(false)
+    expect(isOnionUrl('not-a-url')).toBe(false)
+    expect(isOnionUrl('')).toBe(false)
+  })
+})
+
+describe('validateRelayScheme', () => {
+  it('permits wss:// to anywhere', () => {
+    expect(() => validateRelayScheme('wss://relay.damus.io')).not.toThrow()
+    expect(() => validateRelayScheme('wss://nos.lol')).not.toThrow()
+  })
+
+  it('permits ws:// to .onion services', () => {
+    const v3 = 'a'.repeat(56) + '.onion'
+    expect(() => validateRelayScheme(`ws://${v3}`)).not.toThrow()
+    expect(() => validateRelayScheme('ws://abcdefghijklmnop.onion')).not.toThrow()
+  })
+
+  it('rejects ws:// to clearnet hosts', () => {
+    expect(() => validateRelayScheme('ws://relay.example.com')).toThrow(/onion/)
+    expect(() => validateRelayScheme('ws://nos.lol')).toThrow(/onion/)
+  })
+
+  it('honours allowPrivate escape hatch for local dev', () => {
+    expect(() => validateRelayScheme('ws://localhost:10547', true)).not.toThrow()
+    expect(() => validateRelayScheme('ws://localhost:10547', false)).toThrow(/onion/)
+  })
+})
+
+describe('validateInputPath', () => {
+  let workDir: string
+
+  beforeEach(() => {
+    workDir = mkdtempSync(join(tmpdir(), 'bray-validate-path-'))
+  })
+
+  afterEach(() => {
+    rmSync(workDir, { recursive: true, force: true })
+  })
+
+  it('accepts a path under the provided allowlist', () => {
+    const file = join(workDir, 'shard.bray')
+    writeFileSync(file, 'contents')
+    expect(() => validateInputPath(file, [workDir])).not.toThrow()
+    expect(validateInputPath(file, [workDir])).toBe(file)
+  })
+
+  it('rejects absolute paths outside the allowlist', () => {
+    expect(() => validateInputPath('/etc/shadow', [workDir])).toThrow(/outside the input allowlist/)
+    expect(() => validateInputPath('/etc/passwd', [workDir])).toThrow(/outside the input allowlist/)
+  })
+
+  it('rejects traversal attempts that resolve outside the allowlist', () => {
+    const traversal = join(workDir, '..', '..', 'etc', 'passwd')
+    expect(() => validateInputPath(traversal, [workDir])).toThrow(/outside the input allowlist/)
+  })
+
+  it('rejects empty and over-long paths', () => {
+    expect(() => validateInputPath('', [workDir])).toThrow(/non-empty/)
+    expect(() => validateInputPath('/x'.repeat(3000), [workDir])).toThrow(/too long/)
+  })
+
+  it('default allowlist includes cwd and os tmpdir', () => {
+    const allowlist = getInputAllowlist()
+    expect(allowlist.some(d => d === process.cwd())).toBe(true)
+    expect(allowlist.some(d => d.startsWith(tmpdir()) || tmpdir().startsWith(d))).toBe(true)
+  })
+
+  it('BRAY_INPUT_DIRS env override replaces defaults', () => {
+    const prev = process.env.BRAY_INPUT_DIRS
+    process.env.BRAY_INPUT_DIRS = `${workDir}:/nonexistent/other`
+    try {
+      const allowlist = getInputAllowlist()
+      expect(allowlist).toContain(workDir)
+      expect(allowlist).toContain('/nonexistent/other')
+      expect(allowlist).not.toContain(process.cwd())
+    } finally {
+      if (prev === undefined) delete process.env.BRAY_INPUT_DIRS
+      else process.env.BRAY_INPUT_DIRS = prev
+    }
   })
 })

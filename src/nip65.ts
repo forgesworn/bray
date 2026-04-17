@@ -3,7 +3,7 @@ import { verifyEvent } from 'nostr-tools/pure'
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { RelayPool } from './relay-pool.js'
 import type { RelaySet } from './types.js'
-import { validatePublicUrl } from './validation.js'
+import { isOnionUrl, validatePublicUrl } from './validation.js'
 
 // NIP-65 tag-list bounds. Keeps a compromised or hostile kind-10002 publisher
 // from flooding the pool with thousands of huge URLs or with loopback/metadata
@@ -11,10 +11,15 @@ import { validatePublicUrl } from './validation.js'
 const MAX_RELAY_TAGS = 50
 const MAX_URL_LENGTH = 512
 
-/** Validate relay URL scheme — must be wss:// or ws:// */
+/**
+ * Validate relay URL scheme — must be wss:// or ws://. Plaintext ws:// is only
+ * accepted when host is a Tor onion service (.onion provides its own encryption);
+ * everything else must be wss:// to avoid relaying signed events in cleartext.
+ */
 function isValidRelayUrl(url: string): boolean {
   if (typeof url !== 'string' || url.length > MAX_URL_LENGTH) return false
   if (!/^wss?:\/\//i.test(url)) return false
+  if (/^ws:\/\//i.test(url) && !isOnionUrl(url)) return false
   try {
     validatePublicUrl(url)
   } catch {
@@ -84,6 +89,14 @@ export class Nip65Manager {
     )
 
     if (verified.length === 0) {
+      // Fail-open: no signed kind-10002 from this author means we cannot
+      // resolve their declared outbox. Fall back to default relays so the
+      // call doesn't fail outright, but warn loudly so operators notice when
+      // recipient-targeted publishes are silently going to defaults.
+      console.warn(
+        `[nip65] no verified relay list for ${npub} — falling back to default relays. ` +
+        `Recipient may not see this content if their outbox differs.`,
+      )
       const fallback: RelaySet = {
         read: [...this.defaults],
         write: [...this.defaults],

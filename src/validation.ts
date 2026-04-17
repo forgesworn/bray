@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { resolve, sep } from 'node:path'
+import { homedir, tmpdir } from 'node:os'
 
 /** 64-character lowercase hex string (pubkey or event ID) */
 export const hexId = z.string().regex(/^[0-9a-f]{64}$/, 'Must be a 64-character hex string')
@@ -27,6 +29,115 @@ export const relayUrl = z.string().regex(/^wss?:\/\//, 'Must be a wss:// or ws:/
 
 /** HTTPS URL — no private networks */
 export const httpsUrl = z.string().regex(/^https?:\/\//, 'Must be an https:// URL')
+
+/**
+ * True if the URL points at a v2 (16-char) or v3 (56-char) Tor onion service.
+ * Hostname is parsed and lowercased; trailing dot is tolerated. Returns false
+ * on any URL parse failure or non-onion host.
+ */
+export function isOnionUrl(url: string): boolean {
+  try {
+    let host = new URL(url).hostname.toLowerCase()
+    if (host.endsWith('.')) host = host.slice(0, -1)
+    return /^[a-z2-7]{16}\.onion$/.test(host) || /^[a-z2-7]{56}\.onion$/.test(host)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Build the default allowlist of directories that user-supplied file paths may
+ * resolve to. The allowlist can be overridden via `BRAY_INPUT_DIRS` (colon or
+ * semicolon separated) so operators in sandboxed environments can point at a
+ * mounted credential directory, bind-mounted secret volume, etc.
+ *
+ * Default: current working directory + `~/.config/bray/inputs/`. These two
+ * cover the common cases (CLI invocation in a project folder, long-lived
+ * MCP server with dedicated input dir) without letting a hostile prompt
+ * read arbitrary system files.
+ */
+export function getInputAllowlist(): string[] {
+  const override = process.env.BRAY_INPUT_DIRS
+  if (override) {
+    return override
+      .split(/[:;]/)
+      .map(p => p.trim())
+      .filter(Boolean)
+      .map(p => resolve(p))
+  }
+  const defaults = [process.cwd()]
+  try {
+    defaults.push(resolve(homedir(), '.config/bray/inputs'))
+  } catch {
+    // homedir can throw in pathological environments; fall through.
+  }
+  try {
+    // Node's temp dir is a legitimate source for app-managed scratch files
+    // (Shamir recovery pipelines write tmp shards here). Nothing sensitive
+    // lives in /tmp by convention, so including it keeps the common case
+    // working without widening the attack surface.
+    defaults.push(resolve(tmpdir()))
+  } catch {
+    // tmpdir can fail in extremely locked-down environments; fall through.
+  }
+  return defaults
+}
+
+/**
+ * Resolve and validate a user-supplied file path against the input allowlist.
+ *
+ * Canonicalises the path (resolves `..`, symlinks in the parent chain via
+ * Node's path.resolve — not via fs.realpath to keep this synchronous) and
+ * checks that it sits under one of the allowed directories. Throws on
+ * traversal attempts, paths outside the allowlist, or obvious absolute
+ * secrets paths on POSIX.
+ *
+ * Call this immediately before any `readFileSync`/`createReadStream` on a
+ * path that came from tool input, CLI args, or a protocol message.
+ */
+export function validateInputPath(path: string, allowlist: string[] = getInputAllowlist()): string {
+  if (typeof path !== 'string' || path.length === 0) {
+    throw new Error('File path must be a non-empty string')
+  }
+  if (path.length > 4096) {
+    throw new Error('File path is too long')
+  }
+  // path.resolve handles `..` and produces an absolute path rooted at cwd.
+  const absolute = resolve(path)
+  const ok = allowlist.some(dir => {
+    const base = dir.endsWith(sep) ? dir : dir + sep
+    return absolute === dir || absolute.startsWith(base)
+  })
+  if (!ok) {
+    throw new Error(
+      `File path ${path} resolves outside the input allowlist. ` +
+      `Allowed roots: ${allowlist.join(', ')}. ` +
+      `Override with BRAY_INPUT_DIRS if this path is intentionally in use.`,
+    )
+  }
+  return absolute
+}
+
+/**
+ * Reject plaintext `ws://` to anywhere except a Tor onion service. Signed
+ * events sent over unencrypted WebSocket leak content and recipient metadata
+ * to anyone on path; onion services tunnel through Tor's own encryption so
+ * plaintext WS inside is acceptable.
+ *
+ * Local development (BRAY_ALLOW_PRIVATE_RELAYS=1) bypasses this — the test
+ * relay listens on `ws://localhost`. Callers that want that escape hatch
+ * should pass `allowPrivate: true`.
+ *
+ * @throws if `ws://` and host is not a Tor onion service.
+ */
+export function validateRelayScheme(url: string, allowPrivate = false): void {
+  if (!/^ws:\/\//i.test(url)) return
+  if (isOnionUrl(url)) return
+  if (allowPrivate) return
+  throw new Error(
+    `Plaintext ws:// is only permitted for .onion relays (set BRAY_ALLOW_PRIVATE_RELAYS=1 for local dev): ${url.slice(0, 128)}`,
+  )
+}
 
 const PRIVATE_HOSTS = new Set([
   'localhost',

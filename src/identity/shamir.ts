@@ -1,5 +1,6 @@
 import { writeFileSync, readFileSync, statSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
+import { validateInputPath } from '../validation.js'
 import {
   splitSecret,
   reconstructSecret,
@@ -97,7 +98,8 @@ export function handleRestoreShamir(args: RestoreArgs): Uint8Array {
   }
 
   const shares = args.files.map(filePath => {
-    const content = readFileSync(filePath, 'utf-8').trim()
+    const safePath = validateInputPath(filePath)
+    const content = readFileSync(safePath, 'utf-8').trim()
     const words = content.split(' ')
     return wordsToShare(words)
   })

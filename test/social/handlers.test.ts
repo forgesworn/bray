@@ -166,7 +166,7 @@ describe('social handlers', () => {
     it('returns warning + diff and requires confirm when profile exists', async () => {
       const existingProfile = {
         kind: 0,
-        pubkey: 'somepub',
+        pubkey: ctx.activePublicKeyHex,
         created_at: 1000,
         tags: [],
         content: JSON.stringify({ name: 'Old Name', about: 'Old about' }),
@@ -183,10 +183,32 @@ describe('social handlers', () => {
       expect(result.diff).toBeDefined()
     })
 
+    it('ignores foreign-pubkey events from a hostile relay', async () => {
+      // A relay that returns a profile for a different pubkey than the active
+      // identity must not leak the foreign profile into diff.old. The handler
+      // should treat the reply as empty and publish straight through.
+      const foreignProfile = {
+        kind: 0,
+        pubkey: 'deadbeef'.repeat(8),
+        created_at: 1000,
+        tags: [],
+        content: JSON.stringify({ name: 'Not Me' }),
+        id: 'prof1',
+        sig: 'sig1',
+      }
+      const pool = mockPool([foreignProfile])
+      const result = await handleSocialProfileSet(ctx, pool as any, {
+        profile: { name: 'Me' },
+        confirm: false,
+      })
+      expect(result.published).toBe(true)
+      expect(result.diff).toBeUndefined()
+    })
+
     it('publishes when confirm is true even if profile exists', async () => {
       const existingProfile = {
         kind: 0,
-        pubkey: 'somepub',
+        pubkey: ctx.activePublicKeyHex,
         created_at: 1000,
         tags: [],
         content: JSON.stringify({ name: 'Old Name' }),

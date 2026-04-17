@@ -118,7 +118,13 @@ export async function dispatch(
       const title = req(2, 'nip-publish <identifier> <title> <content-or-file>')
       let content = req(3, 'nip-publish <identifier> <title> <content-or-file>')
       const { existsSync, readFileSync } = await import('node:fs')
-      if (existsSync(content)) content = readFileSync(content, 'utf-8')
+      const { validateInputPath } = await import('../../validation.js')
+      if (existsSync(content)) {
+        // Treat the third arg as a path when it resolves to an existing file.
+        // Validate against the input allowlist so a pasted path like
+        // /etc/shadow does not get slurped into a published NIP.
+        content = readFileSync(validateInputPath(content), 'utf-8')
+      }
       const kindsStr = flag('kinds')
       const kinds = kindsStr ? kindsStr.split(',').map(Number) : undefined
       out(await handleNipPublish(ctx, pool, { identifier: id, title, content, kinds, relays: flags('relay') }))

@@ -128,4 +128,14 @@ describe('loadIdentities', () => {
   it('throws on missing file', () => {
     expect(() => loadIdentities('/nonexistent/path/identities.md')).toThrow()
   })
+
+  it('rejects oversized markdown input', () => {
+    const oversized = '|name|hex|\n'.repeat(200_000) // > 1 MiB
+    expect(() => parseIdentities(oversized)).toThrow(/too large/)
+  })
+
+  it('rejects markdown with too many lines', () => {
+    const manyLines = '|n|h|\n'.repeat(11_000)
+    expect(() => parseIdentities(manyLines)).toThrow(/too many lines/)
+  })
 })

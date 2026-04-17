@@ -311,6 +311,12 @@ if (config.transport === 'stdio') {
 
   httpServer.listen(config.port, config.bindAddress, () => {
     console.error(`nostr-bray HTTP on ${config.bindAddress}:${config.port}`)
+    console.warn(
+      '[bray] HTTP transport is single-user: session state (active identity, ' +
+      'bunker connections, nonces) is process-global. A second client that ' +
+      'initialises will share this state, and parallel sessions are not ' +
+      'isolated. Do not expose this port to multiple operators.',
+    )
   })
 }
 

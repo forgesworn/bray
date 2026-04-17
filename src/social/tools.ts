@@ -263,7 +263,10 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: true },
   }, async ({ since, output }) => {
-    const messages = await handleDmRead(deps.ctx, deps.pool, { since })
+    // Pass the configured trust context so `trustMode: strict/annotate` from
+    // bray config actually filters/annotates DMs. Without this the MCP tool
+    // would silently fail-open regardless of operator configuration.
+    const messages = await handleDmRead(deps.ctx, deps.pool, { since, _trustCtx: deps.trust })
     return toolResponse(messages, output, fmt.formatDms)
   })
 
@@ -329,7 +332,11 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     annotations: { readOnlyHint: true },
   }, async ({ with: withId, limit, output }) => {
     const resolved = await resolveRecipient(withId)
-    const messages = await handleDmConversation(deps.ctx, deps.pool, { withPubkeyHex: resolved.pubkeyHex, limit })
+    const messages = await handleDmConversation(deps.ctx, deps.pool, {
+      withPubkeyHex: resolved.pubkeyHex,
+      limit,
+      _trustCtx: deps.trust,
+    })
     return toolResponse(messages, output, fmt.formatConversation)
   })
 

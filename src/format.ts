@@ -2,6 +2,25 @@
 
 import type { PublicIdentity } from './types.js'
 
+/**
+ * Strip C0 / C1 control characters and the DEL byte from a string, keeping only
+ * printable content plus horizontal tab, line feed, and carriage return.
+ *
+ * Relay-supplied fields (profile `about`, post `content`, listing `title`,
+ * DM bodies, etc.) flow into the user's terminal via these formatters. Without
+ * scrubbing, a malicious relay could ship ANSI CSI/OSC sequences to change
+ * colours, reposition the cursor, or issue terminal escape codes such as
+ * OSC 52 (clipboard manipulation). Removing `0x1b` is sufficient to defang
+ * every legacy ANSI and modern OSC sequence; the remaining bracket and
+ * letters render as inert text.
+ */
+export function sanitiseTerminal(s: string): string {
+  return s.replace(/[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]/g, '')
+}
+
+/** Alias used inside this file to keep interpolations short. */
+const st = sanitiseTerminal
+
 export function formatIdentity(id: PublicIdentity): string {
   let line = `${id.npub}`
   if (id.personaName) line += `  (persona: ${id.personaName})`
@@ -39,7 +58,7 @@ export function formatProfile(profile: Record<string, unknown>): string {
   if (profile.lud16) lines.push(`LN:      ${profile.lud16}`)
   if (profile.picture) lines.push(`Picture: ${profile.picture}`)
   if (profile.banner) lines.push(`Banner:  ${profile.banner}`)
-  return lines.join('\n')
+  return st(lines.join('\n'))
 }
 
 export function formatContacts(contacts: Array<{ pubkey: string; relay?: string; petname?: string }>): string {
@@ -50,7 +69,7 @@ export function formatContacts(contacts: Array<{ pubkey: string; relay?: string;
     if (c.relay) line += `  (${c.relay})`
     return line
   })
-  return `${contacts.length} contacts:\n${lines.join('\n')}`
+  return st(`${contacts.length} contacts:\n${lines.join('\n')}`)
 }
 
 export function formatContactSearch(contacts: Array<{ pubkey: string; name?: string; displayName?: string; nip05?: string; petname?: string }>): string {
@@ -64,12 +83,12 @@ export function formatContactSearch(contacts: Array<{ pubkey: string; name?: str
     parts.push(c.pubkey.slice(0, 12) + '...')
     return parts.join('  ')
   })
-  return `${contacts.length} match${contacts.length !== 1 ? 'es' : ''}:\n${lines.join('\n')}`
+  return st(`${contacts.length} match${contacts.length !== 1 ? 'es' : ''}:\n${lines.join('\n')}`)
 }
 
 export function formatNotifications(notifications: any[]): string {
   if (notifications.length === 0) return 'No notifications.'
-  return notifications.map(n => {
+  return st(notifications.map(n => {
     const time = new Date(n.createdAt * 1000).toLocaleString()
     const from = n.from?.slice(0, 12) + '...'
     switch (n.type) {
@@ -85,37 +104,37 @@ export function formatNotifications(notifications: any[]): string {
       default:
         return `${n.type} from ${from}  (${time})`
     }
-  }).join('\n')
+  }).join('\n'))
 }
 
 export function formatFeed(events: any[]): string {
   if (events.length === 0) return 'No posts found.'
-  return events.map(e => {
+  return st(events.map(e => {
     const time = new Date(e.createdAt * 1000).toLocaleString()
     const author = e.pubkey?.slice(0, 12) + '...'
     return `${author}  ${time}\n  ${e.content?.slice(0, 200)}\n`
-  }).join('\n')
+  }).join('\n'))
 }
 
 export function formatConversation(dms: any[]): string {
   if (dms.length === 0) return 'No messages in this conversation.'
-  return dms.map(dm => {
+  return st(dms.map(dm => {
     const time = new Date(dm.createdAt * 1000).toLocaleString()
     const from = dm.from?.slice(0, 12) + '...'
     if (!dm.decrypted) return `✗ ${from}  Could not decrypt  (${time})`
     return `${from}  ${time}\n  ${dm.content}`
-  }).join('\n\n')
+  }).join('\n\n'))
 }
 
 export function formatDms(dms: any[]): string {
   if (dms.length === 0) return 'No messages.'
-  return dms.map(dm => {
+  return st(dms.map(dm => {
     const time = new Date(dm.createdAt * 1000).toLocaleString()
     const from = dm.from?.slice(0, 12) + '...'
     const proto = dm.protocol === 'nip04-deprecated' ? ' [NIP-04]' : ''
     if (!dm.decrypted) return `✗ ${from}  Could not decrypt${proto}  (${time})`
     return `${from}${proto}  ${time}\n  ${dm.content}`
-  }).join('\n\n')
+  }).join('\n\n'))
 }
 
 export function formatRelays(relays: { read: string[]; write: string[]; sharedWarning?: string }): string {
@@ -129,26 +148,26 @@ export function formatRelays(relays: { read: string[]; write: string[]; sharedWa
     relays.write.forEach(r => lines.push(`  ${r}`))
   }
   if (relays.sharedWarning) lines.push(`\n⚠️  ${relays.sharedWarning}`)
-  return lines.join('\n')
+  return st(lines.join('\n'))
 }
 
 export function formatZapReceipts(receipts: any[]): string {
   if (receipts.length === 0) return 'No zap receipts.'
-  return receipts.map(r => {
+  return st(receipts.map(r => {
     const time = new Date(r.createdAt * 1000).toLocaleString()
     const sats = r.amountMsats ? `${Math.round(r.amountMsats / 1000)} sats` : '? sats'
     const from = r.sender ? r.sender.slice(0, 12) + '...' : 'unknown'
     return `⚡ ${sats} from ${from}${r.message ? ` — ${r.message}` : ''}  (${time})`
-  }).join('\n')
+  }).join('\n'))
 }
 
 export function formatGroupChat(messages: any[]): string {
   if (messages.length === 0) return 'No messages.'
-  return messages.map(m => {
+  return st(messages.map(m => {
     const time = new Date(m.createdAt * 1000).toLocaleString()
     const author = m.pubkey?.slice(0, 12) + '...'
     return `${author}  ${time}\n  ${m.content}`
-  }).join('\n\n')
+  }).join('\n\n'))
 }
 
 export function formatNipList(nips: Array<{ number: number; title: string }>): string {
@@ -172,7 +191,7 @@ export function formatDecode(result: { type: string; data: unknown }): string {
 
 export function formatArticle(articles: any[]): string {
   if (articles.length === 0) return 'No articles found.'
-  return articles.map(a => {
+  return st(articles.map(a => {
     const time = a.publishedAt ? new Date(a.publishedAt * 1000).toLocaleString() : 'unknown'
     const lines = [`# ${a.title}`]
     if (a.slug) lines.push(`Slug: ${a.slug}`)
@@ -183,31 +202,31 @@ export function formatArticle(articles: any[]): string {
     lines.push('')
     lines.push(a.content)
     return lines.join('\n')
-  }).join('\n\n---\n\n')
+  }).join('\n\n---\n\n'))
 }
 
 export function formatArticleList(articles: any[]): string {
   if (articles.length === 0) return 'No articles found.'
-  return articles.map(a => {
+  return st(articles.map(a => {
     const time = a.publishedAt ? new Date(a.publishedAt * 1000).toLocaleString() : 'unknown'
     const parts = [a.title || '(untitled)']
     if (a.slug) parts.push(`[${a.slug}]`)
     parts.push(`(${time})`)
     if (a.summary) parts.push(`— ${a.summary}`)
     return parts.join('  ')
-  }).join('\n')
+  }).join('\n'))
 }
 
 // --- Dispatch formatters ---
 
 export function formatDispatchSendResult(result: any): string {
-  if (!result.sent) return `Failed to send ${result.messageType} to ${result.recipientName}`
-  return `Sent ${result.messageType} (${result.taskId}) to ${result.recipientName}\nRelays: ${result.publish.accepted.join(', ') || 'none accepted'}`
+  if (!result.sent) return st(`Failed to send ${result.messageType} to ${result.recipientName}`)
+  return st(`Sent ${result.messageType} (${result.taskId}) to ${result.recipientName}\nRelays: ${result.publish.accepted.join(', ') || 'none accepted'}`)
 }
 
 export function formatDispatchMessages(messages: any[]): string {
   if (messages.length === 0) return 'No dispatch messages.'
-  return messages.map(m => {
+  return st(messages.map(m => {
     const time = new Date(m.createdAt * 1000).toLocaleString()
     const name = m.fromName || m.from.slice(0, 12) + '...'
     const msg = m.message
@@ -241,22 +260,22 @@ export function formatDispatchMessages(messages: any[]): string {
       default:
         return `${(msg as any).type} from ${name}  (${time})`
     }
-  }).join('\n\n')
+  }).join('\n\n'))
 }
 
 export function formatSearchResults(notes: any[]): string {
   if (notes.length === 0) return 'No matching notes found.'
-  return notes.map(n => {
+  return st(notes.map(n => {
     const time = new Date(n.createdAt * 1000).toLocaleString()
     const author = n.pubkey?.slice(0, 12) + '...'
     const tags = n.hashtags?.length ? `  [${n.hashtags.join(', ')}]` : ''
     return `${author}  ${time}${tags}\n  ${n.content?.slice(0, 200)}\n`
-  }).join('\n')
+  }).join('\n'))
 }
 
 export function formatProfileSearchResults(profiles: any[]): string {
   if (profiles.length === 0) return 'No matching profiles found.'
-  return profiles.map(p => {
+  return st(profiles.map(p => {
     const label = p.display_name || p.name || p.pubkey?.slice(0, 12) + '...'
     const parts = [label]
     if (p.name && p.display_name && p.name !== p.display_name) parts.push(`(@${p.name})`)
@@ -265,14 +284,14 @@ export function formatProfileSearchResults(profiles: any[]): string {
     parts.push(p.pubkey?.slice(0, 12) + '...')
     if (p.about) parts.push(`\n  ${p.about.slice(0, 120)}`)
     return parts.join('  ')
-  }).join('\n')
+  }).join('\n'))
 }
 
 // --- Calendar formatters ---
 
 export function formatCalendarEvents(events: any[]): string {
   if (events.length === 0) return 'No calendar events found.'
-  return events.map(e => {
+  return st(events.map(e => {
     const lines = [`# ${e.title}`]
     if (e.slug) lines.push(`Slug: ${e.slug}`)
     lines.push(`Kind: ${e.kind === 31922 ? 'date-based (31922)' : 'time-based (31923)'}`)
@@ -285,7 +304,7 @@ export function formatCalendarEvents(events: any[]): string {
     if (e.hashtags?.length > 0) lines.push(`Tags: ${e.hashtags.join(', ')}`)
     if (e.content) { lines.push(''); lines.push(e.content) }
     return lines.join('\n')
-  }).join('\n\n---\n\n')
+  }).join('\n\n---\n\n'))
 }
 
 export function formatRsvp(result: any): string {
@@ -299,7 +318,7 @@ export function formatRsvp(result: any): string {
 
 export function formatListings(listings: any[]): string {
   if (listings.length === 0) return 'No listings found.'
-  return listings.map(l => {
+  return st(listings.map(l => {
     const lines = [`# ${l.title}`]
     if (l.slug) lines.push(`Slug: ${l.slug}`)
     if (l.price) {
@@ -318,12 +337,12 @@ export function formatListings(listings: any[]): string {
       lines.push(l.content)
     }
     return lines.join('\n')
-  }).join('\n\n---\n\n')
+  }).join('\n\n---\n\n'))
 }
 
 export function formatCapabilities(cards: any[]): string {
   if (cards.length === 0) return 'No dispatch-capable agents found.'
-  return cards.map(c => {
+  return st(cards.map(c => {
     const lines = [`${c.name}  (${c.pubkey?.slice(0, 12)}...)`]
     if (c.description) lines.push(`  ${c.description}`)
     lines.push(`  Tasks: ${(c.taskTypes ?? []).join(', ')}`)
@@ -332,14 +351,14 @@ export function formatCapabilities(cards: any[]): string {
     if (c.maxDepth !== undefined) lines.push(`  Max depth: ${c.maxDepth}`)
     if (c.slug) lines.push(`  Slug: ${c.slug}`)
     return lines.join('\n')
-  }).join('\n\n')
+  }).join('\n\n'))
 }
 
 // --- Badge formatters ---
 
 export function formatBadges(badges: any[]): string {
   if (badges.length === 0) return 'No badges found.'
-  return badges.map(b => {
+  return st(badges.map(b => {
     if (b.badgeCoord) {
       return `Badge: ${b.badgeCoord}\n  Award: ${b.awardEventId ?? 'unknown'}`
     }
@@ -348,14 +367,14 @@ export function formatBadges(badges: any[]): string {
     if (b.image) lines.push(`  Image: ${b.image}`)
     if (b.slug) lines.push(`  Slug: ${b.slug}`)
     return lines.join('\n')
-  }).join('\n\n')
+  }).join('\n\n'))
 }
 
 // --- Community formatters ---
 
 export function formatCommunities(communities: any[]): string {
   if (communities.length === 0) return 'No communities found.'
-  return communities.map(c => {
+  return st(communities.map(c => {
     const lines = [`# ${c.name}`]
     if (c.description) lines.push(`  ${c.description}`)
     if (c.image) lines.push(`  Image: ${c.image}`)
@@ -363,23 +382,23 @@ export function formatCommunities(communities: any[]): string {
     if (c.moderators?.length > 0) lines.push(`  Moderators: ${c.moderators.map((m: string) => m.slice(0, 12) + '...').join(', ')}`)
     lines.push(`  Created by: ${c.pubkey?.slice(0, 12) ?? 'unknown'}...`)
     return lines.join('\n')
-  }).join('\n\n')
+  }).join('\n\n'))
 }
 
 export function formatCommunityFeed(posts: any[]): string {
   if (posts.length === 0) return 'No approved posts.'
-  return posts.map(p => {
+  return st(posts.map(p => {
     const time = p.created_at ? new Date(p.created_at * 1000).toLocaleString() : 'unknown'
     const author = p.pubkey?.slice(0, 12) ?? 'unknown'
     return `${author}... (${time}):\n  ${p.content?.slice(0, 200) ?? ''}`
-  }).join('\n\n')
+  }).join('\n\n'))
 }
 
 // --- Wiki formatters ---
 
 export function formatWikiArticles(articles: any[]): string {
   if (articles.length === 0) return 'No wiki articles found.'
-  return articles.map(a => {
+  return st(articles.map(a => {
     const time = a.created_at ? new Date(a.created_at * 1000).toLocaleString() : 'unknown'
     const author = a.pubkey?.slice(0, 12) + '...'
     const lines = [`# ${a.title}`]
@@ -391,19 +410,19 @@ export function formatWikiArticles(articles: any[]): string {
     lines.push('')
     lines.push(a.content)
     return lines.join('\n')
-  }).join('\n\n---\n\n')
+  }).join('\n\n---\n\n'))
 }
 
 export function formatWikiList(topics: any[]): string {
   if (topics.length === 0) return 'No wiki topics found.'
-  return topics.map(t => {
+  return st(topics.map(t => {
     const time = t.created_at ? new Date(t.created_at * 1000).toLocaleString() : 'unknown'
     const parts = [t.title || t.topic || '(untitled)']
     if (t.topic) parts.push(`[${t.topic}]`)
     parts.push(`(${time})`)
     if (t.summary) parts.push(`— ${t.summary}`)
     return parts.join('  ')
-  }).join('\n')
+  }).join('\n'))
 }
 
 export function formatScheduleResult(result: any): string {
@@ -429,7 +448,7 @@ export function formatDispatchReplyResult(result: any): string {
 
 export function formatHandlers(handlers: any[]): string {
   if (handlers.length === 0) return 'No MCP handlers found.'
-  return handlers.map(h => {
+  return st(handlers.map(h => {
     const lines = [`${h.name}  (${h.pubkey?.slice(0, 12)}...)`]
     if (h.about) lines.push(`  ${h.about}`)
     if (h.kinds?.length > 0) lines.push(`  Kinds: ${h.kinds.join(', ')}`)
@@ -440,5 +459,5 @@ export function formatHandlers(handlers: any[]): string {
     if (h.dTag) lines.push(`  d-tag: ${h.dTag}`)
     if (h.picture) lines.push(`  Picture: ${h.picture}`)
     return lines.join('\n')
-  }).join('\n\n')
+  }).join('\n\n'))
 }

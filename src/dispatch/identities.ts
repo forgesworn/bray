@@ -9,6 +9,12 @@ import { readFileSync } from 'node:fs'
 
 const HEX_64 = /^[0-9a-f]{64}$/
 
+// Bounds to keep a hostile or corrupted identities file from forcing the
+// process to chew through gigabytes of markdown or hundreds of thousands of
+// rows. A real identities table has tens to low hundreds of rows.
+const MAX_MARKDOWN_BYTES = 1_048_576 // 1 MiB
+const MAX_LINES = 10_000
+
 /** Separator rows contain only dashes, pipes, colons, and whitespace. */
 function isSeparatorRow(row: string): boolean {
   return /^\|[\s:|-]+\|$/.test(row.trim())
@@ -19,12 +25,25 @@ function isSeparatorRow(row: string): boolean {
  *
  * Accepts the standard format with columns: Name | Hex Pubkey | ...
  * Pubkeys may be wrapped in backticks. Only valid 64-character hex strings are accepted.
+ *
+ * Input is capped at 1 MiB and 10 000 lines. Oversized inputs throw.
  */
 export function parseIdentities(markdown: string): Map<string, string> {
   const result = new Map<string, string>()
   if (!markdown || !markdown.trim()) return result
 
+  if (markdown.length > MAX_MARKDOWN_BYTES) {
+    throw new Error(
+      `Identities markdown too large: ${markdown.length} bytes (limit ${MAX_MARKDOWN_BYTES})`,
+    )
+  }
+
   const lines = markdown.split('\n')
+  if (lines.length > MAX_LINES) {
+    throw new Error(
+      `Identities markdown has too many lines: ${lines.length} (limit ${MAX_LINES})`,
+    )
+  }
   let headerSkipped = false
 
   for (const line of lines) {

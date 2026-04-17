@@ -59,6 +59,18 @@ export function startRelay(opts: ServeOptions = {}): { url: string; close: () =>
   const quiet = opts.quiet ?? false
   const log = quiet ? () => {} : (...args: unknown[]) => console.error('[relay]', ...args)
 
+  // The bundled test relay has no auth and accepts arbitrary signed events.
+  // Binding it to anything other than loopback exposes a writable Nostr endpoint
+  // to the local network — almost never the intent. Warn loudly even in quiet
+  // mode, since this is a security-relevant choice.
+  const isLoopback = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+  if (!isLoopback) {
+    console.warn(
+      `[relay] WARNING: bray test relay bound to ${hostname}:${port} (non-loopback). ` +
+      `It has no auth and accepts arbitrary signed events. Use only on trusted networks.`,
+    )
+  }
+
   const events = new Map<string, NostrEvent>()
   const subscriptions = new Map<string, Subscription>()
 

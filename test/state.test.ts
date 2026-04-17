@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { mkdtempSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, existsSync, readFileSync, statSync, writeFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { readStateFile, writeStateFile } from '../src/state.js'
@@ -43,5 +43,21 @@ describe('state files', () => {
     const nested = join(stateDir, 'sub', 'dir')
     writeStateFile('nested.json', { ok: true }, nested)
     expect(existsSync(join(nested, 'nested.json'))).toBe(true)
+  })
+
+  it('writeStateFile is atomic — no tmp file remains after success', () => {
+    writeStateFile('atomic.json', { ok: true }, stateDir)
+    const tmpLeftovers = readdirSync(stateDir).filter(f => f.endsWith('.tmp'))
+    expect(tmpLeftovers).toEqual([])
+    expect(existsSync(join(stateDir, 'atomic.json'))).toBe(true)
+  })
+
+  it('writeStateFile preserves prior contents when overwritten', () => {
+    writeStateFile('overwrite.json', { v: 1 }, stateDir)
+    writeStateFile('overwrite.json', { v: 2 }, stateDir)
+    expect(readStateFile('overwrite.json', stateDir)).toEqual({ v: 2 })
+    // Permissions retained on the renamed file.
+    const stat = statSync(join(stateDir, 'overwrite.json'))
+    expect(stat.mode & 0o777).toBe(0o600)
   })
 })
