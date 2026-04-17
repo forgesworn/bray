@@ -88,6 +88,17 @@ describe('Nip65Manager', () => {
       expect(result.read).toEqual(defaults)
       expect(result.write).toEqual(defaults)
     })
+
+    it('warns loudly when falling back', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const mockPool = { query: vi.fn().mockResolvedValue([]) }
+      const manager = new Nip65Manager(mockPool as any, ['wss://default.example.com'])
+      await manager.loadForIdentity(TEST_NPUB, TEST_PUBKEY)
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('no verified relay list'),
+      )
+      warnSpy.mockRestore()
+    })
   })
 
   describe('event injection defence', () => {

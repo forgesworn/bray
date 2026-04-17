@@ -349,16 +349,37 @@ export interface TrustRankResult {
  * @param args.event - The Nostr event whose author should be assessed.
  * @returns The event, full TrustAssessment, and a compact TrustAnnotation.
  */
+// Module-level cache keyed by (SigningContext, RelayPool). TrustContext holds
+// a Signet assessor, vault resolver, and veil scorer plus their caches, so
+// constructing one per call throws away follow-graph walks, NIP-85 fetches,
+// and vault epoch evaluations from prior calls. The cache key is the pair so
+// we never reuse an instance across different active identities or pools.
+const trustRankContextCache = new WeakMap<SigningContext, WeakMap<RelayPool, TrustContext>>()
+
+function getOrCreateTrustRankContext(ctx: SigningContext, pool: RelayPool): TrustContext {
+  let perPool = trustRankContextCache.get(ctx)
+  if (!perPool) {
+    perPool = new WeakMap()
+    trustRankContextCache.set(ctx, perPool)
+  }
+  let trustCtx = perPool.get(pool)
+  if (!trustCtx) {
+    trustCtx = new TrustContext(ctx, pool, {
+      cacheTtl: 5 * 60 * 1000,
+      cacheMax: 512,
+      trustMode: 'annotate',
+    })
+    perPool.set(pool, trustCtx)
+  }
+  return trustCtx
+}
+
 export async function handleTrustRank(
   ctx: SigningContext,
   pool: RelayPool,
   args: { event: NostrEvent },
 ): Promise<TrustRankResult> {
-  const trustCtx = new TrustContext(ctx, pool, {
-    cacheTtl: 5 * 60 * 1000,
-    cacheMax: 512,
-    trustMode: 'annotate',
-  })
+  const trustCtx = getOrCreateTrustRankContext(ctx, pool)
   const assessment = await trustCtx.assess(args.event.pubkey)
   return {
     event: args.event,

@@ -1,6 +1,6 @@
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
 import type { PublishResult, RelaySet } from './types.js'
-import { validatePublicUrl } from './validation.js'
+import { validatePublicUrl, validateRelayScheme } from './validation.js'
 
 // 512 KiB cap on any inbound relay frame. Protects against malicious relays
 // pushing 100 MB EVENTs that would exhaust memory (ws library defaults to
@@ -115,6 +115,7 @@ export class RelayPool {
       if (!/^wss?:\/\//i.test(url) || url.length > 512) {
         throw new Error(`Invalid default relay URL: ${url.slice(0, 128)}`)
       }
+      validateRelayScheme(url, this.allowPrivateRelays)
       if (!this.allowPrivateRelays && !this.isOnion(url)) {
         validatePublicUrl(url)
       }
@@ -157,6 +158,8 @@ export class RelayPool {
       if (!/^wss?:\/\//i.test(url) || url.length > 512) {
         throw new Error(`Invalid relay URL: ${url.slice(0, 128)}`)
       }
+      // Block plaintext ws:// to clearnet — onion services and local dev are exempt.
+      validateRelayScheme(url, this.allowPrivateRelays)
       // .onion hosts bypass validatePublicUrl (they don't resolve in DNS and
       // cannot be private-network aliases); everything else must pass.
       if (!this.allowPrivateRelays && !this.isOnion(url)) {

@@ -276,14 +276,19 @@ export async function handleSocialProfileSet(
   // Check for existing profile
   const existing = await pool.query(ctx.activeNpub, {
     kinds: [0],
-    authors: [ctx.activePublicKeyHex], // simplified — in production, use hex pubkey
+    authors: [ctx.activePublicKeyHex],
   })
 
-  if (existing.length > 0 && !args.confirm) {
+  // Relays SHOULD honour the authors filter, but a hostile or buggy relay can
+  // return events from any pubkey. Filtering here prevents another identity's
+  // kind-0 being surfaced in the diff preview (cross-identity content leak).
+  const ownEvents = existing.filter(e => e.pubkey === ctx.activePublicKeyHex)
+
+  if (ownEvents.length > 0 && !args.confirm) {
     // Build diff
     let oldProfile: Record<string, unknown> = {}
     try {
-      const best = existing.reduce((a: NostrEvent, b: NostrEvent) =>
+      const best = ownEvents.reduce((a: NostrEvent, b: NostrEvent) =>
         b.created_at > a.created_at ? b : a
       )
       oldProfile = JSON.parse(best.content)

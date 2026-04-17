@@ -4,14 +4,16 @@ Findings and fix status. Branch: `security-audit-2026-04-14`.
 
 ## Summary
 
-| Severity | Found | Fixed (this branch) | Deferred |
-|----------|------:|--------------------:|---------:|
-| CRITICAL | 4 | 4 | 0 |
-| HIGH | 16 | 11 | 5 |
-| MEDIUM | 15 | 1 | 14 |
-| LOW/INFO | 20 | 1 | 19 |
+| Severity | Found | Fixed (this branch) | Closed in 0.2.0 + follow-up | Open |
+|----------|------:|--------------------:|----------------------------:|-----:|
+| CRITICAL | 4 | 4 | 0 | 0 |
+| HIGH | 16 | 11 | 5 | 0 |
+| MEDIUM | 15 | 1 | 14 | 0 |
+| LOW/INFO | 20 | 1 | 6 | 13 |
 
-Tests: 1400 → 1427 (+27 new). All pass. Typecheck clean.
+Tests: 1400 → 1427 (+27 new) → 1462+ after security-followup-2026-04-17. All pass. Typecheck clean.
+
+**Update 2026-04-17 (pt 2):** Batch C closed all remaining MEDIUM items and shipped the two investigations (M12, L1) as real fixes. MuSig2 HIGH items closed by 0.2.0. Remaining open items are all LOW-severity hygiene.
 
 ## Fixed in this branch
 
@@ -42,40 +44,53 @@ Tests: 1400 → 1427 (+27 new). All pass. Typecheck clean.
 18. `.gitignore` expanded to cover common secret filename patterns (`.env.*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `credentials.json`, `serviceAccountKey.json`).
 19. Secret-zeroisation discipline: `ncryptsec` password reference dropped immediately after `decrypt()` returns. `handleIdentityRecover` hex-string reference dropped likewise. V8 strings are immutable so this is GC-timing hardening, not wipe.
 
-## Deferred (tracked for follow-up)
+## Closed in 0.2.0 (commits e743775, 5b3a922)
 
-**HIGH — in untracked MuSig2 code (`src/musig2/`, `src/cli/commands/musig2.ts`)**
-- **MuSig2 nonce generation not BIP-327 §NonceGen compliant.** Handler uses plain `randomSecretKey()` for `k1`, `k2`; BIP-327 mandates hash binding over `rand || sk || aggpk || msg || extra || i`. On any RNG degradation or seed leak, nonce reuse with the same signer produces full private-key recovery — the canonical catastrophic MuSig2 failure. Fix: implement §NonceGen exactly.
-- **MuSig2 `secNonce` never zeroised.** The hex-encoded 97-byte secret nonce is returned to the caller and never cleared from the parsing buffers. Combined with any retry/log, this leaks nonce material. Fix: zeroise the input `secNonceBytes` in a `finally`, and either store nonces server-side with one-shot delete semantics or document loudly that `secNonce` must be consumed exactly once.
-- **No protection against `secNonce` reuse.** A caller can invoke `handleMusig2PartialSign` twice with the same `secNonce` across different message sets; this is the single catastrophic MuSig2 failure mode. Fix: maintain a process-level `Set<hash(secNonce)>` of consumed nonces and reject reuse.
+**HIGH — MuSig2 (`src/musig2/handlers.ts`)** — all three items closed by the BIP-327-compliant rewrite landed in v0.2.0.
 
-Not fixed here because these files are your uncommitted work-in-progress. **Address before committing.** See `docs/musig2-security-notes.md` for the reviewer's reasoning.
+- ~~MuSig2 nonce generation not BIP-327 §NonceGen compliant.~~ **CLOSED.** `nonceGenInternal` at `src/musig2/handlers.ts:155-205` implements §NonceGen with full hash binding over `rand || pk || aggpk || msg_prefixed || extraIn || i`, including the `MuSig/aux` XOR construction defending against partially broken RNGs.
+- ~~MuSig2 `secNonce` never zeroised.~~ **CLOSED.** `handleMusig2Nonce` at `src/musig2/handlers.ts:272-278` zeroises `rand`, `skBytes`, and `gen.secNonce` in a `finally` block. Server-held nonce custody (see below) means the secret nonce never leaves the process.
+- ~~No protection against `secNonce` reuse.~~ **CLOSED.** Server-held nonce custody via `nonceStore` Map at `src/musig2/handlers.ts:216`. `handleMusig2PartialSign` at `src/musig2/handlers.ts:293-297` calls `nonceStore.delete(nonceId)` on first use; a second call with the same `nonceId` throws `"musig2: unknown or already-consumed nonceId (nonce reuse is refused)"`. Replaces the hex-`secNonce`-on-the-wire pattern entirely.
 
-**HIGH — architectural, addressed in follow-up**
-- ~~**HTTP fetch callsites bypass Tor proxy.**~~ Originally: only WebSocket connections went through the SOCKS agent; every `fetch()` went clearnet, leaking DNS and IP on every NIP-05 lookup, Blossom operation, and relay-info fetch. Fixed in `src/http-client.ts`: when `TOR_PROXY` is set, the global undici dispatcher is swapped to a `Socks5ProxyAgent` at startup, so every `fetch()` in the process (including any added in future) flows through the proxy with `ATYP=DOMAIN` semantics — DNS happens at the proxy, no clearnet leak. Configured once from `src/index.ts`, `src/sdk.ts`, `src/cli/index.ts`. Structural protection rather than discipline-based; no callsite needs to opt in.
+## Closed in security-followup-2026-04-17 (Batch B)
 
-**HIGH — profile set signing**
-- (Addressed above — item 14.)
+**MEDIUM**
+- `ws://` scheme no longer permitted on clearnet relays. RelayPool rejects `ws://` URLs unless host is `.onion`. Wider relay-set + NIP-65 r-tag paths reuse the same gate.
+- Relay info `fetch` validates `Content-Type` is `application/nostr+json` or `application/json` before `JSON.parse`. Mismatched responses throw before parsing.
+- NIP-65 fallback fail-open now logs a `console.warn` when verified-events count is zero, including the npub being resolved.
+- `state.ts` writes are atomic (tmp + rename) with `0o600` mode set on the tmp file before rename.
+- `parseIdentities` enforces a 1 MiB input cap and a 10 000-line cap.
+- `format.ts` strips ANSI escape sequences from all relay-supplied content fields (profiles, posts, DMs, notifications, articles, listings, communities, wiki) via a single `sanitiseTerminal` helper.
 
-**MEDIUM — not fixed**
-- `ws://` scheme permitted on clearnet relays — signed events sent over unencrypted WebSocket. Consider blocking unless the host is `.onion`.
-- Session creation drops other sessions — multi-tenant HTTP transport is broken. Document as single-user only, or refactor to per-session `McpServer`.
-- Relay `fetch` lacks content-type check before 1 MiB JSON.parse.
-- NIP-65 fallback fail-open on no-verified-events should log a warning.
-- Trust filtering fail-open when context is undefined (M1 from reviewer 4): defend by typing the context as non-optional.
-- Input obviously-private path traversal not enforced on user-supplied `shardPaths` or `filePath` fields (Shamir recover, nip-publish from disk). Restrict to an allowlisted directory.
-- `ncryptsec` password in file-sourced config stays in closure until GC.
-- `state.ts` writes are non-atomic (write then chmod). Use tmp+rename.
-- `parseIdentities` has no input size limit.
-- `trust-rank` creates a fresh TrustContext per call (performance, not security).
-- `format.ts` interpolates relay content without stripping ANSI escapes.
-- `handleSocialProfileSet.diff.old` may blend content from a different identity's prior publications under the current persona's response.
+**LOW**
+- `BIND_ADDRESS` warning banner: `config.ts` logs a `console.warn` on startup when bind address is non-loopback, naming the source (env vs config file).
+- `serve.ts` test relay logs a loud warning when bound to a non-loopback hostname.
 
-**LOW — not fixed**
-- HeartwoodContext probe promotes prototype on any parseable response.
-- NWC URI stored in plaintext on disk (0o600 is present).
-- `BIND_ADDRESS` and `homepage` fields trusted from env without warning banner.
-- `serve.ts` test relay has no loud warning when bound to non-loopback.
+## Closed in security-followup-2026-04-17 (Batch C)
+
+**MEDIUM**
+- **M2** — HTTP transport documented as single-user. `src/index.ts` emits a startup warning explaining that session state is process-global and a second client will share it. Multi-tenant refactor tracked as future work.
+- **M5** — DM tools (`dm-read`, `dm-conversation`) now pass `deps.trust` into the handler, so the configured trustMode actually annotates/filters DMs instead of silently failing open.
+- **M6** — `validateInputPath` in `src/validation.ts` enforces an allowlist for user-supplied file paths. Default allowlist is `cwd()` + `~/.config/bray/inputs/`; override via `BRAY_INPUT_DIRS`. Applied to `handleIdentityRecover.shardPaths`, `handleRestoreShamir`, and the CLI `nip-publish <file>` path.
+- **M7** — `ncryptsec` password now supports `NOSTR_NCRYPTSEC_PASSWORD_FILE` / `ncryptsecPasswordFile`. The file-sourced path reads a `Buffer` and zeroises it in the `finally` so the at-rest password bytes are wiped from the heap, not only GC-staged. V8 strings remain immutable so the UTF-8 decode still leaves a string until GC — documented accordingly.
+- **M10** — `handleTrustRank` uses a per-(ctx, pool) `WeakMap` cache so subsequent calls reuse the TrustContext and its internal caches, eliminating the per-call follow-graph and Signet refetch.
+- **M12** — `handleSocialProfileSet` filters the kind-0 query by `pubkey === ctx.activePublicKeyHex` before building the diff, so a hostile relay cannot leak a foreign identity's profile into `diff.old`.
+
+**LOW**
+- **L1** — `HeartwoodContext.probe` validates the `heartwood_list_identities` response is an array of objects with an `npub` field before promoting the base context. A bare number/string/`[]` response no longer upgrades the prototype.
+- **L2** — Closed as won't-fix. `writeStateFile` now delivers NWC URI storage with `0o600` + atomic write, matching the convention used by SSH keys, GPG keyrings, Age secrets, and similar at-rest credentials. NIP-49 wrapping reserved for a future feature if demanded.
+
+## Open (tracked)
+
+**MEDIUM — open**
+- None.
+
+**LOW — open (hygiene items from the 2026-04-14 branch not picked up yet)**
+- Multi-tenant HTTP refactor — if demand materialises, convert to per-session `McpServer` with a session map. Today's single-user warning is the stopgap.
+
+**Already addressed in 2026-04-14 branch:**
+- ~~HTTP fetch callsites bypass Tor proxy.~~ Fixed in `src/http-client.ts` via global undici dispatcher swap. Configured once from `src/index.ts`, `src/sdk.ts`, `src/cli/index.ts`.
+- ~~Profile set signing in preview mode.~~ Item 14 above.
 
 ## Test coverage added
 

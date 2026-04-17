@@ -648,11 +648,14 @@ export async function handleIdentityRecover(
   args: { shardPaths: string[]; newRelays?: string[] },
 ): Promise<IdentityRecoverResult> {
   const { readFileSync } = await import('node:fs')
+  const { validateInputPath } = await import('../validation.js')
   const { wordsToShare, reconstructSecret } = await import('@forgesworn/shamir-words')
 
-  // 1. Read shard files
+  // 1. Read shard files. Each path is resolved against the input allowlist so
+  // a hostile prompt cannot redirect the read to /etc/shadow or ~/.ssh/id_rsa.
   const shares = args.shardPaths.map(filePath => {
-    const content = readFileSync(filePath, 'utf-8').trim()
+    const safePath = validateInputPath(filePath)
+    const content = readFileSync(safePath, 'utf-8').trim()
     const words = content.split(' ')
     return wordsToShare(words)
   })

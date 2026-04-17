@@ -296,6 +296,16 @@ export async function handleRelayInfo(
   if (!response.ok) {
     throw new Error(`NIP-11 fetch failed: ${response.status} ${response.statusText}`)
   }
+  // Verify the relay actually returned NIP-11 JSON before we spend up to 1 MiB
+  // parsing it. A relay that ignores Accept and serves text/html or a binary
+  // payload would otherwise feed JSON.parse with whatever bytes it returned.
+  const contentType = response.headers.get('content-type') ?? ''
+  const isJsonLike = /^(application\/(nostr\+json|json))(\s*;|$)/i.test(contentType.trim())
+  if (!isJsonLike) {
+    throw new Error(
+      `NIP-11 response has wrong Content-Type: ${contentType.slice(0, 64) || '(none)'} (expected application/nostr+json)`,
+    )
+  }
   const text = await response.text()
   if (text.length > 1_048_576) {
     throw new Error('Relay info document too large')

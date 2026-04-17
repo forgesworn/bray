@@ -45,6 +45,7 @@ interface ConfigFile {
   nwcUriFile?: string
   ncryptsecFile?: string
   ncryptsecPassword?: string
+  ncryptsecPasswordFile?: string
   relays?: string[]
   walletsFile?: string
   torProxy?: string
@@ -124,11 +125,31 @@ export async function loadConfig(): Promise<BrayConfig> {
       : file.ncryptsecFile
         ? readSecretFile(file.ncryptsecFile)
         : undefined
-  const ncryptsecPassword = process.env.NOSTR_NCRYPTSEC_PASSWORD ?? file.ncryptsecPassword
+  // Password source precedence: env-var > env-file > config-file > inline-config.
+  // Prefer file-based sources so the password can be delivered via systemd
+  // credentials, docker secrets, or similar secure channels and never appears
+  // in the process environment or config JSON.
+  const ncryptsecPasswordFile = process.env.NOSTR_NCRYPTSEC_PASSWORD_FILE ?? file.ncryptsecPasswordFile
+  let ncryptsecPasswordBuf: Buffer | null = null
+  let ncryptsecPassword: string | undefined
+  if (process.env.NOSTR_NCRYPTSEC_PASSWORD) {
+    ncryptsecPassword = process.env.NOSTR_NCRYPTSEC_PASSWORD
+  } else if (ncryptsecPasswordFile) {
+    // Read as Buffer so we can zeroise the at-rest byte representation even
+    // though the derived UTF-8 string is immutable in V8.
+    ncryptsecPasswordBuf = readFileSync(ncryptsecPasswordFile)
+    // Strip a single trailing newline if present (common with `echo … > file`).
+    let len = ncryptsecPasswordBuf.length
+    if (len > 0 && ncryptsecPasswordBuf[len - 1] === 0x0a) len -= 1
+    if (len > 0 && ncryptsecPasswordBuf[len - 1] === 0x0d) len -= 1
+    ncryptsecPassword = ncryptsecPasswordBuf.subarray(0, len).toString('utf-8')
+  } else if (file.ncryptsecPassword) {
+    ncryptsecPassword = file.ncryptsecPassword
+  }
 
   if (ncryptsec) {
     if (!ncryptsecPassword) {
-      throw new Error('NOSTR_NCRYPTSEC provided but NOSTR_NCRYPTSEC_PASSWORD is missing')
+      throw new Error('NOSTR_NCRYPTSEC provided but no password source (set NOSTR_NCRYPTSEC_PASSWORD, NOSTR_NCRYPTSEC_PASSWORD_FILE, or ncryptsecPasswordFile in config)')
     }
     if (!NCRYPTSEC_RE.test(ncryptsec)) {
       throw new Error('Invalid ncryptsec format: expected ncryptsec1...')
@@ -136,19 +157,20 @@ export async function loadConfig(): Promise<BrayConfig> {
     // Lazy import to avoid loading nip49 when not needed
     const { decrypt } = await import('nostr-tools/nip49')
     const { nsecEncode } = await import('nostr-tools/nip19')
-    let password: string | undefined = ncryptsecPassword
-    const bytes = decrypt(ncryptsec, password)
+    const bytes = decrypt(ncryptsec, ncryptsecPassword)
     try {
       secretKey = nsecEncode(bytes)
     } finally {
-      // Drop the password reference ASAP. V8 strings are immutable so we
-      // cannot wipe the underlying memory, but making the reference
-      // unreachable lets the GC reclaim it sooner.
-      password = undefined
+      // Drop the password reference ASAP. V8 strings are immutable, but the
+      // file-sourced Buffer *is* wipeable — zero it so the at-rest bytes are
+      // no longer in the process heap.
+      if (ncryptsecPasswordBuf) {
+        ncryptsecPasswordBuf.fill(0)
+        ncryptsecPasswordBuf = null
+      }
+      ncryptsecPassword = undefined
       bytes.fill(0)
     }
-    // Hint: avoid referencing ncryptsecPassword past this block.
-    void password
   } else if (keyFilePath) {
     secretKey = readSecretFile(keyFilePath)
   } else if (keyEnvVar) {
@@ -188,7 +210,23 @@ export async function loadConfig(): Promise<BrayConfig> {
   const transportRaw = process.env.TRANSPORT ?? file.transport
   const transport = (transportRaw === 'http' ? 'http' : 'stdio') as 'stdio' | 'http'
   const port = parseInt(process.env.PORT ?? String(file.port ?? 3000), 10)
+  const bindAddressSource = process.env.BIND_ADDRESS != null
+    ? 'BIND_ADDRESS env'
+    : file.bindAddress != null ? 'config file' : null
   const bindAddress = process.env.BIND_ADDRESS ?? file.bindAddress ?? '127.0.0.1'
+
+  // Warn loudly when the HTTP transport is bound somewhere other than loopback.
+  // Operators who *want* a public bind should still see this so they can confirm
+  // it was their intent and not a stray BIND_ADDRESS leftover from another env.
+  if (transport === 'http' && bindAddressSource !== null) {
+    const isLoopback = bindAddress === '127.0.0.1' || bindAddress === '::1' || bindAddress === 'localhost'
+    if (!isLoopback) {
+      console.warn(
+        `[bray] HTTP transport bound to ${bindAddress} (source: ${bindAddressSource}). ` +
+        `This is reachable from outside the host — confirm authentication, TLS, and firewalling are configured.`,
+      )
+    }
+  }
 
   // --- NIP-04 ---
   const nip04Enabled = process.env.NIP04_ENABLED === '1' || file.nip04Enabled === true
@@ -239,6 +277,7 @@ export async function loadConfig(): Promise<BrayConfig> {
   delete process.env.NOSTR_NCRYPTSEC
   delete process.env.NOSTR_NCRYPTSEC_FILE
   delete process.env.NOSTR_NCRYPTSEC_PASSWORD
+  delete process.env.NOSTR_NCRYPTSEC_PASSWORD_FILE
 
   return {
     secretKey,

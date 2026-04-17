@@ -3,7 +3,44 @@ import { startRelay } from '../src/serve.js'
 import { startBunker } from '../src/bunker.js'
 import { IdentityContext } from '../src/context.js'
 import { BunkerContext } from '../src/bunker-context.js'
-import { HeartwoodContext } from '../src/heartwood-context.js'
+import { HeartwoodContext, isHeartwoodIdentitiesResponse } from '../src/heartwood-context.js'
+
+describe('isHeartwoodIdentitiesResponse', () => {
+  const validNpub = 'npub1' + 'a'.repeat(58)
+
+  it('accepts an empty array (freshly initialised device)', () => {
+    expect(isHeartwoodIdentitiesResponse('[]')).toBe(true)
+  })
+
+  it('accepts an array of {npub} objects', () => {
+    expect(isHeartwoodIdentitiesResponse(JSON.stringify([{ npub: validNpub }]))).toBe(true)
+    expect(isHeartwoodIdentitiesResponse(JSON.stringify([
+      { npub: validNpub, purpose: 'root' },
+      { npub: validNpub, index: 0 },
+    ]))).toBe(true)
+  })
+
+  it('rejects bare JSON primitives masquerading as a list', () => {
+    expect(isHeartwoodIdentitiesResponse('42')).toBe(false)
+    expect(isHeartwoodIdentitiesResponse('"heartwood"')).toBe(false)
+    expect(isHeartwoodIdentitiesResponse('true')).toBe(false)
+    expect(isHeartwoodIdentitiesResponse('null')).toBe(false)
+    expect(isHeartwoodIdentitiesResponse('{}')).toBe(false)
+  })
+
+  it('rejects arrays whose entries lack npub', () => {
+    expect(isHeartwoodIdentitiesResponse(JSON.stringify([{ foo: 'bar' }]))).toBe(false)
+    expect(isHeartwoodIdentitiesResponse(JSON.stringify(['plain string']))).toBe(false)
+    expect(isHeartwoodIdentitiesResponse(JSON.stringify([null]))).toBe(false)
+    expect(isHeartwoodIdentitiesResponse(JSON.stringify([{ npub: 123 }]))).toBe(false)
+  })
+
+  it('rejects unparseable input', () => {
+    expect(isHeartwoodIdentitiesResponse('')).toBe(false)
+    expect(isHeartwoodIdentitiesResponse('not json')).toBe(false)
+    expect(isHeartwoodIdentitiesResponse('[unterminated')).toBe(false)
+  })
+})
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
 

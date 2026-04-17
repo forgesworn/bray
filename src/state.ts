@@ -1,6 +1,14 @@
-import { readFileSync, writeFileSync, mkdirSync, chmodSync, existsSync } from 'node:fs'
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  renameSync,
+  unlinkSync,
+  existsSync,
+} from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
+import { randomBytes } from 'node:crypto'
 
 const DEFAULT_STATE_DIR = join(
   process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'),
@@ -20,7 +28,14 @@ export function readStateFile<T = Record<string, unknown>>(
   }
 }
 
-/** Write a JSON state file with 0600 permissions. Creates directory if needed. */
+/**
+ * Write a JSON state file with 0o600 permissions, atomically.
+ *
+ * Uses tmp-file + rename so a crash mid-write cannot leave the destination
+ * truncated or world-readable: the tmp file is created with mode 0o600 and
+ * renamed only after the data is fully written. On failure the tmp file is
+ * removed.
+ */
 export function writeStateFile(
   name: string,
   data: unknown,
@@ -30,6 +45,12 @@ export function writeStateFile(
     mkdirSync(stateDir, { recursive: true })
   }
   const path = join(stateDir, name)
-  writeFileSync(path, JSON.stringify(data, null, 2), { mode: 0o600 })
-  chmodSync(path, 0o600)
+  const tmpPath = `${path}.${randomBytes(8).toString('hex')}.tmp`
+  try {
+    writeFileSync(tmpPath, JSON.stringify(data, null, 2), { mode: 0o600 })
+    renameSync(tmpPath, path)
+  } catch (err) {
+    try { unlinkSync(tmpPath) } catch { /* tmp may not exist */ }
+    throw err
+  }
 }

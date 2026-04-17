@@ -218,6 +218,7 @@ describe('relay handlers', () => {
       const jsonBody = JSON.stringify({ name: 'Test Relay', description: 'A test relay' })
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
+        headers: new Headers({ 'content-type': 'application/nostr+json' }),
         text: () => Promise.resolve(jsonBody),
       })
       vi.stubGlobal('fetch', mockFetch)
@@ -235,6 +236,30 @@ describe('relay handlers', () => {
     it('throws on non-OK response', async () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' }))
       await expect(handleRelayInfo('wss://bad.example.com')).rejects.toThrow(/404/)
+      vi.unstubAllGlobals()
+    })
+
+    it('rejects responses with wrong Content-Type before parsing', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+        text: () => Promise.resolve('<html>not json</html>'),
+      })
+      vi.stubGlobal('fetch', mockFetch)
+      await expect(handleRelayInfo('wss://relay.example.com')).rejects.toThrow(/Content-Type/)
+      vi.unstubAllGlobals()
+    })
+
+    it('accepts application/json content-type with parameters', async () => {
+      const jsonBody = JSON.stringify({ name: 'Permissive Relay' })
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json; charset=utf-8' }),
+        text: () => Promise.resolve(jsonBody),
+      })
+      vi.stubGlobal('fetch', mockFetch)
+      const result = await handleRelayInfo('wss://relay.example.com')
+      expect(result.name).toBe('Permissive Relay')
       vi.unstubAllGlobals()
     })
 

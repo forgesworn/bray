@@ -24,8 +24,7 @@ export class HeartwoodContext extends BunkerContext implements ExtendedSigningCo
       // Cast to access protected signer — safe because HeartwoodContext extends BunkerContext
       const signer = (base as HeartwoodContext).signer
       const result = await signer.sendRequest('heartwood_list_identities', [])
-      // If we got a result, extensions are available
-      JSON.parse(result) // validate it's parseable
+      if (!isHeartwoodIdentitiesResponse(result)) return null
       // Re-class the base context as HeartwoodContext
       return Object.setPrototypeOf(base, HeartwoodContext.prototype) as HeartwoodContext
     } catch {
@@ -109,4 +108,30 @@ export class HeartwoodContext extends BunkerContext implements ExtendedSigningCo
 /** Check if a context is a HeartwoodContext instance. */
 export function isHeartwoodContext(ctx: unknown): ctx is HeartwoodContext {
   return ctx instanceof HeartwoodContext
+}
+
+/**
+ * Validate the raw JSON response from `heartwood_list_identities` before
+ * upgrading a BunkerContext to a HeartwoodContext. Prevents a signer that
+ * happens to return any parseable JSON (a bare number, string, or `[]`) from
+ * tricking the probe into promoting the prototype — which would leave every
+ * downstream Heartwood call to blow up mid-operation.
+ *
+ * Expected shape: array of objects each with an `npub` string. The array may
+ * be empty (a device with no identities derived yet) but must still be an
+ * array.
+ */
+export function isHeartwoodIdentitiesResponse(raw: string): boolean {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return false
+  }
+  if (!Array.isArray(parsed)) return false
+  for (const entry of parsed) {
+    if (!entry || typeof entry !== 'object') return false
+    if (typeof (entry as Record<string, unknown>).npub !== 'string') return false
+  }
+  return true
 }
