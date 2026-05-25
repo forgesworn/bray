@@ -156,7 +156,7 @@
     "dominion-protocol": "^1.0.0",
     "nostr-attestations": "^2.5.4",
     "nostr-tools": "^2.23.3",
-    "nostr-veil": "^0.28.1",
+    "nostr-veil": "^0.29.0",
     "nsec-tree": "^1.4.2",
     "signet-protocol": "^1.1.0",
     "socks-proxy-agent": "^10.0.0",
