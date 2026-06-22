@@ -16,12 +16,14 @@ const BUNKER_URI_FILE = 'bunker-uri'
 export async function applyBunkerPersona(
   ctx: { use(purpose: string, index?: number): Promise<void> },
   args: string[],
-): Promise<void> {
+): Promise<string | undefined> {
   const i = args.indexOf('--persona')
   const value = i >= 0 ? args[i + 1] : undefined
   if (value && !value.startsWith('--')) {
     await ctx.use(value)
+    return value
   }
+  return undefined
 }
 
 export async function dispatch(args: string[]): Promise<void> {
@@ -176,25 +178,45 @@ export async function dispatch(args: string[]): Promise<void> {
 
   // Bunker daemon
   const { startBunker } = await import('../../bunker.js')
+  const { readNsecTreeProfileMnemonic, getOrCreateBunkerKey } = await import('../../bunker-helpers.js')
+
+  // --profile <name>: load the master straight from an nsec-tree-cli profile
+  // (~/.nsec-tree/profiles/<name>.json). loadConfig scrubs NOSTR_SECRET_KEY after.
+  const profileIdx = args.indexOf('--profile')
+  const profileName = profileIdx >= 0 && args[profileIdx + 1] && !args[profileIdx + 1].startsWith('--')
+    ? args[profileIdx + 1]
+    : undefined
+  if (profileName) process.env.NOSTR_SECRET_KEY = readNsecTreeProfileMnemonic(profileName)
+
   const config = await (await import('../../config.js')).loadConfig()
   const { IdentityContext: IC } = await import('../../context.js')
   const bCtx = new IC(config.secretKey, config.secretFormat)
   ;(config as any).secretKey = ''
-  await applyBunkerPersona(bCtx, args)
+  const persona = await applyBunkerPersona(bCtx, args)
+
   const authorizedKeys = args.includes('--authorized-keys')
     ? args[args.indexOf('--authorized-keys') + 1].split(',')
     : undefined
+
   let bunkerKeyHex: string | undefined
   if (args.includes('--bunker-key-file')) {
     const { readFileSync } = await import('node:fs')
     bunkerKeyHex = readFileSync(args[args.indexOf('--bunker-key-file') + 1], 'utf-8').trim()
   } else if (args.includes('--bunker-key')) {
     bunkerKeyHex = args[args.indexOf('--bunker-key') + 1]
+  } else {
+    // No explicit key: persist a STABLE one per identity so the bunker:// URI
+    // survives restarts without the operator managing key files.
+    bunkerKeyHex = getOrCreateBunkerKey(persona ?? profileName ?? 'default')
   }
+
+  const relays = config.relays.length > 0
+    ? config.relays
+    : ['wss://relay.damus.io', 'wss://nos.lol']
 
   const bunker = startBunker({
     ctx: bCtx,
-    relays: config.relays,
+    relays,
     authorizedKeys,
     bunkerKeyHex,
     quiet: args.includes('--quiet'),

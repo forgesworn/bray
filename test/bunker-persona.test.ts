@@ -31,4 +31,16 @@ describe('applyBunkerPersona (bunker --persona <name>)', () => {
     expect(ctx.activeNpub).toBe(master)
     ctx.destroy()
   })
+
+  it('returns the persona name it applied (for keying the stable bunker key)', async () => {
+    const ctx = new IdentityContext(TEST_MNEMONIC, 'mnemonic')
+    expect(await applyBunkerPersona(ctx, ['bunker', '--persona', 'magazine'])).toBe('magazine')
+    ctx.destroy()
+  })
+
+  it('returns undefined when no --persona is given', async () => {
+    const ctx = new IdentityContext(TEST_MNEMONIC, 'mnemonic')
+    expect(await applyBunkerPersona(ctx, ['bunker'])).toBeUndefined()
+    ctx.destroy()
+  })
 })
