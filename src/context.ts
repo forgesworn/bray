@@ -103,6 +103,24 @@ export class IdentityContext implements ExtendedSigningContext {
     return { npub: identity.npub, purpose, index }
   }
 
+  /** Activate a path-derived sub-identity (purpose+index) for signing.
+   *  Matches `derive(purpose, index)` — the identity `export nsec <purpose>`
+   *  yields in nsec-tree-cli — so `bunker --persona magazine` signs as the same
+   *  key you'd get anywhere else in the ecosystem. */
+  async use(purpose: string, index = 0): Promise<void> {
+    for (const [, entry] of this.cache) {
+      if (entry.purpose === purpose && entry.index === index && !entry.personaName) {
+        entry.lastUsed = Date.now()
+        this.activeEntry = entry
+        return
+      }
+    }
+    const identity = derive(this.root, purpose, index)
+    const entry: CacheEntry = { identity, purpose, index, lastUsed: Date.now() }
+    this.putCache(identity.npub, entry)
+    this.activeEntry = entry
+  }
+
   /** Derive a named persona */
   async derivePersona(name: string, index: number): Promise<PublicIdentity> {
     // Return from cache if already derived

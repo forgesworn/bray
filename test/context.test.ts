@@ -247,4 +247,36 @@ describe('IdentityContext', () => {
       ctx.destroy()
     })
   })
+
+  describe('use (activate a path-derived sub-identity for signing)', () => {
+    it('activates the same identity that derive() returns for a purpose', async () => {
+      const ctx = new IdentityContext(TEST_MNEMONIC, 'mnemonic')
+      const { npub } = await ctx.derive('magazine', 0)
+      expect(ctx.activeNpub).not.toBe(npub) // master is active before use()
+      await ctx.use('magazine')
+      expect(ctx.activeNpub).toBe(npub)
+      ctx.destroy()
+    })
+
+    it('signs events as the used identity, not the master', async () => {
+      const ctx = new IdentityContext(TEST_MNEMONIC, 'mnemonic')
+      const masterPk = ctx.activePublicKeyHex
+      await ctx.use('magazine')
+      const sign = ctx.getSigningFunction()
+      const ev = await sign({ kind: 1, created_at: 0, tags: [], content: 'hi' })
+      expect(ev.pubkey).not.toBe(masterPk)
+      expect(ev.pubkey).toBe(ctx.activePublicKeyHex)
+      expect(verifyEvent(ev)).toBe(true)
+      ctx.destroy()
+    })
+
+    it('defaults index to 0 and is deterministic', async () => {
+      const ctx = new IdentityContext(TEST_MNEMONIC, 'mnemonic')
+      await ctx.use('magazine')
+      const a = ctx.activeNpub
+      await ctx.use('magazine', 0)
+      expect(ctx.activeNpub).toBe(a)
+      ctx.destroy()
+    })
+  })
 })

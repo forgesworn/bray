@@ -8,6 +8,22 @@
 /** Filename used to persist the active bunker URI inside the bray state dir. */
 const BUNKER_URI_FILE = 'bunker-uri'
 
+/**
+ * Apply `--persona <name>` to a bunker context: switch signing to that named
+ * sub-identity (the same key `nsec-tree-cli export nsec <name>` yields). With no
+ * `--persona`, the bunker signs as the configured master identity, unchanged.
+ */
+export async function applyBunkerPersona(
+  ctx: { use(purpose: string, index?: number): Promise<void> },
+  args: string[],
+): Promise<void> {
+  const i = args.indexOf('--persona')
+  const value = i >= 0 ? args[i + 1] : undefined
+  if (value && !value.startsWith('--')) {
+    await ctx.use(value)
+  }
+}
+
 export async function dispatch(args: string[]): Promise<void> {
   // Accept `bunker daemon` as alias for `bunker` (start daemon)
   if (args[1] === 'daemon') args.splice(1, 1)
@@ -164,6 +180,7 @@ export async function dispatch(args: string[]): Promise<void> {
   const { IdentityContext: IC } = await import('../../context.js')
   const bCtx = new IC(config.secretKey, config.secretFormat)
   ;(config as any).secretKey = ''
+  await applyBunkerPersona(bCtx, args)
   const authorizedKeys = args.includes('--authorized-keys')
     ? args[args.indexOf('--authorized-keys') + 1].split(',')
     : undefined
