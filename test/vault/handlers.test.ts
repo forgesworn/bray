@@ -54,13 +54,13 @@ describe('vault handlers', () => {
   // ─── handleVaultCreate ───────────────────────────────────────────────────────
 
   describe('handleVaultCreate', () => {
-    it('creates kind 30078 event with d-tag dominion:vault-config', async () => {
+    it('creates kind 30481 event with d-tag vault-config', async () => {
       const pool = mockPool()
       const result = await handleVaultCreate(ctx, pool as any, { tiers: ['friends', 'family'] })
-      expect(result.event.kind).toBe(30078)
+      expect(result.event.kind).toBe(30481)
       expect(result.event.sig).toBeDefined()
       const dTag = result.event.tags.find((t: string[]) => t[0] === 'd')
-      expect(dTag?.[1]).toBe('dominion:vault-config')
+      expect(dTag?.[1]).toBe('vault-config')
     })
 
     it('includes the requested tier names in the result', async () => {
@@ -132,10 +132,11 @@ describe('vault handlers', () => {
       expect(decrypted.plaintext).toBe(plaintext)
     })
 
-    it('throws when decrypting with wrong tier', async () => {
+    it('decrypts regardless of tier — tier does not scope the content key (same epoch)', async () => {
       const epoch = '2026-W01'
       const encrypted = await handleVaultEncrypt(ctx, { content: 'data', tier: 'friends', epoch })
-      await expect(handleVaultRead(ctx, { ciphertext: encrypted.ciphertext, tier: 'family', epoch })).rejects.toThrow()
+      const read = await handleVaultRead(ctx, { ciphertext: encrypted.ciphertext, tier: 'family', epoch })
+      expect(read.plaintext).toBe('data')
     })
 
     it('throws when decrypting with wrong epoch', async () => {
@@ -207,8 +208,8 @@ describe('vault handlers', () => {
           id: '1'.padEnd(64, '1'),
           pubkey: ctx.activePublicKeyHex,
           created_at: Math.floor(Date.now() / 1000),
-          kind: 30078,
-          tags: [['d', 'dominion:vault-config']],
+          kind: 30481,
+          tags: [['d', 'vault-config']],
           content: JSON.stringify(existingConfig),
           sig: 'f'.padEnd(128, 'f'),
         },
@@ -226,7 +227,7 @@ describe('vault handlers', () => {
     it('works even when no existing config found (creates from default)', async () => {
       const pool = mockPool() // returns no events
       const result = await handleVaultRevoke(ctx, pool as any, { pubkey: BOB })
-      expect(result.event.kind).toBe(30078)
+      expect(result.event.kind).toBe(30481)
       expect(result.revokedPubkey).toMatch(/^npub1/)
     })
   })
@@ -254,8 +255,8 @@ describe('vault handlers', () => {
           id: '2'.padEnd(64, '2'),
           pubkey: ctx.activePublicKeyHex,
           created_at: Math.floor(Date.now() / 1000),
-          kind: 30078,
-          tags: [['d', 'dominion:vault-config']],
+          kind: 30481,
+          tags: [['d', 'vault-config']],
           content: JSON.stringify(config),
           sig: 'f'.padEnd(128, 'f'),
         },
@@ -279,8 +280,8 @@ describe('vault handlers', () => {
           id: '3'.padEnd(64, '3'),
           pubkey: ctx.activePublicKeyHex,
           created_at: Math.floor(Date.now() / 1000),
-          kind: 30078,
-          tags: [['d', 'dominion:vault-config']],
+          kind: 30481,
+          tags: [['d', 'vault-config']],
           content: JSON.stringify(config),
           sig: 'f'.padEnd(128, 'f'),
         },
@@ -313,8 +314,8 @@ describe('vault handlers', () => {
           id: '4'.padEnd(64, '4'),
           pubkey: ctx.activePublicKeyHex,
           created_at: Math.floor(Date.now() / 1000),
-          kind: 30078,
-          tags: [['d', 'dominion:vault-config']],
+          kind: 30481,
+          tags: [['d', 'vault-config']],
           content: JSON.stringify(config),
           sig: 'f'.padEnd(128, 'f'),
         },

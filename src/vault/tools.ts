@@ -20,7 +20,7 @@ function jsonResponse(data: unknown): { content: Array<{ type: 'text'; text: str
 
 export function registerVaultTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('vault-create', {
-    description: 'Create a Dominion vault config with named access tiers. Signs and publishes the config as a kind 30078 event. Returns the created event, publish result, and tier names.',
+    description: 'Create a Dominion vault config with named access tiers. Signs and publishes the config as a kind 30481 event. Returns the created event, publish result, and tier names.',
     inputSchema: {
       tiers: z.array(z.string()).describe('Names of the access tiers to create (e.g. ["admin", "member", "guest"])'),
     },
