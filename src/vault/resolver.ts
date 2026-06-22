@@ -1,4 +1,4 @@
-import { getCurrentEpochId, KIND_VAULT_CONFIG } from 'dominion-protocol'
+import { getCurrentEpochId } from 'dominion-protocol'
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { RelayPool } from '../relay-pool.js'
 
@@ -51,9 +51,9 @@ export class VaultResolver {
 
     // Query target's vault config to see if we are a member of any tier
     const theirConfigEvents = await this.pool.query(myPubkey, {
-      kinds: [KIND_VAULT_CONFIG],
+      kinds: [30078],
       authors: [targetPubkey],
-      '#d': ['vault-config'],
+      '#d': ['dominion:vault-config'],
     } as any)
 
     const theirVaultTiers: string[] = []
@@ -76,9 +76,9 @@ export class VaultResolver {
 
     // Query our vault config to see which tiers the target belongs to
     const ourConfigEvents = await this.pool.query(myPubkey, {
-      kinds: [KIND_VAULT_CONFIG],
+      kinds: [30078],
       authors: [myPubkey],
-      '#d': ['vault-config'],
+      '#d': ['dominion:vault-config'],
     } as any)
 
     const vaultTiers: string[] = []

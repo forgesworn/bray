@@ -1,10 +1,10 @@
 {
   "name": "nostr-bray",
   "mcpName": "dev.forgesworn/bray",
-  "version": "0.3.0",
+  "version": "0.1.0",
   "description": "Trust-aware Nostr for AI and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "homepage": "https://bray.forgesworn.dev",
-  "generated": "2026-06-22T17:08:22.978Z",
+  "generated": "2026-04-14T11:09:25.039Z",
   "totalTools": 238,
   "note": "Parameter schemas for every registered tool. Most tools live in the catalog (discoverable via search-actions + execute-action); ~48 promoted tools are exposed directly on the MCP server. This manifest covers both.",
   "tools": [
@@ -8145,7 +8145,7 @@
     },
     {
       "name": "vault-create",
-      "description": "Create a Dominion vault config with named access tiers. Signs and publishes the config as a kind 30481 event. Returns the created event, publish result, and tier names.",
+      "description": "Create a Dominion vault config with named access tiers. Signs and publishes the config as a kind 30078 event. Returns the created event, publish result, and tier names.",
       "annotations": {
         "title": "Create Vault",
         "readOnlyHint": false

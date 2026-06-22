@@ -119,7 +119,7 @@ describe('attestation deep handlers', () => {
     it('builds filter with type', () => {
       const filter = handleTrustAttestFilter({ type: 'endorsement' })
       expect(filter.kinds).toEqual([31000])
-      expect((filter as any)['#type']).toEqual(['endorsement'])
+      expect((filter as any)['#l']).toEqual(['endorsement'])
     })
 
     it('builds filter with subject', () => {
@@ -152,7 +152,7 @@ describe('attestation deep handlers', () => {
         until: 2000,
       })
       expect(filter.kinds).toEqual([31000])
-      expect((filter as any)['#type']).toEqual(['vouch'])
+      expect((filter as any)['#l']).toEqual(['vouch'])
       expect((filter as any)['#p']).toEqual(['aaa'.padEnd(64, '0')])
       expect(filter.authors).toEqual(['bbb'.padEnd(64, '0')])
       expect((filter as any).since).toBe(1000)
