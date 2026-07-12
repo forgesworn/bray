@@ -69,6 +69,19 @@ export function parseBunkerUri(uri: string): BunkerConfig {
   return { pubkey, relays, connectSecret }
 }
 
+/** Client name shown on remote-signer approval screens (e.g. Heartwood's OLED). */
+export const CLIENT_NAME = 'nostr-bray'
+
+/**
+ * Params for the NIP-46 `connect` request:
+ * `[remote_pubkey, secret, permissions, metadata]`.
+ * The metadata name is self-asserted UX for signer approval screens —
+ * not authentication. The connect secret remains the security boundary.
+ */
+export function buildConnectParams(config: BunkerConfig): string[] {
+  return [config.pubkey, config.connectSecret ?? '', '', JSON.stringify({ name: CLIENT_NAME })]
+}
+
 const CLIENT_KEYS_FILE = 'client-keys.json'
 
 /**
@@ -134,7 +147,11 @@ export class BunkerContext implements SigningContext {
     // Only the `connect` handshake is needed at startup. Ping is
     // redundant (if connect succeeded the signer is alive), and
     // getPublicKey is deferred to first access so startup stays fast.
-    await signer.connect()
+    // Sent via sendRequest (not signer.connect()) so params[3] can carry
+    // the client-name metadata that signer approval screens display.
+    // nostr-tools' connect() is literally sendRequest('connect', [pubkey,
+    // secret]) — semantics are otherwise identical.
+    await signer.sendRequest('connect', buildConnectParams(config))
 
     const ctx = new BunkerContext(signer, pool, clientSk)
     // Do NOT use config.pubkey here — that is the bunker's transport

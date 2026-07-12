@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { readStateFile } from '../src/state.js'
-import { resolveClientKey } from '../src/bunker-context.js'
+import { resolveClientKey, buildConnectParams, CLIENT_NAME } from '../src/bunker-context.js'
 
 describe('resolveClientKey', () => {
   let stateDir: string
@@ -37,5 +37,25 @@ describe('resolveClientKey', () => {
 
     const stored = readStateFile<Record<string, string>>('client-keys.json', stateDir)
     expect(Object.keys(stored)).toHaveLength(2)
+  })
+})
+
+describe('buildConnectParams', () => {
+  it('builds [pubkey, secret, perms, metadata] with the client name', () => {
+    const params = buildConnectParams({ pubkey: 'a'.repeat(64), relays: [], connectSecret: 'nonce123' })
+    expect(params).toHaveLength(4)
+    expect(params[0]).toBe('a'.repeat(64))
+    expect(params[1]).toBe('nonce123')
+    expect(params[2]).toBe('')
+    expect(JSON.parse(params[3])).toEqual({ name: CLIENT_NAME })
+  })
+
+  it('sends an empty secret when the URI carried none', () => {
+    const params = buildConnectParams({ pubkey: 'b'.repeat(64), relays: [] })
+    expect(params[1]).toBe('')
+  })
+
+  it('names the client nostr-bray', () => {
+    expect(CLIENT_NAME).toBe('nostr-bray')
   })
 })
