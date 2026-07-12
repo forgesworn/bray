@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.34.1 (2026-07-12)
+
+### Bug Fixes
+
+- vault config reads follow dominion-protocol kinds (30481)
+
+
+
 ## 1.34.0 (2026-07-12)
 
 ### Features
