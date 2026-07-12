@@ -17,8 +17,8 @@ function makeVaultConfigEvent(author: string, config: Record<string, any>): any 
     id: Math.random().toString(36).padEnd(64, '0'),
     pubkey: author,
     created_at: Math.floor(Date.now() / 1000),
-    kind: 30481,
-    tags: [['d', 'vault-config']],
+    kind: 30078,
+    tags: [['d', 'dominion:vault-config']],
     content: JSON.stringify(config),
     sig: 'f'.padEnd(128, 'f'),
   }

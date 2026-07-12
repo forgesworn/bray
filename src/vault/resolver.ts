@@ -1,5 +1,4 @@
 import { getCurrentEpochId } from 'dominion-protocol'
-import { buildVaultConfigFilter } from 'dominion-protocol/nostr'
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { RelayPool } from '../relay-pool.js'
 
@@ -51,9 +50,11 @@ export class VaultResolver {
     const currentEpoch = getCurrentEpochId()
 
     // Query target's vault config to see if we are a member of any tier
-    // (buildVaultConfigFilter = kind 30481, d 'vault-config' — matches what
-    // buildVaultConfigEvent publishes).
-    const theirConfigEvents = await this.pool.query(myPubkey, buildVaultConfigFilter(targetPubkey) as any)
+    const theirConfigEvents = await this.pool.query(myPubkey, {
+      kinds: [30078],
+      authors: [targetPubkey],
+      '#d': ['dominion:vault-config'],
+    } as any)
 
     const theirVaultTiers: string[] = []
     let revoked = false
@@ -74,7 +75,11 @@ export class VaultResolver {
     }
 
     // Query our vault config to see which tiers the target belongs to
-    const ourConfigEvents = await this.pool.query(myPubkey, buildVaultConfigFilter(myPubkey) as any)
+    const ourConfigEvents = await this.pool.query(myPubkey, {
+      kinds: [30078],
+      authors: [myPubkey],
+      '#d': ['dominion:vault-config'],
+    } as any)
 
     const vaultTiers: string[] = []
 

@@ -9,7 +9,7 @@ import {
   addToTier,
   KIND_VAULT_SHARE,
 } from 'dominion-protocol'
-import { buildVaultConfigEvent, buildVaultConfigFilter, buildVaultShareEvent, parseVaultShare } from 'dominion-protocol/nostr'
+import { buildVaultConfigEvent, buildVaultShareEvent, parseVaultShare } from 'dominion-protocol/nostr'
 import { getConversationKey, encrypt as nip44Encrypt, decrypt as nip44Decrypt } from 'nostr-tools/nip44'
 import { npubEncode, decode } from 'nostr-tools/nip19'
 import type { Event as NostrEvent } from 'nostr-tools'
@@ -114,9 +114,11 @@ async function fetchVaultConfig(
   callerNpub: string,
   authorPubkeyHex: string,
 ): Promise<DominionConfig | null> {
-  // buildVaultConfigFilter keeps the read side in lock-step with what
-  // buildVaultConfigEvent publishes (kind 30481, d 'vault-config').
-  const events = await pool.query(callerNpub, buildVaultConfigFilter(authorPubkeyHex) as any)
+  const events = await pool.query(callerNpub, {
+    kinds: [30078],
+    authors: [authorPubkeyHex],
+    '#d': ['dominion:vault-config'],
+  } as any)
 
   if (events.length === 0) return null
 
@@ -133,7 +135,7 @@ async function fetchVaultConfig(
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
-/** Create a vault config with named tiers, sign and publish as kind 30481. */
+/** Create a vault config with named tiers, sign and publish as kind 30078. */
 export async function handleVaultCreate(
   ctx: SigningContext,
   pool: RelayPool,
@@ -188,7 +190,7 @@ export async function handleVaultEncrypt(
 ): Promise<VaultEncryptResult> {
   const privkeyHex = Buffer.from((ctx as IdentityContext).activePrivateKey).toString('hex')
   const epoch = args.epoch ?? getCurrentEpochId()
-  const ck = deriveContentKey(privkeyHex, epoch)
+  const ck = deriveContentKey(privkeyHex, epoch, args.tier)
   try {
     const ciphertext = await encrypt(args.content, ck)
     return { ciphertext, tier: args.tier, epoch }
@@ -207,7 +209,7 @@ export async function handleVaultShare(
   const privkeyBytes = Buffer.from(privkeyHex, 'hex')
   const epoch = args.epoch ?? getCurrentEpochId()
   const authorPubkeyHex = ctx.activePublicKeyHex
-  const ck = deriveContentKey(privkeyHex, epoch)
+  const ck = deriveContentKey(privkeyHex, epoch, args.tier)
   let published = 0
   let failed = 0
   const successfulRecipients: string[] = []
@@ -262,7 +264,7 @@ export async function handleVaultRead(
   args: { ciphertext: string; tier: string; epoch: string },
 ): Promise<VaultReadResult> {
   const privkeyHex = Buffer.from((ctx as IdentityContext).activePrivateKey).toString('hex')
-  const ck = deriveContentKey(privkeyHex, args.epoch)
+  const ck = deriveContentKey(privkeyHex, args.epoch, args.tier)
   try {
     const plaintext = await decrypt(args.ciphertext, ck)
     return { plaintext, tier: args.tier, epoch: args.epoch }
