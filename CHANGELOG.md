@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.34.0 (2026-07-12)
+
+### Features
+
+- send client name metadata on bunker connect (#52)
+
+
+
 ## 1.33.0 (2026-07-04)
 
 ### Features
