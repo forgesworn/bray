@@ -87,9 +87,15 @@ describe('CLI', { timeout: 15_000 }, () => {
   // === New commands ===
 
   it('create returns npub + mnemonic', () => {
-    const output = JSON.parse(run('create'))
+    const output = JSON.parse(run('create', '--json'))
     expect(output.npub).toMatch(/^npub1/)
     expect(output.mnemonic.split(' ').length).toBeGreaterThanOrEqual(12)
+  })
+
+  it('create human output labels the npub and mnemonic', () => {
+    const output = run('create')
+    expect(output).toMatch(/npub:\s+npub1/)
+    expect(output).toMatch(/mnemonic:\s+\w+( \w+){23}/)
   })
 
   it('switch changes active identity', () => {
