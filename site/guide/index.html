@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bray guide: getting started</title>
+<meta name="description" content="From nothing to a working Nostr identity your AI can use: connect Claude or any MCP client, create and back up your keys, set a profile, follow people, post, message and zap. Real recordings throughout.">
+<link rel="canonical" href="https://bray.forgesworn.dev/guide/">
+<meta property="og:title" content="Bray guide: getting started">
+<meta property="og:description" content="Connect your AI to Nostr, create an identity, back it up, and start posting. Step by step, with real recordings.">
+<meta property="og:url" content="https://bray.forgesworn.dev/guide/">
+<meta property="og:type" content="article">
+<meta name="theme-color" content="#06060b">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a0f'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='%23e8a838' font-family='serif'>b</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../guide.css">
+</head>
+<body>
+
+<header class="masthead">
+  <a class="wordmark" href="../">nostr-<span>bray</span></a>
+  <nav class="mastnav" aria-label="Sections">
+    <a href="../">About</a>
+    <a href="./" aria-current="page">Getting started</a>
+    <a href="trust/">Trust guide</a>
+    <a href="https://github.com/forgesworn/bray">GitHub</a>
+    <a href="https://www.npmjs.com/package/nostr-bray">npm</a>
+  </nav>
+</header>
+
+<main>
+
+<section class="page-hero">
+  <p class="kicker">// the field guide</p>
+  <h1>Give your AI a place on <span class="gold">Nostr.</span></h1>
+  <p class="lede">
+    This is the complete walk from nothing to a working identity: connecting
+    Claude or any MCP client, creating your keys, backing them up properly,
+    telling the network who you are, and the everyday rhythm of following,
+    posting, messaging and paying. Every recording below is a real session,
+    driven by plain English. When you are settled here, the
+    <a href="trust/">trust guide</a> covers what makes bray unusual.
+  </p>
+  <ul class="toc" aria-label="On this page">
+    <li><a href="#before"><span class="toc-no">01</span>Before you start</a></li>
+    <li><a href="#keys"><span class="toc-no">02</span>Keys, in plain words</a></li>
+    <li><a href="#connect"><span class="toc-no">03</span>Connect your AI</a></li>
+    <li><a href="#identity"><span class="toc-no">04</span>Your first identity</a></li>
+    <li><a href="#backup"><span class="toc-no">05</span>Back it up</a></li>
+    <li><a href="#profile"><span class="toc-no">06</span>Say who you are</a></li>
+    <li><a href="#people"><span class="toc-no">07</span>Find your people</a></li>
+    <li><a href="#post"><span class="toc-no">08</span>Post something</a></li>
+    <li><a href="#dm"><span class="toc-no">09</span>Private messages</a></li>
+    <li><a href="#zap"><span class="toc-no">10</span>Money over Lightning</a></li>
+    <li><a href="#next"><span class="toc-no">11</span>Where next</a></li>
+    <li><a href="#trouble"><span class="toc-no">12</span>Troubleshooting</a></li>
+  </ul>
+</section>
+
+<!-- ======================= 01 · BEFORE ======================= -->
+<section class="section" id="before">
+  <div class="section-head">
+    <span class="section-no">01</span>
+    <h2>BEFORE YOU START</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      Bray connects an AI assistant to Nostr, the open social protocol where
+      your identity is a key you hold rather than an account a company lends
+      you. Once connected, you do not learn commands or tools. You say what
+      you want in plain English, and your assistant does it: posts, messages,
+      payments, introductions, proofs. The recordings on this page are exactly
+      that, real sessions where one sentence does the work.
+    </p>
+    <p>
+      You need <strong>Node.js 20 or newer</strong> and one of the following:
+      an AI client that speaks MCP (Claude Desktop, Claude Code, Cursor and
+      most others qualify), or just a terminal, because everything bray does
+      is also a command line. There is nothing to install up front;
+      <code>npx nostr-bray</code> fetches and runs it.
+    </p>
+    <p>
+      Nothing here creates an account anywhere. Your keys are generated on
+      your machine and stay on it, and bray talks directly to Nostr relays.
+      There is no server of ours in the middle.
+    </p>
+  </div>
+</section>
+
+<!-- ======================= 02 · KEYS ======================= -->
+<section class="section" id="keys">
+  <div class="section-head">
+    <span class="section-no">02</span>
+    <h2>KEYS, IN PLAIN WORDS</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      Nostr has no sign-up. An identity is a pair of keys: a public one and a
+      secret one. The public key, written as an address starting
+      <code>npub1&hellip;</code>, is your name on the network; share it
+      freely. The secret key, written <code>nsec1&hellip;</code>, is what
+      signs everything you publish; it never goes to anyone, ever. Whoever
+      holds the secret key is you, which is the whole point and the whole
+      risk.
+    </p>
+    <p>
+      Your posts travel through <strong>relays</strong>, ordinary servers that
+      pass events along. You are not tied to any of them; if one misbehaves
+      you use others, and your identity comes with you because it lives in
+      your key, not on their disk.
+    </p>
+    <p>
+      Bray adds one more idea worth knowing before you begin:
+      <strong>personas</strong>. From a single master key it can derive any
+      number of separate identities, for work, for a project, for your agent,
+      each with its own npub, none linkable to the others unless you choose
+      to prove it. One backup covers all of them.
+    </p>
+  </div>
+</section>
+
+<!-- ======================= 03 · CONNECT ======================= -->
+<section class="section" id="connect">
+  <div class="section-head">
+    <span class="section-no">03</span>
+    <h2>CONNECT YOUR AI</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      Bray is an MCP server, which means any MCP-speaking client can drive
+      it. Pick your door.
+    </p>
+
+    <h3 class="sub">Claude Desktop</h3>
+    <p>
+      Add bray to <code>claude_desktop_config.json</code> (find it under
+      Settings, Developer, Edit Config), then restart Claude Desktop:
+    </p>
+    <div class="code-block">
+<pre>{
+  <span class="key">"mcpServers"</span>: {
+    <span class="key">"nostr"</span>: {
+      <span class="key">"command"</span>: <span class="string">"npx"</span>,
+      <span class="key">"args"</span>: [<span class="string">"nostr-bray"</span>]
+    }
+  }
+}</pre>
+    </div>
+
+    <h3 class="sub">Claude Code</h3>
+    <div class="code-block">
+<pre><span class="cmd">claude</span> mcp add nostr -- npx nostr-bray</pre>
+    </div>
+
+    <h3 class="sub">Anything else, or no AI at all</h3>
+    <p>
+      Cursor, Windsurf and the rest take the same command and arguments in
+      their own MCP settings. And every workflow on this page also works from
+      a plain terminal: <code>npx nostr-bray --help</code> lists the
+      commands.
+    </p>
+
+    <h3 class="sub">Where the key comes from</h3>
+    <p>
+      Bray signs with a secret key you provide; it will not invent one behind
+      your back. If you already live on Nostr, use the key you have. If you
+      are brand new, mint one first: any Nostr app can (Damus, Amethyst and
+      Iris all offer it at first launch), and so can most key tools. Either
+      way you end up holding an <code>nsec1&hellip;</code> string.
+    </p>
+    <p>
+      Put it in a file rather than a variable, restrict the permissions, and
+      point <code>~/.config/bray/config.json</code> at it:
+    </p>
+    <div class="code-block">
+<pre><span class="cmd">mkdir</span> -p ~/.nostr &amp;&amp; <span class="cmd">chmod</span> 700 ~/.nostr
+<span class="comment"># paste your nsec into the file, then:</span>
+<span class="cmd">chmod</span> 600 ~/.nostr/secret.key</pre>
+    </div>
+    <div class="code-block">
+<pre>{
+  <span class="key">"secretKeyFile"</span>: <span class="string">"/home/you/.nostr/secret.key"</span>,
+  <span class="key">"relays"</span>: [<span class="string">"wss://relay.damus.io"</span>, <span class="string">"wss://nos.lol"</span>]
+}</pre>
+    </div>
+    <p>
+      Write the path in full; <code>~</code> is not expanded here. Secrets
+      are referenced by file path so they never sit in the config
+      itself. The safest arrangement of all is a signing device or NIP-46
+      bunker, where the key never touches bray at all; the
+      <a href="../#trust">security section</a> of the front page ranks the
+      options.
+    </p>
+  </div>
+</section>
+
+<!-- ======================= 04 · FIRST IDENTITY ======================= -->
+<section class="section" id="identity">
+  <div class="section-head">
+    <span class="section-no">04</span>
+    <h2>YOUR FIRST IDENTITY</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      The key in your file is the <strong>master identity</strong>, and the
+      first useful thing to do with it is not to use it. Ask your assistant
+      to derive a persona and switch to it: one sentence, and you have a
+      working identity with its own npub, cryptographically separate from
+      the master, ready to sign your daily life while the master stays out
+      of harm's way.
+    </p>
+    <figure class="shot">
+      <img src="../demos/gifs/01-identity-onboarding.gif" alt="Recording: asking Claude to derive a persona called demo from the master identity, switch to it and check whoami" width="1200" height="600" loading="lazy">
+      <figcaption><span class="cap-tag">REC 01</span>One sentence: derive a persona, switch to it, confirm who you are. This is a looping recording.</figcaption>
+    </figure>
+    <p>
+      <code>whoami</code> is the habit worth forming. It answers with the
+      identity currently doing the signing, and everything else follows it:
+      switch persona and your posts, messages and payments all follow to the
+      new npub with no further configuration.
+    </p>
+    <div class="callout">
+      <strong>The master stays home.</strong> Treat the master key as the
+      root of the tree and do daily work as a persona. If a persona is ever
+      compromised, the master and the other personas are untouched.
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 05 · BACKUP ======================= -->
+<section class="section" id="backup">
+  <div class="section-head">
+    <span class="section-no">05</span>
+    <h2>BACK IT UP BEFORE ANYTHING ELSE</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      On Nostr, key loss is identity loss. There is no recovery email and
+      nobody to appeal to, so the backup happens now, before the identity is
+      worth anything, not later when it is.
+    </p>
+    <p>
+      Bray's answer is <strong>Shamir secret sharing</strong>: the master
+      secret is split into several word lists, called shares, and only a
+      chosen threshold of them can rebuild it. Ask for a 2-of-3 backup and
+      you get three shares of which any two recover the key. One goes in a
+      drawer at home, one to a person you trust, one somewhere else entirely.
+      No single share reveals anything on its own, so no single burglary,
+      flood or falling-out costs you the identity.
+    </p>
+    <figure class="shot">
+      <img src="../demos/gifs/02-identity-backup.gif" alt="Recording: asking Claude to back up the identity with Shamir secret sharing, 2-of-3, then restore it from two shares" width="1200" height="600" loading="lazy">
+      <figcaption><span class="cap-tag">REC 02</span>Split into three shares, then proven by restoring from two. A backup you have not tested is a hope, not a backup.</figcaption>
+    </figure>
+    <p>
+      Because every persona is derived from the master, this one backup
+      covers your whole tree of identities, present and future. Write the
+      shares on paper; paper does not get ransomware.
+    </p>
+  </div>
+</section>
+
+<!-- ======================= 06 · PROFILE ======================= -->
+<section class="section" id="profile">
+  <div class="section-head">
+    <span class="section-no">06</span>
+    <h2>SAY WHO YOU ARE</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      A profile is a signed event like everything else on Nostr: a display
+      name, some words about you, a picture if you like. Ask your assistant
+      to set them and they publish to your relays, where every client that
+      meets you will read them.
+    </p>
+    <p>
+      The other half of being findable is a <strong>NIP-05 address</strong>,
+      a human-readable name like <code>you@your-domain.com</code> that any
+      Nostr client can resolve back to your npub. It is not a login, just a
+      signpost that domain owners can publish. Bray can look one up, verify
+      that it really points at the npub it claims, and generate the file you
+      would host to have one of your own.
+    </p>
+    <figure class="shot">
+      <img src="../demos/gifs/03-profile-and-nip05.gif" alt="Recording: setting the profile display name, then looking up and verifying a NIP-05 address" width="1200" height="600" loading="lazy">
+      <figcaption><span class="cap-tag">REC 03</span>Set a display name, then resolve and verify a NIP-05 address to see the mechanism from both sides.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ======================= 07 · PEOPLE ======================= -->
+<section class="section" id="people">
+  <div class="section-head">
+    <span class="section-no">07</span>
+    <h2>FIND YOUR PEOPLE</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      A fresh identity follows nobody, so the network starts silent.
+      Following on Nostr is a list you own: a signed contact list that
+      travels with your key and works in every client. Ask your assistant to
+      find accounts worth following and it will search, summarise who it
+      found, and follow the ones you approve.
+    </p>
+    <figure class="shot">
+      <img src="../demos/gifs/04-feed-and-discovery.gif" alt="Recording: checking notifications, discovering accounts worth following, and following one" width="1200" height="600" loading="lazy">
+      <figcaption><span class="cap-tag">REC 04</span>Check what has happened, look for interesting accounts, follow one. The contact list is yours and portable.</figcaption>
+    </figure>
+    <p>
+      From then on, your feed and notifications are one question away:
+      what is happening, who replied, what did so-and-so post this week.
+      Names work anywhere an identity is expected; bray resolves a display
+      name, a NIP-05 address, an npub or raw hex without being told which
+      it has been given.
+    </p>
+  </div>
+</section>
+
+<!-- ======================= 08 · POST ======================= -->
+<section class="section" id="post">
+  <div class="section-head">
+    <span class="section-no">08</span>
+    <h2>POST SOMETHING</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      Publishing is a sentence: post a note saying whatever you want said.
+      The event is signed with the active persona's key and sent to your
+      relays; replies and reactions work the same way, by describing what
+      you want rather than hunting for an event ID. Your assistant keeps
+      track of what it just posted, so a follow-up is simply the next
+      sentence.
+    </p>
+    <figure class="shot">
+      <img src="../demos/gifs/06-public-engagement.gif" alt="Recording: posting a note, replying to it with a follow-up, and reacting to it" width="1200" height="600" loading="lazy">
+      <figcaption><span class="cap-tag">REC 05</span>Post, reply, react, in one instruction. Every event is signed by the active persona.</figcaption>
+    </figure>
+    <p>
+      Posts do not have to happen while you are at the keyboard. Bray can
+      sign an event now and release it later, at a set time or on a
+      schedule; the <a href="../#scheduled">front page</a> shows the shape
+      of it.
+    </p>
+  </div>
+</section>
+
+<!-- ======================= 09 · DMS ======================= -->
+<section class="section" id="dm">
+  <div class="section-head">
+    <span class="section-no">09</span>
+    <h2>PRIVATE MESSAGES</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      Direct messages in bray use NIP-17 gift wrapping by default, which is
+      worth translating: not only is the message encrypted, but so is who
+      sent it, who receives it, and when. A relay carrying your DM holds a
+      sealed envelope inside another sealed envelope, addressed in a way
+      only the recipient can unwrap. There is no setting to find; the most
+      private option is simply what happens.
+    </p>
+    <figure class="shot">
+      <img src="../demos/gifs/05-direct-messaging.gif" alt="Recording: searching contacts for someone to message, sending them an encrypted DM, then reading the inbox" width="1200" height="600" loading="lazy">
+      <figcaption><span class="cap-tag">REC 06</span>Find a contact by name, send an encrypted message, read the inbox. Gift wrap is the default, not an option.</figcaption>
+    </figure>
+    <p>
+      Reading works the same way: ask for the inbox, or for the conversation
+      with a particular person. Older clients that only speak the legacy DM
+      format still reach you; bray answers in kind only if you have
+      explicitly allowed it.
+    </p>
+  </div>
+</section>
+
+<!-- ======================= 10 · ZAPS ======================= -->
+<section class="section" id="zap">
+  <div class="section-head">
+    <span class="section-no">10</span>
+    <h2>MONEY OVER LIGHTNING</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      Nostr and Lightning payments are close neighbours. A <strong>zap</strong>
+      is a Bitcoin payment, usually a small one, attached to a person or a
+      post; sending one is as ordinary as reacting. Bray connects to a wallet
+      you already have through Nostr Wallet Connect, so the wallet keeps
+      custody and bray only asks it to pay.
+    </p>
+    <figure class="shot">
+      <img src="../demos/gifs/18-zap-workflow.gif" alt="Recording: checking the wallet balance, creating a Lightning invoice, and sending sats to an npub" width="1200" height="600" loading="lazy">
+      <figcaption><span class="cap-tag">REC 07</span>Balance, invoice, payment. The wallet stays yours; bray holds no funds.</figcaption>
+    </figure>
+    <div class="callout">
+      <strong>One-time setup.</strong> Ask your assistant to set the wallet
+      connection and give it the <code>nostr+walletconnect://</code> string
+      from your wallet (Alby, Coinos, Primal and most Lightning wallets can
+      issue one). Each persona can have its own wallet, or none.
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 11 · NEXT ======================= -->
+<section class="section" id="next">
+  <div class="section-head">
+    <span class="section-no">11</span>
+    <h2>WHERE NEXT</h2>
+  </div>
+  <dl class="spec-rows">
+    <div class="spec-row">
+      <dt>The trust guide</dt>
+      <dd>What makes bray unusual: checking who is real, vouching,
+      anonymous group proofs, encrypted circles, and staying safe under
+      pressure. <a href="trust/">Continue there</a> when the everyday rhythm
+      feels settled.</dd>
+    </div>
+    <div class="spec-row">
+      <dt>The front page</dt>
+      <dd>Every tool group at a glance, and a recording behind most tool
+      names; <a href="../#features">click one to watch it run</a>.</dd>
+    </div>
+    <div class="spec-row">
+      <dt>The written docs</dt>
+      <dd>The <a href="https://github.com/forgesworn/bray/blob/main/docs/guide.md">usage
+      guide</a> covers the same ground as this page in command form, plus
+      dispatch between agents, scheduled posting and duress configuration.</dd>
+    </div>
+    <div class="spec-row">
+      <dt>For your agent</dt>
+      <dd><a href="https://github.com/forgesworn/bray/blob/main/llms.txt">llms.txt</a>
+      is a summary written for AI context windows; give it to an agent that
+      needs to learn bray quickly.</dd>
+    </div>
+  </dl>
+</section>
+
+<!-- ======================= 12 · TROUBLE ======================= -->
+<section class="section" id="trouble">
+  <div class="section-head">
+    <span class="section-no">12</span>
+    <h2>WHEN SOMETHING FIGHTS BACK</h2>
+  </div>
+  <dl class="spec-rows">
+    <div class="spec-row">
+      <dt>The assistant answers, but nothing reaches Nostr</dt>
+      <dd>The MCP server is probably not running. Check the config file path
+      and JSON syntax, restart the client, and ask it to run
+      <code>whoami</code>; if that fails, the connection is the problem, not
+      the network.</dd>
+    </div>
+    <div class="spec-row">
+      <dt>npx cannot run nostr-bray</dt>
+      <dd>Check <code>node --version</code>; bray needs Node 20 or newer.
+      Corporate proxies can also block npm's registry, in which case
+      <code>npm install -g nostr-bray</code> from a network that allows it
+      gets you a global install instead.</dd>
+    </div>
+    <div class="spec-row">
+      <dt>Posts publish but nobody sees them</dt>
+      <dd>Almost always relays. Ask your assistant to check relay health;
+      if your list is empty or unreachable it will say so, and setting
+      <code>wss://relay.damus.io</code> and <code>wss://nos.lol</code> is a
+      sound start.</dd>
+    </div>
+    <div class="spec-row">
+      <dt>A NIP-05 name will not verify</dt>
+      <dd>The domain has to serve the file over HTTPS with the right CORS
+      header, and the npub in it has to match. Ask for the lookup and the
+      verification separately; the failing half names the culprit.</dd>
+    </div>
+    <div class="spec-row">
+      <dt>Zaps fail</dt>
+      <dd>Check the wallet connection first: ask for the balance. If that
+      answers, the wallet is fine and the recipient simply may not accept
+      zaps; not every profile carries a Lightning address.</dd>
+    </div>
+    <div class="spec-row">
+      <dt>Something else entirely</dt>
+      <dd>Ask the assistant what went wrong; tool errors come back in plain
+      text and it will usually diagnose itself. Failing that, the
+      <a href="https://github.com/forgesworn/bray/issues">issue tracker</a>
+      is read by the people who wrote the code.</dd>
+    </div>
+  </dl>
+</section>
+
+</main>
+
+<footer class="colophon">
+  <p class="colophon-links">
+    <a href="../">About</a> ·
+    <a href="trust/">Trust guide</a> ·
+    <a href="https://github.com/forgesworn/bray">Source</a> ·
+    <a href="https://www.npmjs.com/package/nostr-bray">npm</a> ·
+    <a href="https://forgesworn.dev">forgesworn.dev</a>
+  </p>
+  <p class="colophon-note">
+    Every recording on this page is a real session against a demonstration
+    identity; no real keys were involved. This page is static: no scripts,
+    no cookies, no analytics.
+  </p>
+</footer>
+
+</body>
+</html>

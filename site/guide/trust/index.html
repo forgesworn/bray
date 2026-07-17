@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bray guide: trust</title>
+<meta name="description" content="Bray's trust layer, walked through: reading a stranger's trust signals, vouching, verification policy, ring signatures, spoken checks, privacy proofs, encrypted vaults and duress protection. Real recordings throughout.">
+<link rel="canonical" href="https://bray.forgesworn.dev/guide/trust/">
+<meta property="og:title" content="Bray guide: trust">
+<meta property="og:description" content="Who is real, who do you know, who can see what, and staying safe under pressure. The trust layer, step by step.">
+<meta property="og:url" content="https://bray.forgesworn.dev/guide/trust/">
+<meta property="og:type" content="article">
+<meta name="theme-color" content="#06060b">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a0f'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='%23e8a838' font-family='serif'>b</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../guide.css">
+</head>
+<body>
+
+<header class="masthead">
+  <a class="wordmark" href="../../">nostr-<span>bray</span></a>
+  <nav class="mastnav" aria-label="Sections">
+    <a href="../../">About</a>
+    <a href="../">Getting started</a>
+    <a href="./" aria-current="page">Trust guide</a>
+    <a href="https://github.com/forgesworn/bray">GitHub</a>
+    <a href="https://www.npmjs.com/package/nostr-bray">npm</a>
+  </nav>
+</header>
+
+<main>
+
+<section class="page-hero">
+  <p class="kicker">// the trust layer</p>
+  <h1>Who is real, who you know,<br>who can <span class="gold">see what.</span></h1>
+  <p class="lede">
+    Everything in the <a href="../">getting started guide</a> exists in some
+    form elsewhere. This page is what does not. Bray treats trust as three
+    separate questions with three separate answers: verification for whether
+    someone is real, proximity for whether your world vouches for them, and
+    access for what you let them see. Underneath sit tools for the hard
+    cases: proving things without revealing them, checking a person face to
+    face, and staying safe when someone is standing over you.
+  </p>
+  <ul class="toc" aria-label="On this page">
+    <li><a href="#why"><span class="toc-no">01</span>Three questions</a></li>
+    <li><a href="#read"><span class="toc-no">02</span>Reading a stranger</a></li>
+    <li><a href="#vouch"><span class="toc-no">03</span>Vouching</a></li>
+    <li><a href="#policy"><span class="toc-no">04</span>Verification with teeth</a></li>
+    <li><a href="#ring"><span class="toc-no">05</span>Anonymous group proofs</a></li>
+    <li><a href="#spoken"><span class="toc-no">06</span>Face to face</a></li>
+    <li><a href="#privacy"><span class="toc-no">07</span>Proving without revealing</a></li>
+    <li><a href="#vault"><span class="toc-no">08</span>Encrypted circles</a></li>
+    <li><a href="#duress"><span class="toc-no">09</span>Under pressure</a></li>
+    <li><a href="#protocols"><span class="toc-no">10</span>The protocols underneath</a></li>
+  </ul>
+</section>
+
+<!-- ======================= 01 · WHY ======================= -->
+<section class="section" id="why">
+  <div class="section-head">
+    <span class="section-no">01</span>
+    <h2>THREE QUESTIONS</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      A Nostr key proves one thing: that the same key signed two events.
+      It does not prove there is a person behind it, that the person is who
+      they claim, or that anyone you respect would vouch for them. Platforms
+      answer these questions with moderators and blue ticks. Bray answers
+      them with cryptography you can check yourself.
+    </p>
+    <p>
+      <strong>Verification</strong> asks: is this identity real? It is
+      answered with signed, revocable attestations, from a simple
+      self-declaration up to vouches and challenges from verifiers you
+      choose to respect.
+    </p>
+    <p>
+      <strong>Proximity</strong> asks: how close is this identity to my own
+      world? It is computed from your follow graph, the same way you judge a
+      stranger at a party by who introduced them.
+    </p>
+    <p>
+      <strong>Access</strong> asks: what have I chosen to share with them?
+      It is enforced with encryption tiers, not with a server's goodwill.
+    </p>
+    <p>
+      The recordings below walk each one, then the harder tools underneath.
+      As in the first guide, every one is a real session driven by a single
+      plain-English instruction.
+    </p>
+  </div>
+</section>
+
+<!-- ======================= 02 · READING ======================= -->
+<section class="section" id="read">
+  <div class="section-head">
+    <span class="section-no">02</span>
+    <h2>READING A STRANGER</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      Someone new appears in your replies. Before you engage, ask your
+      assistant what it can find out: the Signet badge shows their
+      verification tier and who attested to it, and the full trust score
+      adds graph distance and access history in one view. It is the
+      difference between a name badge and a reference check, and it takes
+      one sentence.
+    </p>
+    <figure class="shot">
+      <img src="../../demos/gifs/07-trust-check.gif" alt="Recording: checking a Signet badge for an npub, fetching their full trust score, then running verify-person" width="1200" height="600" loading="lazy">
+      <figcaption><span class="cap-tag">REC 01</span>Badge, score, verification. Three depths of the same question about one npub. This is a looping recording.</figcaption>
+    </figure>
+    <p>
+      Agents can act on the same signals: a bot that ignores anyone below a
+      verification tier, or weights replies by graph distance, is a policy
+      check away rather than a moderation team away.
+    </p>
+  </div>
+</section>
+
+<!-- ======================= 03 · VOUCH ======================= -->
+<section class="section" id="vouch">
+  <div class="section-head">
+    <span class="section-no">03</span>
+    <h2>VOUCHING</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      Trust flows the other way too. When you know someone is real, say so
+      in a form machines can check: a vouch is a signed statement that you,
+      specifically, stand behind this identity for a stated reason. An
+      attestation is its general form, a claim about someone that carries
+      your signature, a timestamp, and the option to revoke it later if you
+      turn out to be wrong.
+    </p>
+    <figure class="shot">
+      <img src="../../demos/gifs/08-attestation-and-vouching.gif" alt="Recording: vouching for an npub as a developer, creating a trust attestation, then publishing a trust claim" width="1200" height="600" loading="lazy">
+      <figcaption><span class="cap-tag">REC 02</span>A vouch, an attestation, a published claim. Signed, dated, revocable.</figcaption>
+    </figure>
+    <p>
+      Nothing about a vouch is global. It raises the subject's standing with
+      people who trust you, and does nothing at all for people who do not,
+      which is precisely how references work everywhere else.
+    </p>
+  </div>
+</section>
+
+<!-- ======================= 04 · POLICY ======================= -->
+<section class="section" id="policy">
+  <div class="section-head">
+    <span class="section-no">04</span>
+    <h2>VERIFICATION WITH TEETH</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      Attestations become useful the moment something enforces them. A
+      verification policy is a rule you set, such as requiring at least one
+      badge from a verifier you recognise, and a compliance check is the
+      yes-or-no answer for any identity against that rule. A community can
+      gate membership on it; an agent can gate conversations on it.
+    </p>
+    <figure class="shot">
+      <img src="../../demos/gifs/09-professional-verification.gif" alt="Recording: listing Signet verifiers, setting a verification policy requiring a badge, then checking compliance" width="1200" height="600" loading="lazy">
+      <figcaption><span class="cap-tag">REC 03</span>List the verifiers, set the rule, test an identity against it.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ======================= 05 · RING ======================= -->
+<section class="section" id="ring">
+  <div class="section-head">
+    <span class="section-no">05</span>
+    <h2>ANONYMOUS GROUP PROOFS</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      Sometimes the honest statement is: one of us says this, and you may
+      not know which. A whistle-blower inside a team, an anonymous
+      endorsement from a board, a vote where membership is public but
+      positions are private. A <strong>ring signature</strong> proves that
+      the signer belongs to a listed group of keys without revealing which
+      member signed, and anyone can verify both halves of that sentence.
+    </p>
+    <figure class="shot">
+      <img src="../../demos/gifs/10-ring-signatures.gif" alt="Recording: creating a ring signature proving one member of a group endorses a message, then verifying it" width="1200" height="600" loading="lazy">
+      <figcaption><span class="cap-tag">REC 04</span>Signed by one of the ring, verified without learning which one.</figcaption>
+    </figure>
+    <p>
+      The linkable variant adds one property: two signatures from the same
+      hidden member can be recognised as the same member, still without
+      naming them, which is what stops one person voting twice.
+    </p>
+  </div>
+</section>
+
+<!-- ======================= 06 · SPOKEN ======================= -->
+<section class="section" id="spoken">
+  <div class="section-head">
+    <span class="section-no">06</span>
+    <h2>FACE TO FACE</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      Keys verify keys, but sooner or later two people stand in the same
+      room and need to know the npub and the human match. A spoken
+      verification token turns that into a short exchange of ordinary
+      words: one side generates a challenge tied to their key and the
+      moment, says it aloud, and the other side checks it. No screens
+      shared, nothing typed into anyone else's device.
+    </p>
+    <figure class="shot">
+      <img src="../../demos/gifs/11-spoken-verification.gif" alt="Recording: generating a spoken verification challenge for an in-person identity check, then verifying the token" width="1200" height="600" loading="lazy">
+      <figcaption><span class="cap-tag">REC 05</span>A challenge you can say across a table, and its verification.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ======================= 07 · PRIVACY ======================= -->
+<section class="section" id="privacy">
+  <div class="section-head">
+    <span class="section-no">07</span>
+    <h2>PROVING WITHOUT REVEALING</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      Most proofs overshare. Showing a passport to prove you are over 18
+      reveals your name, your birthday and your document number to someone
+      who needed one bit of information. Bray carries the cryptographic
+      fix: commit to a value, then prove statements about it, such as that
+      it clears a threshold or sits in a range, without the value itself
+      ever appearing.
+    </p>
+    <figure class="shot">
+      <img src="../../demos/gifs/12-privacy-proofs.gif" alt="Recording: creating a privacy commitment for an age, proving it is 18 or over without revealing it, then verifying the proof" width="1200" height="600" loading="lazy">
+      <figcaption><span class="cap-tag">REC 06</span>Commit to an age, prove it clears 18, verify the proof. The number never appears.</figcaption>
+    </figure>
+    <p>
+      The same shape covers a balance that exceeds a deposit, a reputation
+      above a bar, an age within a bracket. The verifier learns the answer
+      to their question and nothing else.
+    </p>
+  </div>
+</section>
+
+<!-- ======================= 08 · VAULT ======================= -->
+<section class="section" id="vault">
+  <div class="section-head">
+    <span class="section-no">08</span>
+    <h2>ENCRYPTED CIRCLES</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      Public post or private message: Nostr's two native settings. The
+      middle, sharing with a defined circle, is what a <strong>vault</strong>
+      provides. Content is encrypted into tiers, members hold keys to their
+      tier, and the ciphertext can sit on any relay because relays only
+      ever carry ciphertext. There is no server deciding who is in; the
+      mathematics decides.
+    </p>
+    <figure class="shot">
+      <img src="../../demos/gifs/13-vault-setup.gif" alt="Recording: creating a vault with inner and outer tiers, encrypting a message into it, then sharing access with another pubkey" width="1200" height="600" loading="lazy">
+      <figcaption><span class="cap-tag">REC 07</span>Two tiers, an encrypted message, a member added. No server involved.</figcaption>
+    </figure>
+    <p>
+      Membership changes are key changes. Keys rotate on a schedule, and
+      revoking someone means the next rotation simply excludes them: they
+      keep what they could already read, and nothing after. An inner tier
+      for the crew and an outer tier for members is one vault, not two
+      systems.
+    </p>
+  </div>
+</section>
+
+<!-- ======================= 09 · DURESS ======================= -->
+<section class="section" id="duress">
+  <div class="section-head">
+    <span class="section-no">09</span>
+    <h2>UNDER PRESSURE</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      The hardest threat model is a person, standing over you, requiring
+      you to comply. Bray's safety tools assume that day and prepare for
+      it in two ways.
+    </p>
+    <p>
+      A <strong>canary</strong> is a routine, signed sign of life: a session
+      you renew, a beacon you check in with, a group where a team confirms
+      each other. Silence, or the wrong signal, is detectable by the people
+      you chose in advance. Nothing about a healthy canary looks unusual,
+      which is what makes an unhealthy one loud.
+    </p>
+    <figure class="shot">
+      <img src="../../demos/gifs/20-canary-session.gif" alt="Recording: creating a canary session for liveness verification, checking its status, then verifying the session" width="1200" height="600" loading="lazy">
+      <figcaption><span class="cap-tag">REC 08</span>A liveness session created, checked and verified.</figcaption>
+    </figure>
+    <p>
+      A <strong>duress persona</strong> is the second preparation: an
+      alternative identity that activates under coercion and is
+      indistinguishable from an ordinary persona switch. You comply,
+      something plausible is handed over, and the act of handing it over is
+      itself the alarm to those equipped to hear it.
+    </p>
+    <div class="callout--warn callout">
+      <strong>Configure this before you need it.</strong> Duress protection
+      set up calmly, at a desk, is a safety net. There is no setting it up
+      during the emergency it exists for.
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 10 · PROTOCOLS ======================= -->
+<section class="section" id="protocols">
+  <div class="section-head">
+    <span class="section-no">10</span>
+    <h2>THE PROTOCOLS UNDERNEATH</h2>
+  </div>
+  <dl class="spec-rows">
+    <div class="spec-row">
+      <dt>Signet</dt>
+      <dd>The verification protocol: badges, vouches, challenges and
+      policy, in four tiers from self-declaration to cryptographic
+      attestation. <a href="https://github.com/forgesworn/signet-protocol">signet-protocol</a></dd>
+    </div>
+    <div class="spec-row">
+      <dt>Dominion</dt>
+      <dd>Epoch-based encrypted access control behind vaults: tiered keys,
+      scheduled rotation, instant revocation.
+      <a href="https://github.com/forgesworn/dominion">dominion</a></dd>
+    </div>
+    <div class="spec-row">
+      <dt>Ring signatures</dt>
+      <dd>SAG and linkable LSAG signatures on secp256k1, the mathematics of
+      section 05. <a href="https://github.com/forgesworn/ring-sig">ring-sig</a></dd>
+    </div>
+    <div class="spec-row">
+      <dt>Attestations</dt>
+      <dd>Signed, revocable claims (NIP-VA, kind 31000) that carry vouches
+      and verification.
+      <a href="https://github.com/forgesworn/nostr-attestations">nostr-attestations</a></dd>
+    </div>
+    <div class="spec-row">
+      <dt>Canary and spoken tokens</dt>
+      <dd>Liveness and duress detection, and human-speakable verification.
+      <a href="https://github.com/forgesworn/canary-kit">canary-kit</a> and
+      <a href="https://github.com/forgesworn/spoken-token">spoken-token</a></dd>
+    </div>
+  </dl>
+  <p class="aside">
+    New here? The <a href="../">getting started guide</a> is the gentler
+    door: identity, backup, profile and the everyday rhythm, before any of
+    the above.
+  </p>
+</section>
+
+</main>
+
+<footer class="colophon">
+  <p class="colophon-links">
+    <a href="../../">About</a> ·
+    <a href="../">Getting started</a> ·
+    <a href="https://github.com/forgesworn/bray">Source</a> ·
+    <a href="https://www.npmjs.com/package/nostr-bray">npm</a> ·
+    <a href="https://forgesworn.dev">forgesworn.dev</a>
+  </p>
+  <p class="colophon-note">
+    Every recording on this page is a real session against a demonstration
+    identity; no real keys were involved. This page is static: no scripts,
+    no cookies, no analytics.
+  </p>
+</footer>
+
+</body>
+</html>
