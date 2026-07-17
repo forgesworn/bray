@@ -165,18 +165,27 @@
     <h3 class="sub">Where the key comes from</h3>
     <p>
       Bray signs with a secret key you provide; it will not invent one behind
-      your back. If you already live on Nostr, use the key you have. If you
-      are brand new, mint one first: any Nostr app can (Damus, Amethyst and
-      Iris all offer it at first launch), and so can most key tools. Either
-      way you end up holding an <code>nsec1&hellip;</code> string.
+      your back. If you already live on Nostr, use the key you have. Brand
+      new? One command mints one, and it works before anything else is
+      configured:
+    </p>
+    <div class="code-block">
+<pre><span class="cmd">npx</span> nostr-bray <span class="flag">create</span></pre>
+    </div>
+    <p>
+      It prints your npub and a 24-word phrase. The words are the key: write
+      them down and keep them offline, because nothing can recover them for
+      you. (A key minted by any Nostr app works just as well; an
+      <code>nsec1&hellip;</code> from Damus or Amethyst is the same kind of
+      secret.)
     </p>
     <p>
-      Put it in a file rather than a variable, restrict the permissions, and
-      point <code>~/.config/bray/config.json</code> at it:
+      Put the key in a file rather than a variable, restrict the
+      permissions, and point <code>~/.config/bray/config.json</code> at it:
     </p>
     <div class="code-block">
 <pre><span class="cmd">mkdir</span> -p ~/.nostr &amp;&amp; <span class="cmd">chmod</span> 700 ~/.nostr
-<span class="comment"># paste your nsec into the file, then:</span>
+<span class="comment"># paste the 24 words (or an nsec) into the file, then:</span>
 <span class="cmd">chmod</span> 600 ~/.nostr/secret.key</pre>
     </div>
     <div class="code-block">
@@ -239,7 +248,9 @@
     <p>
       On Nostr, key loss is identity loss. There is no recovery email and
       nobody to appeal to, so the backup happens now, before the identity is
-      worth anything, not later when it is.
+      worth anything, not later when it is. The 24 words from
+      <code>create</code> are already a backup, but a backup with a single
+      point of failure: one piece of paper, one fire.
     </p>
     <p>
       Bray's answer is <strong>Shamir secret sharing</strong>: the master

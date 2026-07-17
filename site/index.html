@@ -1946,13 +1946,10 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
             <h3>Terminal Mode</h3>
           </div>
           <div class="code-block">
-<pre><span class="comment"># start your bunker (runs in background)</span>
-<span class="cmd">npx</span> nostr-bray <span class="flag">bunker</span> &amp;
+<pre><span class="comment"># mint a key once, keep it in a file (see Get started)</span>
+<span class="cmd">npx</span> nostr-bray <span class="flag">create</span>
 
-<span class="comment"># connect to it</span>
-<span class="cmd">export</span> <span class="key">BUNKER_URI</span>=<span class="string">"bunker://&lt;pubkey&gt;?relay=wss://relay.damus.io"</span>
-
-<span class="comment"># go</span>
+<span class="comment"># then it is one command per action</span>
 <span class="cmd">npx</span> nostr-bray <span class="flag">whoami</span>
 <span class="cmd">npx</span> nostr-bray <span class="flag">post</span> <span class="string">"hello from bray"</span>
 <span class="cmd">npx</span> nostr-bray <span class="flag">persona</span> work
@@ -2105,7 +2102,10 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
       <div class="section-divider">
         <span class="section-label">Get Started</span>
       </div>
-      <h2 class="reveal">Up and running in&nbsp;60&nbsp;seconds</h2>
+      <h2 class="reveal">From nothing to your first note</h2>
+      <p class="text-muted reveal" style="max-width:640px;">
+        Four honest steps, key included. If you already hold an nsec, skip straight to step three with it.
+      </p>
       <div class="start-steps">
 
         <div class="start-step reveal">
@@ -2125,34 +2125,36 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
         <div class="start-step reveal">
           <div class="step-number">2</div>
           <div class="step-content">
-            <h3>Authenticate</h3>
-            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">Three options, safest first:</p>
-            <div class="code-block" style="margin-bottom: 1rem;">
-<pre><span class="comment"># RECOMMENDED: NIP-46 bunker (key never touches bray)</span>
-<span class="comment"># Terminal 1: start the bunker with your key</span>
-<span class="cmd">npx</span> nostr-bray <span class="flag">bunker</span>
-
-<span class="comment"># Terminal 2: connect to it</span>
-<span class="cmd">export</span> <span class="key">BUNKER_URI</span>=<span class="string">"bunker://&lt;pubkey&gt;?relay=wss://relay.damus.io"</span>
-<span class="cmd">npx</span> nostr-bray <span class="flag">whoami</span></pre>
-            </div>
-            <div class="code-block" style="margin-bottom: 1rem;">
-<pre><span class="comment"># GOOD: file-based secret (protected by file permissions)</span>
-<span class="cmd">echo</span> <span class="string">"nsec1..."</span> > ~/.nostr/secret.key
-<span class="cmd">chmod</span> 600 ~/.nostr/secret.key
-<span class="cmd">export</span> <span class="key">NOSTR_SECRET_KEY_FILE</span>=<span class="string">"~/.nostr/secret.key"</span>
-<span class="cmd">export</span> <span class="key">NOSTR_RELAYS</span>=<span class="string">"wss://relay.damus.io,wss://nos.lol"</span></pre>
-            </div>
+            <h3>Mint a key</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">Works before anything is configured. It prints your npub and 24 words; the words are the key, so write them down.</p>
             <div class="code-block">
-<pre><span class="comment"># QUICK (testing only): env var</span>
-<span class="cmd">export</span> <span class="key">NOSTR_SECRET_KEY</span>=<span class="string">"nsec1..."</span>
-<span class="cmd">export</span> <span class="key">NOSTR_RELAYS</span>=<span class="string">"wss://relay.damus.io,wss://nos.lol"</span></pre>
+<pre><span class="cmd">npx</span> nostr-bray <span class="flag">create</span></pre>
             </div>
           </div>
         </div>
 
         <div class="start-step reveal">
           <div class="step-number">3</div>
+          <div class="step-content">
+            <h3>Give it a home</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">A file with tight permissions. The 24 words, an nsec or hex all work; bray detects the format.</p>
+            <div class="code-block" style="margin-bottom: 1rem;">
+<pre><span class="cmd">mkdir</span> -p ~/.nostr &amp;&amp; <span class="cmd">chmod</span> 700 ~/.nostr
+<span class="comment"># paste the 24 words (or an nsec) into the file, then:</span>
+<span class="cmd">chmod</span> 600 ~/.nostr/secret.key
+<span class="cmd">export</span> <span class="key">NOSTR_SECRET_KEY_FILE</span>=<span class="string">~/.nostr/secret.key</span>
+<span class="cmd">export</span> <span class="key">NOSTR_RELAYS</span>=<span class="string">"wss://relay.damus.io,wss://nos.lol"</span></pre>
+            </div>
+            <div class="code-block">
+<pre><span class="comment"># safer still: keep the key in a signing device or NIP-46</span>
+<span class="comment"># bunker and hand bray its address instead of a key</span>
+<span class="cmd">export</span> <span class="key">BUNKER_URI</span>=<span class="string">"bunker://&lt;pubkey&gt;?relay=wss://relay.damus.io"</span></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="start-step reveal">
+          <div class="step-number">4</div>
           <div class="step-content">
             <h3>Use</h3>
             <div class="code-block">

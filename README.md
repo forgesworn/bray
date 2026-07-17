@@ -16,6 +16,13 @@ Install globally or run via npx:
 npm install -g nostr-bray
 ```
 
+New to Nostr? Mint a key first -- this works before anything is configured
+and prints your npub plus a 24-word mnemonic (write it down; it is the key):
+
+```bash
+npx nostr-bray create
+```
+
 Add to your MCP client config:
 
 ```json

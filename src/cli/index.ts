@@ -242,6 +242,28 @@ if (command === 'help' || command === '--help' || command === '-h') {
   process.exit(0)
 }
 
+// `create` is pure key generation and must work before any key exists;
+// every command below this point sits behind the config gate.
+if (command === 'create') {
+  const { handleIdentityCreate } = await import('../exports.js')
+  const fresh = handleIdentityCreate()
+  const wantJson = args.includes('--json')
+    || (process.env.NOSTR_BRAY_OUTPUT === 'json' && !args.includes('--human'))
+  if (wantJson) {
+    console.log(JSON.stringify(fresh, null, 2))
+  } else {
+    console.log(`npub:     ${fresh.npub}`)
+    console.log(`mnemonic: ${fresh.mnemonic}`)
+    console.error('')
+    console.error('The 24 words are the key. Write them down and keep them offline;')
+    console.error('they will not be shown again. To sign with this identity:')
+    console.error('  mkdir -p ~/.nostr && chmod 700 ~/.nostr')
+    console.error('  save the words to ~/.nostr/secret.key, then chmod 600 it')
+    console.error('  export NOSTR_SECRET_KEY_FILE=~/.nostr/secret.key')
+  }
+  process.exit(0)
+}
+
 // All other commands need config + ctx + pool
 const config = await loadConfig()
 const { configureHttpClient } = await import('../http-client.js')

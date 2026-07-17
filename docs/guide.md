@@ -7,12 +7,12 @@ This guide walks through the key workflows. All examples use the CLI, but every 
 Create a secret key file (recommended over environment variables):
 
 ```bash
-# Generate a fresh key
-node -e "
-import { generateSecretKey } from 'nostr-tools/pure';
-import { nsecEncode } from 'nostr-tools/nip19';
-console.log(nsecEncode(generateSecretKey()));
-" > ~/.bray/secret.key
+# Generate a fresh key -- works before anything is configured.
+# Prints your npub and a 24-word mnemonic; the mnemonic IS the key.
+npx nostr-bray create
+
+# Save the 24 words into a file bray can read (paste them in), then:
+mkdir -p ~/.bray
 chmod 600 ~/.bray/secret.key
 ```
 

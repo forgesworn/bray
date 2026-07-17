@@ -230,6 +230,7 @@ main { display: block; }
 .code-block .cmd { color: var(--accent-green); }
 .code-block .key { color: var(--accent-blue); }
 .code-block .string { color: var(--accent-gold); }
+.code-block .flag { color: var(--accent-purple); }
 
 /* ---------- callouts ---------- */
 

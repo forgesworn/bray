@@ -130,6 +130,19 @@ describe('identity — offline', () => {
     expect(out.mnemonic.split(' ').length).toBeGreaterThanOrEqual(12)
   })
 
+  it('create needs no key configured (cold start)', () => {
+    // No key vars at all, and config lookup pointed away from any real
+    // machine state: the one command a brand-new user runs first.
+    const bare: Record<string, string> = {
+      PATH: process.env.PATH!,
+      XDG_CONFIG_HOME: '/nonexistent-bray-test',
+      BRAY_CONFIG: '/nonexistent-bray-test/config.json',
+    }
+    const out = JSON.parse(cli(bare, 'create', '--json')) as any
+    expect(out.npub).toMatch(/^npub1/)
+    expect(out.mnemonic.split(' ').length).toBe(24)
+  })
+
   it('list returns array with master identity', () => {
     const out = cliJson(OFF, 'list') as any[]
     expect(Array.isArray(out)).toBe(true)
