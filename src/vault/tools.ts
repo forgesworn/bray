@@ -39,7 +39,7 @@ export function registerVaultTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { title: 'Vault Encrypt', readOnlyHint: true },
   }, async (args) => {
-    const result = handleVaultEncrypt(deps.ctx, args)
+    const result = await handleVaultEncrypt(deps.ctx, args)
     return jsonResponse(result)
   })
 
@@ -66,7 +66,7 @@ export function registerVaultTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { title: 'Vault Read', readOnlyHint: true },
   }, async (args) => {
-    const result = handleVaultRead(deps.ctx, args)
+    const result = await handleVaultRead(deps.ctx, args)
     return jsonResponse(result)
   })
 
