@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use canary-group-create to create a group called demo-squad, then use canary-group-members to list its members'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

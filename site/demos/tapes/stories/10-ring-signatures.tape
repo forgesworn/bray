@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Create a ring signature proof that one member of a group endorses a message, then verify the ring signature'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

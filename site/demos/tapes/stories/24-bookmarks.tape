@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Pin a note by event ID, bookmark another note, then read the bookmarks list'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

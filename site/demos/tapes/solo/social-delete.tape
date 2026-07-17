@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use social-post to post a note saying test message for cleanup, then use social-delete to delete it'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

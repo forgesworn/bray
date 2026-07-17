@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Create a lightning invoice for 100 sats and look up its status'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

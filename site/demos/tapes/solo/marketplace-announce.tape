@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use marketplace-announce to announce a service offering translation for 100 sats per request'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

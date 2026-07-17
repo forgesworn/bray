@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Compare relays wss://relay.damus.io and wss://nos.lol for features and performance'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use blossom-upload to upload a test blob, then use blossom-delete to delete it'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

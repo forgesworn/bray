@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use list-pin-read to read the current pinned notes for the active identity'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

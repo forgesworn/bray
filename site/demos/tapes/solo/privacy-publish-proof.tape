@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Create a commitment for value 30, prove it is in range 0-50, then publish the proof to Nostr'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

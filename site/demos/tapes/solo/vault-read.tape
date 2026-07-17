@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use vault-create to create a vault, use vault-encrypt to store a secret message, then use vault-read to read it back'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

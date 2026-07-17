@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use the nip-show tool to look up NIP number 17 and summarise it'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

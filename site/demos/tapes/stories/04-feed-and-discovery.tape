@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Check recent notifications, then discover interesting accounts to follow, and follow one of them'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

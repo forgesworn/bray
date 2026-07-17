@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use marketplace-announce to create a test service, then use marketplace-update to update its description'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

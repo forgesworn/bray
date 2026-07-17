@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use blossom-servers to get the current Blossom server list'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use the social-feed tool to fetch the 5 most recent global notes'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

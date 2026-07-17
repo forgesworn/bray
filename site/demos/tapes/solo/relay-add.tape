@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Add relay wss://relay.snort.social to the relay list'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

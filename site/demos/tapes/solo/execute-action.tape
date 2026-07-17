@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use search-actions to find relay actions, then use execute-action to run the first one'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

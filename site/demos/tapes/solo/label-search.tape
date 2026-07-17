@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use label-search to search for events labelled as developer'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

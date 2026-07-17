@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Search contacts for someone to message, send them an encrypted DM saying hello from bray demo, then read the DM inbox'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

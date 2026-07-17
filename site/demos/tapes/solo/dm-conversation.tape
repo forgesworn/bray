@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use dm-read to check the encrypted DM inbox for the active identity'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

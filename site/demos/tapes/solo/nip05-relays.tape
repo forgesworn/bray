@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use the nip05-relays tool to look up relays for the identifier fiatjaf@fiatjaf.com'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Switch to the demo persona, check the wallet balance, then create a lightning invoice for 21 sats'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

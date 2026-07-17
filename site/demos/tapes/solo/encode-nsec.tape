@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Encode the hex secret key 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef as an nsec'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

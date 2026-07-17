@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Query relay wss://relay.damus.io for the 3 most recent kind-1 events'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

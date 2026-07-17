@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use canary-duress-signal to send a duress signal from the active identity'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

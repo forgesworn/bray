@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Check the wallet balance, create a lightning invoice for 100 sats, then send 21 sats to npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

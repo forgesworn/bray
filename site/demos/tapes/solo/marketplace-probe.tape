@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use marketplace-probe to probe a marketplace service endpoint for availability'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Discover available marketplace services, inspect the first one, pay for it with a lightning invoice, then call the service endpoint'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

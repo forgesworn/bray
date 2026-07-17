@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use label-self to create a review-needed label, then use label-remove to remove it'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s
