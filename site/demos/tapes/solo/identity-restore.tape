@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use identity-backup to back up the current identity, then use identity-restore to restore from it'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use vault-create to create a vault, vault-encrypt to store a message, then vault-share to share access with npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

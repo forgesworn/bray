@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Upload a text file to Blossom, list stored blobs, then mirror a blob to a second server'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

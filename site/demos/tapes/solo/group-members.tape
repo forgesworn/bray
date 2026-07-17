@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use group-members to list members of a NIP-29 group on wss://groups.fiatjaf.com'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

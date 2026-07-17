@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Encrypt the message secret demo message using NIP-44 for our own pubkey, then decrypt the ciphertext back'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

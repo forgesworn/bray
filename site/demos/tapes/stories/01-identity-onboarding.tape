@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Derive a fresh persona called demo from the master identity, switch to it, then check whoami'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

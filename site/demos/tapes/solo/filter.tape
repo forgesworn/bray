@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Build a Nostr filter for kind 1 events with limit 5 from the last 24 hours'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

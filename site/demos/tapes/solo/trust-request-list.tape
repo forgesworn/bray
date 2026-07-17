@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use trust-request-list to list pending trust attestation requests for the active identity'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

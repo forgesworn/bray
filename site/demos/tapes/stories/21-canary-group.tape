@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Create a canary group for a team liveness check-in, check the current group status, then verify the group'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

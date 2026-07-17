@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use the relay-diversity tool to analyse relay diversity for the current relay set'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

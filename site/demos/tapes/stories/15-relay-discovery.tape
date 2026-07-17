@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Discover relays used by contacts, search for relays supporting NIP-50 search, then get a relay recommendation'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

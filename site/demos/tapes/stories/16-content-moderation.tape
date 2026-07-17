@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Mute a pubkey, create a content label for spam, then apply a moderation filter to the feed'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

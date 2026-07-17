@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'List available Signet verifiers, then set a verification policy requiring at least one badge, then check if our identity complies'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

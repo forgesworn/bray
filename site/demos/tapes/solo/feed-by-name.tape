@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use feed-by-name to show the recent feed for fiatjaf'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

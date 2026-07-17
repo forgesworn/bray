@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Get relay info for wss://relay.damus.io, count events matching a filter, then authenticate with the relay'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

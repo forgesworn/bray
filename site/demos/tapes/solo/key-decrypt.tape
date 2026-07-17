@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Encrypt a test key with NIP-49 using password demo123, then decrypt it back with the same password'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

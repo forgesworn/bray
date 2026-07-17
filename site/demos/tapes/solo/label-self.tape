@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use social-post to publish a note saying Testing labels in bray, then use label-self with namespace category and label test to tag that note'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

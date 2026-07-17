@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Create a canary session for phone-based liveness verification, check the current session status, then verify the session'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

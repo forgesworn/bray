@@ -400,14 +400,20 @@
       custody and bray only asks it to pay.
     </p>
     <figure class="shot">
-      <img src="../demos/gifs/18-zap-workflow.gif" alt="Recording: checking the wallet balance, creating a Lightning invoice, and sending sats to an npub" width="1200" height="600" loading="lazy">
-      <figcaption><span class="cap-tag">REC 07</span>Balance, invoice, payment. The wallet stays yours; bray holds no funds.</figcaption>
+      <img src="../demos/gifs/18-zap-workflow.gif" alt="Recording: asking for balance, invoice and payment before a wallet is connected; bray refuses each step and names exactly what to connect" width="1200" height="600" loading="lazy">
+      <figcaption><span class="cap-tag">REC 07</span>The honest first run: no wallet connected, so nothing can spend. Bray names the missing piece rather than guessing at credentials.</figcaption>
     </figure>
+    <p>
+      That refusal is the security model working. Until you connect a
+      wallet, balance, invoice and payment all decline, and bray tells you
+      exactly what it needs rather than improvising with money.
+    </p>
     <div class="callout">
       <strong>One-time setup.</strong> Ask your assistant to set the wallet
       connection and give it the <code>nostr+walletconnect://</code> string
       from your wallet (Alby, Coinos, Primal and most Lightning wallets can
-      issue one). Each persona can have its own wallet, or none.
+      issue one). Each persona can have its own wallet, or none. After
+      that, balance, invoice and payment are one sentence each.
     </div>
   </div>
 </section>

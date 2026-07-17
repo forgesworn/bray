@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Create a commitment for value 500, prove it exceeds 100, then verify the proof'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

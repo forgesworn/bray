@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use identity-derive to derive a child identity with purpose payments from the root key'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

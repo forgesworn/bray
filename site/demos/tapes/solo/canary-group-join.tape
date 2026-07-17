@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use canary-group-create to create a group called demo-team, then use canary-group-join to join it'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

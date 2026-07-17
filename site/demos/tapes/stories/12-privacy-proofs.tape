@@ -16,7 +16,7 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Create a privacy commitment for age 25, then prove the age is 18 or older without revealing it, then verify that proof'"
+Type "claude -p 'Use privacy-commit to create a commitment for age 25, prove it is 18 or older with privacy-prove-age without revealing it, then verify that proof with privacy-verify-age'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

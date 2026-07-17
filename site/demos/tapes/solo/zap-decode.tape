@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Create a lightning invoice for 50 sats and then decode it'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

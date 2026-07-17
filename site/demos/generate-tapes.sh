@@ -52,7 +52,7 @@ Show
 
 Type "claude -p '${prompt}'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \\\$\s*\$/
+Wait+Screen@420s /(?m)^user@bray:bray \\\$\s*\$/
 Sleep 3s
 TAPE
 }
@@ -93,10 +93,10 @@ tape stories "10-ring-signatures" 600 20 \
   "Create a ring signature proof that one member of a group endorses a message, then verify the ring signature"
 
 tape stories "11-spoken-verification" 600 20 \
-  "Generate a spoken verification challenge for an in-person identity check, then verify the token"
+  "Use trust-spoken-challenge to generate a spoken verification challenge for an in-person identity check, then verify the token with trust-spoken-verify"
 
 tape stories "12-privacy-proofs" 600 25 \
-  "Create a privacy commitment for age 25, then prove the age is 18 or older without revealing it, then verify that proof"
+  "Use privacy-commit to create a commitment for age 25, prove it is 18 or older with privacy-prove-age without revealing it, then verify that proof with privacy-verify-age"
 
 tape stories "13-vault-setup" 600 25 \
   "Create a new vault with inner and outer tiers, encrypt a secret message into the vault, then share access with another pubkey"

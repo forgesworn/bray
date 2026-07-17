@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use identity-backup to create a portable backup of the current identity'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

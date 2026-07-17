@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use identity-setup in preview mode to show what a multi-persona setup would create'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

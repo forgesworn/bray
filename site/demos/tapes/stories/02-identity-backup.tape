@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Back up the current identity using Shamir secret sharing with a 2-of-3 threshold, then restore it from 2 shares'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

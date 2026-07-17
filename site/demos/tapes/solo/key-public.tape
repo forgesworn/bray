@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use the key-public tool to get the public key for the current active identity'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

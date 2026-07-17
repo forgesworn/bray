@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use marketplace-announce to create two services: first with identifier demo-basic-translate, name Basic Translate, url https://api.example.com/basic, about Basic translation, pricing capability translate at 5 sats currency SAT, payment method l402. Second with identifier demo-pro-translate, name Pro Translate, url https://api.example.com/pro, about Premium translation, pricing capability translate at 15 sats currency SAT, payment method l402. Then use marketplace-compare to compare them side by side.'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

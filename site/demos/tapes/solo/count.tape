@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use the count tool to count kind-1 events from the last hour'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use vault-config to show the current vault configuration'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

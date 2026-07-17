@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Create a canary beacon for location-based liveness, then check the beacon status'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

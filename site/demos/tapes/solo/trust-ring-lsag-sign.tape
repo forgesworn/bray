@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Create a linkable ring signature over the message bray demo with a 3-member ring'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

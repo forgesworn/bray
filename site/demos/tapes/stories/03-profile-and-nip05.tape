@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Set the profile display name to Demo Agent, then look up the NIP-05 address fiatjaf@fiatjaf.com and verify it'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

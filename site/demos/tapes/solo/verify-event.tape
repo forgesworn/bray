@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Fetch a recent kind-1 event from relay wss://relay.damus.io and verify its signature'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

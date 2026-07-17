@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'List current relays, update the relay set to include wss://relay.damus.io and wss://nos.lol, then check relay health'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use signet-challenge to generate a Signet verification challenge'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

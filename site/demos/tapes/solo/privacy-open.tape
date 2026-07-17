@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Create a privacy commitment for value 42, then open it to reveal the original value'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

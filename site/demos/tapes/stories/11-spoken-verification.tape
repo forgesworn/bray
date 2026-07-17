@@ -16,7 +16,7 @@ Enter
 Sleep 0.5s
 Show
 
-Type "claude -p 'Generate a spoken verification challenge for an in-person identity check, then verify the token'"
+Type "claude -p 'Use trust-spoken-challenge to generate a spoken verification challenge for an in-person identity check, then verify the token with trust-spoken-verify'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

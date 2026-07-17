@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use vault-create to create a vault, then vault-rotate to rotate its encryption keys'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

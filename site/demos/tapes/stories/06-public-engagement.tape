@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Post a short note saying hello from bray, then reply to it with a follow-up, and react to it with a thumbs up'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

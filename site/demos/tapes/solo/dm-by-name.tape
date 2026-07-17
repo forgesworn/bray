@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use dm-send to send an encrypted DM to fiatjaf saying hello from the bray demo'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

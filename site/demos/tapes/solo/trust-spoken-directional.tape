@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Generate a directional spoken verification token for a meeting'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

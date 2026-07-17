@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Create a new vault with inner and outer tiers, encrypt a secret message into the vault, then share access with another pubkey'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

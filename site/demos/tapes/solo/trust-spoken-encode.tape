@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Encode a verification challenge as spoken words'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

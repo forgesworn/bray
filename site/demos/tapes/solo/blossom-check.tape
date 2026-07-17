@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use blossom-check to check if any blobs exist for the active identity on Blossom servers'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

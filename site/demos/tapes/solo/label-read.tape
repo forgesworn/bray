@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use label-self to tag the active identity as a developer, then use label-read to read labels back'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

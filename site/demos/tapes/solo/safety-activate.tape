@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use safety-activate to activate safety protections with the duress word pineapple'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use list-mute-read to read the current mute list for the active identity'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s

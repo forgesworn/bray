@@ -18,5 +18,5 @@ Show
 
 Type "claude -p 'Use nip-publish to publish a kind-1 event with content hello from bray demo to wss://relay.damus.io'"
 Enter
-Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Wait+Screen@420s /(?m)^user@bray:bray \$\s*$/
 Sleep 3s
