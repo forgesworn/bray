@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.36.0 (2026-07-17)
+
+### Features
+
+- sanitised story recordings for every demo on the site
+
+### Bug Fixes
+
+- await async vault handlers in MCP tool wrappers
+
+
+
 ## 1.35.1 (2026-07-17)
 
 ### Bug Fixes
