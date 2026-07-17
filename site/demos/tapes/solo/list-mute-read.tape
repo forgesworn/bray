@@ -1,4 +1,4 @@
-Set Shell "zsh"
+Set Shell "bash"
 Set Width 1200
 Set Height 400
 Set Theme "Catppuccin Mocha"
@@ -6,18 +6,17 @@ Set FontSize 16
 Set Padding 20
 Set TypingSpeed 40ms
 
-Output gifs/list-mute-read.gif
+Output site/demos/gifs/list-mute-read.gif
 
 Hide
-Type "export PS1='user@bray:bray $ '"
+Type "exec bash --noprofile --norc"
 Enter
-Type "alias claude=./site/demos/bray-demo.sh"
-Enter
-Type "clear"
+Type "export PS1='user@bray:bray $ '; alias claude=./site/demos/bray-demo.sh; clear"
 Enter
 Sleep 0.5s
 Show
 
 Type "claude -p 'Use list-mute-read to read the current mute list for the active identity'"
 Enter
-Sleep 25s
+Wait+Screen@180s /(?m)^user@bray:bray \$\s*$/
+Sleep 3s

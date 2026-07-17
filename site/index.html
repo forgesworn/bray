@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>nostr-bray | Trust-aware Nostr MCP for AI and humans</title>
-  <meta name="description" content="Trust-aware Nostr MCP for AI and humans. 238 tools. Model-agnostic. Sovereign identity, trust-scored feeds, encrypted vaults, AI-to-AI dispatch.">
+  <title>nostr-bray | Trust-aware Nostr for AI and humans</title>
+  <meta name="description" content="Give your AI its own Nostr identity, or run yours from the terminal. Trust scoring, encrypted vaults, Lightning payments and agent-to-agent dispatch, driven in plain English through any MCP client. Guides with real recordings included.">
   <meta name="theme-color" content="#0a0a0f">
-  <meta property="og:title" content="nostr-bray | Trust-aware Nostr MCP for AI and humans">
-  <meta property="og:description" content="Trust-aware Nostr MCP for AI and humans. 238 tools. Model-agnostic. Sovereign identity, trust-scored feeds, encrypted vaults, AI-to-AI dispatch.">
+  <meta property="og:title" content="nostr-bray | Trust-aware Nostr for AI and humans">
+  <meta property="og:description" content="Give your AI its own Nostr identity, or run yours from the terminal. Trust scoring, encrypted vaults, Lightning payments and agent-to-agent dispatch, in plain English.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://bray.forgesworn.dev">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="nostr-bray | Trust-aware Nostr MCP for AI and humans">
-  <meta name="twitter:description" content="Trust-aware Nostr MCP for AI and humans. 238 tools. Model-agnostic. Sovereign identity, trust-scored feeds, encrypted vaults, AI-to-AI dispatch.">
+  <meta name="twitter:title" content="nostr-bray | Trust-aware Nostr for AI and humans">
+  <meta name="twitter:description" content="Give your AI its own Nostr identity, or run yours from the terminal. Trust scoring, encrypted vaults, Lightning payments and agent-to-agent dispatch, in plain English.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a0f'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='%23e8a838' font-family='serif'>b</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1168,6 +1168,7 @@
       <button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle navigation" aria-expanded="false">&#9776;</button>
       <ul class="nav-links" id="navLinks">
         <li><a href="#problem">Problem</a></li>
+        <li><a href="guide/">Guides</a></li>
         <li><a href="#features">Features</a></li>
         <li><a href="#dispatch">Dispatch</a></li>
         <li><a href="#how">Setup</a></li>
@@ -1182,9 +1183,9 @@
     <div class="container">
       <div class="hero-content">
         <div class="hero-badge">MCP Server + CLI</div>
-        <h1>Trust-aware Nostr MCP for <em>AI and humans</em></h1>
+        <h1>Trust-aware Nostr for <em>AI and humans</em></h1>
         <p class="hero-sub">
-          Sovereign Nostr identity for AI agents and humans. 238&nbsp;tools. Model-agnostic. Works with Claude, ChatGPT, Gemini, Cursor, or any MCP client.
+          Your AI gets its own Nostr identity and drives it in plain English: posts, messages, payments, proofs. You get the same power from a terminal. Works with Claude, ChatGPT, Gemini, Cursor, or any MCP client.
         </p>
         <div class="hero-actions">
           <div class="install-block" id="installBlock" title="Click to copy">
@@ -1211,10 +1212,31 @@
             <span class="stat-label">Trust Layers</span>
           </div>
           <div class="stat">
-            <span class="stat-value">96%</span>
-            <span class="stat-label">Coverage</span>
+            <span class="stat-value">0</span>
+            <span class="stat-label">Accounts Needed</span>
           </div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== SEE IT WORK ====== -->
+  <section id="see" style="background: var(--bg-primary); border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle);">
+    <div class="container">
+      <div class="section-divider">
+        <span class="section-label">See It Work</span>
+      </div>
+      <h2 class="reveal">You do not learn 238 tools.<br>You ask.</h2>
+      <p class="text-muted reveal" style="max-width:640px;">
+        One sentence, and the assistant does the rest: signs the note with your key, publishes it, replies, reacts. The recording below is a real session, not a mock-up. Every recording on this site is.
+      </p>
+      <figure class="reveal" style="margin: 2.5rem 0 0; border: 1px solid var(--border-medium); border-radius: 12px; overflow: hidden; background: var(--bg-card);">
+        <img src="demos/gifs/06-public-engagement.gif" alt="Recording: asking Claude to post a note, reply to it and react to it; the tools sign and publish each event" width="1200" height="600" loading="lazy" style="display:block; width:100%; height:auto;">
+        <figcaption style="font-size: 0.78rem; color: var(--text-muted); padding: 0.7rem 1rem; border-top: 1px solid var(--border-subtle);">Post, reply, react: one instruction. A looping recording of a real session.</figcaption>
+      </figure>
+      <div class="reveal" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-top: 2rem;">
+        <a href="guide/" class="btn-primary">Start the guide</a>
+        <a href="guide/trust/" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); border-bottom: 1px solid var(--border-medium); padding-bottom: 1px;">or go straight to the trust guide</a>
       </div>
     </div>
   </section>
@@ -1227,7 +1249,7 @@
       </div>
       <h2 class="reveal">Nostr has no <em style="font-family:var(--font-display);color:var(--accent-red);">trust layer</em>.</h2>
       <p class="text-muted reveal" style="max-width:640px;">
-        Pubkeys prove ownership. They do not prove identity, reputation, or intent. Every Nostr user, human or AI, runs into the same three gaps.
+        A pubkey proves ownership. It does not prove identity, reputation or intent. Every Nostr user, human or AI, runs into the same gaps.
       </p>
       <div class="problem-grid reveal-stagger">
         <div class="problem-card">
@@ -1248,7 +1270,7 @@
         <div class="problem-card">
           <span class="problem-icon">&#x1F5DD;</span>
           <h3>Key loss is permanent</h3>
-          <p>Lose your nsec, lose your identity forever. No recovery, no recourse. Your entire social graph, reputation, and history, gone.</p>
+          <p>Lose your nsec and your social graph, reputation and history go with it. There is no recovery email and nobody to appeal to.</p>
         </div>
         <div class="problem-card">
           <span class="problem-icon">&#x1F6E1;</span>
@@ -1270,9 +1292,9 @@
       <div class="section-divider">
         <span class="section-label">The Answer</span>
       </div>
-      <h2 class="reveal">Three dimensions of trust,<br>woven into every interaction.</h2>
+      <h2 class="reveal">Trust is three questions,<br>not one score.</h2>
       <p class="text-muted reveal" style="max-width:640px;">
-        Bray combines three independent trust signals into a single, unified surface. Each dimension answers a different question.
+        Is this identity real? How close is it to my world? What have I chosen to share with it? Bray keeps the three questions separate and answers each with cryptography you can check yourself.
       </p>
       <div class="trust-grid reveal-stagger" style="margin-top: 2.5rem;">
 
@@ -1285,7 +1307,7 @@
           </svg>
           <div style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent-gold); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.4rem;">Verification</div>
           <h3 style="margin-bottom: 0.35rem;">Are they real?</h3>
-          <p style="margin-bottom: 0.75rem;">Four-tier progressive identity verification via the Signet protocol. From simple self-declaration through peer vouches up to cryptographic attestation. Every claim is machine-verifiable, revocable, and auditable.</p>
+          <p style="margin-bottom: 0.75rem;">Progressive verification via the Signet protocol, in four tiers from self-declaration through peer vouches to cryptographic attestation. Every claim is machine-verifiable, revocable and auditable.</p>
           <span class="solution-tag">Signet · 7 tools</span>
         </div>
 
@@ -1300,7 +1322,7 @@
           </svg>
           <div style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent-blue); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.4rem;">Proximity</div>
           <h3 style="margin-bottom: 0.35rem;">Do I know them?</h3>
-          <p style="margin-bottom: 0.75rem;">Web of Trust graph distance and endorsement weight, computed from your follow graph. Filter feeds, weight replies, and make moderation decisions based on social proximity, not platform policy.</p>
+          <p style="margin-bottom: 0.75rem;">Web of Trust graph distance and endorsement weight, computed from your follow graph. Filter feeds, weight replies and make moderation decisions on social proximity, not platform policy.</p>
           <span class="solution-tag" style="background: rgba(74, 158, 255, 0.1); color: var(--accent-blue);">WoT · Trust group</span>
         </div>
 
@@ -1313,7 +1335,7 @@
           </svg>
           <div style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent-purple); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.4rem;">Access</div>
           <h3 style="margin-bottom: 0.35rem;">What can they see?</h3>
-          <p style="margin-bottom: 0.75rem;">Epoch-based encrypted content tiers via the Dominion protocol. Share with members, subscribers, or a trusted crew, without a server or a database. Keys rotate on epoch change. Revocation is instant.</p>
+          <p style="margin-bottom: 0.75rem;">Epoch-based encrypted content tiers via the Dominion protocol. Share with members, subscribers or a trusted crew without running a server or a database. Keys rotate on epoch change and revocation is instant.</p>
           <span class="solution-tag" style="background: rgba(167, 139, 250, 0.1); color: var(--accent-purple);">Vault · 9 tools</span>
         </div>
 
@@ -1327,16 +1349,16 @@
       <div class="section-divider">
         <span class="section-label">The Solution</span>
       </div>
-      <h2 class="reveal">Three dimensions of trust</h2>
+      <h2 class="reveal">What that means in practice</h2>
       <p class="text-muted reveal" style="max-width:600px;">
-        Not workarounds. Proper cryptographic primitives across three axes: who you are, how close you are, and what you can see.
+        Eight capabilities, each built on a proper cryptographic primitive rather than a workaround. Together they cover who you are, how close someone is and what they can see.
       </p>
       <div class="solution-list">
         <div class="solution-item">
           <span class="solution-number">1</span>
           <div>
             <h3>Progressive identity verification</h3>
-            <p>Seven Signet tools let any agent fetch, vouch, challenge, and enforce identity claims. Policy checks gate access by verification tier. No hand-rolled logic required.</p>
+            <p>Seven Signet tools let any agent fetch, vouch, challenge and enforce identity claims. Policy checks gate access by verification tier, with no hand-rolled logic required.</p>
             <span class="solution-tag">Signet</span>
           </div>
         </div>
@@ -1344,7 +1366,7 @@
           <span class="solution-number">2</span>
           <div>
             <h3>WoT-scored feeds and moderation</h3>
-            <p>Trust scores derived from your social graph weight every interaction. Filter spam by graph distance. Endorse peers. Surface content from people you actually know.</p>
+            <p>Trust scores derived from your social graph weight every interaction: spam filtered by graph distance, peers endorsed, and content surfaced from people you actually know.</p>
             <span class="solution-tag">trust-score</span>
           </div>
         </div>
@@ -1352,7 +1374,7 @@
           <span class="solution-number">3</span>
           <div>
             <h3>Encrypted access tiers</h3>
-            <p>Eight Vault tools create Dominion-encrypted content channels. Tiered keys are derived per epoch. Revoke a member's access and their old keys cannot decrypt new content.</p>
+            <p>Nine Vault tools create Dominion-encrypted content channels. Tiered keys are derived per epoch, so revoking a member means their old keys cannot decrypt anything new.</p>
             <span class="solution-tag">Vault</span>
           </div>
         </div>
@@ -1360,7 +1382,7 @@
           <span class="solution-number">4</span>
           <div>
             <h3>Hierarchical identity derivation</h3>
-            <p>One master secret generates unlimited child key pairs via nsec-tree. Derive personas for work, personal, anonymous use, each cryptographically independent.</p>
+            <p>One master secret generates unlimited child key pairs via nsec-tree. Derive separate personas for work, home or anonymity, each cryptographically independent of the others.</p>
             <span class="solution-tag">nsec-tree</span>
           </div>
         </div>
@@ -1368,7 +1390,7 @@
           <span class="solution-number">5</span>
           <div>
             <h3>Shamir Secret Sharing recovery</h3>
-            <p>Split your master secret into BIP-39 word shards. Distribute them to trusted parties. Any threshold subset reconstructs the original. No single point of failure.</p>
+            <p>Split your master secret into BIP-39 word shards and hand them to people you trust. Any threshold subset reconstructs the original, so there is no single point of failure.</p>
             <span class="solution-tag">shamir-words</span>
           </div>
         </div>
@@ -1384,7 +1406,7 @@
           <span class="solution-number">7</span>
           <div>
             <h3>Duress personas</h3>
-            <p>Configure an alternative identity that activates under coercion. Indistinguishable from a normal persona switch. The attacker cannot tell you have complied under duress.</p>
+            <p>Configure an alternative identity that activates under coercion. The switch is indistinguishable from a normal persona change, so an attacker cannot tell you have complied under duress.</p>
             <span class="solution-tag">canary-kit</span>
           </div>
         </div>
@@ -1406,9 +1428,9 @@
       <div class="section-divider">
         <span class="section-label">Tool Groups</span>
       </div>
-      <h2 class="reveal">238 tools. 27 groups.<br>One coherent surface.</h2>
+      <h2 class="reveal">238 tools that act<br>as one identity.</h2>
       <p class="text-muted reveal" style="max-width:620px;">
-        Every tool operates as the active identity. Switch persona, and your posts, DMs, attestations, and payments all follow. No configuration changes needed.
+        Every tool signs as the active identity: switch persona and your posts, DMs, attestations and payments all follow, with nothing to reconfigure. Click any tool name below to watch it run; each opens a recording of a real session.
       </p>
       <div class="features-grid reveal-stagger">
 
@@ -1690,7 +1712,7 @@
       </div>
       <h2 class="reveal">Encrypted collaboration<br>over Nostr DMs.</h2>
       <p class="text-muted reveal" style="max-width:640px;">
-        Dispatch lets AI agents send tasks to other AI agents, check for incoming work, and return results. All communication is NIP-17 gift-wrapped. Discovery uses NIP-89 application handlers. 13 tools, model-agnostic, works across any MCP client.
+        Dispatch lets AI agents send tasks to other AI agents, check for incoming work and return results, over the same relays everything else uses. Every message is NIP-17 gift-wrapped and discovery runs on NIP-89 application handlers. Because it is plain MCP, a Claude agent can hand work to a Gemini agent without either noticing the difference.
       </p>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 2.5rem;" class="reveal-stagger">
         <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 1.75rem; position: relative; overflow: hidden;">
@@ -1772,7 +1794,7 @@
       </div>
       <h2 class="reveal">Deep protocol support.</h2>
       <p class="text-muted reveal" style="max-width:640px;">
-        Bray implements or integrates with these Nostr Implementation Possibilities. Not just read support; full signing, encryption, and verification where the NIP requires it.
+        Bray implements or integrates with these Nostr Implementation Possibilities, and not just for reading: signing, encryption and verification are covered wherever the NIP requires them.
       </p>
       <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2.5rem;" class="reveal-stagger">
         <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.85rem;">
@@ -1888,7 +1910,7 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
       </div>
       <h2 class="reveal">Two interfaces.<br>Same engine.</h2>
       <p class="text-muted reveal" style="max-width:580px;">
-        Use bray as an MCP server for AI agents (Claude, ChatGPT, Gemini, Cursor, Windsurf) or as a standalone CLI. The MCP server exposes all 238 tools; the CLI surfaces the most common operations. Both share the same handlers, identity engine, and security guarantees.
+        Use bray as an MCP server for AI agents (Claude, ChatGPT, Gemini, Cursor, Windsurf) or as a standalone CLI. The MCP server exposes all 238 tools; the CLI surfaces the most common operations. Both share the same handlers, identity engine and security guarantees. If you would rather be walked through it, the <a href="guide/" style="color: var(--accent-gold);">getting started guide</a> takes the scenic route, with recordings.
       </p>
       <div class="how-grid reveal">
         <!-- MCP Server -->
@@ -1959,7 +1981,7 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
             <circle cx="18" cy="25" r="2" fill="var(--accent-gold)"/>
           </svg>
           <h3>NIP-17 by default</h3>
-          <p>Gift-wrapped DMs hide sender, recipient, and metadata. NIP-04 requires explicit opt-in via environment variable.</p>
+          <p>Gift-wrapped DMs hide sender, recipient and metadata. Legacy NIP-04 requires explicit opt-in via environment variable.</p>
         </div>
         <div class="trust-card">
           <svg class="trust-icon" viewBox="0 0 36 36" fill="none" stroke="var(--accent-blue)" stroke-width="1.5">
@@ -2150,6 +2172,40 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
         </div>
 
       </div>
+      <p class="reveal" style="margin-top: 2.5rem; color: var(--text-secondary); max-width: 640px;">
+        First time on Nostr, or first time wiring up MCP? The <a href="guide/" style="color: var(--accent-gold);">getting started guide</a> walks the whole journey with real recordings, and the <a href="guide/trust/" style="color: var(--accent-gold);">trust guide</a> follows on with what makes bray unusual.
+      </p>
+    </div>
+  </section>
+
+  <!-- ====== FAMILY ====== -->
+  <section id="family" style="background: var(--bg-deep); border-top: 1px solid var(--border-subtle);">
+    <div class="container">
+      <div class="section-divider">
+        <span class="section-label">The Family</span>
+      </div>
+      <h2 class="reveal">Bray carries the load.<br>The tree holds the keys.</h2>
+      <p class="text-muted reveal" style="max-width:640px;">
+        ForgeSworn builds a signing stack named after the parts of a tree, and bray is the pack animal alongside it: happiest when your keys live on a Heartwood and it only ever carries messages. Each project is open source and stands alone; together they mean the key never has to leave the chip.
+      </p>
+      <div class="reveal-stagger" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-top: 2.5rem;">
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 1.75rem;">
+          <h3 style="font-family: var(--font-display); font-size: 1.4rem; margin-bottom: 0.4rem;"><a href="https://heartwood.forgesworn.dev" style="color: var(--text-primary); text-decoration: none; border-bottom: 1px solid var(--border-medium);">Heartwood</a></h3>
+          <p style="font-size: 0.88rem; color: var(--text-secondary);">The hardware signer at the core. Keys are born on a chip and never leave it; bray connects to it as a NIP-46 bunker.</p>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 1.75rem;">
+          <h3 style="font-family: var(--font-display); font-size: 1.4rem; margin-bottom: 0.4rem;"><a href="https://sapwood.forgesworn.dev" style="color: var(--text-primary); text-decoration: none; border-bottom: 1px solid var(--border-medium);">Sapwood</a></h3>
+          <p style="font-size: 0.88rem; color: var(--text-secondary);">The web console that manages a Heartwood: flashing, identities, app permissions, firmware. Also a CLI.</p>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 1.75rem;">
+          <h3 style="font-family: var(--font-display); font-size: 1.4rem; margin-bottom: 0.4rem;"><a href="https://cambium.forgesworn.dev" style="color: var(--text-primary); text-decoration: none; border-bottom: 1px solid var(--border-medium);">Cambium</a></h3>
+          <p style="font-size: 0.88rem; color: var(--text-secondary);">The Android signer that holds no keys: NIP-55 for Android apps, answered by your Heartwood over relays.</p>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 1.75rem;">
+          <h3 style="font-family: var(--font-display); font-size: 1.4rem; margin-bottom: 0.4rem;"><a href="https://bark.forgesworn.dev" style="color: var(--text-primary); text-decoration: none; border-bottom: 1px solid var(--border-medium);">Bark</a></h3>
+          <p style="font-size: 0.88rem; color: var(--text-secondary);">The browser extension: NIP-07 for web apps, signatures from a device you control, no keys in the browser.</p>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -2161,11 +2217,14 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
           nostr-<span>bray</span> &middot; MIT Licence
         </div>
         <ul class="footer-links">
+          <li><a href="guide/">Getting started</a></li>
+          <li><a href="guide/trust/">Trust guide</a></li>
           <li><a href="https://github.com/forgesworn/bray">GitHub</a></li>
           <li><a href="https://www.npmjs.com/package/nostr-bray">npm</a></li>
           <li><a href="https://github.com/forgesworn/bray/blob/main/docs/guide.md">Docs</a></li>
           <li><a href="https://github.com/forgesworn/bray/blob/main/CONTRIBUTING.md">Contribute</a></li>
           <li><a href="https://github.com/forgesworn/bray/blob/main/LICENSE">Licence</a></li>
+          <li><a href="https://forgesworn.dev">forgesworn.dev</a></li>
         </ul>
       </div>
     </div>

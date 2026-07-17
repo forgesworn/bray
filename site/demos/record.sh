@@ -153,8 +153,9 @@ record_tape() {
 
   echo -e "  ${BOLD}Recording:${NC} ${name}"
 
-  # Run VHS (it reads Output directive from the tape)
-  if vhs "$tape" 2>/dev/null; then
+  # Run VHS from the repo root: tapes use repo-relative paths throughout
+  # (alias, Output) so no absolute path ever appears in a tape or recording.
+  if (cd "$SCRIPT_DIR/../.." && vhs "site/demos/$tape") 2>/dev/null; then
     if [[ -f "$GIFS_DIR/${name}.gif" ]]; then
       # Post-process: remove wait frames, add 5s hold
       "$SCRIPT_DIR/postprocess.sh" "$name" 2>/dev/null

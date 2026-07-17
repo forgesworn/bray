@@ -7,7 +7,8 @@
         "./dist/index.js"
       ],
       "env": {
-        "NOSTR_SECRET_KEY_FILE": "~/.nostr/demo-bray.key",
+        "XDG_CONFIG_HOME": "./site/demos/.demo-xdg",
+        "NOSTR_SECRET_KEY_FILE": "./site/demos/.demo-key",
         "NOSTR_RELAYS": "wss://relay.damus.io,wss://nos.lol"
       }
     }

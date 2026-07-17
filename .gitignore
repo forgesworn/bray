@@ -19,3 +19,6 @@ coverage/
 
 docs/superpowers/
 docs/ai-discoverability-audit-2026-04.md
+site/demos/.demo-key
+site/demos/.demo-xdg/
+shamir-backup/

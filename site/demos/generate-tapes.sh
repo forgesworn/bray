@@ -17,18 +17,22 @@ COUNT=0
 
 # Generate a tape file
 # Usage: tape <type> <name> <height> <sleep_seconds> <prompt>
+# Tapes are recorded from the repo root (record.sh handles this) so every
+# path stays relative. The Hide block execs a bare bash with a fixed prompt:
+# user shell themes must never leak into a published recording, and the
+# fixed prompt is what Wait matches to detect the response finishing.
 tape() {
   local type="$1"    # stories or solo
   local name="$2"    # filename without .tape
   local height="$3"  # terminal height in pixels
-  local sleep="$4"   # seconds to wait for output
+  local sleep="$4"   # unused (kept for call compatibility); Wait detects the response
   local prompt="$5"  # the claude -p prompt
 
   local file="tapes/${type}/${name}.tape"
   ((COUNT++))
 
   cat > "$file" <<TAPE
-Set Shell "zsh"
+Set Shell "bash"
 Set Width 1200
 Set Height ${height}
 Set Theme "Catppuccin Mocha"
@@ -36,21 +40,20 @@ Set FontSize 16
 Set Padding 20
 Set TypingSpeed 40ms
 
-Output gifs/${name}.gif
+Output site/demos/gifs/${name}.gif
 
 Hide
-Type "export PS1='user@bray:bray \$ '"
+Type "exec bash --noprofile --norc"
 Enter
-Type "alias claude=${DEMO_SCRIPT}"
-Enter
-Type "clear"
+Type "export PS1='user@bray:bray \$ '; alias claude=./site/demos/bray-demo.sh; clear"
 Enter
 Sleep 0.5s
 Show
 
 Type "claude -p '${prompt}'"
 Enter
-Sleep ${sleep}s
+Wait+Screen@180s /(?m)^user@bray:bray \\\$\s*\$/
+Sleep 3s
 TAPE
 }
 
@@ -60,7 +63,7 @@ TAPE
 ###############################################################################
 
 tape stories "01-identity-onboarding" 600 25 \
-  "Create a new Nostr identity, derive a persona called demo, switch to it, then check whoami"
+  "Derive a fresh persona called demo from the master identity, switch to it, then check whoami"
 
 tape stories "02-identity-backup" 600 25 \
   "Back up the current identity using Shamir secret sharing with a 2-of-3 threshold, then restore it from 2 shares"
