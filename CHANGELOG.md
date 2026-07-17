@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.35.1 (2026-07-17)
+
+### Bug Fixes
+
+- mint keys before any configuration exists
+
+
+
 ## 1.35.0 (2026-07-17)
 
 ### Features
