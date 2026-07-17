@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.35.0 (2026-07-17)
+
+### Features
+
+- guides with real recordings and a humanised front page
+
+
+
 ## 1.34.1 (2026-07-12)
 
 ### Bug Fixes
