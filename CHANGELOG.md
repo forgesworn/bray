@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.41.0 (2026-07-18)
+
+### Features
+
+- end-holds scale to how much the last screen says
+
+
+
 ## 1.40.1 (2026-07-18)
 
 ### Bug Fixes
