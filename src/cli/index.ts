@@ -59,12 +59,6 @@ if (command === 'serve' && !args.includes('--help')) {
   await new Promise(() => {})
 }
 
-// Per-command help: `nostr-bray post --help`
-if (args.includes('--help') && command && command !== 'help' && command !== '--help' && command !== '-h') {
-  const help = getCommandHelp(command)
-  if (help) { console.log(help); process.exit(0) }
-}
-
 const HELP = `nostr-bray — Sovereign Nostr identities for AI agents
 
 Usage: nostr-bray [command] [args]
@@ -142,9 +136,10 @@ Sync (filter-based relay sync):
   sync push <relay-url> --events <jsonl-file>
 
 Admin (NIP-86 relay management):
-  admin <relay-url> allowpubkey|banpubkey|listallowedpubkeys|listbannedpubkeys
-  admin <relay-url> allowkind|bankind|listallowedkinds|listbannedkinds [kind]
-  admin <relay-url> blockip|unblockip|listblockedips [ip]
+  admin allowpubkey|banpubkey <relay-url> <pubkey-hex>
+  admin listallowedpubkeys|listbannedpubkeys <relay-url>
+  admin allowkind|bankind <relay-url> <kind>   (list: listallowedkinds|listbannedkinds)
+  admin blockip|unblockip <relay-url> <ip>     (list: listblockedips)
 
 Wallet (NIP-47 Nostr Wallet Connect):
   wallet connect <nwc-url>            Store NWC URI for the active identity
@@ -202,6 +197,7 @@ Modes:
   bunker connect <bunker://…>              Save remote bunker URI for future commands
   bunker authorize <hex-pubkey>           Pre-authorise an app pubkey on the local bunker
   bunker status                           Show saved bunker connection state
+  bunker sign <file|->                    One-shot: sign an event template via the bunker
   bunker daemon [--profile N] [--persona N] [--authorized-keys pk,pk]  Start NIP-46 remote signer daemon
   shell                               Interactive REPL (persistent relay connection)
 
@@ -228,6 +224,7 @@ Flags:
   --key <nsec|hex|mnemonic>           Use this secret key (overrides env/config)
   --json                              Output raw JSON (for piping/scripts)
   --human                             Force human-readable output
+  --jsonl | --csv | --tsv             Structured list output (line-, comma- or tab-delimited)
   --help                              Show help for a command
 
 Use 'nostr-bray <command> --help' for detailed help on any command.
@@ -239,6 +236,22 @@ Learn more:
 
 if (command === 'help' || command === '--help' || command === '-h') {
   console.log(HELP)
+  process.exit(0)
+}
+
+// Per-command help: `nostr-bray post --help`. Two-word forms resolve to
+// their compound entry (`dm read --help` → dm-read). Commands without a
+// dedicated entry fall back to their usage lines from the main help, so
+// --help never falls through into executing the command.
+if (args.includes('--help') && command) {
+  const compound = args[1] && !args[1].startsWith('-') ? `${command}-${args[1]}` : undefined
+  const help = (compound && getCommandHelp(compound)) || getCommandHelp(command)
+  if (help) { console.log(help); process.exit(0) }
+  const usageLines = HELP.split('\n').filter(l => {
+    const t = l.trimStart()
+    return t.startsWith(`${command} `) || t.startsWith(`${command}-`)
+  })
+  console.log(usageLines.length ? usageLines.join('\n') : HELP)
   process.exit(0)
 }
 
@@ -375,15 +388,15 @@ const ALL_COMMANDS = [
   'whoami', 'create', 'list', 'derive', 'persona', 'switch', 'prove', 'proof-publish',
   'backup', 'restore', 'identity-backup', 'identity-restore', 'migrate',
   'post', 'reply', 'react', 'delete', 'repost', 'profile', 'profile-set', 'contacts', 'follow', 'unfollow', 'dm', 'dm-read', 'feed', 'notifications', 'nip-publish', 'nip-read',
-  'attest', 'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-request-list',
+  'attest', 'claim', 'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-request-list', 'trust-rank',
   'ring-prove', 'ring-verify', 'spoken-challenge', 'spoken-verify',
-  'relay-list', 'relay-set', 'relay-add', 'relay-info', 'subscribe', 'outbox-relays', 'outbox-publish',
+  'relay-list', 'relay-set', 'relay-add', 'relay-info', 'req', 'subscribe', 'outbox-relays', 'outbox-publish',
   'zap-send', 'zap-balance', 'zap-invoice', 'zap-lookup', 'zap-transactions', 'zap-receipts', 'zap-decode',
   'safety-configure', 'safety-activate',
   'blossom-upload', 'blossom-list', 'blossom-delete',
   'group-info', 'group-chat', 'group-send', 'group-members',
   'group-create', 'group-update', 'group-add-user', 'group-remove-user', 'group-set-roles',
-  'publish-raw',
+  'event', 'publish-raw',
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
   'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'encrypt', 'decrypt', 'count', 'fetch',
   'musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate',

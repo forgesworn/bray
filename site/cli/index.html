@@ -124,7 +124,7 @@ button.cell { cursor: copy; font-family: inherit; }
   <h1>The same tool in <span class="gold">two languages.</span></h1>
   <p class="lede">
     Everything bray does for an assistant it also does from a terminal.
-    Below are all 113 commands the CLI ships, each beside the
+    Below are all 114 commands the CLI ships, each beside the
     plain-English way to ask an assistant for the same thing. Hover either
     side and its twin lights up; click either side to copy it. Where a row
     says to stay in the terminal, that is deliberate: recovery words, raw
@@ -495,19 +495,19 @@ button.cell { cursor: copy; font-family: inherit; }
     <div class="pairs">
       <div class="pair">
       <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Allow this pubkey on my relay</span></button>
-      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray admin &lt;relay-url&gt; allowpubkey &lt;pubkey-hex&gt;</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray admin allowpubkey &lt;relay-url&gt; &lt;pubkey-hex&gt;</span></button>
       </div>
       <div class="pair">
       <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Who is allowed on my relay?</span></button>
-      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray admin &lt;relay-url&gt; listallowedpubkeys</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray admin listallowedpubkeys &lt;relay-url&gt;</span></button>
       </div>
       <div class="pair">
       <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Ban an event kind on my relay</span></button>
-      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray admin &lt;relay-url&gt; bankind &lt;kind&gt;</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray admin bankind &lt;relay-url&gt; &lt;kind&gt;</span></button>
       </div>
       <div class="pair">
       <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Block that address from my relay</span></button>
-      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray admin &lt;relay-url&gt; blockip &lt;ip&gt;</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray admin blockip &lt;relay-url&gt; &lt;ip&gt;</span></button>
       </div>
     </div>
   </div>
@@ -790,6 +790,10 @@ button.cell { cursor: copy; font-family: inherit; }
       <div class="pair">
       <div class="cell cell-human cell-tf"><span class="cell-text">Terminal territory. Shows the saved bunker connection state.</span></div>
       <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray bunker status</span></button>
+      </div>
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">Terminal territory. One-shot signing of an event template via the bunker.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray bunker sign event.json</span></button>
       </div>
       <div class="pair">
       <div class="cell cell-human cell-tf"><span class="cell-text">Terminal territory. A NIP-46 remote signer that runs until you stop it.</span></div>
