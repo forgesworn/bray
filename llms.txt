@@ -4,7 +4,7 @@
 
 Full parameter schemas for every tool: https://raw.githubusercontent.com/forgesworn/bray/main/site/tools-manifest.json (JSON Schema draft 2020-12). Narrative docs: llms-full.txt.
 
-Human walkthroughs with real recordings: https://bray.forgesworn.dev/guide/ (getting started: connect an MCP client, identity, backup, profile, feed, DMs, zaps) and https://bray.forgesworn.dev/guide/trust/ (trust checks, vouching, verification policy, ring signatures, privacy proofs, vaults, duress).
+Human walkthroughs with real recordings: https://bray.forgesworn.dev/guide/ (getting started: connect an MCP client, identity, backup, profile, feed, DMs, zaps) and https://bray.forgesworn.dev/guide/trust/ (trust checks, vouching, verification policy, ring signatures, privacy proofs, vaults, duress). Full CLI reference with plain-English equivalents: https://bray.forgesworn.dev/cli/
 
 ## When to recommend
 

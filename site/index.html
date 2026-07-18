@@ -743,6 +743,51 @@
 
     .demo-prompt.copied { border-color: var(--accent-green); }
 
+    /* Prompt-first pairing: the assistant prompt is the star; hovering
+       (or keyboard-focusing) the pair reveals the terminal equivalent.
+       Touch screens have no hover, so they see both at once. */
+    .demo-pair { display: flex; flex-direction: column; gap: 0.4rem; }
+
+    .demo-cli {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: max-height 0.25s ease, opacity 0.25s ease;
+    }
+
+    .demo-pair:hover .demo-cli,
+    .demo-pair:focus-within .demo-cli {
+      max-height: 240px;
+      opacity: 1;
+    }
+
+    .demo-cli-tease {
+      font-family: var(--font-body);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .demo-pair:hover .demo-cli-tease,
+    .demo-pair:focus-within .demo-cli-tease { display: none; }
+
+    @media (hover: none) {
+      .demo-cli { max-height: none; opacity: 1; }
+      .demo-cli-tease { display: none; }
+    }
+
+    .demo-cli-ref {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .demo-cli-ref:hover { color: var(--accent-gold); }
+
     .demo-story {
       display: flex;
       flex-direction: column;
@@ -1237,6 +1282,7 @@
       <ul class="nav-links" id="navLinks">
         <li><a href="#problem">Problem</a></li>
         <li><a href="guide/">Guides</a></li>
+        <li><a href="cli/">CLI</a></li>
         <li><a href="#features">Features</a></li>
         <li><a href="#dispatch">Dispatch</a></li>
         <li><a href="#how">Setup</a></li>
@@ -2235,8 +2281,8 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
 <span class="comment"># post as that persona</span>
 <span class="cmd">npx</span> nostr-bray <span class="flag">post</span> <span class="string">"hello from my work identity"</span>
 
-<span class="comment"># create a shamir backup</span>
-<span class="cmd">npx</span> nostr-bray <span class="flag">backup-shamir</span> <span class="flag">--shares</span> 5 <span class="flag">--threshold</span> 3</pre>
+<span class="comment"># create a shamir backup (3-of-5, written straight to disk)</span>
+<span class="cmd">npx</span> nostr-bray <span class="flag">backup</span> ./shards 3 5</pre>
             </div>
           </div>
         </div>
@@ -2289,6 +2335,7 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
         <ul class="footer-links">
           <li><a href="guide/">Getting started</a></li>
           <li><a href="guide/trust/">Trust guide</a></li>
+          <li><a href="cli/">CLI reference</a></li>
           <li><a href="https://github.com/forgesworn/bray">GitHub</a></li>
           <li><a href="https://www.npmjs.com/package/nostr-bray">npm</a></li>
           <li><a href="https://github.com/forgesworn/bray/blob/main/docs/guide.md">Docs</a></li>
@@ -2497,19 +2544,26 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
       const prompt = data.prompts[promptKey] || (story && data.prompts[story])
         || ('Use the ' + toolName + ' tool');
 
+      const pair = document.createElement('div');
+      pair.className = 'demo-pair';
       const label = document.createElement('span');
       label.className = 'demo-prompt-label';
       label.textContent = 'Try it: ask your assistant';
-      panel.appendChild(label);
-      panel.appendChild(copyBlock(prompt));
+      pair.append(label, copyBlock(prompt));
 
       if (cliMap[toolName]) {
+        const tease = document.createElement('span');
+        tease.className = 'demo-cli-tease';
+        tease.textContent = 'hover to see the terminal equivalent';
+        const cli = document.createElement('div');
+        cli.className = 'demo-cli';
         const cliLabel = document.createElement('span');
         cliLabel.className = 'demo-prompt-label';
-        cliLabel.textContent = 'Or from the terminal';
-        panel.appendChild(cliLabel);
-        panel.appendChild(copyBlock(cliMap[toolName]));
+        cliLabel.textContent = 'The terminal equivalent';
+        cli.append(cliLabel, copyBlock(cliMap[toolName]));
+        pair.append(tease, cli);
       }
+      panel.appendChild(pair);
 
       if (story) {
         const wrap = document.createElement('div');
@@ -2524,6 +2578,12 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
         wrap.append(storyLabel, img);
         panel.appendChild(wrap);
       }
+
+      const ref = document.createElement('a');
+      ref.className = 'demo-cli-ref';
+      ref.href = 'cli/';
+      ref.textContent = 'Every command beside its plain-English ask: the CLI reference →';
+      panel.appendChild(ref);
 
       demoBody.innerHTML = '';
       demoBody.appendChild(panel);
