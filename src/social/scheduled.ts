@@ -4,6 +4,8 @@ import { homedir } from 'node:os'
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
+import { assertEventSemanticallyValid } from '../event-validation/validator.js'
+import type { EventValidationMode, EventValidationResult } from '../event-validation/validator.js'
 
 const DEFAULT_QUEUE_DIR = join(homedir(), '.config', 'bray', 'scheduled')
 
@@ -11,6 +13,7 @@ export interface ScheduledEvent {
   scheduledAt: number
   event: NostrEvent
   relays: string[]
+  validationMode?: EventValidationMode
 }
 
 export interface ScheduleResult {
@@ -18,6 +21,7 @@ export interface ScheduleResult {
   scheduledAt: number
   eventId: string
   filePath: string
+  validation: EventValidationResult
 }
 
 export interface QueueEntry {
@@ -57,6 +61,7 @@ export async function handlePostSchedule(
     kind?: number
     tags?: string[][]
     relays?: string[]
+    validationMode?: EventValidationMode
   },
   queueDir?: string,
 ): Promise<ScheduleResult> {
@@ -69,23 +74,25 @@ export async function handlePostSchedule(
   }
 
   const kind = args.kind ?? 1
-  const sign = ctx.getSigningFunction()
-  const event = await sign({
+  const template = {
     kind,
     created_at: Math.floor(Date.now() / 1000),
     tags: args.tags ?? [],
     content: args.content,
-  })
+  }
+  const validation = assertEventSemanticallyValid(template, args.validationMode)
+  const sign = ctx.getSigningFunction()
+  const event = await sign(template)
 
   const relays = args.relays ?? []
-  const payload: ScheduledEvent = { scheduledAt: ts, event, relays }
+  const payload: ScheduledEvent = { scheduledAt: ts, event, relays, validationMode: args.validationMode ?? 'strict-known' }
   const fileName = `${ts}-${event.id.slice(0, 8)}.json`
   const filePath = join(dir, fileName)
 
   mkdirSync(dir, { recursive: true })
   writeFileSync(filePath, JSON.stringify(payload, null, 2), { mode: 0o600 })
 
-  return { scheduled: true, scheduledAt: ts, eventId: event.id, filePath }
+  return { scheduled: true, scheduledAt: ts, eventId: event.id, filePath, validation }
 }
 
 /** List all scheduled posts waiting to be published */
@@ -180,6 +187,7 @@ export async function handlePublishScheduled(
     }
 
     try {
+      assertEventSemanticallyValid(data.event, data.validationMode ?? 'strict-known')
       // Configure pool with stored relays if present
       if (data.relays.length > 0) {
         pool.reconfigure(npub, { read: data.relays, write: data.relays })

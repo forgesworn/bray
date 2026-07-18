@@ -24,18 +24,29 @@ import { handleSocialPost, handleSocialReply, handleSocialReact, handleSocialDel
 import { handleDmSend, handleDmRead } from './social/dm.js'
 import { handleNotifications, handleFeed } from './social/notifications.js'
 import { handleNipPublish, handleNipRead } from './social/nips.js'
+import {
+  handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupInspect,
+  handleGroupCreate, handleGroupUpdate, handleGroupAddUser, handleGroupRemoveUser,
+  handleGroupCreateInvite, handleGroupJoin, handleGroupLeave,
+  handleGroupDeleteEvent, handleGroupDelete,
+  handleGroupForumTopics, handleGroupForumTopicCreate, handleGroupForumComments, handleGroupForumComment,
+} from './social/groups.js'
 
 import { handleTrustAttest, handleTrustRead, handleTrustVerify, handleTrustRevoke, handleTrustRequest, handleTrustRequestList, handleTrustProofPublish } from './trust/handlers.js'
 import { handleTrustRingProve, handleTrustRingVerify } from './trust/ring.js'
 import { handleTrustSpokenChallenge, handleTrustSpokenVerify } from './trust/spoken.js'
 
 import { handleRelayInfo, handleRelayList, handleRelaySet, handleRelayQuery } from './relay/handlers.js'
+import { handleSyncPlan, handleSyncPull, handleSyncPush } from './sync/handlers.js'
+import type { SyncPlanOptions, SyncPlanResult, SyncPullResult, SyncPushResult } from './sync/handlers.js'
 
 import { handleZapSend, handleZapBalance, handleZapMakeInvoice, handleZapLookupInvoice, handleZapListTransactions, handleZapReceipts, handleZapDecode, resolveNwcUri } from './zap/handlers.js'
 
 import { handleDuressConfigure, handleDuressActivate } from './safety/handlers.js'
 
 import { handlePublishRaw } from './event/handlers.js'
+import { handleValidateEvent } from './event-validation/validator.js'
+import type { EventValidationMode, EventValidationResult, SemanticEventInput } from './event-validation/validator.js'
 
 import { handleDecode, handleEncodeNpub, handleEncodeNote, handleEncodeNprofile, handleEncodeNevent, handleEncodeNsec, handleVerify, handleEncrypt, handleDecrypt, handleCount, handleFetch, handleKeyPublic, handleFilter, handleNipList, handleNipShow } from './util/handlers.js'
 import { handleKeyEncrypt, handleKeyDecrypt } from './util/ncryptsec.js'
@@ -176,6 +187,25 @@ export interface BrayClient {
   /** Fetch community NIPs */
   nipRead(opts?: { author?: string; identifier?: string; kind?: number }): Promise<unknown>
 
+  /** Read verified relay-scoped NIP-29 metadata. */
+  groupInfo(relay: string, groupId: string): Promise<unknown>
+  groupChat(relay: string, groupId: string, limit?: number): Promise<unknown>
+  groupSend(relay: string, groupId: string, content: string): Promise<unknown>
+  groupInspect(relay: string, groupId: string): Promise<unknown>
+  groupCreate(relay: string, opts?: { groupId?: string; name?: string; about?: string; picture?: string; banner?: string; isPrivate?: boolean; isRestricted?: boolean; isHidden?: boolean; isOpen?: boolean; supportedKinds?: number[]; parent?: string }): Promise<unknown>
+  groupUpdate(relay: string, groupId: string, opts?: { name?: string; about?: string; picture?: string; banner?: string; isPrivate?: boolean; isRestricted?: boolean; isHidden?: boolean; isOpen?: boolean; supportedKinds?: number[]; parent?: string }): Promise<unknown>
+  groupAddUser(relay: string, groupId: string, pubkeyHex: string, roles?: string[]): Promise<unknown>
+  groupRemoveUser(relay: string, groupId: string, pubkeyHex: string): Promise<unknown>
+  groupInviteCreate(relay: string, groupId: string, code?: string): Promise<unknown>
+  groupJoin(relay: string, groupId: string, code?: string): Promise<unknown>
+  groupLeave(relay: string, groupId: string): Promise<unknown>
+  groupDeleteEvent(relay: string, groupId: string, eventId: string, confirm?: boolean): Promise<unknown>
+  groupDelete(relay: string, groupId: string, confirmGroupId?: string): Promise<unknown>
+  groupForumTopics(relay: string, groupId: string, limit?: number): Promise<unknown>
+  groupForumTopicCreate(relay: string, groupId: string, title: string, content: string): Promise<unknown>
+  groupForumComments(relay: string, groupId: string, topicId: string, limit?: number): Promise<unknown>
+  groupForumComment(relay: string, groupId: string, topicId: string, content: string, parentId?: string): Promise<unknown>
+
   // ── Trust ───────────────────────────────────────────────────────────────────
   /** Attest to an assertion */
   attest(assertionId: string, opts?: { type?: string; summary?: string; subject?: string; relays?: string[] }): Promise<unknown>
@@ -223,6 +253,15 @@ export interface BrayClient {
   /** Query events via REQ */
   req(filter: Partial<Filter>): Promise<NostrEvent[]>
 
+  /** Compare local events with a relay; transfers no events. */
+  syncPlan(relay: string, events?: NostrEvent[], opts?: Omit<SyncPlanOptions, 'relay' | 'events' | 'eventsFile'>): Promise<SyncPlanResult>
+
+  /** Reconcile, then fetch remote-only events via REQ. */
+  syncPull(relay: string, events?: NostrEvent[], opts?: Omit<SyncPlanOptions, 'relay' | 'events' | 'eventsFile'>): Promise<SyncPullResult>
+
+  /** Reconcile, then publish local-only events via EVENT. */
+  syncPush(relay: string, events: NostrEvent[], opts?: Omit<SyncPlanOptions, 'relay' | 'events' | 'eventsFile'>): Promise<SyncPushResult>
+
   // ── Zap ─────────────────────────────────────────────────────────────────────
   /** Pay a bolt11 invoice via NWC */
   zapSend(bolt11: string): Promise<unknown>
@@ -250,11 +289,14 @@ export interface BrayClient {
   safetyActivate(personaName?: string): Promise<unknown>
 
   // ── Event ───────────────────────────────────────────────────────────────────
+  /** Semantically validate an event or unsigned template against Bray's pinned Registry of Kinds. */
+  validateEvent(event: SemanticEventInput, mode?: EventValidationMode): EventValidationResult
+
   /** Build and publish an arbitrary event */
-  event(kind: number, opts?: { content?: string; tags?: string[][]; relays?: string[] }): Promise<unknown>
+  event(kind: number, opts?: { content?: string; tags?: string[][]; relays?: string[]; validationMode?: EventValidationMode }): Promise<unknown>
 
   /** Sign+broadcast an event (optionally skip signing with noSign) */
-  publishRaw(event: Record<string, unknown>, opts?: { noSign?: boolean; relays?: string[] }): Promise<unknown>
+  publishRaw(event: Record<string, unknown>, opts?: { noSign?: boolean; relays?: string[]; validationMode?: EventValidationMode }): Promise<unknown>
 
   // ── Utility — all sync/pure ─────────────────────────────────────────────────
   /** Decode a nip19 entity */
@@ -431,6 +473,57 @@ class BrayClientImpl implements BrayClient {
   async nipRead(opts: { author?: string; identifier?: string; kind?: number } = {}) {
     return handleNipRead(this.#pool, this.#ctx.activeNpub, opts)
   }
+  async groupInfo(relay: string, groupId: string) {
+    return handleGroupInfo(this.#pool, this.#ctx.activeNpub, { relay, groupId })
+  }
+  async groupChat(relay: string, groupId: string, limit = 20) {
+    return handleGroupChat(this.#pool, this.#ctx.activeNpub, { relay, groupId, limit })
+  }
+  async groupSend(relay: string, groupId: string, content: string) {
+    return handleGroupSend(this.#ctx, this.#pool, { relay, groupId, content })
+  }
+  async groupInspect(relay: string, groupId: string) {
+    return handleGroupInspect(this.#pool, this.#ctx.activeNpub, { relay, groupId })
+  }
+  async groupCreate(relay: string, opts: Omit<Parameters<typeof handleGroupCreate>[2], 'relay'> = {}) {
+    return handleGroupCreate(this.#ctx, this.#pool, { ...opts, relay })
+  }
+  async groupUpdate(relay: string, groupId: string, opts: Omit<Parameters<typeof handleGroupUpdate>[2], 'relay' | 'groupId'> = {}) {
+    return handleGroupUpdate(this.#ctx, this.#pool, { ...opts, relay, groupId })
+  }
+  async groupAddUser(relay: string, groupId: string, pubkeyHex: string, roles: string[] = []) {
+    return handleGroupAddUser(this.#ctx, this.#pool, { relay, groupId, pubkeyHex, roles })
+  }
+  async groupRemoveUser(relay: string, groupId: string, pubkeyHex: string) {
+    return handleGroupRemoveUser(this.#ctx, this.#pool, { relay, groupId, pubkeyHex })
+  }
+  async groupInviteCreate(relay: string, groupId: string, code?: string) {
+    return handleGroupCreateInvite(this.#ctx, this.#pool, { relay, groupId, code })
+  }
+  async groupJoin(relay: string, groupId: string, code?: string) {
+    return handleGroupJoin(this.#ctx, this.#pool, { relay, groupId, code })
+  }
+  async groupLeave(relay: string, groupId: string) {
+    return handleGroupLeave(this.#ctx, this.#pool, { relay, groupId })
+  }
+  async groupDeleteEvent(relay: string, groupId: string, eventId: string, confirm = false) {
+    return handleGroupDeleteEvent(this.#ctx, this.#pool, { relay, groupId, eventId, confirm })
+  }
+  async groupDelete(relay: string, groupId: string, confirmGroupId?: string) {
+    return handleGroupDelete(this.#ctx, this.#pool, { relay, groupId, confirmGroupId })
+  }
+  async groupForumTopics(relay: string, groupId: string, limit = 50) {
+    return handleGroupForumTopics(this.#pool, { relay, groupId, limit })
+  }
+  async groupForumTopicCreate(relay: string, groupId: string, title: string, content: string) {
+    return handleGroupForumTopicCreate(this.#ctx, this.#pool, { relay, groupId, title, content })
+  }
+  async groupForumComments(relay: string, groupId: string, topicId: string, limit = 100) {
+    return handleGroupForumComments(this.#pool, { relay, groupId, topicId, limit })
+  }
+  async groupForumComment(relay: string, groupId: string, topicId: string, content: string, parentId?: string) {
+    return handleGroupForumComment(this.#ctx, this.#pool, { relay, groupId, topicId, content, parentId })
+  }
 
   // ── Trust ───────────────────────────────────────────────────────────────────
   async attest(assertionId: string, opts: { type?: string; summary?: string; subject?: string; assertionRelay?: string; relays?: string[] } = {}) {
@@ -472,6 +565,15 @@ class BrayClientImpl implements BrayClient {
   async req(filter: Partial<Filter>) {
     return handleRelayQuery(this.#pool, this.#ctx.activeNpub, filter as Filter)
   }
+  async syncPlan(relay: string, events: NostrEvent[] = [], opts: Omit<SyncPlanOptions, 'relay' | 'events' | 'eventsFile'> = {}) {
+    return handleSyncPlan(this.#pool, { ...opts, relay, events })
+  }
+  async syncPull(relay: string, events: NostrEvent[] = [], opts: Omit<SyncPlanOptions, 'relay' | 'events' | 'eventsFile'> = {}) {
+    return handleSyncPull(this.#pool, this.#ctx.activeNpub, { ...opts, relay, events })
+  }
+  async syncPush(relay: string, events: NostrEvent[], opts: Omit<SyncPlanOptions, 'relay' | 'events' | 'eventsFile'> = {}) {
+    return handleSyncPush(this.#pool, { ...opts, relay, events })
+  }
 
   // ── Zap ─────────────────────────────────────────────────────────────────────
   #nwc() { return resolveNwcUri(this.#ctx, this.#walletsFile, this.#nwcUri) }
@@ -496,19 +598,24 @@ class BrayClientImpl implements BrayClient {
   async safetyActivate(personaName?: string) { return handleDuressActivate(this.#ctx, { personaName }) }
 
   // ── Event ───────────────────────────────────────────────────────────────────
-  async event(kind: number, opts: { content?: string; tags?: string[][]; relays?: string[] } = {}) {
+  validateEvent(event: SemanticEventInput, mode: EventValidationMode = 'strict-known') {
+    return handleValidateEvent(event, mode)
+  }
+  async event(kind: number, opts: { content?: string; tags?: string[][]; relays?: string[]; validationMode?: EventValidationMode } = {}) {
     return handlePublishEvent(this.#ctx, this.#pool, {
       kind,
       content: opts.content ?? '',
       tags: opts.tags ?? [],
       relays: opts.relays,
+      validationMode: opts.validationMode,
     })
   }
-  async publishRaw(event: Record<string, unknown>, opts: { noSign?: boolean; relays?: string[] } = {}) {
+  async publishRaw(event: Record<string, unknown>, opts: { noSign?: boolean; relays?: string[]; validationMode?: EventValidationMode } = {}) {
     return handlePublishRaw(this.#ctx, this.#pool, {
       event: event as any,
       noSign: opts.noSign ?? false,
       relays: opts.relays,
+      validationMode: opts.validationMode,
     })
   }
 

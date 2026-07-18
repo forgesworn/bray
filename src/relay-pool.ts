@@ -1,6 +1,8 @@
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
+import type { AbstractRelay } from 'nostr-tools/abstract-relay'
 import type { PublishResult, RelaySet } from './types.js'
 import { validatePublicUrl, validateRelayScheme } from './validation.js'
+import { brayFetch } from './http-client.js'
 
 // 512 KiB cap on any inbound relay frame. Protects against malicious relays
 // pushing 100 MB EVENTs that would exhaust memory (ws library defaults to
@@ -13,10 +15,26 @@ export interface Subscription {
 
 /** Minimal pool interface for dependency injection (testability) */
 export interface PoolLike {
-  publish(relays: string[], event: NostrEvent): Promise<string>[]
-  querySync(relays: string[], filter: Filter): Promise<NostrEvent[]>
+  publish(relays: string[], event: NostrEvent, params?: { maxWait?: number; abort?: AbortSignal }): Promise<string>[]
+  querySync(relays: string[], filter: Filter, params?: { maxWait?: number; abort?: AbortSignal }): Promise<NostrEvent[]>
   subscribeMany?(relays: string[], filter: Filter, handlers: { onevent(event: NostrEvent): void; oneose?(): void }): Subscription
+  ensureRelay?(url: string, params?: { connectionTimeout?: number; abort?: AbortSignal }): Promise<AbstractRelay>
   destroy(): void
+}
+
+export interface ReconcileDirectResult {
+  localOnlyIds: string[]
+  remoteOnlyIds: string[]
+  localOnlyCount: number
+  remoteOnlyCount: number
+  truncated: boolean
+}
+
+export class Nip77UnavailableError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'Nip77UnavailableError'
+  }
 }
 
 /**
@@ -84,9 +102,10 @@ async function createRealPool(torProxy?: string): Promise<PoolLike> {
 
   const pool = new SimplePool()
   return {
-    publish: (relays, event) => pool.publish(relays, event),
-    querySync: (relays, filter) => pool.querySync(relays, filter),
+    publish: (relays, event, params) => pool.publish(relays, event, params),
+    querySync: (relays, filter, params) => pool.querySync(relays, filter, params),
     subscribeMany: (relays, filters, handlers) => pool.subscribeMany(relays, filters, handlers),
+    ensureRelay: (url, params) => pool.ensureRelay(url, params),
     destroy: () => pool.destroy(),
   } satisfies PoolLike
 }
@@ -96,6 +115,8 @@ export class RelayPool {
   private poolReady: Promise<PoolLike>
   private relaySets = new Map<string, RelaySet>()
   private writeQueue = new Map<string, NostrEvent[]>()
+  private relaySelfCache = new Map<string, { pubkey: string; expiresAt: number }>()
+  private relaySelfPending = new Map<string, Promise<string>>()
   private defaults: RelaySet
   private torProxy?: string
   private allowClearnet: boolean
@@ -197,14 +218,21 @@ export class RelayPool {
   }
 
   /** Publish event to explicit relay URLs (not identity-bound) */
-  async publishDirect(relays: string[], event: NostrEvent, opts: { timeoutMs?: number } = {}): Promise<PublishResult> {
+  async publishDirect(
+    relays: string[],
+    event: NostrEvent,
+    opts: { timeoutMs?: number; signal?: AbortSignal } = {},
+  ): Promise<PublishResult> {
+    this.#validateDirectRelays(relays)
     const pool = await this.poolReady
     if (relays.length === 0) {
       return { success: false, allAccepted: false, accepted: [], rejected: [], errors: ['no relays specified'] }
     }
 
-    const promises = pool.publish(relays, event)
-    return this.#settlePublish(relays, promises, opts.timeoutMs)
+    const promises = opts.timeoutMs || opts.signal
+      ? pool.publish(relays, event, { maxWait: opts.timeoutMs, abort: opts.signal })
+      : pool.publish(relays, event)
+    return this.#settlePublish(relays, promises, opts.timeoutMs, opts.signal)
   }
 
   /** Settle a set of per-relay publish promises, optionally applying a deadline. */
@@ -212,13 +240,33 @@ export class RelayPool {
     relayUrls: string[],
     promises: Promise<string>[],
     timeoutMs?: number,
+    signal?: AbortSignal,
   ): Promise<PublishResult> {
     const wrap = (p: Promise<string>): Promise<string> => {
-      if (!timeoutMs) return p
-      const deadline = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`timed out after ${timeoutMs}ms`)), timeoutMs),
-      )
-      return Promise.race([p, deadline])
+      if (!timeoutMs && !signal) return p
+      return new Promise<string>((resolve, reject) => {
+        let timer: ReturnType<typeof setTimeout> | undefined
+        const cleanup = () => {
+          if (timer) clearTimeout(timer)
+          signal?.removeEventListener('abort', abort)
+        }
+        const abort = () => {
+          cleanup()
+          reject(new DOMException('Relay publish was cancelled', 'AbortError'))
+        }
+        if (signal?.aborted) return abort()
+        signal?.addEventListener('abort', abort, { once: true })
+        if (timeoutMs) {
+          timer = setTimeout(() => {
+            cleanup()
+            reject(new Error(`timed out after ${timeoutMs}ms`))
+          }, timeoutMs)
+        }
+        p.then(
+          value => { cleanup(); resolve(value) },
+          error => { cleanup(); reject(error) },
+        )
+      })
     }
 
     const accepted: string[] = []
@@ -251,6 +299,7 @@ export class RelayPool {
     filter: Filter,
     onEvent: (event: NostrEvent) => void,
   ): Promise<() => void> {
+    this.#validateDirectRelays(relays)
     const pool = await this.poolReady
     if (!pool.subscribeMany) {
       throw new Error('The underlying pool does not support subscriptions. Ensure nostr-tools/pool is available.')
@@ -267,9 +316,165 @@ export class RelayPool {
   }
 
   /** One-shot query against explicit relay URLs (not identity-bound) */
-  async queryDirect(relays: string[], filter: Filter): Promise<NostrEvent[]> {
+  async queryDirect(
+    relays: string[],
+    filter: Filter,
+    opts: { timeoutMs?: number; signal?: AbortSignal } = {},
+  ): Promise<NostrEvent[]> {
+    this.#validateDirectRelays(relays)
     const pool = await this.poolReady
-    return pool.querySync(relays, filter)
+    return opts.timeoutMs || opts.signal
+      ? pool.querySync(relays, filter, { maxWait: opts.timeoutMs, abort: opts.signal })
+      : pool.querySync(relays, filter)
+  }
+
+  /** Reconcile local event IDs with one relay using NIP-77 Negentropy. */
+  async reconcileDirect(
+    relayUrl: string,
+    items: Array<{ id: string; createdAt: number }>,
+    filter: Filter,
+    opts: { timeoutMs?: number; signal?: AbortSignal; maxIds?: number } = {},
+  ): Promise<ReconcileDirectResult> {
+    this.#validateDirectRelays([relayUrl])
+    const pool = await this.poolReady
+    if (!pool.ensureRelay) {
+      throw new Nip77UnavailableError('The underlying relay pool does not expose a NIP-77 connection')
+    }
+
+    const timeoutMs = opts.timeoutMs ?? 10_000
+    const maxIds = opts.maxIds ?? 1_000
+    if (!Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 120_000) {
+      throw new Error('timeoutMs must be an integer from 100 to 120000')
+    }
+    if (!Number.isInteger(maxIds) || maxIds < 1 || maxIds > 10_000) {
+      throw new Error('maxIds must be an integer from 1 to 10000')
+    }
+    if (opts.signal?.aborted) throw new DOMException('NIP-77 reconciliation was cancelled', 'AbortError')
+
+    const { nip77 } = await import('nostr-tools')
+    const { NegentropyStorageVector, NegentropySync } = nip77
+    const storage = new NegentropyStorageVector()
+    for (const item of items) storage.insert(item.createdAt, item.id)
+    storage.seal()
+
+    let relay: AbstractRelay
+    try {
+      relay = await pool.ensureRelay(relayUrl, {
+        connectionTimeout: timeoutMs,
+        abort: opts.signal,
+      })
+    } catch (error) {
+      if (opts.signal?.aborted) throw new DOMException('NIP-77 reconciliation was cancelled', 'AbortError')
+      throw new Nip77UnavailableError(`Could not open NIP-77 relay connection: ${(error as Error).message}`)
+    }
+
+    return new Promise<ReconcileDirectResult>((resolve, reject) => {
+      const localOnlyIds: string[] = []
+      const remoteOnlyIds: string[] = []
+      let localOnlyCount = 0
+      let remoteOnlyCount = 0
+      let settled = false
+      let clientClosedReconciliation = false
+      let sync: InstanceType<typeof NegentropySync> | undefined
+
+      const cleanup = () => {
+        clearTimeout(timer)
+        opts.signal?.removeEventListener('abort', onAbort)
+      }
+      const fail = (error: Error) => {
+        if (settled) return
+        settled = true
+        cleanup()
+        try { sync?.close() } catch { /* relay may already be closed */ }
+        reject(error)
+      }
+      const succeed = () => {
+        if (settled) return
+        settled = true
+        cleanup()
+        resolve({
+          localOnlyIds,
+          remoteOnlyIds,
+          localOnlyCount,
+          remoteOnlyCount,
+          truncated: localOnlyCount > maxIds || remoteOnlyCount > maxIds,
+        })
+      }
+      const onAbort = () => fail(new DOMException('NIP-77 reconciliation was cancelled', 'AbortError'))
+      const timer = setTimeout(
+        () => fail(new Nip77UnavailableError(`NIP-77 reconciliation timed out after ${timeoutMs}ms`)),
+        timeoutMs,
+      )
+      opts.signal?.addEventListener('abort', onAbort, { once: true })
+
+      sync = new NegentropySync(relay, storage, filter, {
+        label: 'bray-sync-plan',
+        onhave: (id: string) => {
+          localOnlyCount++
+          if (localOnlyIds.length < maxIds) localOnlyIds.push(id)
+        },
+        onneed: (id: string) => {
+          remoteOnlyCount++
+          if (remoteOnlyIds.length < maxIds) remoteOnlyIds.push(id)
+        },
+        onclose: (reason?: string) => {
+          if (reason) fail(new Nip77UnavailableError(`Relay rejected NIP-77 reconciliation: ${reason}`))
+          else if (!clientClosedReconciliation) fail(new Nip77UnavailableError('Relay ended NIP-77 reconciliation without a completed diff'))
+          else succeed()
+        },
+      })
+      // nostr-tools currently reports NEG-ERR through onclose(undefined), the
+      // same callback shape as success. On successful reconciliation it closes
+      // its own subscription first; track that close so NEG-ERR cannot be
+      // misreported as an empty, complete diff.
+      const subscription = (sync as unknown as { subscription?: { close(): void } }).subscription
+      if (subscription) {
+        const close = subscription.close.bind(subscription)
+        subscription.close = () => {
+          clientClosedReconciliation = true
+          close()
+        }
+      }
+      void sync.start().catch((error: unknown) => fail(new Nip77UnavailableError(`Could not start NIP-77 reconciliation: ${(error as Error).message}`)))
+    })
+  }
+
+  /** Fetch the relay's NIP-11 `self` identity for verifying relay-generated events. */
+  async getRelaySelfPubkey(relayUrl: string, opts: { timeoutMs?: number } = {}): Promise<string> {
+    this.#validateDirectRelays([relayUrl])
+    const cached = this.relaySelfCache.get(relayUrl)
+    if (cached && cached.expiresAt > Date.now()) return cached.pubkey
+    const pending = this.relaySelfPending.get(relayUrl)
+    if (pending) return pending
+
+    const request = (async () => {
+      const httpUrl = relayUrl.replace(/^wss:\/\//i, 'https://').replace(/^ws:\/\//i, 'http://')
+      const response = await brayFetch(httpUrl, {
+        headers: { Accept: 'application/nostr+json' },
+        signal: AbortSignal.timeout(opts.timeoutMs ?? 10_000),
+      })
+      if (!response.ok) throw new Error(`NIP-11 fetch failed: ${response.status} ${response.statusText}`)
+      const contentType = response.headers.get('content-type') ?? ''
+      if (!/^(application\/(nostr\+json|json))(\s*;|$)/i.test(contentType.trim())) {
+        throw new Error(`NIP-11 response has wrong Content-Type: ${contentType.slice(0, 64) || '(none)'}`)
+      }
+      const text = await response.text()
+      if (text.length > 1_048_576) throw new Error('Relay info document too large')
+      let info: unknown
+      try { info = JSON.parse(text) } catch { throw new Error('Relay info document is not valid JSON') }
+      const self = (info as Record<string, unknown>)?.self
+      if (typeof self !== 'string' || !/^[0-9a-f]{64}$/.test(self)) {
+        throw new Error('Relay NIP-11 document has no valid 32-byte hex `self` pubkey')
+      }
+      this.relaySelfCache.set(relayUrl, { pubkey: self, expiresAt: Date.now() + 300_000 })
+      return self
+    })()
+    this.relaySelfPending.set(relayUrl, request)
+    try {
+      return await request
+    } finally {
+      this.relaySelfPending.delete(relayUrl)
+    }
   }
 
   /** Queue an event for publishing once the identity's relay list is known */
@@ -321,6 +526,23 @@ export class RelayPool {
       return /^[a-z2-7]{16}\.onion$/.test(host) || /^[a-z2-7]{56}\.onion$/.test(host)
     } catch {
       return false
+    }
+  }
+
+  /** Apply the same SSRF, scheme, and Tor rules to every explicit relay operation. */
+  #validateDirectRelays(relays: string[]): void {
+    for (const url of relays) {
+      if (!/^wss?:\/\//i.test(url) || url.length > 512) {
+        throw new Error(`Invalid relay URL: ${url.slice(0, 128)}`)
+      }
+      validateRelayScheme(url, this.allowPrivateRelays)
+      if (!this.allowPrivateRelays && !this.isOnion(url)) validatePublicUrl(url)
+    }
+    if (this.torProxy && !this.allowClearnet) {
+      const clearnet = relays.filter(url => !this.isOnion(url))
+      if (clearnet.length) {
+        throw new Error(`Clearnet relays not allowed with Tor proxy: ${clearnet.join(', ')}`)
+      }
     }
   }
 }

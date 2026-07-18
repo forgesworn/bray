@@ -43,6 +43,10 @@
       "import": "./dist/event/index.js",
       "types": "./dist/event/index.d.ts"
     },
+    "./event-validation": {
+      "import": "./dist/event-validation/index.js",
+      "types": "./dist/event-validation/index.d.ts"
+    },
     "./util": {
       "import": "./dist/util/index.js",
       "types": "./dist/util/index.d.ts"
@@ -109,6 +113,7 @@
   ],
   "scripts": {
     "build": "tsc && node scripts/build-widgets.mjs && node scripts/export-tool-schemas.mjs",
+    "update:kind-registry": "node scripts/update-kind-registry.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
@@ -170,7 +175,8 @@
     "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^4.1.1",
     "typescript": "^6.0.2",
-    "vitest": "^4.1.1"
+    "vitest": "^4.1.1",
+    "yaml": "^2.9.0"
   },
   "publishConfig": {
     "provenance": true

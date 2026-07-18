@@ -58,6 +58,13 @@ import { handleDuressConfigure as safetyConf } from 'nostr-bray/safety'
 // ── Subpath: ./event ──────────────────────────────────────────────────────────
 import { handlePublishRaw as publishRaw } from 'nostr-bray/event'
 
+// ── Subpath: ./event-validation ──────────────────────────────────────────
+import {
+  validateEventSemantics,
+  assertEventSemanticallyValid,
+  EventSemanticValidationError,
+} from 'nostr-bray/event-validation'
+
 // ── Subpath: ./util ───────────────────────────────────────────────────────────
 import { handleDecode as utilDecode, handleVerify as utilVerify, handleEncodeNpub } from 'nostr-bray/util'
 
@@ -94,7 +101,7 @@ import {
 } from 'nostr-bray/musig2'
 
 // ── Subpath: ./sync ───────────────────────────────────────────────────────────
-import { handleSyncPull, handleSyncPush } from 'nostr-bray/sync'
+import { handleSyncPlan, handleSyncPull, handleSyncPush } from 'nostr-bray/sync'
 
 // ── Subpath: ./admin ──────────────────────────────────────────────────────────
 import { handleAdminCall } from 'nostr-bray/admin'
@@ -279,6 +286,14 @@ describe('nostr-bray/event subpath', () => {
   })
 })
 
+describe('nostr-bray/event-validation subpath', () => {
+  it('exports semantic validation independently of signature verification', () => {
+    expect(typeof validateEventSemantics).toBe('function')
+    expect(typeof assertEventSemanticallyValid).toBe('function')
+    expect(typeof EventSemanticValidationError).toBe('function')
+  })
+})
+
 describe('nostr-bray/util subpath', () => {
   it('re-exports handleDecode', () => {
     expect(utilDecode).toBe(handleDecode)
@@ -372,6 +387,10 @@ describe('nostr-bray/musig2 subpath', () => {
 })
 
 describe('nostr-bray/sync subpath', () => {
+  it('exports handleSyncPlan as a function', () => {
+    expect(typeof handleSyncPlan).toBe('function')
+  })
+
   it('exports handleSyncPull as a function', () => {
     expect(typeof handleSyncPull).toBe('function')
   })
@@ -464,6 +483,10 @@ describe('createBray instance shape', () => {
   it('has myContacts() method', () => { expect(typeof client.myContacts).toBe('function') })
   it('has follow() method', () => { expect(typeof client.follow).toBe('function') })
   it('has unfollow() method', () => { expect(typeof client.unfollow).toBe('function') })
+  it('has groupInspect() method', () => { expect(typeof client.groupInspect).toBe('function') })
+  it('has groupCreate() method', () => { expect(typeof client.groupCreate).toBe('function') })
+  it('has groupInviteCreate() method', () => { expect(typeof client.groupInviteCreate).toBe('function') })
+  it('has groupForumComment() method', () => { expect(typeof client.groupForumComment).toBe('function') })
 
   // Trust
   it('has attest() method', () => { expect(typeof client.attest).toBe('function') })
@@ -477,6 +500,9 @@ describe('createBray instance shape', () => {
   it('has relaySet() method', () => { expect(typeof client.relaySet).toBe('function') })
   it('has relayInfo() method', () => { expect(typeof client.relayInfo).toBe('function') })
   it('has req() method', () => { expect(typeof client.req).toBe('function') })
+  it('has syncPlan() method', () => { expect(typeof client.syncPlan).toBe('function') })
+  it('has syncPull() method', () => { expect(typeof client.syncPull).toBe('function') })
+  it('has syncPush() method', () => { expect(typeof client.syncPush).toBe('function') })
 
   // Zap
   it('has zapSend() method', () => { expect(typeof client.zapSend).toBe('function') })
@@ -486,6 +512,7 @@ describe('createBray instance shape', () => {
   // Event + util
   it('has event() method', () => { expect(typeof client.event).toBe('function') })
   it('has publishRaw() method', () => { expect(typeof client.publishRaw).toBe('function') })
+  it('has validateEvent() method', () => { expect(typeof client.validateEvent).toBe('function') })
   it('has decode() method', () => { expect(typeof client.decode).toBe('function') })
   it('has encodeNpub() method', () => { expect(typeof client.encodeNpub).toBe('function') })
   it('has verify() method', () => { expect(typeof client.verify).toBe('function') })

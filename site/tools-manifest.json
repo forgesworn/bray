@@ -1,12 +1,12 @@
 {
   "name": "nostr-bray",
   "mcpName": "dev.forgesworn/bray",
-  "version": "1.35.0",
+  "version": "1.39.1",
   "description": "Trust-aware Nostr for AI and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "homepage": "https://bray.forgesworn.dev",
-  "generated": "2026-07-17T20:00:55.603Z",
-  "totalTools": 238,
-  "note": "Parameter schemas for every registered tool. Most tools live in the catalog (discoverable via search-actions + execute-action); ~48 promoted tools are exposed directly on the MCP server. This manifest covers both.",
+  "generated": "2026-07-18T08:22:17.808Z",
+  "totalTools": 251,
+  "note": "Parameter schemas for every registered tool. Most tools live in the catalog (discoverable via search-actions + execute-action); 51 promoted tools are exposed directly on the MCP server. This manifest covers both.",
   "tools": [
     {
       "name": "article-list",
@@ -2802,25 +2802,39 @@
     },
     {
       "name": "group-add-user",
-      "description": "Add or update a user's membership in a NIP-29 group (kind 9000 admin event). Optionally assign a role.",
+      "description": "Add/update a member with kind 9000 and optional relay-defined role labels.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/"
+          },
           "groupId": {
             "type": "string",
             "description": "Group identifier"
           },
           "pubkeyHex": {
             "type": "string",
-            "description": "Member's public key in hex"
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Member public key in hex"
           },
-          "role": {
-            "description": "Role name (e.g. admin, moderator)",
-            "type": "string"
+          "roles": {
+            "description": "Role labels advertised by group-roles",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
+          "relay",
           "groupId",
           "pubkeyHex"
         ],
@@ -2828,8 +2842,34 @@
       }
     },
     {
+      "name": "group-admins",
+      "description": "Read the verified relay-generated kind 39001 admin list and role labels.",
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/"
+          },
+          "groupId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "relay",
+          "groupId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "group-chat",
-      "description": "Fetch recent chat messages from a NIP-29 group.",
+      "description": "Fetch recent kind 9 chat messages from one NIP-29 group relay.",
       "annotations": {
         "readOnlyHint": true
       },
@@ -2837,6 +2877,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/",
+            "description": "Relay hosting this version of the group"
+          },
           "groupId": {
             "type": "string",
             "description": "Group identifier"
@@ -2850,6 +2895,7 @@
           }
         },
         "required": [
+          "relay",
           "groupId",
           "limit"
         ],
@@ -2858,13 +2904,23 @@
     },
     {
       "name": "group-create",
-      "description": "Create a NIP-29 group (kind 9004 admin event). The relay assigns membership state from the event. Optionally supply a group ID; the relay may derive its own from the event ID.",
+      "description": "Create a relay-scoped NIP-29 group with kind 9007. Bray generates an ID if omitted; metadata is sent separately with kind 9002 after creation succeeds.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/",
+            "description": "Single relay that will host the group"
+          },
           "groupId": {
-            "description": "Desired group identifier (relay may override)",
+            "description": "Desired random group identifier (Bray generates one if omitted)",
             "type": "string"
           },
           "name": {
@@ -2879,17 +2935,258 @@
             "description": "Group picture URL",
             "type": "string"
           },
-          "isOpen": {
-            "description": "True = open (anyone can join); false = closed (invite-only)",
+          "banner": {
+            "description": "Group banner URL",
+            "type": "string"
+          },
+          "isPrivate": {
+            "description": "Only members may read",
             "type": "boolean"
+          },
+          "isRestricted": {
+            "description": "Only members may write",
+            "type": "boolean"
+          },
+          "isHidden": {
+            "description": "Hide metadata from non-members",
+            "type": "boolean"
+          },
+          "isOpen": {
+            "description": "False adds the closed tag; true omits it",
+            "type": "boolean"
+          },
+          "supportedKinds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
           }
         },
+        "required": [
+          "relay"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "group-delete",
+      "description": "Delete an entire NIP-29 group with kind 9008. confirmGroupId must exactly repeat groupId.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/"
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "confirmGroupId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "relay",
+          "groupId",
+          "confirmGroupId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "group-delete-event",
+      "description": "Administratively delete one event from a NIP-29 group with kind 9005. Requires confirm: true.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/"
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "eventId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "confirm": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "relay",
+          "groupId",
+          "eventId",
+          "confirm"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "group-forum-comment",
+      "description": "Publish a schema-safe NIP-22 comment or reply under a kind 11 group topic.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/"
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "topicId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "parentId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "relay",
+          "groupId",
+          "topicId",
+          "content"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "group-forum-comments",
+      "description": "List verified NIP-22 kind 1111 comments scoped to a group forum topic.",
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/"
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "topicId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "limit": {
+            "default": 100,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          }
+        },
+        "required": [
+          "relay",
+          "groupId",
+          "topicId",
+          "limit"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "group-forum-topic-create",
+      "description": "Publish a kind 11 forum topic with the required group h tag.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/"
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "relay",
+          "groupId",
+          "title",
+          "content"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "group-forum-topics",
+      "description": "List verified kind 11 forum topics from one NIP-29 group relay.",
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/"
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": [
+          "relay",
+          "groupId",
+          "limit"
+        ],
         "additionalProperties": false
       }
     },
     {
       "name": "group-info",
-      "description": "Fetch group metadata (name, about, picture) for a NIP-29 group.",
+      "description": "Fetch relay-scoped NIP-29 group metadata and verify it against the relay NIP-11 self key.",
       "annotations": {
         "readOnlyHint": true
       },
@@ -2899,7 +3196,8 @@
         "properties": {
           "relay": {
             "type": "string",
-            "description": "Relay hosting the group"
+            "pattern": "^wss?:\\/\\/",
+            "description": "Relay hosting this version of the group"
           },
           "groupId": {
             "type": "string",
@@ -2914,8 +3212,125 @@
       }
     },
     {
+      "name": "group-inspect",
+      "description": "Inspect verified group metadata, admins, members and relay-defined roles in one relay-scoped view.",
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/",
+            "description": "Relay hosting this version of the group"
+          },
+          "groupId": {
+            "type": "string",
+            "description": "Group identifier"
+          }
+        },
+        "required": [
+          "relay",
+          "groupId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "group-invite-create",
+      "description": "Create a NIP-29 invite with kind 9009. Returns the code that a user supplies to group-join.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/"
+          },
+          "groupId": {
+            "type": "string",
+            "description": "Group identifier"
+          },
+          "code": {
+            "description": "Invite code (Bray generates a random code if omitted)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "relay",
+          "groupId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "group-join",
+      "description": "Send a kind 9021 join request, optionally using a kind 9009 invite code.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/"
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "relay",
+          "groupId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "group-leave",
+      "description": "Leave a NIP-29 group with kind 9022.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/"
+          },
+          "groupId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "relay",
+          "groupId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "group-members",
-      "description": "List members of a NIP-29 group.",
+      "description": "List the relay-generated NIP-29 member snapshot. It may be absent or partial.",
       "annotations": {
         "readOnlyHint": true
       },
@@ -2923,12 +3338,18 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/",
+            "description": "Relay hosting this version of the group"
+          },
           "groupId": {
             "type": "string",
             "description": "Group identifier"
           }
         },
         "required": [
+          "relay",
           "groupId"
         ],
         "additionalProperties": false
@@ -2937,20 +3358,31 @@
     {
       "name": "group-remove-user",
       "description": "Remove a user from a NIP-29 group (kind 9001 admin event).",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/"
+          },
           "groupId": {
             "type": "string",
             "description": "Group identifier"
           },
           "pubkeyHex": {
             "type": "string",
-            "description": "Member's public key in hex"
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Member public key in hex"
           }
         },
         "required": [
+          "relay",
           "groupId",
           "pubkeyHex"
         ],
@@ -2958,8 +3390,34 @@
       }
     },
     {
+      "name": "group-roles",
+      "description": "Read relay-defined role names from verified kind 39003 state. NIP-29 does not let clients define role permissions.",
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/"
+          },
+          "groupId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "relay",
+          "groupId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "group-send",
-      "description": "Send a message to a NIP-29 group.",
+      "description": "Send a kind 9 message to exactly one NIP-29 group relay.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": true
@@ -2968,6 +3426,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/",
+            "description": "Relay hosting this version of the group"
+          },
           "groupId": {
             "type": "string",
             "description": "Group identifier"
@@ -2978,6 +3441,7 @@
           }
         },
         "required": [
+          "relay",
           "groupId",
           "content"
         ],
@@ -2985,55 +3449,22 @@
       }
     },
     {
-      "name": "group-set-roles",
-      "description": "Define role names and their permissions in a NIP-29 group (kind 9007 admin event). Each role entry is { name, permissions? }.",
-      "inputSchema": {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "properties": {
-          "groupId": {
-            "type": "string",
-            "description": "Group identifier"
-          },
-          "roles": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string",
-                  "description": "Role name"
-                },
-                "permissions": {
-                  "description": "Permission strings (e.g. write, delete, ban)",
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                }
-              },
-              "required": [
-                "name"
-              ],
-              "additionalProperties": false
-            },
-            "description": "Roles to define"
-          }
-        },
-        "required": [
-          "groupId",
-          "roles"
-        ],
-        "additionalProperties": false
-      }
-    },
-    {
       "name": "group-update",
-      "description": "Update NIP-29 group metadata (kind 9002 admin event). Supply only the fields you want to change.",
+      "description": "Update NIP-29 group metadata with kind 9002 at exactly one host relay.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/",
+            "description": "Relay hosting this version of the group"
+          },
           "groupId": {
             "type": "string",
             "description": "Group identifier"
@@ -3050,12 +3481,37 @@
             "description": "New group picture URL",
             "type": "string"
           },
-          "isOpen": {
-            "description": "True = open; false = closed",
+          "banner": {
+            "type": "string"
+          },
+          "isPrivate": {
             "type": "boolean"
+          },
+          "isRestricted": {
+            "type": "boolean"
+          },
+          "isHidden": {
+            "type": "boolean"
+          },
+          "isOpen": {
+            "description": "False adds the closed tag; true omits it",
+            "type": "boolean"
+          },
+          "supportedKinds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          },
+          "parent": {
+            "description": "Optional subgroup parent ID",
+            "type": "string"
           }
         },
         "required": [
+          "relay",
           "groupId"
         ],
         "additionalProperties": false
@@ -5399,6 +5855,15 @@
               }
             }
           },
+          "validationMode": {
+            "default": "strict-known",
+            "description": "Semantic validation policy before signing (default: strict-known)",
+            "type": "string",
+            "enum": [
+              "strict-known",
+              "off"
+            ]
+          },
           "output": {
             "default": "human",
             "description": "Response format",
@@ -5413,6 +5878,7 @@
           "content",
           "scheduled_at",
           "kind",
+          "validationMode",
           "output"
         ],
         "additionalProperties": false
@@ -5771,7 +6237,7 @@
     },
     {
       "name": "publish-event",
-      "description": "Sign and publish a Nostr event with any kind, content, and tags. Use for custom or experimental event kinds not covered by dedicated tools.",
+      "description": "Validate, sign and publish a Nostr event with any kind, content and tags. Known kinds are checked against Bray's pinned Registry of Kinds before signing; unknown kinds are allowed with a warning.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": true
@@ -5799,11 +6265,21 @@
                 "type": "string"
               }
             }
+          },
+          "validationMode": {
+            "default": "strict-known",
+            "description": "strict-known rejects malformed known kinds; off is an explicit escape hatch",
+            "type": "string",
+            "enum": [
+              "strict-known",
+              "off"
+            ]
           }
         },
         "required": [
           "kind",
-          "content"
+          "content",
+          "validationMode"
         ],
         "additionalProperties": false
       }
@@ -7157,6 +7633,150 @@
       }
     },
     {
+      "name": "sync-plan",
+      "description": "Read-only comparison of a bounded local event set with one relay. Uses NIP-77 Negentropy when supported, otherwise reports a bounded REQ fallback. This returns IDs only; it does not transfer or publish events.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "relay": {
+            "type": "string",
+            "pattern": "^wss?:\\/\\/",
+            "description": "Target relay URL"
+          },
+          "events": {
+            "description": "Local signed events to compare (default: empty local set)",
+            "maxItems": 10000,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "pubkey": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "sig": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{128}$"
+                },
+                "kind": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535
+                },
+                "created_at": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 8640000000000
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "content": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "pubkey",
+                "sig",
+                "kind",
+                "created_at",
+                "tags",
+                "content"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "kinds": {
+            "description": "Restrict reconciliation to event kinds",
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          },
+          "authors": {
+            "description": "Restrict reconciliation to author pubkeys",
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "since": {
+            "description": "Unix timestamp lower bound",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "until": {
+            "description": "Unix timestamp upper bound",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "maxIds": {
+            "default": 1000,
+            "description": "Maximum local-only and remote-only IDs retained in the response",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "maxRemoteEvents": {
+            "default": 10000,
+            "description": "Maximum events scanned if REQ fallback is required",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50000
+          },
+          "timeoutMs": {
+            "default": 10000,
+            "description": "Reconciliation timeout in milliseconds",
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 120000
+          },
+          "protocol": {
+            "default": "auto",
+            "description": "Try NIP-77 then fallback, or force one protocol",
+            "type": "string",
+            "enum": [
+              "auto",
+              "nip77",
+              "req-fallback"
+            ]
+          }
+        },
+        "required": [
+          "relay",
+          "maxIds",
+          "maxRemoteEvents",
+          "timeoutMs",
+          "protocol"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "tombstone",
       "description": "Overwrite an addressable event (kind 30000-39999) with empty content, effectively deleting it from relays. Use this to clean up broken or stale replaceable events.",
       "annotations": {
@@ -8119,6 +8739,77 @@
         },
         "required": [
           "event"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "validate-event",
+      "description": "Semantically validate an event or unsigned event template against Bray's pinned Registry of Kinds snapshot. This is distinct from verify-event: it checks protocol content and tags, not the cryptographic signature.",
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "content": {
+                "type": "string"
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "created_at": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "pubkey": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "sig": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "content",
+              "tags"
+            ],
+            "additionalProperties": false,
+            "description": "Event or unsigned event template to validate"
+          },
+          "mode": {
+            "default": "strict-known",
+            "description": "strict-known validates known kinds and warns for unknown kinds; off explicitly skips validation",
+            "type": "string",
+            "enum": [
+              "strict-known",
+              "off"
+            ]
+          }
+        },
+        "required": [
+          "event",
+          "mode"
         ],
         "additionalProperties": false
       }

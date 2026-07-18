@@ -40,6 +40,7 @@ export type {
 export type { DmSendResult, DmReadEntry } from './social/dm.js'
 export type { Notification, FeedEntry } from './social/notifications.js'
 export type { NipEvent } from './social/nips.js'
+export type { GroupInfo, GroupMessage, GroupAdmin, GroupRole, GroupForumTopic } from './social/groups.js'
 
 // ── Trust ─────────────────────────────────────────────────────────────────────
 export type { AttestResult } from './trust/handlers.js'
@@ -57,6 +58,26 @@ export type { NwcConnection, ZapReceipt } from './zap/handlers.js'
 
 // ── Event ─────────────────────────────────────────────────────────────────────
 export type { PublishRawResult } from './event/handlers.js'
+export type {
+  EventValidationMode,
+  EventValidationSeverity,
+  EventValidationPath,
+  EventValidationIssue,
+  EventValidationResult,
+  SemanticEventInput,
+} from './event-validation/validator.js'
+
+// ── Sync ─────────────────────────────────────────────────────────────────────
+export type {
+  SyncProtocol,
+  SyncProtocolPreference,
+  SyncPlanOptions,
+  SyncPlanResult,
+  SyncPullOptions,
+  SyncPullResult,
+  SyncPushOptions,
+  SyncPushResult,
+} from './sync/handlers.js'
 
 // ── Util ──────────────────────────────────────────────────────────────────────
 export type { DecodeResult, TombstoneResult } from './util/handlers.js'

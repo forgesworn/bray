@@ -39,6 +39,7 @@ const registerModules = [
   ['vault', () => import('../dist/vault/tools.js')],
   ['dispatch', () => import('../dist/dispatch/tools.js')],
   ['handler', () => import('../dist/handler/tools.js')],
+  ['sync', () => import('../dist/sync/tools.js')],
 ]
 
 const stubDeps = {
@@ -105,7 +106,7 @@ const manifest = {
   totalTools: collected.length,
   note:
     'Parameter schemas for every registered tool. Most tools live in the catalog ' +
-    '(discoverable via search-actions + execute-action); ~48 promoted tools are ' +
+    '(discoverable via search-actions + execute-action); 51 promoted tools are ' +
     'exposed directly on the MCP server. This manifest covers both.',
   tools: collected.map(t => ({
     name: t.name,

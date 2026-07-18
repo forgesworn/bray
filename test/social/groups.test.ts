@@ -1,234 +1,182 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { finalizeEvent, getPublicKey } from 'nostr-tools'
 import { IdentityContext } from '../../src/context.js'
 import {
-  handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers,
-  handleGroupCreate, handleGroupUpdate, handleGroupAddUser, handleGroupRemoveUser, handleGroupSetRoles,
-  GROUP_KIND_ADD_USER, GROUP_KIND_REMOVE_USER, GROUP_KIND_EDIT_METADATA,
-  GROUP_KIND_CREATE, GROUP_KIND_SET_ROLES,
+  GROUP_KIND_ADD_USER,
+  GROUP_KIND_CREATE,
+  GROUP_KIND_CREATE_INVITE,
+  GROUP_KIND_DELETE_EVENT,
+  GROUP_KIND_DELETE_GROUP,
+  GROUP_KIND_EDIT_METADATA,
+  GROUP_KIND_JOIN,
+  handleGroupAddUser,
+  handleGroupAdmins,
+  handleGroupCreate,
+  handleGroupCreateInvite,
+  handleGroupDelete,
+  handleGroupDeleteEvent,
+  handleGroupForumComment,
+  handleGroupForumTopicCreate,
+  handleGroupInfo,
+  handleGroupJoin,
+  handleGroupMembers,
+  handleGroupRoles,
+  handleGroupSend,
 } from '../../src/social/groups.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
+const RELAY_KEY = Uint8Array.from({ length: 32 }, (_, index) => index === 31 ? 2 : 0)
+const RELAY_PUBKEY = getPublicKey(RELAY_KEY)
+const RELAY = 'wss://groups.example.com'
+
+function relayEvent(kind: number, groupId: string, tags: string[][], created_at = 1_000) {
+  return finalizeEvent({ kind, tags: [['d', groupId], ...tags], content: '', created_at }, RELAY_KEY)
+}
 
 function mockPool(events: any[] = []) {
   return {
-    query: vi.fn().mockResolvedValue(events),
-    publish: vi.fn().mockResolvedValue({ success: true, allAccepted: true, accepted: ['wss://relay'], rejected: [], errors: [] }),
+    getRelaySelfPubkey: vi.fn().mockResolvedValue(RELAY_PUBKEY),
+    queryDirect: vi.fn().mockResolvedValue(events),
+    publishDirect: vi.fn().mockResolvedValue({
+      success: true, allAccepted: true, accepted: [RELAY], rejected: [], errors: [],
+    }),
   }
 }
 
-describe('NIP-29 group handlers', () => {
+describe('current relay-scoped NIP-29 handlers', () => {
   let ctx: IdentityContext
 
-  beforeEach(() => {
-    ctx = new IdentityContext(TEST_NSEC, 'nsec')
+  beforeEach(() => { ctx = new IdentityContext(TEST_NSEC, 'nsec') })
+
+  it('uses the current moderation kind assignments', () => {
+    expect(GROUP_KIND_ADD_USER).toBe(9000)
+    expect(GROUP_KIND_EDIT_METADATA).toBe(9002)
+    expect(GROUP_KIND_DELETE_EVENT).toBe(9005)
+    expect(GROUP_KIND_CREATE).toBe(9007)
+    expect(GROUP_KIND_DELETE_GROUP).toBe(9008)
+    expect(GROUP_KIND_CREATE_INVITE).toBe(9009)
   })
 
-  describe('handleGroupInfo', () => {
-    it('returns group metadata from kind 39000', async () => {
-      const events = [{
-        kind: 39000,
-        pubkey: 'relay',
-        created_at: 1000,
-        tags: [['d', 'test-group'], ['name', 'Test Group'], ['about', 'A test group'], ['open']],
-        content: '',
-        id: 'g1',
-        sig: 's1',
-      }]
-      const pool = mockPool(events)
-      const result = await handleGroupInfo(pool as any, 'npub1test', { relay: 'wss://test', groupId: 'test-group' })
-      expect(result.name).toBe('Test Group')
-      expect(result.about).toBe('A test group')
-      expect(result.isOpen).toBe(true)
-    })
+  it('reads metadata from the explicit relay and verifies the NIP-11 self signer', async () => {
+    const event = relayEvent(39000, 'g1', [
+      ['name', 'Verified Group'], ['about', 'Relay scoped'], ['private'], ['closed'],
+      ['supported_kinds', '9', '11'], ['child', 'forum'],
+    ])
+    const pool = mockPool([event])
+    const result = await handleGroupInfo(pool as any, 'npub-unused', { relay: RELAY, groupId: 'g1' })
 
-    it('takes highest created_at from multiple metadata events', async () => {
-      const events = [
-        { kind: 39000, pubkey: 'r', created_at: 500, tags: [['d', 'g'], ['name', 'Old']], content: '', id: '1', sig: 's' },
-        { kind: 39000, pubkey: 'r', created_at: 1000, tags: [['d', 'g'], ['name', 'New']], content: '', id: '2', sig: 's' },
-      ]
-      const pool = mockPool(events)
-      const result = await handleGroupInfo(pool as any, 'npub1test', { relay: 'wss://test', groupId: 'g' })
-      expect(result.name).toBe('New')
+    expect(result).toMatchObject({
+      relay: RELAY, relayPubkey: RELAY_PUBKEY, verified: true,
+      name: 'Verified Group', isPublic: false, isOpen: false,
+      supportedKinds: [9, 11], children: ['forum'],
     })
-
-    it('returns minimal info when no metadata found', async () => {
-      const pool = mockPool([])
-      const result = await handleGroupInfo(pool as any, 'npub1test', { relay: 'wss://test', groupId: 'unknown' })
-      expect(result.id).toBe('unknown')
-      expect(result.name).toBeUndefined()
-    })
+    expect(pool.queryDirect).toHaveBeenCalledWith([RELAY], expect.objectContaining({ kinds: [39000], '#d': ['g1'] }))
   })
 
-  describe('handleGroupChat', () => {
-    it('fetches and sorts kind 9 messages', async () => {
-      const events = [
-        { kind: 9, pubkey: 'user1', created_at: 200, tags: [['h', 'g1']], content: 'second', id: 'm2', sig: 's2' },
-        { kind: 9, pubkey: 'user2', created_at: 100, tags: [['h', 'g1']], content: 'first', id: 'm1', sig: 's1' },
-      ]
-      const pool = mockPool(events)
-      const result = await handleGroupChat(pool as any, 'npub1test', { groupId: 'g1' })
-      expect(result.length).toBe(2)
-      expect(result[0].content).toBe('first') // sorted by created_at
-      expect(result[1].content).toBe('second')
-    })
-
-    it('queries with h-tag filter', async () => {
-      const pool = mockPool([])
-      await handleGroupChat(pool as any, 'npub1test', { groupId: 'my-group', limit: 10 })
-      expect(pool.query).toHaveBeenCalledWith('npub1test', expect.objectContaining({
-        kinds: [9],
-        '#h': ['my-group'],
-        limit: 10,
-      }))
-    })
+  it('rejects relay-generated state signed by a different key', async () => {
+    const foreignKey = Uint8Array.from({ length: 32 }, (_, index) => index === 31 ? 3 : 0)
+    const event = finalizeEvent({ kind: 39000, tags: [['d', 'g1']], content: '', created_at: 1 }, foreignKey)
+    await expect(handleGroupInfo(mockPool([event]) as any, 'npub-unused', {
+      relay: RELAY, groupId: 'g1',
+    })).rejects.toThrow(/NIP-11 self key/)
   })
 
-  describe('handleGroupSend', () => {
-    it('creates kind 9 event with h-tag', async () => {
-      const pool = mockPool()
-      const result = await handleGroupSend(ctx, pool as any, {
-        groupId: 'test-group',
-        content: 'hello group!',
-      })
-      expect(result.event.kind).toBe(9)
-      const hTag = result.event.tags.find(t => t[0] === 'h')
-      expect(hTag![1]).toBe('test-group')
-      expect(result.event.content).toBe('hello group!')
-    })
+  it('parses members, admins and relay-defined roles from the correct state kinds', async () => {
+    const members = relayEvent(39002, 'g1', [['p', 'a'.repeat(64)], ['p', 'b'.repeat(64)]])
+    const admins = relayEvent(39001, 'g1', [['p', 'a'.repeat(64), 'admin', 'moderator']])
+    const roles = relayEvent(39003, 'g1', [['role', 'admin', 'May manage group'], ['role', 'moderator', 'May delete events']])
+
+    expect(await handleGroupMembers(mockPool([members]) as any, 'unused', { relay: RELAY, groupId: 'g1' }))
+      .toEqual([{ pubkey: 'a'.repeat(64) }, { pubkey: 'b'.repeat(64) }])
+    expect(await handleGroupAdmins(mockPool([admins]) as any, { relay: RELAY, groupId: 'g1' }))
+      .toEqual([{ pubkey: 'a'.repeat(64), roles: ['admin', 'moderator'] }])
+    expect(await handleGroupRoles(mockPool([roles]) as any, { relay: RELAY, groupId: 'g1' }))
+      .toEqual([
+        { name: 'admin', description: 'May manage group', details: ['May manage group'] },
+        { name: 'moderator', description: 'May delete events', details: ['May delete events'] },
+      ])
   })
 
-  describe('handleGroupMembers', () => {
-    it('parses member list from kind 39002', async () => {
-      const events = [{
-        kind: 39002,
-        pubkey: 'relay',
-        created_at: 1000,
-        tags: [['d', 'test-group'], ['p', 'member1'], ['p', 'member2', '', 'admin']],
-        content: '',
-        id: 'ml1',
-        sig: 's1',
-      }]
-      const pool = mockPool(events)
-      const result = await handleGroupMembers(pool as any, 'npub1test', { groupId: 'test-group' })
-      expect(result.length).toBe(2)
-      expect(result[0].pubkey).toBe('member1')
-      expect(result[1].role).toBe('admin')
-    })
+  it('publishes group chat and moderation events only to the host relay', async () => {
+    const pool = mockPool()
+    const sent = await handleGroupSend(ctx, pool as any, { relay: RELAY, groupId: 'g1', content: 'hello' })
+    expect(sent.event).toMatchObject({ kind: 9, content: 'hello' })
+    expect(sent.event.tags).toContainEqual(['h', 'g1'])
+    expect(pool.publishDirect).toHaveBeenCalledWith([RELAY], sent.event)
 
-    it('takes highest created_at from multiple member events', async () => {
-      const events = [
-        { kind: 39002, pubkey: 'r', created_at: 500, tags: [['d', 'g'], ['p', 'old']], content: '', id: '1', sig: 's' },
-        { kind: 39002, pubkey: 'r', created_at: 1000, tags: [['d', 'g'], ['p', 'new']], content: '', id: '2', sig: 's' },
-      ]
-      const pool = mockPool(events)
-      const result = await handleGroupMembers(pool as any, 'npub1test', { groupId: 'g' })
-      expect(result.length).toBe(1)
-      expect(result[0].pubkey).toBe('new')
+    const added = await handleGroupAddUser(ctx, pool as any, {
+      relay: RELAY, groupId: 'g1', pubkeyHex: 'a'.repeat(64), roles: ['admin', 'moderator'],
     })
-
-    it('returns empty when no member list found', async () => {
-      const pool = mockPool([])
-      const result = await handleGroupMembers(pool as any, 'npub1test', { groupId: 'empty' })
-      expect(result).toEqual([])
-    })
+    expect(added.event.kind).toBe(9000)
+    expect(added.event.tags).toContainEqual(['p', 'a'.repeat(64), 'admin', 'moderator'])
   })
 
-  describe('handleGroupCreate', () => {
-    it('creates kind 9004 event with optional metadata tags', async () => {
-      const pool = mockPool()
-      const result = await handleGroupCreate(ctx, pool as any, {
-        groupId: 'my-group',
-        name: 'My Group',
-        about: 'A test group',
-        isOpen: true,
-      })
-      expect(result.event.kind).toBe(GROUP_KIND_CREATE)
-      expect(result.event.tags).toContainEqual(['h', 'my-group'])
-      expect(result.event.tags).toContainEqual(['name', 'My Group'])
-      expect(result.event.tags).toContainEqual(['about', 'A test group'])
-      expect(result.event.tags).toContainEqual(['open'])
+  it('creates with kind 9007 and sends metadata separately with kind 9002', async () => {
+    const pool = mockPool()
+    const result = await handleGroupCreate(ctx, pool as any, {
+      relay: RELAY, groupId: 'g1', name: 'New Group', isOpen: false, supportedKinds: [9, 11],
     })
-
-    it('omits optional fields when not supplied', async () => {
-      const pool = mockPool()
-      const result = await handleGroupCreate(ctx, pool as any, {})
-      expect(result.event.kind).toBe(GROUP_KIND_CREATE)
-      expect(result.event.tags.find(t => t[0] === 'name')).toBeUndefined()
-    })
-
-    it('adds closed tag when isOpen is false', async () => {
-      const pool = mockPool()
-      const result = await handleGroupCreate(ctx, pool as any, { groupId: 'g', isOpen: false })
-      expect(result.event.tags).toContainEqual(['closed'])
-    })
+    expect(result.event.kind).toBe(9007)
+    expect(result.event.tags).toEqual([['h', 'g1']])
+    expect(result.metadataEvent?.kind).toBe(9002)
+    expect(result.metadataEvent?.tags).toContainEqual(['name', 'New Group'])
+    expect(result.metadataEvent?.tags).toContainEqual(['closed'])
+    expect(pool.publishDirect).toHaveBeenCalledTimes(2)
   })
 
-  describe('handleGroupUpdate', () => {
-    it('creates kind 9002 event with h-tag and changed fields', async () => {
-      const pool = mockPool()
-      const result = await handleGroupUpdate(ctx, pool as any, {
-        groupId: 'g1',
-        name: 'Updated Name',
-      })
-      expect(result.event.kind).toBe(GROUP_KIND_EDIT_METADATA)
-      expect(result.event.tags).toContainEqual(['h', 'g1'])
-      expect(result.event.tags).toContainEqual(['name', 'Updated Name'])
+  it('creates invite codes and includes them in join requests', async () => {
+    const pool = mockPool()
+    const invite = await handleGroupCreateInvite(ctx, pool as any, {
+      relay: RELAY, groupId: 'g1', code: 'invite-123',
     })
+    expect(invite.event.kind).toBe(9009)
+    expect(invite.event.tags).toContainEqual(['code', 'invite-123'])
+
+    const join = await handleGroupJoin(ctx, pool as any, {
+      relay: RELAY, groupId: 'g1', code: invite.code,
+    })
+    expect(join.event.kind).toBe(GROUP_KIND_JOIN)
+    expect(join.event.tags).toContainEqual(['code', 'invite-123'])
   })
 
-  describe('handleGroupAddUser', () => {
-    it('creates kind 9000 event with p-tag and optional role', async () => {
-      const pool = mockPool()
-      const result = await handleGroupAddUser(ctx, pool as any, {
-        groupId: 'g1',
-        pubkeyHex: 'aabbcc',
-        role: 'admin',
-      })
-      expect(result.event.kind).toBe(GROUP_KIND_ADD_USER)
-      expect(result.event.tags).toContainEqual(['h', 'g1'])
-      const pTag = result.event.tags.find(t => t[0] === 'p')
-      expect(pTag![1]).toBe('aabbcc')
-      expect(pTag![3]).toBe('admin')
+  it('requires explicit confirmation for event and whole-group deletion', async () => {
+    const pool = mockPool()
+    const eventId = 'e'.repeat(64)
+    await expect(handleGroupDeleteEvent(ctx, pool as any, {
+      relay: RELAY, groupId: 'g1', eventId,
+    })).rejects.toThrow(/confirm/)
+    const removed = await handleGroupDeleteEvent(ctx, pool as any, {
+      relay: RELAY, groupId: 'g1', eventId, confirm: true,
     })
+    expect(removed.event.kind).toBe(9005)
+    expect(removed.event.tags).toContainEqual(['e', eventId])
 
-    it('omits role relay index when no role given', async () => {
-      const pool = mockPool()
-      const result = await handleGroupAddUser(ctx, pool as any, {
-        groupId: 'g1',
-        pubkeyHex: 'aabbcc',
-      })
-      const pTag = result.event.tags.find(t => t[0] === 'p')
-      expect(pTag).toEqual(['p', 'aabbcc'])
+    await expect(handleGroupDelete(ctx, pool as any, {
+      relay: RELAY, groupId: 'g1', confirmGroupId: 'wrong',
+    })).rejects.toThrow(/exactly match/)
+    const deleted = await handleGroupDelete(ctx, pool as any, {
+      relay: RELAY, groupId: 'g1', confirmGroupId: 'g1',
     })
+    expect(deleted.event.kind).toBe(9008)
   })
 
-  describe('handleGroupRemoveUser', () => {
-    it('creates kind 9001 event with h-tag and p-tag', async () => {
-      const pool = mockPool()
-      const result = await handleGroupRemoveUser(ctx, pool as any, {
-        groupId: 'g1',
-        pubkeyHex: 'aabbcc',
-      })
-      expect(result.event.kind).toBe(GROUP_KIND_REMOVE_USER)
-      expect(result.event.tags).toContainEqual(['h', 'g1'])
-      expect(result.event.tags).toContainEqual(['p', 'aabbcc'])
+  it('publishes kind 11 topics and schema-correct NIP-22 kind 1111 comments', async () => {
+    const pool = mockPool()
+    const topic = await handleGroupForumTopicCreate(ctx, pool as any, {
+      relay: RELAY, groupId: 'g1', title: 'Topic', content: 'Opening post',
     })
-  })
+    expect(topic.event.kind).toBe(11)
+    expect(topic.event.tags).toContainEqual(['h', 'g1'])
+    expect(topic.event.tags).toContainEqual(['title', 'Topic'])
 
-  describe('handleGroupSetRoles', () => {
-    it('creates kind 9007 event with role tags', async () => {
-      const pool = mockPool()
-      const result = await handleGroupSetRoles(ctx, pool as any, {
-        groupId: 'g1',
-        roles: [
-          { name: 'admin', permissions: ['write', 'delete', 'ban'] },
-          { name: 'member' },
-        ],
-      })
-      expect(result.event.kind).toBe(GROUP_KIND_SET_ROLES)
-      expect(result.event.tags).toContainEqual(['h', 'g1'])
-      expect(result.event.tags).toContainEqual(['role', 'admin', 'write', 'delete', 'ban'])
-      expect(result.event.tags).toContainEqual(['role', 'member'])
+    pool.queryDirect.mockResolvedValue([topic.event])
+    const comment = await handleGroupForumComment(ctx, pool as any, {
+      relay: RELAY, groupId: 'g1', topicId: topic.event.id, content: 'First reply',
     })
+    expect(comment.event.kind).toBe(1111)
+    expect(comment.event.tags).toContainEqual(['E', topic.event.id, RELAY, topic.event.pubkey])
+    expect(comment.event.tags).toContainEqual(['K', '11'])
+    expect(comment.event.tags).toContainEqual(['e', topic.event.id, RELAY, topic.event.pubkey])
+    expect(comment.event.tags).toContainEqual(['k', '11'])
   })
 })

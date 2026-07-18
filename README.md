@@ -1,6 +1,6 @@
 # nostr-bray
 
-**Trust-aware Nostr MCP for AI and humans.** 238 tools across 27 groups. Model-agnostic. Works with Claude, ChatGPT, Gemini, Cursor, Windsurf, or any MCP client.
+**Trust-aware Nostr MCP for AI and humans.** 253 tools across 28 groups. Model-agnostic. Works with Claude, ChatGPT, Gemini, Cursor, Windsurf, or any MCP client.
 
 [![npm](https://img.shields.io/npm/v/nostr-bray)](https://www.npmjs.com/package/nostr-bray)
 [![CI](https://github.com/forgesworn/bray/actions/workflows/ci.yml/badge.svg)](https://github.com/forgesworn/bray/actions/workflows/ci.yml)
@@ -90,18 +90,22 @@ For production use, prefer [Heartwood](https://github.com/forgesworn/heartwood) 
 | **Signet** | 7 | `signet-badge`, `signet-vouch`, `signet-credentials`, `signet-challenge` |
 | **Communities** | 5 | `community-create`, `community-feed`, `community-post`, `community-approve` |
 | **Badges** | 4 | `badge-create`, `badge-award`, `badge-accept`, `badge-list` |
-| **Groups (NIP-29)** | 4 | `group-info`, `group-chat`, `group-send`, `group-members` |
+| **Groups (NIP-29)** | 20 | `group-inspect`, `group-invite-create`, `group-forum-comment`, `group-delete` |
 | **Articles** | 3 | `article-publish`, `article-read`, `article-list` |
 | **Calendar** | 3 | `calendar-create`, `calendar-read`, `calendar-rsvp` |
 | **Wiki** | 3 | `wiki-publish`, `wiki-read`, `wiki-list` |
 | **Search** | 3 | `search-notes`, `search-profiles`, `hashtag-feed` |
 | **Scheduling** | 4 | `post-schedule`, `post-queue-list`, `post-queue-cancel`, `publish-event` |
 | **Community NIPs** | 2 | `nip-publish`, `nip-read` |
-| **Utility** | 19 | `decode`, `encode-npub`, `nip44-encrypt`, `verify-event`, `tombstone` |
+| **Utility** | 20 | `decode`, `validate-event`, `verify-event`, `nip44-encrypt`, `tombstone` |
+| **Sync (NIP-77)** | 1 | `sync-plan` (pull/push are explicit CLI and SDK operations) |
 | **Handler** | 2 | `handler-publish`, `handler-discover` |
 | **Catalog** | 2 | `search-actions`, `execute-action` |
 
 Use `search-actions` to find tools by keyword, then `execute-action` to run them.
+
+Protocol foundations: [semantic event validation](docs/event-validation.md),
+[NIP-77 reconciliation](docs/sync.md), and [relay-scoped NIP-29 groups](docs/nip29-groups.md).
 
 ## Dispatch: AI-to-AI Collaboration
 
@@ -153,7 +157,8 @@ nostr-bray implements or integrates the following NIPs:
 | **NIP-17** | Private DMs (gift wrap, default) |
 | **NIP-19** | bech32 encoding (npub, nsec, nprofile, nevent, naddr) |
 | **NIP-23** | Long-form articles (kind 30023) |
-| **NIP-29** | Group chat |
+| **NIP-22** | Schema-correct comments for group forums |
+| **NIP-29** | Relay-scoped groups, chat, forums, invitations and administration |
 | **NIP-32** | Labels |
 | **NIP-40** | Expiration tags |
 | **NIP-42** | Relay auth |
@@ -169,6 +174,7 @@ nostr-bray implements or integrates the following NIPs:
 | **NIP-58** | Badges |
 | **NIP-65** | Relay list metadata |
 | **NIP-72** | Communities |
+| **NIP-77** | Negentropy ID reconciliation with truthful REQ fallback |
 | **NIP-78** | Application-specific data |
 | **NIP-85** | Trust rankings |
 | **NIP-89** | Recommended applications (dispatch capability discovery) |

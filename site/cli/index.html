@@ -307,39 +307,39 @@ button.cell { cursor: copy; font-family: inherit; }
       </div>
       <div class="pair">
       <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">What is this group about?</span></button>
-      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-info &lt;group-id&gt;</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-info &lt;relay-url&gt; &lt;group-id&gt;</span></button>
       </div>
       <div class="pair">
       <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Show me the last twenty group messages</span></button>
-      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-chat &lt;group-id&gt; --limit 20</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-chat &lt;relay-url&gt; &lt;group-id&gt; --limit 20</span></button>
       </div>
       <div class="pair">
       <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Tell the group I will be late</span></button>
-      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-send &lt;group-id&gt; "running late"</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-send &lt;relay-url&gt; &lt;group-id&gt; "running late"</span></button>
       </div>
       <div class="pair">
-      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Who is in this group?</span></button>
-      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-members &lt;group-id&gt;</span></button>
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Inspect the members, admins and roles</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-inspect &lt;relay-url&gt; &lt;group-id&gt;</span></button>
       </div>
       <div class="pair">
       <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Open a closed group called Ships Log</span></button>
-      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-create --name "Ships Log" --closed</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-create &lt;relay-url&gt; ships-log --name "Ships Log" --closed</span></button>
       </div>
       <div class="pair">
       <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Rename the group and open it up</span></button>
-      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-update &lt;group-id&gt; --name "Open Log" --open</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-update &lt;relay-url&gt; &lt;group-id&gt; --name "Open Log" --open</span></button>
       </div>
       <div class="pair">
       <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Make them an admin of the group</span></button>
-      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-add-user &lt;group-id&gt; &lt;pubkey-hex&gt; --role admin</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-add-user &lt;relay-url&gt; &lt;group-id&gt; &lt;pubkey-hex&gt; --role admin</span></button>
       </div>
       <div class="pair">
       <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Remove them from the group</span></button>
-      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-remove-user &lt;group-id&gt; &lt;pubkey-hex&gt;</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-remove-user &lt;relay-url&gt; &lt;group-id&gt; &lt;pubkey-hex&gt;</span></button>
       </div>
       <div class="pair">
-      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Define a moderator role for the group</span></button>
-      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-set-roles &lt;group-id&gt; --role moderator</span></button>
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Read the roles supported by the relay</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-roles &lt;relay-url&gt; &lt;group-id&gt;</span></button>
       </div>
     </div>
   </div>

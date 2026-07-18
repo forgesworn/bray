@@ -3,10 +3,16 @@ import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
 import type { VeilScoring } from '../veil/scoring.js'
+import { assertEventSemanticallyValid } from '../event-validation/validator.js'
+import type { EventValidationMode, EventValidationResult } from '../event-validation/validator.js'
 
 export interface PostResult {
   event: NostrEvent
   publish: PublishResult
+}
+
+export interface ValidatedPostResult extends PostResult {
+  validation: EventValidationResult
 }
 
 export interface ReplyResult extends PostResult {
@@ -616,17 +622,25 @@ export async function handleContactsUnfollow(
 export async function handlePublishEvent(
   ctx: SigningContext,
   pool: RelayPool,
-  args: { kind: number; content: string; tags?: string[][]; relays?: string[] },
-): Promise<PostResult> {
-  const sign = ctx.getSigningFunction()
-  const event = await sign({
+  args: {
+    kind: number
+    content: string
+    tags?: string[][]
+    relays?: string[]
+    validationMode?: EventValidationMode
+  },
+): Promise<ValidatedPostResult> {
+  const template = {
     kind: args.kind,
     created_at: Math.floor(Date.now() / 1000),
     tags: args.tags ?? [],
     content: args.content,
-  })
+  }
+  const validation = assertEventSemanticallyValid(template, args.validationMode)
+  const sign = ctx.getSigningFunction()
+  const event = await sign(template)
   const publish = args.relays?.length
     ? await pool.publishDirect(args.relays, event)
     : await pool.publish(ctx.activeNpub, event)
-  return { event, publish }
+  return { event, publish, validation }
 }

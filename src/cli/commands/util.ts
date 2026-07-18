@@ -4,7 +4,9 @@ import {
   handleCount, handleFetch, handleKeyPublic, handleEncodeNsec,
   handleFilter, handleNipList, handleNipShow,
   handleKeyEncrypt, handleKeyDecrypt,
+  handleValidateEvent,
 } from '../../exports.js'
+import { validateInputPath } from '../../validation.js'
 import * as fmt from '../../format.js'
 import type { Helpers } from '../dispatch.js'
 
@@ -15,7 +17,7 @@ export async function dispatch(
   ctx: any,
   pool: any,
 ): Promise<void> {
-  const { req, flag, out } = h
+  const { req, flag, hasFlag, out } = h
 
   switch (cmd) {
     case 'decode':
@@ -85,6 +87,19 @@ export async function dispatch(
     case 'verify':
       out(handleVerify(JSON.parse(req(1, 'verify <event-json>'))))
       break
+
+    case 'validate-event': {
+      const { readFileSync } = await import('node:fs')
+      const raw = hasFlag('file')
+        ? readFileSync(validateInputPath(flag('file')!), 'utf8')
+        : cmdArgs[1] && !cmdArgs[1].startsWith('--')
+          ? cmdArgs[1]
+          : readFileSync(0, 'utf8')
+      const mode = flag('validation') ?? 'strict-known'
+      if (mode !== 'strict-known' && mode !== 'off') throw new Error('Validation mode must be strict-known or off')
+      out(handleValidateEvent(JSON.parse(raw), mode))
+      break
+    }
 
     case 'encrypt': {
       const skHex = Buffer.from(ctx.activePrivateKey).toString('hex')
