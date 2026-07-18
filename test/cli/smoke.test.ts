@@ -491,6 +491,26 @@ describe('error handling', () => {
     expect(out).toContain('Safety:')
     expect(out).toContain('Utility:')
   })
+
+  it('--help on a command without a dedicated entry prints its usage instead of running it', () => {
+    const out = execFileSync('node', [CLI, 'req', '--help'], {
+      encoding: 'utf-8',
+      timeout: 5000,
+      env: { PATH: process.env.PATH! },
+    })
+    expect(out).toContain('req [--kinds')
+    expect(out).toContain('Query events')
+  })
+
+  it('--help resolves two-word commands to their compound entry', () => {
+    const out = execFileSync('node', [CLI, 'dm', 'read', '--help'], {
+      encoding: 'utf-8',
+      timeout: 5000,
+      env: { PATH: process.env.PATH! },
+    })
+    expect(out).toContain('dm-read')
+    expect(out).toContain('direct messages')
+  })
 })
 
 // ===========================================================================
