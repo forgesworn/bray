@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.39.1 (2026-07-18)
+
+### Bug Fixes
+
+- help brought in step with the real CLI
+
+
+
 ## 1.39.0 (2026-07-18)
 
 ### Features
