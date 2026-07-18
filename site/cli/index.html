@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bray CLI reference: every command, both languages</title>
+<meta name="description" content="Every nostr-bray command beside the plain-English way to ask an AI assistant for the same thing. Hover either side to light up its twin; click to copy.">
+<link rel="canonical" href="https://bray.forgesworn.dev/cli/">
+<meta property="og:title" content="Bray CLI reference">
+<meta property="og:description" content="Every command beside its plain-English equivalent. Hover either side to light up its twin.">
+<meta property="og:url" content="https://bray.forgesworn.dev/cli/">
+<meta property="og:type" content="article">
+<meta name="theme-color" content="#06060b">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a0f'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='%23e8a838' font-family='serif'>b</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../guide.css">
+<style>
+/* ---------- command pairs ---------- */
+.pair-heads {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+.pair-head {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.pairs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+}
+.pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.5rem;
+}
+.cell {
+  position: relative;
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  padding: 0.6rem 0.8rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+button.cell { cursor: copy; font-family: inherit; }
+.cell-human { font-family: var(--font-body); }
+.cell-human:not(.cell-tf) .cell-text::before { content: "\201C"; color: var(--text-muted); }
+.cell-human:not(.cell-tf) .cell-text::after { content: "\201D"; color: var(--text-muted); }
+.cell-cli {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  overflow-wrap: break-word;
+}
+.cell-tf { color: var(--text-muted); font-style: italic; font-size: 0.8rem; }
+/* hovering one side lights up its twin */
+.pair:has(.cell-human:hover) .cell-cli,
+.pair .cell-human:hover ~ .cell-cli {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+  background: rgba(232, 168, 56, 0.06);
+}
+.pair:has(.cell-cli:hover) .cell-human {
+  border-color: var(--accent-gold);
+  color: var(--text-primary);
+  background: rgba(232, 168, 56, 0.06);
+}
+.cell:hover { border-color: var(--border-medium); }
+.cell.copied { border-color: var(--accent-green); }
+.cell.copied::after {
+  content: "copied";
+  position: absolute;
+  top: 0.35rem;
+  right: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  color: var(--accent-green);
+}
+@media (max-width: 720px) {
+  .pair-heads { grid-template-columns: 1fr; }
+  .pair-heads .pair-head:last-child { display: none; }
+  .pair {
+    grid-template-columns: 1fr;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 0.45rem;
+  }
+}
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <a class="wordmark" href="../">nostr-<span>bray</span></a>
+  <nav class="mastnav" aria-label="Sections">
+    <a href="../">About</a>
+    <a href="../guide/">Getting started</a>
+    <a href="../guide/trust/">Trust guide</a>
+    <a href="./" aria-current="page">CLI</a>
+    <a href="https://github.com/forgesworn/bray">GitHub</a>
+    <a href="https://www.npmjs.com/package/nostr-bray">npm</a>
+  </nav>
+</header>
+
+<main>
+
+<section class="page-hero">
+  <p class="kicker">// the command atlas</p>
+  <h1>The same tool in <span class="gold">two languages.</span></h1>
+  <p class="lede">
+    Everything bray does for an assistant it also does from a terminal.
+    Below are all 113 commands the CLI ships, each beside the
+    plain-English way to ask an assistant for the same thing. Hover either
+    side and its twin lights up; click either side to copy it. Where a row
+    says to stay in the terminal, that is deliberate: recovery words, raw
+    keys and connection secrets should never enter an AI conversation, so
+    those commands print to your screen and nowhere else.
+  </p>
+  <ul class="toc" aria-label="Command groups">
+    <li><a href="#identity"><span class="toc-no">01</span>Identity</a></li>
+    <li><a href="#social"><span class="toc-no">02</span>Social</a></li>
+    <li><a href="#trust"><span class="toc-no">03</span>Trust</a></li>
+    <li><a href="#relay"><span class="toc-no">04</span>Relay</a></li>
+    <li><a href="#sync"><span class="toc-no">05</span>Sync</a></li>
+    <li><a href="#admin"><span class="toc-no">06</span>Admin</a></li>
+    <li><a href="#wallet"><span class="toc-no">07</span>Wallet</a></li>
+    <li><a href="#zap"><span class="toc-no">08</span>Zap</a></li>
+    <li><a href="#safety"><span class="toc-no">09</span>Safety</a></li>
+    <li><a href="#utility"><span class="toc-no">10</span>Utility</a></li>
+    <li><a href="#musig2"><span class="toc-no">11</span>Musig2</a></li>
+    <li><a href="#modes"><span class="toc-no">12</span>Modes</a></li>
+  </ul>
+</section>
+
+<!-- ======================= 01 · IDENTITY ======================= -->
+<section class="section" id="identity">
+  <div class="section-head">
+    <span class="section-no">01</span>
+    <h2>IDENTITY</h2>
+  </div>
+  <div class="section-body">
+    <p>Who you are: create it, split it into personas, prove the links between them, and back the whole tree up.</p>
+    <div class="pair-heads" aria-hidden="true">
+      <span class="pair-head">Say to your assistant</span>
+      <span class="pair-head">Or type in the terminal</span>
+    </div>
+    <div class="pairs">
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Who am I on Nostr right now?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray whoami</span></button>
+      </div>
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">Keep this one in the terminal. The 24 recovery words print to your screen and never enter an AI conversation.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray create</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">List all my identities</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray list</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Derive a child identity for tipping</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray derive tipping</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Derive a persona called work</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray persona work</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Switch to my work persona</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray switch work</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Create a blind proof linking two of my identities</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray prove blind</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Publish my linkage proof. I understand it cannot be taken back</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray proof publish blind</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Back up my identity with Shamir secret sharing, 2-of-3</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray backup ./shards 2 3</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Restore my identity from these two shard files</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray restore shard-1.bray shard-2.bray -t 2</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Fetch my profile, contacts and relays as a portable bundle</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray identity-backup &lt;pubkey-hex&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Re-sign that bundle of events under my new identity</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray identity-restore &lt;pubkey-hex&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Preview migrating my old identity to this one</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray migrate &lt;old-hex&gt; &lt;old-npub&gt;</span></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 02 · SOCIAL ======================= -->
+<section class="section" id="social">
+  <div class="section-head">
+    <span class="section-no">02</span>
+    <h2>SOCIAL</h2>
+  </div>
+  <div class="section-body">
+    <p>The everyday rhythm: posting, replying, messaging, feeds, files and groups.</p>
+    <div class="pair-heads" aria-hidden="true">
+      <span class="pair-head">Say to your assistant</span>
+      <span class="pair-head">Or type in the terminal</span>
+    </div>
+    <div class="pairs">
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Post: hello from bray</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray post "hello from bray"</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Reply to that note saying thanks</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray reply &lt;event-id&gt; &lt;pubkey-hex&gt; "thanks"</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">React to that note with a heart</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray react &lt;event-id&gt; &lt;pubkey-hex&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Ask relays to delete the note I posted in error</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray delete &lt;event-id&gt; "posted in error"</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Repost that note to my followers</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray repost &lt;event-id&gt; &lt;pubkey-hex&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Show me fiatjaf’s profile</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray profile 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Set my display name to Ada</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray profile set '{"name":"Ada"}' --confirm</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Who does fiatjaf follow?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray contacts 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Follow fiatjaf</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray follow 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Unfollow fiatjaf</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray unfollow 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Send fiatjaf an encrypted message saying hello</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray dm 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d "hello"</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Read my encrypted messages</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray dm read</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Show me the latest ten notes from people I follow</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray feed --limit 10</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Any mentions, replies or zaps for me?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray notifications</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Publish my community NIP draft</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray nip publish my-nip "My NIP title" ./nip.md</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Fetch recent community NIPs</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray nip read</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Upload this photo to my Blossom server</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray blossom-upload https://blossom.azzamo.net ./photo.jpg</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">List my files on the Blossom server</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray blossom-list https://blossom.azzamo.net 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Delete that file from the Blossom server</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray blossom-delete https://blossom.azzamo.net &lt;sha256&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">What is this group about?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-info &lt;group-id&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Show me the last twenty group messages</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-chat &lt;group-id&gt; --limit 20</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Tell the group I will be late</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-send &lt;group-id&gt; "running late"</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Who is in this group?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-members &lt;group-id&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Open a closed group called Ships Log</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-create --name "Ships Log" --closed</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Rename the group and open it up</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-update &lt;group-id&gt; --name "Open Log" --open</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Make them an admin of the group</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-add-user &lt;group-id&gt; &lt;pubkey-hex&gt; --role admin</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Remove them from the group</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-remove-user &lt;group-id&gt; &lt;pubkey-hex&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Define a moderator role for the group</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray group-set-roles &lt;group-id&gt; --role moderator</span></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 03 · TRUST ======================= -->
+<section class="section" id="trust">
+  <div class="section-head">
+    <span class="section-no">03</span>
+    <h2>TRUST</h2>
+  </div>
+  <div class="section-body">
+    <p>Bray’s centre of gravity: attest to what you have verified, vouch for who you know, and prove things without oversharing.</p>
+    <div class="pair-heads" aria-hidden="true">
+      <span class="pair-head">Say to your assistant</span>
+      <span class="pair-head">Or type in the terminal</span>
+    </div>
+    <div class="pairs">
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">I have verified what this event claims. Attest to it</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray attest &lt;event-id&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Vouch for someone I trust</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray claim vouch</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">What attestations exist about this person?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray trust read --subject &lt;npub&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Is this attestation well-formed?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray trust verify &lt;event-json&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Revoke the vouch I gave earlier</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray trust revoke vouch &lt;identifier&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Ask fiatjaf to vouch for my work on this</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray trust-request 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d &lt;subject&gt; vouch</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Any attestation requests waiting in my messages?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray trust-request-list</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Score this event by how my web of trust sees its author</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray trust-rank event.json</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Prove one of us signed this without revealing who</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray ring prove membership &lt;pk1,pk2,pk3&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Check this ring signature</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray ring verify &lt;event-json&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Give me a short phrase to say aloud when we meet</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray spoken-challenge 8f2a1c4be97d3056a8e2f01b6c5d493a7e8b90c1d2f3a4b5c6d7e8f901234567 meetup 1</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">They said the phrase back. Does it check out?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray spoken-verify &lt;secret-hex&gt; meetup 1 "&lt;their-words&gt;"</span></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 04 · RELAY ======================= -->
+<section class="section" id="relay">
+  <div class="section-head">
+    <span class="section-no">04</span>
+    <h2>RELAY</h2>
+  </div>
+  <div class="section-body">
+    <p>Where your events live, and how to interrogate the servers that hold them.</p>
+    <div class="pair-heads" aria-hidden="true">
+      <span class="pair-head">Say to your assistant</span>
+      <span class="pair-head">Or type in the terminal</span>
+    </div>
+    <div class="pairs">
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Which relays am I on?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray relay-list</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Replace my relay list with these two</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray relay set wss://relay.damus.io wss://nos.lol --confirm</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Add this relay for reading only</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray relay add wss://relay.damus.io read</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">What does this relay support?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray relay-info wss://relay.damus.io</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Make an authenticated request to my relay’s admin endpoint</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray relay curl &lt;url&gt; --path /stats --auth</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Where does fiatjaf read and write?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray outbox relays npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Publish this event where its mentions will actually see it</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray outbox publish event.json</span></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 05 · SYNC ======================= -->
+<section class="section" id="sync">
+  <div class="section-head">
+    <span class="section-no">05</span>
+    <h2>SYNC</h2>
+  </div>
+  <div class="section-body">
+    <p>Filter-based copying of events between relays and files.</p>
+    <div class="pair-heads" aria-hidden="true">
+      <span class="pair-head">Say to your assistant</span>
+      <span class="pair-head">Or type in the terminal</span>
+    </div>
+    <div class="pairs">
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Pull my notes down from that relay</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray sync pull wss://relay.damus.io --kinds 1 --authors &lt;hex&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Push this file of events up to the new relay</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray sync push wss://relay.example.com --events ./events.jsonl</span></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 06 · ADMIN ======================= -->
+<section class="section" id="admin">
+  <div class="section-head">
+    <span class="section-no">06</span>
+    <h2>ADMIN</h2>
+  </div>
+  <div class="section-body">
+    <p>NIP-86 management for a relay you run.</p>
+    <div class="pair-heads" aria-hidden="true">
+      <span class="pair-head">Say to your assistant</span>
+      <span class="pair-head">Or type in the terminal</span>
+    </div>
+    <div class="pairs">
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Allow this pubkey on my relay</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray admin &lt;relay-url&gt; allowpubkey &lt;pubkey-hex&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Who is allowed on my relay?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray admin &lt;relay-url&gt; listallowedpubkeys</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Ban an event kind on my relay</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray admin &lt;relay-url&gt; bankind &lt;kind&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Block that address from my relay</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray admin &lt;relay-url&gt; blockip &lt;ip&gt;</span></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 07 · WALLET ======================= -->
+<section class="section" id="wallet">
+  <div class="section-head">
+    <span class="section-no">07</span>
+    <h2>WALLET</h2>
+  </div>
+  <div class="section-body">
+    <p>NIP-47 Nostr Wallet Connect: a Lightning wallet on a leash it cannot slip.</p>
+    <div class="pair-heads" aria-hidden="true">
+      <span class="pair-head">Say to your assistant</span>
+      <span class="pair-head">Or type in the terminal</span>
+    </div>
+    <div class="pairs">
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">Keep it in the terminal. An NWC URI carries its own secret, and secrets do not belong in a conversation.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray wallet connect &lt;nwc-url&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Disconnect my wallet</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray wallet disconnect</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Which wallet am I connected to?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray wallet status</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Pay this Lightning invoice</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray wallet pay &lt;bolt11&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">What is my wallet balance?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray wallet balance</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Show my recent Lightning transactions</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray wallet history --limit 10</span></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 08 · ZAP ======================= -->
+<section class="section" id="zap">
+  <div class="section-head">
+    <span class="section-no">08</span>
+    <h2>ZAP</h2>
+  </div>
+  <div class="section-body">
+    <p>Money as a first-class verb.</p>
+    <div class="pair-heads" aria-hidden="true">
+      <span class="pair-head">Say to your assistant</span>
+      <span class="pair-head">Or type in the terminal</span>
+    </div>
+    <div class="pairs">
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Zap this invoice</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray zap-send &lt;bolt11&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">What is my zap balance?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray zap-balance</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Make an invoice for 21 sats for coffee</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray zap-invoice 21000 "coffee"</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Has that invoice been paid?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray zap-lookup &lt;payment-hash&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">List my recent transactions</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray zap-transactions --limit 10</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Fetch my zap receipts</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray zap-receipts --limit 10</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">What does this invoice actually say?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray zap-decode &lt;bolt11&gt;</span></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 09 · SAFETY ======================= -->
+<section class="section" id="safety">
+  <div class="section-head">
+    <span class="section-no">09</span>
+    <h2>SAFETY</h2>
+  </div>
+  <div class="section-body">
+    <p>A parallel identity for the day someone insists on seeing your phone.</p>
+    <div class="pair-heads" aria-hidden="true">
+      <span class="pair-head">Say to your assistant</span>
+      <span class="pair-head">Or type in the terminal</span>
+    </div>
+    <div class="pairs">
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Set up my duress identity</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray safety-configure travel</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Activate my duress identity</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray safety-activate travel</span></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 10 · UTILITY ======================= -->
+<section class="section" id="utility">
+  <div class="section-head">
+    <span class="section-no">10</span>
+    <h2>UTILITY</h2>
+  </div>
+  <div class="section-body">
+    <p>The toolbox: query, build, encode, verify, encrypt.</p>
+    <div class="pair-heads" aria-hidden="true">
+      <span class="pair-head">Say to your assistant</span>
+      <span class="pair-head">Or type in the terminal</span>
+    </div>
+    <div class="pairs">
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Find the last five long-form articles</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray req --kinds 30023 --limit 5</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Build and publish a custom event of kind 30023</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray event --kind 30023 --tag d=my-article --content "draft"</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Sign this event and broadcast it, with a per-relay report</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray publish-raw --file event.json --report</span></button>
+      </div>
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">Terminal territory. It streams live events until you press Ctrl-C.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray subscribe --kinds 1</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">What is inside this npub?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray decode npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Turn this hex pubkey into an npub</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray encode npub 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Turn this hex event id into a note address</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray encode note &lt;event-hex&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Encode this pubkey with its relays as an nprofile</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray encode nprofile &lt;hex&gt; wss://relay.damus.io</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Encode this event with its relays as an nevent</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray encode nevent &lt;event-hex&gt; wss://relay.damus.io</span></button>
+      </div>
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">Terminal only. It takes a raw secret key as input.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray encode nsec &lt;hex&gt;</span></button>
+      </div>
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">Terminal only. It takes your secret key as input.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray key-public &lt;nsec-or-hex&gt;</span></button>
+      </div>
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">Terminal only. Your secret key and password stay off the record.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray key encrypt &lt;nsec-or-hex&gt; &lt;password&gt;</span></button>
+      </div>
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">Terminal only. Same reason: the secret never enters a conversation.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray key decrypt &lt;ncryptsec&gt; &lt;password&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Does this event match this filter?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray filter &lt;event-json&gt; &lt;filter-json&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">List the official NIPs</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray nips</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Show me NIP-17</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray nip 17</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Verify this event’s hash and signature</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray verify &lt;event-json&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Encrypt a message that only fiatjaf can read</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray encrypt 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d "hello world"</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Decrypt the message fiatjaf sent me</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray decrypt 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d &lt;ciphertext&gt;</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">How many notes has fiatjaf published?</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray count --kinds 1 --authors 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d</span></button>
+      </div>
+      <div class="pair">
+      <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Fetch whatever this Nostr address points at</span></button>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray fetch npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6</span></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 11 · MUSIG2 ======================= -->
+<section class="section" id="musig2">
+  <div class="section-head">
+    <span class="section-no">11</span>
+    <h2>MUSIG2</h2>
+  </div>
+  <div class="section-body">
+    <p>BIP-327 multi-signature ceremonies, step by step. Raw signing secrets ride the arguments at every stage, so this whole group lives in the terminal.</p>
+    <div class="pair-heads" aria-hidden="true">
+      <span class="pair-head">Say to your assistant</span>
+      <span class="pair-head">Or type in the terminal</span>
+    </div>
+    <div class="pairs">
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">Terminal territory. Generates a signing key pair.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray musig2 key</span></button>
+      </div>
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">Terminal territory. The secret nonce must never leave your machine.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray musig2 nonce --sk &lt;hex&gt;</span></button>
+      </div>
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">Terminal territory. Your secret key and nonce are arguments.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray musig2 partial-sign --sk &lt;hex&gt; --sec-nonce &lt;hex&gt; --pub-nonces &lt;n1,n2&gt; --pub-keys &lt;pk1,pk2&gt; --msg &lt;32-byte-hex&gt;</span></button>
+      </div>
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">Terminal territory. Combines everyone’s partial signatures.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray musig2 aggregate --partial-sigs &lt;s1,s2&gt; --pub-nonces &lt;n1,n2&gt; --pub-keys &lt;pk1,pk2&gt; --msg &lt;32-byte-hex&gt;</span></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 12 · MODES ======================= -->
+<section class="section" id="modes">
+  <div class="section-head">
+    <span class="section-no">12</span>
+    <h2>MODES</h2>
+  </div>
+  <div class="section-body">
+    <p>The long-running shapes bray can take.</p>
+    <div class="pair-heads" aria-hidden="true">
+      <span class="pair-head">Say to your assistant</span>
+      <span class="pair-head">Or type in the terminal</span>
+    </div>
+    <div class="pairs">
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">This one is the assistant side itself. Point your MCP client at it and every row above becomes something you can say.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray</span></button>
+      </div>
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">Terminal territory. Runs an in-memory test relay until you stop it.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray serve --port 7777</span></button>
+      </div>
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">Keep it in the terminal. A bunker URI carries its own secret.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray bunker connect "bunker://..."</span></button>
+      </div>
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">Terminal territory. Bunker administration lives beside the daemon.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray bunker authorize &lt;hex-pubkey&gt;</span></button>
+      </div>
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">Terminal territory. Shows the saved bunker connection state.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray bunker status</span></button>
+      </div>
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">Terminal territory. A NIP-46 remote signer that runs until you stop it.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray bunker daemon</span></button>
+      </div>
+      <div class="pair">
+      <div class="cell cell-human cell-tf"><span class="cell-text">Terminal territory. The whole CLI as a conversation of its own.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray shell</span></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 13 · ENVIRONMENT ======================= -->
+<section class="section" id="environment">
+  <div class="section-head">
+    <span class="section-no">13</span>
+    <h2>ENVIRONMENT AND FLAGS</h2>
+  </div>
+  <div class="section-body">
+    <p>
+      The CLI reads its identity and relays from the environment, so scripts
+      and shells stay free of secrets on the command line.
+    </p>
+    <dl class="spec-rows">
+      <div class="spec-row">
+        <dt><code>NOSTR_SECRET_KEY_FILE</code></dt>
+        <dd>Path to a file holding your nsec, hex key or mnemonic. The
+        recommended shape: the key lives in a file only you can read, never
+        in shell history.</dd>
+      </div>
+      <div class="spec-row">
+        <dt><code>NOSTR_SECRET_KEY</code></dt>
+        <dd>The key itself, for environments that inject secrets directly.
+        Prefer the file variant on a desktop machine.</dd>
+      </div>
+      <div class="spec-row">
+        <dt><code>BUNKER_URI</code> / <code>BUNKER_URI_FILE</code></dt>
+        <dd>A <code>bunker://</code> URI for remote signing. Use instead of
+        a local secret key: the key stays on the signing device.</dd>
+      </div>
+      <div class="spec-row">
+        <dt><code>NOSTR_RELAYS</code></dt>
+        <dd>Comma-separated relay URLs to use by default.</dd>
+      </div>
+      <div class="spec-row">
+        <dt><code>NWC_URI</code> / <code>NWC_URI_FILE</code></dt>
+        <dd>Nostr Wallet Connect URI for zaps and payments.</dd>
+      </div>
+      <div class="spec-row">
+        <dt><code>NOSTR_BRAY_OUTPUT</code></dt>
+        <dd>Default output style: <code>human</code> (default) or
+        <code>json</code>. Per-command, <code>--json</code> and
+        <code>--human</code> override it either way, which makes every
+        command pipe-friendly.</dd>
+      </div>
+      <div class="spec-row">
+        <dt><code>TOR_PROXY</code></dt>
+        <dd>SOCKS5h proxy URL, for reaching relays over Tor.</dd>
+      </div>
+    </dl>
+  </div>
+</section>
+
+</main>
+
+<footer class="colophon">
+  <p class="colophon-links">
+    <a href="../">About</a> ·
+    <a href="../guide/">Getting started</a> ·
+    <a href="../guide/trust/">Trust guide</a> ·
+    <a href="https://github.com/forgesworn/bray">Source</a> ·
+    <a href="https://www.npmjs.com/package/nostr-bray">npm</a> ·
+    <a href="https://forgesworn.dev">forgesworn.dev</a>
+  </p>
+  <p class="colophon-note">
+    The only script on this page copies text to your clipboard when you
+    click a command. No cookies, no analytics. The list mirrors
+    <code>nostr-bray --help</code>; if they ever disagree, trust the help.
+  </p>
+</footer>
+
+<script>
+document.querySelectorAll('button.cell').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const text = btn.querySelector('.cell-text').textContent;
+    try { await navigator.clipboard.writeText(text); } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    btn.classList.add('copied');
+    setTimeout(() => btn.classList.remove('copied'), 1400);
+  });
+});
+</script>
+
+</body>
+</html>
