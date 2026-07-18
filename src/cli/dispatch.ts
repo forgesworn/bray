@@ -15,7 +15,7 @@ export const COMPOUND_COMMANDS = new Set([
   'ring-prove', 'ring-verify',
   'musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate',
   // sync
-  'sync-pull', 'sync-push',
+  'sync-plan', 'sync-pull', 'sync-push',
   // admin (NIP-86 relay management)
   'admin-allowpubkey', 'admin-banpubkey', 'admin-listallowedpubkeys', 'admin-listbannedpubkeys',
   'admin-allowkind', 'admin-bankind', 'admin-listallowedkinds', 'admin-listbannedkinds',
@@ -31,6 +31,7 @@ export const OFFLINE_COMMANDS = new Set([
   'ring-verify', 'zap-decode', 'safety-configure', 'safety-activate',
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
   'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'verify', 'encrypt', 'decrypt',
+  'validate-event',
   'musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate',
   // wallet config subcommands don't touch the relay
   'wallet-connect', 'wallet-disconnect', 'wallet-status',

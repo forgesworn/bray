@@ -18,6 +18,7 @@ export default defineConfig({
       { find: 'nostr-bray/zap',         replacement: dist('zap/index.js') },
       { find: 'nostr-bray/safety',      replacement: dist('safety/index.js') },
       { find: 'nostr-bray/event',       replacement: dist('event/index.js') },
+      { find: 'nostr-bray/event-validation', replacement: dist('event-validation/index.js') },
       { find: 'nostr-bray/util',        replacement: dist('util/index.js') },
       { find: 'nostr-bray/workflow',    replacement: dist('workflow/index.js') },
       { find: 'nostr-bray/dispatch',    replacement: dist('dispatch/index.js') },

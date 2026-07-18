@@ -98,15 +98,21 @@ Social:
   blossom-upload <server> <file>      Upload file to blossom media server
   blossom-list <server> <pubkey>      List blobs on blossom server
   blossom-delete <server> <sha256>    Delete blob from blossom server
-  group-info <group-id>              Fetch NIP-29 group metadata
-  group-chat <group-id> [--limit N]  Fetch group chat messages
-  group-send <group-id> "message"    Send message to group
-  group-members <group-id>           List group members
-  group-create [<group-id>] [--name X] [--about X] [--picture X] [--open|--closed]  Create NIP-29 group
-  group-update <group-id> [--name X] [--about X] [--picture X] [--open|--closed]    Update group metadata
-  group-add-user <group-id> <pubkey-hex> [--role admin]  Add/update user in group
-  group-remove-user <group-id> <pubkey-hex>              Remove user from group
-  group-set-roles <group-id> --role name[:perm,perm] ... Define group roles
+  group-info <relay> <group-id>       Fetch verified NIP-29 group metadata
+  group-chat <relay> <group-id>       Fetch relay-scoped group chat
+  group-send <relay> <group-id> "message"  Send a group message
+  group-inspect <relay> <group-id>    Inspect metadata, admins, members and roles
+  group-create <relay> [group-id] [--name X] [--closed]  Create group (kind 9007)
+  group-update <relay> <group-id> [--name X] [--parent X] Update metadata
+  group-add-user <relay> <group-id> <pubkey> [--role X]  Add/update member
+  group-remove-user <relay> <group-id> <pubkey>           Remove member
+  group-invite-create <relay> <group-id> [--code X]       Create invite
+  group-join|group-leave <relay> <group-id>               Join or leave
+  group-delete-event <relay> <group-id> <event-id> --confirm
+  group-delete <relay> <group-id> --confirm <group-id>
+  group-forum-topics <relay> <group-id>                   List forum topics
+  group-forum-topic-create <relay> <group-id> <title> <content>
+  group-forum-comment <relay> <group-id> <topic-id> <content> [--parent id]
 
 Trust:
   attest <event-id>                     Verify someone's assertion (assertion-first)
@@ -131,9 +137,11 @@ Relay:
   outbox relays <npub|hex|nprofile>   Resolve NIP-65 read/write relays for any pubkey
   outbox publish <event.json|->       Publish event to author's outbox + p-tag inboxes (NIP-65)
 
-Sync (filter-based relay sync):
-  sync pull <relay-url> [--kinds N,N] [--authors hex] [--since ts] [--limit N]
-  sync push <relay-url> --events <jsonl-file>
+Sync (NIP-77 reconciliation, then explicit REQ/EVENT transfer):
+  sync plan <relay-url> [--events file|-] [--kinds N,N] [--max-ids N]
+  sync pull <relay-url> [--events file|-] [--kinds N,N] [--jsonl]
+  sync push <relay-url> --events <jsonl-file|-> [--jsonl]
+  Options: --protocol auto|nip77|req-fallback --timeout ms --max-remote N
 
 Admin (NIP-86 relay management):
   admin allowpubkey|banpubkey <relay-url> <pubkey-hex>
@@ -164,8 +172,9 @@ Safety:
 
 Utility:
   req [--kinds N,N] [--authors hex,hex] [--since ts] [--limit N] [--relay url] [--min-trust level]  Query events
-  event --kind N [--tag k=v] [--content s] [--relay url]  Build and publish an arbitrary event
-  publish-raw [--file path] [--report] [--timeout ms] [--quorum n]  Sign+broadcast event (--report shows per-relay table)
+  event --kind N [--tag k=v] [--content s] [--relay url] [--validation strict-known|off]  Validate, sign and publish an arbitrary event
+  validate-event [event-json|--file path] [--validation strict-known|off]  Semantic protocol validation (no signature check)
+  publish-raw [--file path] [--report] [--timeout ms] [--quorum n] [--validation strict-known|off]  Validate, sign+broadcast event
   subscribe [--kinds N,N] [--authors hex] [--relay url]  Live-tail events to stdout (JSONL) until SIGINT
   decode <nip19>                      Decode npub/nsec/note/nevent/nprofile/naddr
   encode npub <hex>                   Encode hex pubkey as npub
@@ -277,6 +286,29 @@ if (command === 'create') {
   process.exit(0)
 }
 
+// Semantic validation is keyless and network-free. Keep it before the config
+// gate so CI, schema tooling, and cautious agents can validate an event without
+// provisioning a signing identity.
+if (command === 'validate-event') {
+  const { readFileSync } = await import('node:fs')
+  const { handleValidateEvent } = await import('../event-validation/validator.js')
+  const { validateInputPath } = await import('../validation.js')
+  const fileIndex = args.indexOf('--file')
+  const raw = fileIndex !== -1
+    ? readFileSync(validateInputPath(args[fileIndex + 1] ?? ''), 'utf8')
+    : args[1] && !args[1].startsWith('--')
+      ? args[1]
+      : readFileSync(0, 'utf8')
+  const validationIndex = args.indexOf('--validation')
+  const mode = validationIndex === -1 ? 'strict-known' : args[validationIndex + 1]
+  if (mode !== 'strict-known' && mode !== 'off') {
+    throw new Error('Validation mode must be strict-known or off')
+  }
+  const result = handleValidateEvent(JSON.parse(raw), mode)
+  console.log(JSON.stringify(result, null, args.includes('--jsonl') ? undefined : 2))
+  process.exit(result.valid ? 0 : 1)
+}
+
 // All other commands need config + ctx + pool
 const config = await loadConfig()
 const { configureHttpClient } = await import('../http-client.js')
@@ -327,7 +359,10 @@ const SOCIAL_CMDS = new Set([
   'nip-publish', 'nip-read',
   'blossom-upload', 'blossom-list', 'blossom-delete',
   'group-info', 'group-chat', 'group-send', 'group-members',
-  'group-create', 'group-update', 'group-add-user', 'group-remove-user', 'group-set-roles',
+  'group-admins', 'group-roles', 'group-inspect',
+  'group-create', 'group-update', 'group-add-user', 'group-remove-user',
+  'group-invite-create', 'group-join', 'group-leave', 'group-delete-event', 'group-delete',
+  'group-forum-topics', 'group-forum-topic-create', 'group-forum-comments', 'group-forum-comment',
 ])
 const TRUST_CMDS = new Set([
   'attest', 'claim', 'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-request-list', 'trust-rank',
@@ -339,10 +374,10 @@ const SAFETY_CMDS = new Set(['safety-configure', 'safety-activate'])
 const EVENT_CMDS = new Set(['event', 'publish-raw'])
 const UTIL_CMDS = new Set([
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
-  'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'encrypt', 'decrypt', 'count', 'fetch',
+  'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'validate-event', 'encrypt', 'decrypt', 'count', 'fetch',
 ])
 const MUSIG2_CMDS = new Set(['musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate'])
-const SYNC_CMDS = new Set(['sync-pull', 'sync-push'])
+const SYNC_CMDS = new Set(['sync-plan', 'sync-pull', 'sync-push'])
 const ADMIN_CMDS = new Set([
   'admin-allowpubkey', 'admin-banpubkey', 'admin-listallowedpubkeys', 'admin-listbannedpubkeys',
   'admin-allowkind', 'admin-bankind', 'admin-listallowedkinds', 'admin-listbannedkinds',
@@ -395,12 +430,15 @@ const ALL_COMMANDS = [
   'safety-configure', 'safety-activate',
   'blossom-upload', 'blossom-list', 'blossom-delete',
   'group-info', 'group-chat', 'group-send', 'group-members',
-  'group-create', 'group-update', 'group-add-user', 'group-remove-user', 'group-set-roles',
+  'group-admins', 'group-roles', 'group-inspect',
+  'group-create', 'group-update', 'group-add-user', 'group-remove-user',
+  'group-invite-create', 'group-join', 'group-leave', 'group-delete-event', 'group-delete',
+  'group-forum-topics', 'group-forum-topic-create', 'group-forum-comments', 'group-forum-comment',
   'event', 'publish-raw',
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
-  'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'encrypt', 'decrypt', 'count', 'fetch',
+  'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'validate-event', 'encrypt', 'decrypt', 'count', 'fetch',
   'musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate',
-  'sync-pull', 'sync-push',
+  'sync-plan', 'sync-pull', 'sync-push',
   'admin-allowpubkey', 'admin-banpubkey', 'admin-listallowedpubkeys', 'admin-listbannedpubkeys',
   'admin-allowkind', 'admin-bankind', 'admin-listallowedkinds', 'admin-listbannedkinds',
   'admin-blockip', 'admin-unblockip', 'admin-listblockedips',

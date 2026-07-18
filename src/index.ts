@@ -22,6 +22,7 @@ import { registerSignetTools } from './signet/tools.js'
 import { registerVaultTools } from './vault/tools.js'
 import { registerDispatchTools } from './dispatch/tools.js'
 import { registerHandlerTools } from './handler/tools.js'
+import { registerSyncTools } from './sync/tools.js'
 import { ActionCatalog, createCatalogProxy } from './catalog.js'
 import { configureHttpClient } from './http-client.js'
 
@@ -150,6 +151,7 @@ registerSignetTools(proxy, deps)
 registerVaultTools(proxy, deps)
 registerDispatchTools(proxy, { ...deps, dispatchIdentitiesPath: config.dispatchIdentities })
 registerHandlerTools(proxy, deps)
+registerSyncTools(proxy, deps)
 
 // Add search-actions and execute-action meta-tools to the real server
 catalog.registerMetaTools(server)

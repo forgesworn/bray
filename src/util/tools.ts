@@ -24,6 +24,8 @@ import {
   handleNipShow,
   handleTombstone,
 } from './handlers.js'
+import { handleValidateEvent } from '../event-validation/validator.js'
+import { eventValidationModeSchema, semanticEventInputSchema } from '../event-validation/tools-schema.js'
 
 export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('decode', {
@@ -97,6 +99,20 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     annotations: { readOnlyHint: true },
   }, async ({ event }) => {
     const result = handleVerify(event)
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('validate-event', {
+    description:
+      'Semantically validate an event or unsigned event template against Bray\'s pinned Registry of Kinds snapshot. ' +
+      'This is distinct from verify-event: it checks protocol content and tags, not the cryptographic signature.',
+    inputSchema: {
+      event: semanticEventInputSchema.describe('Event or unsigned event template to validate'),
+      mode: eventValidationModeSchema.describe('strict-known validates known kinds and warns for unknown kinds; off explicitly skips validation'),
+    },
+    annotations: { readOnlyHint: true, openWorldHint: false },
+  }, async ({ event, mode }) => {
+    const result = handleValidateEvent(event, mode)
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 

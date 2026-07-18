@@ -9,12 +9,16 @@ import type { Event as NostrEvent } from 'nostr-tools'
 import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import type { PublishResult } from '../types.js'
+import { verifyEvent } from 'nostr-tools/pure'
+import { assertEventSemanticallyValid } from '../event-validation/validator.js'
+import type { EventValidationMode, EventValidationResult } from '../event-validation/validator.js'
 
 export interface PublishRawResult {
   event: NostrEvent
   publish: PublishResult
   /** True when the handler signed the event (vs broadcasting as-is). */
   signed: boolean
+  validation: EventValidationResult
 }
 
 /**
@@ -54,22 +58,31 @@ export async function handlePublishRaw(
     timeoutMs?: number
     /** Minimum number of relays that must accept the event for `publish.success` to be true. Overrides the default majority rule. */
     quorum?: number
+    /** Semantic validation policy. strict-known is the safe default. */
+    validationMode?: EventValidationMode
   },
 ): Promise<PublishRawResult> {
   let event: NostrEvent
   let signed = false
+  let validation: EventValidationResult
 
   if (!args.noSign && (!args.event.id || !args.event.sig)) {
-    const sign = ctx.getSigningFunction()
-    event = await sign({
+    const template = {
       kind: (args.event.kind as number) ?? 1,
       created_at: (args.event.created_at as number) ?? Math.floor(Date.now() / 1000),
       tags: (args.event.tags as string[][]) ?? [],
       content: (args.event.content as string) ?? '',
-    })
+    }
+    validation = assertEventSemanticallyValid(template, args.validationMode)
+    const sign = ctx.getSigningFunction()
+    event = await sign(template)
     signed = true
   } else {
     event = args.event as NostrEvent
+    validation = assertEventSemanticallyValid(event, args.validationMode)
+    if (!verifyEvent(event)) {
+      throw new Error('Pre-signed event has an invalid event ID or signature')
+    }
   }
 
   const opts = { timeoutMs: args.timeoutMs }
@@ -83,5 +96,5 @@ export async function handlePublishRaw(
     ;(publish as { success: boolean }).success = met
   }
 
-  return { event, publish, signed }
+  return { event, publish, signed, validation }
 }

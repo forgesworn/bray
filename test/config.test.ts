@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { writeFileSync, unlinkSync, mkdtempSync, mkdirSync } from 'node:fs'
+import { describe, it, expect, beforeEach, afterEach, afterAll, vi } from 'vitest'
+import { writeFileSync, unlinkSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -7,6 +7,11 @@ import { tmpdir } from 'node:os'
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
 const TEST_HEX = 'c189b82fc49ad3362eacb0976a5405df2d0d4fde6cfc025e41c33e65db1ab915'
 const TEST_MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
+const ISOLATED_CONFIG_HOME = mkdtempSync(join(tmpdir(), 'bray-config-isolated-'))
+
+afterAll(() => {
+  rmSync(ISOLATED_CONFIG_HOME, { recursive: true, force: true })
+})
 
 describe('loadConfig', () => {
   let savedEnv: NodeJS.ProcessEnv
@@ -19,12 +24,21 @@ describe('loadConfig', () => {
     delete process.env.NOSTR_RELAYS
     delete process.env.NWC_URI
     delete process.env.NWC_URI_FILE
+    delete process.env.BUNKER_URI
+    delete process.env.BUNKER_URI_FILE
+    delete process.env.NOSTR_NCRYPTSEC
+    delete process.env.NOSTR_NCRYPTSEC_FILE
+    delete process.env.NOSTR_NCRYPTSEC_PASSWORD
+    delete process.env.NOSTR_NCRYPTSEC_PASSWORD_FILE
+    delete process.env.BRAY_CONFIG
     delete process.env.TOR_PROXY
     delete process.env.ALLOW_CLEARNET_WITH_TOR
     delete process.env.NIP04_ENABLED
     delete process.env.TRANSPORT
     delete process.env.PORT
     delete process.env.BIND_ADDRESS
+    process.env.HOME = ISOLATED_CONFIG_HOME
+    process.env.XDG_CONFIG_HOME = ISOLATED_CONFIG_HOME
   })
 
   afterEach(() => {
@@ -171,7 +185,8 @@ describe('loadConfigFile', () => {
   beforeEach(() => {
     savedEnv = { ...process.env }
     delete process.env.BRAY_CONFIG
-    delete process.env.XDG_CONFIG_HOME
+    process.env.HOME = ISOLATED_CONFIG_HOME
+    process.env.XDG_CONFIG_HOME = ISOLATED_CONFIG_HOME
   })
 
   afterEach(() => {

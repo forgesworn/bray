@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
-import { hexId } from '../validation.js'
+import { hexId, relayUrl } from '../validation.js'
 import { resolveRecipient, resolveRecipients, resolveWithProfile } from '../resolve.js'
 import { toolResponse } from '../tool-response.js'
 import * as fmt from '../format.js'
@@ -40,7 +40,11 @@ import {
 } from './blossom.js'
 import {
   handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers,
-  handleGroupCreate, handleGroupUpdate, handleGroupAddUser, handleGroupRemoveUser, handleGroupSetRoles,
+  handleGroupCreate, handleGroupUpdate, handleGroupAddUser, handleGroupRemoveUser,
+  handleGroupAdmins, handleGroupRoles, handleGroupInspect,
+  handleGroupCreateInvite, handleGroupJoin, handleGroupLeave,
+  handleGroupDeleteEvent, handleGroupDelete,
+  handleGroupForumTopics, handleGroupForumTopicCreate, handleGroupForumComments, handleGroupForumComment,
 } from './groups.js'
 import { handleArticlePublish, handleArticleRead, handleArticleList } from './articles.js'
 import { handleSearchNotes, handleSearchProfiles, handleHashtagFeed } from './search.js'
@@ -49,6 +53,23 @@ import { handleBadgeCreate, handleBadgeAward, handleBadgeAccept, handleBadgeList
 import { handleCommunityCreate, handleCommunityFeed, handleCommunityPost, handleCommunityApprove, handleCommunityList } from './communities.js'
 import { handleWikiPublish, handleWikiRead, handleWikiList } from './wiki.js'
 import { handlePostSchedule, handlePostQueueList, handlePostQueueCancel } from './scheduled.js'
+import { eventValidationModeSchema } from '../event-validation/tools-schema.js'
+import { EventSemanticValidationError } from '../event-validation/validator.js'
+
+function eventValidationErrorResponse(error: unknown) {
+  if (!(error instanceof EventSemanticValidationError)) throw error
+  return {
+    isError: true,
+    content: [{
+      type: 'text' as const,
+      text: JSON.stringify({
+        error: 'event_semantic_validation_failed',
+        message: error.message,
+        validation: error.validation,
+      }, null, 2),
+    }],
+  }
+}
 
 export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   const trustCache = new TrustCache({
@@ -698,9 +719,9 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   // --- NIP-29 Groups ---
 
   server.registerTool('group-info', {
-    description: 'Fetch group metadata (name, about, picture) for a NIP-29 group.',
+    description: 'Fetch relay-scoped NIP-29 group metadata and verify it against the relay NIP-11 self key.',
     inputSchema: {
-      relay: z.string().describe('Relay hosting the group'),
+      relay: relayUrl.describe('Relay hosting this version of the group'),
       groupId: z.string().describe('Group identifier'),
     },
     annotations: { readOnlyHint: true },
@@ -710,106 +731,195 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('group-chat', {
-    description: 'Fetch recent chat messages from a NIP-29 group.',
+    description: 'Fetch recent kind 9 chat messages from one NIP-29 group relay.',
     inputSchema: {
+      relay: relayUrl.describe('Relay hosting this version of the group'),
       groupId: z.string().describe('Group identifier'),
       limit: z.number().int().min(1).max(100).default(20).describe('Max messages'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ groupId, limit }) => {
-    const messages = await handleGroupChat(deps.pool, deps.ctx.activeNpub, { groupId, limit })
+  }, async ({ relay, groupId, limit }) => {
+    const messages = await handleGroupChat(deps.pool, deps.ctx.activeNpub, { relay, groupId, limit })
     return { content: [{ type: 'text' as const, text: JSON.stringify(messages, null, 2) }] }
   })
 
   server.registerTool('group-send', {
-    description: 'Send a message to a NIP-29 group.',
+    description: 'Send a kind 9 message to exactly one NIP-29 group relay.',
     inputSchema: {
+      relay: relayUrl.describe('Relay hosting this version of the group'),
       groupId: z.string().describe('Group identifier'),
       content: z.string().describe('Message text'),
     },
     annotations: { readOnlyHint: false, destructiveHint: true },
-  }, async ({ groupId, content }) => {
-    const result = await handleGroupSend(deps.ctx, deps.pool, { groupId, content })
+  }, async ({ relay, groupId, content }) => {
+    const result = await handleGroupSend(deps.ctx, deps.pool, { relay, groupId, content })
     return { content: [{ type: 'text' as const, text: JSON.stringify({ id: result.event.id, publish: result.publish }, null, 2) }] }
   })
 
   server.registerTool('group-members', {
-    description: 'List members of a NIP-29 group.',
+    description: 'List the relay-generated NIP-29 member snapshot. It may be absent or partial.',
     inputSchema: {
+      relay: relayUrl.describe('Relay hosting this version of the group'),
       groupId: z.string().describe('Group identifier'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ groupId }) => {
-    const members = await handleGroupMembers(deps.pool, deps.ctx.activeNpub, { groupId })
+  }, async ({ relay, groupId }) => {
+    const members = await handleGroupMembers(deps.pool, deps.ctx.activeNpub, { relay, groupId })
     return { content: [{ type: 'text' as const, text: JSON.stringify(members, null, 2) }] }
   })
+
+  server.registerTool('group-inspect', {
+    description: 'Inspect verified group metadata, admins, members and relay-defined roles in one relay-scoped view.',
+    inputSchema: {
+      relay: relayUrl.describe('Relay hosting this version of the group'),
+      groupId: z.string().describe('Group identifier'),
+    },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  }, async ({ relay, groupId }) => toolResponse(
+    await handleGroupInspect(deps.pool, deps.ctx.activeNpub, { relay, groupId }), 'json',
+  ))
+
+  server.registerTool('group-admins', {
+    description: 'Read the verified relay-generated kind 39001 admin list and role labels.',
+    inputSchema: { relay: relayUrl, groupId: z.string() },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  }, async ({ relay, groupId }) => toolResponse(await handleGroupAdmins(deps.pool, { relay, groupId }), 'json'))
+
+  server.registerTool('group-roles', {
+    description: 'Read relay-defined role names from verified kind 39003 state. NIP-29 does not let clients define role permissions.',
+    inputSchema: { relay: relayUrl, groupId: z.string() },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  }, async ({ relay, groupId }) => toolResponse(await handleGroupRoles(deps.pool, { relay, groupId }), 'json'))
 
   // --- NIP-29 group admin write ops ---
 
   server.registerTool('group-create', {
-    description: 'Create a NIP-29 group (kind 9004 admin event). The relay assigns membership state from the event. Optionally supply a group ID; the relay may derive its own from the event ID.',
+    description: 'Create a relay-scoped NIP-29 group with kind 9007. Bray generates an ID if omitted; metadata is sent separately with kind 9002 after creation succeeds.',
     inputSchema: {
-      groupId: z.string().optional().describe('Desired group identifier (relay may override)'),
+      relay: relayUrl.describe('Single relay that will host the group'),
+      groupId: z.string().optional().describe('Desired random group identifier (Bray generates one if omitted)'),
       name: z.string().optional().describe('Group display name'),
       about: z.string().optional().describe('Group description'),
       picture: z.string().optional().describe('Group picture URL'),
-      isOpen: z.boolean().optional().describe('True = open (anyone can join); false = closed (invite-only)'),
+      banner: z.string().optional().describe('Group banner URL'),
+      isPrivate: z.boolean().optional().describe('Only members may read'),
+      isRestricted: z.boolean().optional().describe('Only members may write'),
+      isHidden: z.boolean().optional().describe('Hide metadata from non-members'),
+      isOpen: z.boolean().optional().describe('False adds the closed tag; true omits it'),
+      supportedKinds: z.array(z.number().int().min(0).max(65_535)).optional(),
     },
-  }, async ({ groupId, name, about, picture, isOpen }) => {
-    const result = await handleGroupCreate(deps.ctx, deps.pool, { groupId, name, about, picture, isOpen })
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  }, async args => {
+    const result = await handleGroupCreate(deps.ctx, deps.pool, args)
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 
   server.registerTool('group-update', {
-    description: 'Update NIP-29 group metadata (kind 9002 admin event). Supply only the fields you want to change.',
+    description: 'Update NIP-29 group metadata with kind 9002 at exactly one host relay.',
     inputSchema: {
+      relay: relayUrl.describe('Relay hosting this version of the group'),
       groupId: z.string().describe('Group identifier'),
       name: z.string().optional().describe('New group display name'),
       about: z.string().optional().describe('New group description'),
       picture: z.string().optional().describe('New group picture URL'),
-      isOpen: z.boolean().optional().describe('True = open; false = closed'),
+      banner: z.string().optional(),
+      isPrivate: z.boolean().optional(),
+      isRestricted: z.boolean().optional(),
+      isHidden: z.boolean().optional(),
+      isOpen: z.boolean().optional().describe('False adds the closed tag; true omits it'),
+      supportedKinds: z.array(z.number().int().min(0).max(65_535)).optional(),
+      parent: z.string().optional().describe('Optional subgroup parent ID'),
     },
-  }, async ({ groupId, name, about, picture, isOpen }) => {
-    const result = await handleGroupUpdate(deps.ctx, deps.pool, { groupId, name, about, picture, isOpen })
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  }, async args => {
+    const result = await handleGroupUpdate(deps.ctx, deps.pool, args)
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 
   server.registerTool('group-add-user', {
-    description: 'Add or update a user\'s membership in a NIP-29 group (kind 9000 admin event). Optionally assign a role.',
+    description: 'Add/update a member with kind 9000 and optional relay-defined role labels.',
     inputSchema: {
+      relay: relayUrl,
       groupId: z.string().describe('Group identifier'),
-      pubkeyHex: z.string().describe('Member\'s public key in hex'),
-      role: z.string().optional().describe('Role name (e.g. admin, moderator)'),
+      pubkeyHex: hexId.describe('Member public key in hex'),
+      roles: z.array(z.string()).optional().describe('Role labels advertised by group-roles'),
     },
-  }, async ({ groupId, pubkeyHex, role }) => {
-    const result = await handleGroupAddUser(deps.ctx, deps.pool, { groupId, pubkeyHex, role })
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  }, async ({ relay, groupId, pubkeyHex, roles }) => {
+    const result = await handleGroupAddUser(deps.ctx, deps.pool, { relay, groupId, pubkeyHex, roles })
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 
   server.registerTool('group-remove-user', {
     description: 'Remove a user from a NIP-29 group (kind 9001 admin event).',
     inputSchema: {
+      relay: relayUrl,
       groupId: z.string().describe('Group identifier'),
-      pubkeyHex: z.string().describe('Member\'s public key in hex'),
+      pubkeyHex: hexId.describe('Member public key in hex'),
     },
-  }, async ({ groupId, pubkeyHex }) => {
-    const result = await handleGroupRemoveUser(deps.ctx, deps.pool, { groupId, pubkeyHex })
+    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+  }, async ({ relay, groupId, pubkeyHex }) => {
+    const result = await handleGroupRemoveUser(deps.ctx, deps.pool, { relay, groupId, pubkeyHex })
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 
-  server.registerTool('group-set-roles', {
-    description: 'Define role names and their permissions in a NIP-29 group (kind 9007 admin event). Each role entry is { name, permissions? }.',
+  server.registerTool('group-invite-create', {
+    description: 'Create a NIP-29 invite with kind 9009. Returns the code that a user supplies to group-join.',
     inputSchema: {
+      relay: relayUrl,
       groupId: z.string().describe('Group identifier'),
-      roles: z.array(z.object({
-        name: z.string().describe('Role name'),
-        permissions: z.array(z.string()).optional().describe('Permission strings (e.g. write, delete, ban)'),
-      })).describe('Roles to define'),
+      code: z.string().optional().describe('Invite code (Bray generates a random code if omitted)'),
     },
-  }, async ({ groupId, roles }) => {
-    const result = await handleGroupSetRoles(deps.ctx, deps.pool, { groupId, roles })
-    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
-  })
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  }, async args => toolResponse(await handleGroupCreateInvite(deps.ctx, deps.pool, args), 'json'))
+
+  server.registerTool('group-join', {
+    description: 'Send a kind 9021 join request, optionally using a kind 9009 invite code.',
+    inputSchema: { relay: relayUrl, groupId: z.string(), code: z.string().optional() },
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  }, async args => toolResponse(await handleGroupJoin(deps.ctx, deps.pool, args), 'json'))
+
+  server.registerTool('group-leave', {
+    description: 'Leave a NIP-29 group with kind 9022.',
+    inputSchema: { relay: relayUrl, groupId: z.string() },
+    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+  }, async args => toolResponse(await handleGroupLeave(deps.ctx, deps.pool, args), 'json'))
+
+  server.registerTool('group-delete-event', {
+    description: 'Administratively delete one event from a NIP-29 group with kind 9005. Requires confirm: true.',
+    inputSchema: { relay: relayUrl, groupId: z.string(), eventId: hexId, confirm: z.literal(true) },
+    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+  }, async args => toolResponse(await handleGroupDeleteEvent(deps.ctx, deps.pool, args), 'json'))
+
+  server.registerTool('group-delete', {
+    description: 'Delete an entire NIP-29 group with kind 9008. confirmGroupId must exactly repeat groupId.',
+    inputSchema: { relay: relayUrl, groupId: z.string(), confirmGroupId: z.string() },
+    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+  }, async args => toolResponse(await handleGroupDelete(deps.ctx, deps.pool, args), 'json'))
+
+  server.registerTool('group-forum-topics', {
+    description: 'List verified kind 11 forum topics from one NIP-29 group relay.',
+    inputSchema: { relay: relayUrl, groupId: z.string(), limit: z.number().int().min(1).max(200).default(50) },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  }, async args => toolResponse(await handleGroupForumTopics(deps.pool, args), 'json'))
+
+  server.registerTool('group-forum-topic-create', {
+    description: 'Publish a kind 11 forum topic with the required group h tag.',
+    inputSchema: { relay: relayUrl, groupId: z.string(), title: z.string(), content: z.string() },
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  }, async args => toolResponse(await handleGroupForumTopicCreate(deps.ctx, deps.pool, args), 'json'))
+
+  server.registerTool('group-forum-comments', {
+    description: 'List verified NIP-22 kind 1111 comments scoped to a group forum topic.',
+    inputSchema: { relay: relayUrl, groupId: z.string(), topicId: hexId, limit: z.number().int().min(1).max(500).default(100) },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  }, async args => toolResponse(await handleGroupForumComments(deps.pool, args), 'json'))
+
+  server.registerTool('group-forum-comment', {
+    description: 'Publish a schema-safe NIP-22 comment or reply under a kind 11 group topic.',
+    inputSchema: { relay: relayUrl, groupId: z.string(), topicId: hexId, parentId: hexId.optional(), content: z.string() },
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  }, async args => toolResponse(await handleGroupForumComment(deps.ctx, deps.pool, args), 'json'))
 
   // --- NIP-23 Long-form Articles ---
 
@@ -1210,18 +1320,24 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       scheduled_at: z.string().describe('When to publish -- ISO datetime (e.g. "2026-04-01T14:00:00Z") or Unix timestamp'),
       kind: z.number().int().optional().default(1).describe('Event kind (1 for note, 30023 for article, etc.)'),
       tags: z.array(z.array(z.string())).optional().describe('Additional tags (e.g. [["t", "bitcoin"], ["d", "my-article"]])'),
+      validationMode: eventValidationModeSchema.describe('Semantic validation policy before signing (default: strict-known)'),
       output: z.enum(['json', 'human']).default('human').describe('Response format'),
     },
     annotations: { readOnlyHint: false, destructiveHint: false },
-  }, async ({ content, scheduled_at, kind, tags, output }) => {
-    const result = await handlePostSchedule(deps.ctx, {
-      content,
-      scheduledAt: scheduled_at,
-      kind,
-      tags,
-      relays: deps.pool.getRelays(deps.ctx.activeNpub).write,
-    })
-    return toolResponse(result, output, fmt.formatScheduleResult)
+  }, async ({ content, scheduled_at, kind, tags, validationMode, output }) => {
+    try {
+      const result = await handlePostSchedule(deps.ctx, {
+        content,
+        scheduledAt: scheduled_at,
+        kind,
+        tags,
+        validationMode,
+        relays: deps.pool.getRelays(deps.ctx.activeNpub).write,
+      })
+      return toolResponse(result, output, fmt.formatScheduleResult)
+    } catch (error) {
+      return eventValidationErrorResponse(error)
+    }
   })
 
   server.registerTool('post-queue-list', {
@@ -1238,23 +1354,29 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
   // --- Arbitrary event publishing ---
 
   server.registerTool('publish-event', {
-    description: 'Sign and publish a Nostr event with any kind, content, and tags. Use for custom or experimental event kinds not covered by dedicated tools.',
+    description: 'Validate, sign and publish a Nostr event with any kind, content and tags. Known kinds are checked against Bray\'s pinned Registry of Kinds before signing; unknown kinds are allowed with a warning.',
     inputSchema: {
       kind: z.number().int().min(0).describe('Event kind number'),
       content: z.string().describe('Event content'),
       tags: z.array(z.array(z.string())).optional().describe('Event tags as [[key, value, ...], ...]'),
+      validationMode: eventValidationModeSchema.describe('strict-known rejects malformed known kinds; off is an explicit escape hatch'),
     },
     annotations: { readOnlyHint: false, destructiveHint: true },
-  }, async ({ kind, content, tags }) => {
-    const result = await handlePublishEvent(deps.ctx, deps.pool, { kind, content, tags })
-    return {
-      content: [{ type: 'text' as const, text: JSON.stringify({
-        id: result.event.id,
-        pubkey: result.event.pubkey,
-        kind: result.event.kind,
-        tags: result.event.tags,
-        publish: result.publish,
-      }, null, 2) }],
+  }, async ({ kind, content, tags, validationMode }) => {
+    try {
+      const result = await handlePublishEvent(deps.ctx, deps.pool, { kind, content, tags, validationMode })
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({
+          id: result.event.id,
+          pubkey: result.event.pubkey,
+          kind: result.event.kind,
+          tags: result.event.tags,
+          validation: result.validation,
+          publish: result.publish,
+        }, null, 2) }],
+      }
+    } catch (error) {
+      return eventValidationErrorResponse(error)
     }
   })
 

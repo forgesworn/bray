@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { RelayPool, summarisePublish } from '../src/relay-pool.js'
 import type { PoolLike } from '../src/relay-pool.js'
+import { nip77 } from 'nostr-tools'
 
 const NPUB_A = 'npub1abc111111111111111111111111111111111111111111111111abcdef01'
 const NPUB_B = 'npub1def222222222222222222222222222222222222222222222222abcdef02'
@@ -87,6 +88,82 @@ describe('RelayPool', () => {
       }, mockPool())
       expect(pool).toBeDefined()
       pool.close()
+    })
+  })
+
+  describe('explicit relay policy', () => {
+    it('rejects private relay URLs before a direct query or publish', async () => {
+      const inner = mockPool()
+      const pool = new RelayPool({ allowClearnet: true, defaultRelays: [] }, inner)
+      await expect(pool.queryDirect(['ws://127.0.0.1:3000'], {})).rejects.toThrow(/plaintext|private/i)
+      await expect(pool.publishDirect(['ws://127.0.0.1:3000'], {} as any)).rejects.toThrow(/plaintext|private/i)
+      expect(inner.querySync).not.toHaveBeenCalled()
+      expect(inner.publish).not.toHaveBeenCalled()
+    })
+
+    it('enforces Tor-only policy for direct reconciliation', async () => {
+      const inner = mockPool({ ensureRelay: vi.fn() })
+      const pool = new RelayPool({
+        torProxy: 'socks5h://127.0.0.1:9050',
+        allowClearnet: false,
+        defaultRelays: [],
+      }, inner)
+      await expect(pool.reconcileDirect('wss://clearnet.example.com', [], {})).rejects.toThrow(/clearnet.*tor/i)
+      expect(inner.ensureRelay).not.toHaveBeenCalled()
+    })
+
+    it('runs nostr-tools Negentropy and maps local-only vs remote-only IDs', async () => {
+      const localOnly = 'a'.repeat(64)
+      const common = 'b'.repeat(64)
+      const remoteOnly = 'c'.repeat(64)
+      const remoteStorage = new nip77.NegentropyStorageVector()
+      remoteStorage.insert(2, common)
+      remoteStorage.insert(3, remoteOnly)
+      remoteStorage.seal()
+      const remoteNegentropy = new nip77.Negentropy(remoteStorage)
+      const closeSubscription = vi.fn()
+      const subscription: any = { id: 'neg-test', close: closeSubscription, oncustom: undefined }
+      const relay = {
+        url: 'wss://relay.example.com',
+        prepareSubscription: vi.fn().mockReturnValue(subscription),
+        send: vi.fn((raw: string) => {
+          const message = JSON.parse(raw)
+          if (message[0] === 'NEG-OPEN') {
+            queueMicrotask(() => subscription.oncustom(['NEG-MSG', subscription.id, remoteNegentropy.initiate()]))
+          }
+        }),
+      }
+      const inner = mockPool({ ensureRelay: vi.fn().mockResolvedValue(relay as any) })
+      const pool = new RelayPool({ allowClearnet: true, defaultRelays: [] }, inner)
+
+      const result = await pool.reconcileDirect('wss://relay.example.com', [
+        { id: localOnly, createdAt: 1 },
+        { id: common, createdAt: 2 },
+      ], {}, { timeoutMs: 1_000 })
+
+      expect(result.localOnlyIds).toEqual([localOnly])
+      expect(result.remoteOnlyIds).toEqual([remoteOnly])
+      expect(closeSubscription).toHaveBeenCalled()
+    })
+
+    it('does not misreport a relay NEG-ERR as a complete empty diff', async () => {
+      const subscription: any = { id: 'neg-error', close: vi.fn(), oncustom: undefined }
+      const relay = {
+        url: 'wss://relay.example.com',
+        prepareSubscription: vi.fn().mockReturnValue(subscription),
+        send: vi.fn((raw: string) => {
+          const message = JSON.parse(raw)
+          if (message[0] === 'NEG-OPEN') {
+            queueMicrotask(() => subscription.oncustom(['NEG-ERR', subscription.id, 'unsupported']))
+          }
+        }),
+      }
+      const pool = new RelayPool(
+        { allowClearnet: true, defaultRelays: [] },
+        mockPool({ ensureRelay: vi.fn().mockResolvedValue(relay as any) }),
+      )
+      await expect(pool.reconcileDirect('wss://relay.example.com', [], {}, { timeoutMs: 1_000 }))
+        .rejects.toThrow(/without a completed diff/)
     })
   })
 

@@ -1,12 +1,22 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterAll } from 'vitest'
 import { execFileSync } from 'node:child_process'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 const CLI_PATH = 'dist/cli.js'
+const TEST_CONFIG_HOME = mkdtempSync(join(tmpdir(), 'bray-cli-config-'))
 const ENV = {
   NOSTR_SECRET_KEY: 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8',
   NOSTR_RELAYS: 'wss://relay.damus.io',
   PATH: process.env.PATH,
+  HOME: TEST_CONFIG_HOME,
+  XDG_CONFIG_HOME: TEST_CONFIG_HOME,
 }
+
+afterAll(() => {
+  rmSync(TEST_CONFIG_HOME, { recursive: true, force: true })
+})
 
 function run(...args: string[]): string {
   return execFileSync('node', [CLI_PATH, ...args], { env: ENV, encoding: 'utf-8', timeout: 10_000, stdio: ['pipe', 'pipe', 'pipe'] }).trim()
@@ -35,6 +45,14 @@ describe('CLI', { timeout: 15_000 }, () => {
 
   it('whoami returns an npub', () => {
     expect(run('whoami')).toMatch(/^npub1/)
+  })
+
+  it('validate-event works without any configured signing key', () => {
+    const output = execFileSync('node', [CLI_PATH, 'validate-event', '{"kind":1,"content":"hello","tags":[]}'], {
+      env: { PATH: process.env.PATH, HOME: TEST_CONFIG_HOME, XDG_CONFIG_HOME: TEST_CONFIG_HOME },
+      encoding: 'utf8',
+    })
+    expect(JSON.parse(output)).toMatchObject({ valid: true, knownKind: true })
   })
 
   it('whoami is deterministic for same secret', () => {

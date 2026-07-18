@@ -7,7 +7,11 @@ import {
   handleNipPublish, handleNipRead,
   handleBlossomUpload, handleBlossomList, handleBlossomDelete,
   handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers,
-  handleGroupCreate, handleGroupUpdate, handleGroupAddUser, handleGroupRemoveUser, handleGroupSetRoles,
+  handleGroupCreate, handleGroupUpdate, handleGroupAddUser, handleGroupRemoveUser,
+  handleGroupAdmins, handleGroupRoles, handleGroupInspect,
+  handleGroupCreateInvite, handleGroupJoin, handleGroupLeave,
+  handleGroupDeleteEvent, handleGroupDelete,
+  handleGroupForumTopics, handleGroupForumTopicCreate, handleGroupForumComments, handleGroupForumComment,
 } from '../../exports.js'
 import * as fmt from '../../format.js'
 import type { Helpers } from '../dispatch.js'
@@ -162,84 +166,180 @@ export async function dispatch(
 
     case 'group-info':
       out(await handleGroupInfo(pool, ctx.activeNpub, {
-        relay: '',
-        groupId: req(1, 'group-info <group-id>'),
+        relay: req(1, 'group-info <relay-url> <group-id>'),
+        groupId: req(2, 'group-info <relay-url> <group-id>'),
       }))
       break
 
     case 'group-chat':
       out(await handleGroupChat(pool, ctx.activeNpub, {
-        groupId: req(1, 'group-chat <group-id>'),
+        relay: req(1, 'group-chat <relay-url> <group-id>'),
+        groupId: req(2, 'group-chat <relay-url> <group-id>'),
         limit: parseInt(flag('limit', '20')!, 10),
       }), fmt.formatGroupChat)
       break
 
     case 'group-send':
       out(await handleGroupSend(ctx, pool, {
-        groupId: req(1, 'group-send <group-id> "message"'),
-        content: req(2, 'group-send <group-id> "message"'),
+        relay: req(1, 'group-send <relay-url> <group-id> "message"'),
+        groupId: req(2, 'group-send <relay-url> <group-id> "message"'),
+        content: req(3, 'group-send <relay-url> <group-id> "message"'),
       }))
       break
 
     case 'group-members':
       out(await handleGroupMembers(pool, ctx.activeNpub, {
-        groupId: req(1, 'group-members <group-id>'),
+        relay: req(1, 'group-members <relay-url> <group-id>'),
+        groupId: req(2, 'group-members <relay-url> <group-id>'),
+      }))
+      break
+
+    case 'group-admins':
+      out(await handleGroupAdmins(pool, {
+        relay: req(1, 'group-admins <relay-url> <group-id>'),
+        groupId: req(2, 'group-admins <relay-url> <group-id>'),
+      }))
+      break
+
+    case 'group-roles':
+      out(await handleGroupRoles(pool, {
+        relay: req(1, 'group-roles <relay-url> <group-id>'),
+        groupId: req(2, 'group-roles <relay-url> <group-id>'),
+      }))
+      break
+
+    case 'group-inspect':
+      out(await handleGroupInspect(pool, ctx.activeNpub, {
+        relay: req(1, 'group-inspect <relay-url> <group-id>'),
+        groupId: req(2, 'group-inspect <relay-url> <group-id>'),
       }))
       break
 
     case 'group-create':
       out(await handleGroupCreate(ctx, pool, {
-        groupId: cmdArgs[1],
+        relay: req(1, 'group-create <relay-url> [group-id] [--name X]'),
+        groupId: cmdArgs[2]?.startsWith('--') ? undefined : cmdArgs[2],
         name: flag('name'),
         about: flag('about'),
         picture: flag('picture'),
+        banner: flag('banner'),
+        isPrivate: hasFlag('private') ? true : undefined,
+        isRestricted: hasFlag('restricted') ? true : undefined,
+        isHidden: hasFlag('hidden') ? true : undefined,
         isOpen: hasFlag('open') ? true : hasFlag('closed') ? false : undefined,
-        relays: flags('relay'),
+        supportedKinds: flag('supported-kinds')?.split(',').map(Number),
       }))
       break
 
     case 'group-update':
       out(await handleGroupUpdate(ctx, pool, {
-        groupId: req(1, 'group-update <group-id> [--name X] [--about X] [--picture X] [--open|--closed]'),
+        relay: req(1, 'group-update <relay-url> <group-id> [--name X]'),
+        groupId: req(2, 'group-update <relay-url> <group-id> [--name X]'),
         name: flag('name'),
         about: flag('about'),
         picture: flag('picture'),
+        banner: flag('banner'),
+        isPrivate: hasFlag('private') ? true : undefined,
+        isRestricted: hasFlag('restricted') ? true : undefined,
+        isHidden: hasFlag('hidden') ? true : undefined,
         isOpen: hasFlag('open') ? true : hasFlag('closed') ? false : undefined,
-        relays: flags('relay'),
+        supportedKinds: flag('supported-kinds')?.split(',').map(Number),
+        parent: flag('parent'),
       }))
       break
 
     case 'group-add-user':
       out(await handleGroupAddUser(ctx, pool, {
-        groupId: req(1, 'group-add-user <group-id> <pubkey-hex> [--role admin]'),
-        pubkeyHex: req(2, 'group-add-user <group-id> <pubkey-hex> [--role admin]'),
-        role: flag('role'),
-        relays: flags('relay'),
+        relay: req(1, 'group-add-user <relay-url> <group-id> <pubkey-hex> [--role admin]'),
+        groupId: req(2, 'group-add-user <relay-url> <group-id> <pubkey-hex> [--role admin]'),
+        pubkeyHex: req(3, 'group-add-user <relay-url> <group-id> <pubkey-hex> [--role admin]'),
+        roles: flags('role'),
       }))
       break
 
     case 'group-remove-user':
       out(await handleGroupRemoveUser(ctx, pool, {
-        groupId: req(1, 'group-remove-user <group-id> <pubkey-hex>'),
-        pubkeyHex: req(2, 'group-remove-user <group-id> <pubkey-hex>'),
-        relays: flags('relay'),
+        relay: req(1, 'group-remove-user <relay-url> <group-id> <pubkey-hex>'),
+        groupId: req(2, 'group-remove-user <relay-url> <group-id> <pubkey-hex>'),
+        pubkeyHex: req(3, 'group-remove-user <relay-url> <group-id> <pubkey-hex>'),
       }))
       break
 
-    case 'group-set-roles': {
-      // Accepts --role "admin:write,delete" --role "member:write" pairs
-      const rawRoles = flags('role')
-      const roles = rawRoles.map(r => {
-        const [name, perms] = r.split(':')
-        return { name, permissions: perms ? perms.split(',') : undefined }
-      })
-      out(await handleGroupSetRoles(ctx, pool, {
-        groupId: req(1, 'group-set-roles <group-id> --role name[:perm,perm]'),
-        roles,
-        relays: flags('relay'),
+    case 'group-invite-create':
+      out(await handleGroupCreateInvite(ctx, pool, {
+        relay: req(1, 'group-invite-create <relay-url> <group-id> [--code X]'),
+        groupId: req(2, 'group-invite-create <relay-url> <group-id> [--code X]'),
+        code: flag('code'),
       }))
       break
-    }
+
+    case 'group-join':
+      out(await handleGroupJoin(ctx, pool, {
+        relay: req(1, 'group-join <relay-url> <group-id> [--code X]'),
+        groupId: req(2, 'group-join <relay-url> <group-id> [--code X]'),
+        code: flag('code'),
+      }))
+      break
+
+    case 'group-leave':
+      out(await handleGroupLeave(ctx, pool, {
+        relay: req(1, 'group-leave <relay-url> <group-id>'),
+        groupId: req(2, 'group-leave <relay-url> <group-id>'),
+      }))
+      break
+
+    case 'group-delete-event':
+      out(await handleGroupDeleteEvent(ctx, pool, {
+        relay: req(1, 'group-delete-event <relay-url> <group-id> <event-id> --confirm'),
+        groupId: req(2, 'group-delete-event <relay-url> <group-id> <event-id> --confirm'),
+        eventId: req(3, 'group-delete-event <relay-url> <group-id> <event-id> --confirm'),
+        confirm: hasFlag('confirm'),
+      }))
+      break
+
+    case 'group-delete':
+      out(await handleGroupDelete(ctx, pool, {
+        relay: req(1, 'group-delete <relay-url> <group-id> --confirm <group-id>'),
+        groupId: req(2, 'group-delete <relay-url> <group-id> --confirm <group-id>'),
+        confirmGroupId: flag('confirm'),
+      }))
+      break
+
+    case 'group-forum-topics':
+      out(await handleGroupForumTopics(pool, {
+        relay: req(1, 'group-forum-topics <relay-url> <group-id>'),
+        groupId: req(2, 'group-forum-topics <relay-url> <group-id>'),
+        limit: parseInt(flag('limit', '50')!, 10),
+      }))
+      break
+
+    case 'group-forum-topic-create':
+      out(await handleGroupForumTopicCreate(ctx, pool, {
+        relay: req(1, 'group-forum-topic-create <relay-url> <group-id> <title> <content>'),
+        groupId: req(2, 'group-forum-topic-create <relay-url> <group-id> <title> <content>'),
+        title: req(3, 'group-forum-topic-create <relay-url> <group-id> <title> <content>'),
+        content: req(4, 'group-forum-topic-create <relay-url> <group-id> <title> <content>'),
+      }))
+      break
+
+    case 'group-forum-comments':
+      out(await handleGroupForumComments(pool, {
+        relay: req(1, 'group-forum-comments <relay-url> <group-id> <topic-id>'),
+        groupId: req(2, 'group-forum-comments <relay-url> <group-id> <topic-id>'),
+        topicId: req(3, 'group-forum-comments <relay-url> <group-id> <topic-id>'),
+        limit: parseInt(flag('limit', '100')!, 10),
+      }))
+      break
+
+    case 'group-forum-comment':
+      out(await handleGroupForumComment(ctx, pool, {
+        relay: req(1, 'group-forum-comment <relay-url> <group-id> <topic-id> <content> [--parent id]'),
+        groupId: req(2, 'group-forum-comment <relay-url> <group-id> <topic-id> <content> [--parent id]'),
+        topicId: req(3, 'group-forum-comment <relay-url> <group-id> <topic-id> <content> [--parent id]'),
+        content: req(4, 'group-forum-comment <relay-url> <group-id> <topic-id> <content> [--parent id]'),
+        parentId: flag('parent'),
+      }))
+      break
 
     default:
       throw new Error(`Unknown command: ${cmd}. Run --help for usage.`)

@@ -18,6 +18,7 @@ import { startBunker } from '../../src/bunker.js'
 import { IdentityContext } from '../../src/context.js'
 
 const CLI = 'dist/cli.js'
+const TEST_CONFIG_HOME = mkdtempSync(join(tmpdir(), 'bray-smoke-config-'))
 
 // Deterministic test identity — never use in production
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
@@ -89,6 +90,8 @@ function cliExpectFail(env: Record<string, string | undefined>, ...args: string[
 const OFF: Record<string, string> = {
   NOSTR_SECRET_KEY: TEST_NSEC,
   PATH: process.env.PATH!,
+  HOME: TEST_CONFIG_HOME,
+  XDG_CONFIG_HOME: TEST_CONFIG_HOME,
   BRAY_ALLOW_PRIVATE_RELAYS: '1',
 }
 
@@ -108,6 +111,7 @@ beforeAll(() => {
 
 afterAll(() => {
   relayServer?.close()
+  rmSync(TEST_CONFIG_HOME, { recursive: true, force: true })
 })
 
 // ===========================================================================

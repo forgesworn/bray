@@ -1,4 +1,5 @@
-import { handlePublishEvent, handlePublishRaw } from '../../exports.js'
+import { assertEventSemanticallyValid, handlePublishEvent, handlePublishRaw } from '../../exports.js'
+import type { EventValidationMode } from '../../event-validation/validator.js'
 import type { Helpers } from '../dispatch.js'
 
 export async function dispatch(
@@ -20,15 +21,19 @@ export async function dispatch(
         return [t.slice(0, eq), t.slice(eq + 1)]
       })
       const content = flag('content') ?? ''
+      const validationMode = parseValidationMode(flag('validation'))
       const relayOverrides = flags('relay')
       if (hasFlag('no-publish')) {
-        const sign = ctx.getSigningFunction()
-        const event = await sign({
+        const template = {
           kind,
           created_at: Math.floor(Date.now() / 1000),
           tags: tagValues,
           content,
-        })
+        }
+        const validation = assertEventSemanticallyValid(template, validationMode)
+        reportWarnings(validation.issues)
+        const sign = ctx.getSigningFunction()
+        const event = await sign(template)
         console.log(JSON.stringify(event, null, 2))
         break
       }
@@ -37,6 +42,7 @@ export async function dispatch(
         content,
         tags: tagValues,
         relays: relayOverrides.length ? relayOverrides : undefined,
+        validationMode,
       }))
       break
     }
@@ -51,6 +57,7 @@ export async function dispatch(
       const timeoutMs = flag('timeout') ? parseInt(flag('timeout')!, 10) : undefined
       const quorum = flag('quorum') ? parseInt(flag('quorum')!, 10) : undefined
       const report = hasFlag('report')
+      const validationMode = parseValidationMode(flag('validation'))
 
       const result = await handlePublishRaw(ctx, pool, {
         event: inputEvent,
@@ -58,6 +65,7 @@ export async function dispatch(
         relays: relayOverrides.length ? relayOverrides : undefined,
         timeoutMs,
         quorum,
+        validationMode,
       })
 
       if (report) {
@@ -80,5 +88,19 @@ export async function dispatch(
 
     default:
       throw new Error(`Unknown command: ${cmd}. Run --help for usage.`)
+  }
+}
+
+function parseValidationMode(value: string | undefined): EventValidationMode {
+  const mode = value ?? 'strict-known'
+  if (mode !== 'strict-known' && mode !== 'off') {
+    throw new Error('Validation mode must be strict-known or off')
+  }
+  return mode
+}
+
+function reportWarnings(issues: Array<{ severity: string; code: string; message: string }>): void {
+  for (const entry of issues) {
+    if (entry.severity === 'warning') console.error(`validation warning [${entry.code}]: ${entry.message}`)
   }
 }
