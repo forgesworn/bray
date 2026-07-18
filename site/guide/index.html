@@ -25,6 +25,7 @@
     <a href="../">About</a>
     <a href="./" aria-current="page">Getting started</a>
     <a href="trust/">Trust guide</a>
+    <a href="../cli/">CLI</a>
     <a href="https://github.com/forgesworn/bray">GitHub</a>
     <a href="https://www.npmjs.com/package/nostr-bray">npm</a>
   </nav>
@@ -265,6 +266,15 @@
       <img src="../demos/gifs/02-identity-backup.gif" alt="Recording: asking Claude to back up the identity with Shamir secret sharing, 2-of-3, then restore it from two shares" width="1200" height="600" loading="lazy">
       <figcaption><span class="cap-tag">REC 02</span>Split into three shares, then proven by restoring from two. A backup you have not tested is a hope, not a backup.</figcaption>
     </figure>
+    <div class="callout">
+      <strong>The assistant never sees the shares.</strong> The backup tool
+      writes the share files straight to your disk, readable by you alone,
+      and reports back file paths only. No share words pass through the
+      model or the conversation, and a test restore reports the recovered
+      npub, never the key itself. If you would rather keep the whole
+      operation away from any assistant, the terminal does the same job:
+      <code>npx nostr-bray backup ./shards 2 3</code>.
+    </div>
     <p>
       Because every persona is derived from the master, this one backup
       covers your whole tree of identities, present and future. Write the
@@ -510,6 +520,7 @@
   <p class="colophon-links">
     <a href="../">About</a> ·
     <a href="trust/">Trust guide</a> ·
+    <a href="../cli/">CLI reference</a> ·
     <a href="https://github.com/forgesworn/bray">Source</a> ·
     <a href="https://www.npmjs.com/package/nostr-bray">npm</a> ·
     <a href="https://forgesworn.dev">forgesworn.dev</a>
