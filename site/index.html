@@ -1498,7 +1498,7 @@
       </div>
       <h2 class="reveal">238 tools that act<br>as one identity.</h2>
       <p class="text-muted reveal" style="max-width:620px;">
-        Every tool signs as the active identity: switch persona and your posts, DMs, attestations and payments all follow, with nothing to reconfigure. Click any tool name below for the exact prompt to try it yourself, and a real recorded session where one covers it.
+        Every tool signs as the active identity: switch persona and your posts, DMs, attestations and payments all follow, with nothing to reconfigure. Click any tool name below for the exact prompt to try it yourself, the terminal one-liner where the CLI covers it, and a real recorded session where one exists.
       </p>
       <div class="features-grid reveal-stagger">
 
@@ -2371,6 +2371,52 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
       'relay-auth': '26-relay-operator',
     };
 
+    // CLI one-liners for tools the command line covers, straight from
+    // `nostr-bray --help`. Tools without an entry are MCP-only.
+    const cliMap = {
+      'whoami': 'npx nostr-bray whoami',
+      'identity-list': 'npx nostr-bray list',
+      'identity-derive-persona': 'npx nostr-bray persona work',
+      'identity-switch': 'npx nostr-bray switch work',
+      'identity-prove': 'npx nostr-bray prove blind',
+      'identity-backup-shamir': 'npx nostr-bray backup ./shards 2 3',
+      'identity-recover': 'npx nostr-bray restore shard-1.bray shard-2.bray -t 2',
+      'social-post': 'npx nostr-bray post "hello from bray"',
+      'social-feed': 'npx nostr-bray feed --limit 10',
+      'social-notifications': 'npx nostr-bray notifications',
+      'dm-send': 'npx nostr-bray dm 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d "hello from bray"',
+      'post-schedule': 'npx nostr-bray post "good morning" --at "2026-08-01T09:00:00Z"',
+      'trust-spoken-challenge': 'npx nostr-bray spoken-challenge 8f2a1c4be97d3056a8e2f01b6c5d493a7e8b90c1d2f3a4b5c6d7e8f901234567 meetup 1',
+      'zap-balance': 'npx nostr-bray zap-balance',
+      'zap-send': 'npx nostr-bray zap-send <bolt11>',
+      'zap-make-invoice': 'npx nostr-bray zap-invoice 21000 "coffee"',
+      'zap-decode': 'npx nostr-bray zap-decode <bolt11>',
+      'zap-wallet-set': 'npx nostr-bray wallet connect <nwc-url>',
+      'zap-wallet-clear': 'npx nostr-bray wallet disconnect',
+      'relay-list': 'npx nostr-bray relay-list',
+      'relay-set': 'npx nostr-bray relay set wss://relay.damus.io wss://nos.lol --confirm',
+      'relay-info': 'npx nostr-bray relay-info wss://relay.damus.io',
+      'relay-query': 'npx nostr-bray req --kinds 1 --limit 5',
+      'relay-count': 'npx nostr-bray count --kinds 1',
+      'safety-configure': 'npx nostr-bray safety-configure',
+      'safety-activate': 'npx nostr-bray safety-activate',
+      'blossom-upload': 'npx nostr-bray blossom-upload https://blossom.azzamo.net ./photo.jpg',
+      'blossom-list': 'npx nostr-bray blossom-list https://blossom.azzamo.net 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d',
+      'blossom-delete': 'npx nostr-bray blossom-delete https://blossom.azzamo.net <sha256>',
+      'group-info': 'npx nostr-bray group-info <group-id>',
+      'group-chat': 'npx nostr-bray group-chat <group-id> --limit 20',
+      'group-send': 'npx nostr-bray group-send <group-id> "hello"',
+      'group-members': 'npx nostr-bray group-members <group-id>',
+      'nip-publish': 'npx nostr-bray nip publish my-nip "My NIP title" ./nip.md',
+      'nip-read': 'npx nostr-bray nip read',
+      'decode': 'npx nostr-bray decode npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6',
+      'fetch': 'npx nostr-bray fetch npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6',
+      'count': 'npx nostr-bray count --kinds 1',
+      'nip44-encrypt': 'npx nostr-bray encrypt 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d "hello world"',
+      'key-encrypt': 'npx nostr-bray key encrypt <nsec> <password>',
+      'verify-event': 'npx nostr-bray verify <event-json>',
+    };
+
     // Tool tags whose demo prompt lives under a different key
     const promptAlias = {
       'blossom-servers-get': 'blossom-servers',
@@ -2456,6 +2502,14 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
       label.textContent = 'Try it: ask your assistant';
       panel.appendChild(label);
       panel.appendChild(copyBlock(prompt));
+
+      if (cliMap[toolName]) {
+        const cliLabel = document.createElement('span');
+        cliLabel.className = 'demo-prompt-label';
+        cliLabel.textContent = 'Or from the terminal';
+        panel.appendChild(cliLabel);
+        panel.appendChild(copyBlock(cliMap[toolName]));
+      }
 
       if (story) {
         const wrap = document.createElement('div');
