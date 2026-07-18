@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.40.0 (2026-07-18)
+
+### Features
+
+- add protocol validation, sync, and group foundations
+
+
+
 ## 1.39.1 (2026-07-18)
 
 ### Bug Fixes
