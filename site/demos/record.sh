@@ -8,6 +8,7 @@
 #   ./record.sh --list          List all tapes with recording status
 #   ./record.sh --optimise      Optimise existing GIFs with gifsicle
 #   ./record.sh --postprocess   Post-process GIFs (remove wait, add 5s hold)
+#   ./record.sh --speedup       Compress GIFs to a watchable pace (speedup.mjs)
 
 set -euo pipefail
 
@@ -28,8 +29,9 @@ while [[ $# -gt 0 ]]; do
     --list)    MODE="list"; shift ;;
     --optimise|--optimize) MODE="optimise"; shift ;;
     --postprocess) MODE="postprocess"; shift ;;
+    --speedup) MODE="speedup"; shift ;;
     --help|-h)
-      head -8 "$0" | tail -7 | sed 's/^# //'
+      head -9 "$0" | tail -8 | sed 's/^# //'
       exit 0
       ;;
     *)
@@ -148,8 +150,9 @@ record_tape() {
   # (alias, Output) so no absolute path ever appears in a tape or recording.
   if (cd "$SCRIPT_DIR/../.." && vhs "site/demos/$tape") 2>/dev/null; then
     if [[ -f "$GIFS_DIR/${name}.gif" ]]; then
-      # Post-process: remove wait frames, add 5s hold
+      # Post-process: remove wait frames, then compress to a watchable pace
       "$SCRIPT_DIR/postprocess.sh" "$name" 2>/dev/null
+      node "$SCRIPT_DIR/speedup.mjs" "$GIFS_DIR/${name}.gif"
       local size
       size=$(ls -lh "$GIFS_DIR/${name}.gif" | awk '{print $5}')
       echo -e "  ${GREEN}Done${NC} ${DIM}(${size})${NC}"
@@ -213,5 +216,6 @@ case "$MODE" in
   list)        list_tapes ;;
   optimise)    optimise_gifs ;;
   postprocess) "$SCRIPT_DIR/postprocess.sh" "$FILTER" ;;
+  speedup)     node "$SCRIPT_DIR/speedup.mjs" ;;
   *)           record_all ;;
 esac
