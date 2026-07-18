@@ -1,35 +1,53 @@
 #!/bin/bash
-# generate-tapes.sh -- Creates all VHS tape files from prompt definitions
-# Run from site/demos/: ./generate-tapes.sh
-# Regenerates all tape files. Safe to re-run (overwrites existing tapes).
+# generate-tapes.sh -- Creates story VHS tapes and prompts.json from one
+# set of prompt definitions. Run from site/demos/: ./generate-tapes.sh
+# Safe to re-run (overwrites tapes and prompts.json).
+#
+# Stories are recorded as GIFs (record.sh). Solo definitions are not
+# recorded: their prompts feed the front page's try-it-yourself panels
+# via prompts.json, so a visitor copies the prompt and runs it live
+# instead of watching a recording of us doing it.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-mkdir -p tapes/stories tapes/solo
+mkdir -p tapes/stories
 
 DEMO_SCRIPT="$SCRIPT_DIR/bray-demo.sh"
+
+PROMPTS_FILE="prompts.json"
+printf '{\n' > "$PROMPTS_FILE"
+PROMPT_SEP=""
 
 # Counter for reporting
 COUNT=0
 
-# Generate a tape file
+# Register a demo definition.
 # Usage: tape <type> <name> <height> <sleep_seconds> <prompt>
-# Tapes are recorded from the repo root (record.sh handles this) so every
-# path stays relative. The Hide block execs a bare bash with a fixed prompt:
-# user shell themes must never leak into a published recording, and the
-# fixed prompt is what Wait matches to detect the response finishing.
+# Every definition writes its prompt into prompts.json. Only stories also
+# get a tape file; tapes are recorded from the repo root (record.sh
+# handles this) so every path stays relative. The Hide block execs a bare
+# bash with a fixed prompt: user shell themes must never leak into a
+# published recording, and the fixed prompt is what Wait matches to
+# detect the response finishing.
 tape() {
   local type="$1"    # stories or solo
-  local name="$2"    # filename without .tape
-  local height="$3"  # terminal height in pixels
+  local name="$2"    # tape/prompt key
+  local height="$3"  # terminal height in pixels (stories only)
   local sleep="$4"   # unused (kept for call compatibility); Wait detects the response
   local prompt="$5"  # the claude -p prompt
 
-  local file="tapes/${type}/${name}.tape"
   ((COUNT++))
+  printf '%s  "%s": "%s"' "$PROMPT_SEP" "$name" "$prompt" >> "$PROMPTS_FILE"
+  PROMPT_SEP=$',\n'
+
+  if [[ "$type" != "stories" ]]; then
+    return 0
+  fi
+
+  local file="tapes/${type}/${name}.tape"
 
   cat > "$file" <<TAPE
 Set Shell "bash"
@@ -521,7 +539,9 @@ tape solo "execute-action" 500 25 \
 
 
 ###############################################################################
+printf '\n}\n' >> "$PROMPTS_FILE"
+
 echo ""
-echo "Generated $COUNT tape files."
-echo "  Stories: $(ls tapes/stories/*.tape 2>/dev/null | wc -l | tr -d ' ')"
-echo "  Solo:    $(ls tapes/solo/*.tape 2>/dev/null | wc -l | tr -d ' ')"
+echo "Generated $COUNT prompt definitions."
+echo "  Story tapes: $(ls tapes/stories/*.tape 2>/dev/null | wc -l | tr -d ' ')"
+echo "  Prompts:     $PROMPTS_FILE"
