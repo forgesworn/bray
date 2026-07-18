@@ -103,6 +103,18 @@ export async function loadConfig(): Promise<BrayConfig> {
   const keyEnvVar = process.env.NOSTR_SECRET_KEY
   let secretKey: string
 
+  // A local key source is an explicit choice to sign locally. A bunker URI
+  // saved by `bunker connect` is only a fallback and must not override that
+  // choice in the CLI, MCP server or SDK, all of which prefer bunkerUri when
+  // it is present. Explicit bunker configuration still takes precedence.
+  const hasLocalKeySource = !!(
+    keyFilePath
+    || keyEnvVar
+    || process.env.NOSTR_NCRYPTSEC_FILE
+    || process.env.NOSTR_NCRYPTSEC
+    || file.ncryptsecFile
+  )
+
   let bunkerUri: string | undefined
   if (process.env.BUNKER_URI_FILE) {
     bunkerUri = readSecretFile(process.env.BUNKER_URI_FILE)
@@ -110,8 +122,9 @@ export async function loadConfig(): Promise<BrayConfig> {
     bunkerUri = process.env.BUNKER_URI
   } else if (file.bunkerUriFile) {
     bunkerUri = readSecretFile(file.bunkerUriFile)
-  } else {
-    // Fall back to URI saved by `bunker connect`
+  } else if (!hasLocalKeySource) {
+    // Fall back to the URI saved by `bunker connect` only when the caller has
+    // not selected local signing for this invocation.
     const { readStateFile } = await import('./state.js')
     const saved = readStateFile<{ uri?: string }>('bunker-uri')
     if (saved.uri) bunkerUri = saved.uri

@@ -2,12 +2,21 @@ import { describe, it, expect, beforeEach, afterEach, afterAll, vi } from 'vites
 import { writeFileSync, unlinkSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { handleKeyEncrypt } from '../src/util/ncryptsec.js'
 
 // Valid test key pair — generated for testing only
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
 const TEST_HEX = 'c189b82fc49ad3362eacb0976a5405df2d0d4fde6cfc025e41c33e65db1ab915'
 const TEST_MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
 const ISOLATED_CONFIG_HOME = mkdtempSync(join(tmpdir(), 'bray-config-isolated-'))
+const SAVED_BUNKER_PATH = join(ISOLATED_CONFIG_HOME, 'bray', 'bunker-uri')
+const SAVED_BUNKER_URI = `bunker://${'ab'.repeat(32)}?relay=wss%3A%2F%2Frelay.saved.example.com`
+const EXPLICIT_BUNKER_URI = `bunker://${'cd'.repeat(32)}?relay=wss%3A%2F%2Frelay.explicit.example.com`
+
+function saveBunkerUri(uri = SAVED_BUNKER_URI): void {
+  mkdirSync(join(ISOLATED_CONFIG_HOME, 'bray'), { recursive: true })
+  writeFileSync(SAVED_BUNKER_PATH, JSON.stringify({ uri }))
+}
 
 afterAll(() => {
   rmSync(ISOLATED_CONFIG_HOME, { recursive: true, force: true })
@@ -39,9 +48,11 @@ describe('loadConfig', () => {
     delete process.env.BIND_ADDRESS
     process.env.HOME = ISOLATED_CONFIG_HOME
     process.env.XDG_CONFIG_HOME = ISOLATED_CONFIG_HOME
+    rmSync(SAVED_BUNKER_PATH, { force: true })
   })
 
   afterEach(() => {
+    rmSync(SAVED_BUNKER_PATH, { force: true })
     process.env = savedEnv
   })
 
@@ -70,6 +81,139 @@ describe('loadConfig', () => {
     const config = await loadConfig()
     expect(config.secretKey).toBe(TEST_MNEMONIC)
     expect(config.secretFormat).toBe('mnemonic')
+  })
+
+  it('uses the saved bunker URI when no local key source is provided', async () => {
+    const { loadConfig } = await import('../src/config.js')
+    saveBunkerUri()
+    process.env.NOSTR_RELAYS = 'wss://relay.example.com'
+
+    const config = await loadConfig()
+
+    expect(config.bunkerUri).toBe(SAVED_BUNKER_URI)
+    expect(config.secretKey).toBe('')
+  })
+
+  it('does not let the saved bunker URI override NOSTR_SECRET_KEY', async () => {
+    const { loadConfig } = await import('../src/config.js')
+    saveBunkerUri()
+    process.env.NOSTR_SECRET_KEY = TEST_NSEC
+    process.env.NOSTR_RELAYS = 'wss://relay.example.com'
+
+    const config = await loadConfig()
+
+    expect(config.bunkerUri).toBeUndefined()
+    expect(config.secretKey).toBe(TEST_NSEC)
+  })
+
+  it('does not let the saved bunker URI override NOSTR_SECRET_KEY_FILE', async () => {
+    const { loadConfig } = await import('../src/config.js')
+    const dir = mkdtempSync(join(tmpdir(), 'bray-key-precedence-'))
+    const keyFile = join(dir, 'secret.key')
+    writeFileSync(keyFile, `${TEST_NSEC}\n`)
+    saveBunkerUri()
+    process.env.NOSTR_SECRET_KEY_FILE = keyFile
+    process.env.NOSTR_RELAYS = 'wss://relay.example.com'
+
+    try {
+      const config = await loadConfig()
+      expect(config.bunkerUri).toBeUndefined()
+      expect(config.secretKey).toBe(TEST_NSEC)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('does not let the saved bunker URI override a configured secretKeyFile', async () => {
+    const { loadConfig } = await import('../src/config.js')
+    const dir = mkdtempSync(join(tmpdir(), 'bray-config-key-precedence-'))
+    const keyFile = join(dir, 'secret.key')
+    const configFile = join(dir, 'config.json')
+    writeFileSync(keyFile, `${TEST_NSEC}\n`)
+    writeFileSync(configFile, JSON.stringify({ secretKeyFile: keyFile }))
+    saveBunkerUri()
+    process.env.BRAY_CONFIG = configFile
+    process.env.NOSTR_RELAYS = 'wss://relay.example.com'
+
+    try {
+      const config = await loadConfig()
+      expect(config.bunkerUri).toBeUndefined()
+      expect(config.secretKey).toBe(TEST_NSEC)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('does not let the saved bunker URI override NOSTR_NCRYPTSEC', async () => {
+    const { loadConfig } = await import('../src/config.js')
+    const password = 'saved-bunker-precedence-test'
+    const { ncryptsec } = handleKeyEncrypt(TEST_HEX, password)
+    saveBunkerUri()
+    process.env.NOSTR_NCRYPTSEC = ncryptsec
+    process.env.NOSTR_NCRYPTSEC_PASSWORD = password
+    process.env.NOSTR_RELAYS = 'wss://relay.example.com'
+
+    const config = await loadConfig()
+
+    expect(config.bunkerUri).toBeUndefined()
+    expect(config.secretKey).toBe(TEST_NSEC)
+  })
+
+  it('does not let the saved bunker URI override NOSTR_NCRYPTSEC_FILE', async () => {
+    const { loadConfig } = await import('../src/config.js')
+    const dir = mkdtempSync(join(tmpdir(), 'bray-ncryptsec-precedence-'))
+    const password = 'saved-bunker-file-precedence-test'
+    const { ncryptsec } = handleKeyEncrypt(TEST_HEX, password)
+    const ncryptsecFile = join(dir, 'key.ncryptsec')
+    writeFileSync(ncryptsecFile, `${ncryptsec}\n`)
+    saveBunkerUri()
+    process.env.NOSTR_NCRYPTSEC_FILE = ncryptsecFile
+    process.env.NOSTR_NCRYPTSEC_PASSWORD = password
+    process.env.NOSTR_RELAYS = 'wss://relay.example.com'
+
+    try {
+      const config = await loadConfig()
+      expect(config.bunkerUri).toBeUndefined()
+      expect(config.secretKey).toBe(TEST_NSEC)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('does not let the saved bunker URI override a configured ncryptsecFile', async () => {
+    const { loadConfig } = await import('../src/config.js')
+    const dir = mkdtempSync(join(tmpdir(), 'bray-config-ncryptsec-precedence-'))
+    const password = 'saved-bunker-config-precedence-test'
+    const { ncryptsec } = handleKeyEncrypt(TEST_HEX, password)
+    const ncryptsecFile = join(dir, 'key.ncryptsec')
+    const configFile = join(dir, 'config.json')
+    writeFileSync(ncryptsecFile, `${ncryptsec}\n`)
+    writeFileSync(configFile, JSON.stringify({ ncryptsecFile }))
+    saveBunkerUri()
+    process.env.BRAY_CONFIG = configFile
+    process.env.NOSTR_NCRYPTSEC_PASSWORD = password
+    process.env.NOSTR_RELAYS = 'wss://relay.example.com'
+
+    try {
+      const config = await loadConfig()
+      expect(config.bunkerUri).toBeUndefined()
+      expect(config.secretKey).toBe(TEST_NSEC)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('keeps an explicit BUNKER_URI ahead of a local key', async () => {
+    const { loadConfig } = await import('../src/config.js')
+    saveBunkerUri()
+    process.env.NOSTR_SECRET_KEY = TEST_NSEC
+    process.env.BUNKER_URI = EXPLICIT_BUNKER_URI
+    process.env.NOSTR_RELAYS = 'wss://relay.example.com'
+
+    const config = await loadConfig()
+
+    expect(config.bunkerUri).toBe(EXPLICIT_BUNKER_URI)
+    expect(config.secretKey).toBe(TEST_NSEC)
   })
 
   it('prefers NOSTR_SECRET_KEY_FILE over env var', async () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll } from 'vitest'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -45,6 +45,21 @@ describe('CLI', { timeout: 15_000 }, () => {
 
   it('whoami returns an npub', () => {
     expect(run('whoami')).toMatch(/^npub1/)
+  })
+
+  it('uses an explicit key instead of a previously saved bunker URI', () => {
+    const stateDir = join(TEST_CONFIG_HOME, 'bray')
+    const savedBunkerPath = join(stateDir, 'bunker-uri')
+    mkdirSync(stateDir, { recursive: true })
+    writeFileSync(savedBunkerPath, JSON.stringify({
+      uri: 'bunker://saved-uri-must-not-be-used',
+    }))
+
+    try {
+      expect(run('whoami')).toMatch(/^npub1/)
+    } finally {
+      rmSync(savedBunkerPath, { force: true })
+    }
   })
 
   it('validate-event works without any configured signing key', () => {
