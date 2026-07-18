@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.39.0 (2026-07-18)
+
+### Features
+
+- command atlas pairs every CLI command with its ask
+- story recordings compressed to a watchable pace
+
+### Bug Fixes
+
+- shamir copy says the assistant never sees the shares
+
+
+
 ## 1.38.0 (2026-07-18)
 
 ### Features
