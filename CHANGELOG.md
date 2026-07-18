@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.38.0 (2026-07-18)
+
+### Features
+
+- terminal one-liners join the tool panels
+
+
+
 ## 1.37.0 (2026-07-18)
 
 ### Features
