@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.37.0 (2026-07-18)
+
+### Features
+
+- try-it-yourself panels replace the solo demo GIFs
+
+
+
 ## 1.36.0 (2026-07-17)
 
 ### Features
