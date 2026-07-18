@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.40.1 (2026-07-18)
+
+### Bug Fixes
+
+- prefer explicit local keys over saved bunker
+
+
+
 ## 1.40.0 (2026-07-18)
 
 ### Features
