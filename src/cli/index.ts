@@ -5,7 +5,7 @@ import { RelayPool } from '../relay-pool.js'
 import { Nip65Manager } from '../nip65.js'
 import { getCommandHelp } from '../help.js'
 
-import { COMPOUND_COMMANDS, OFFLINE_COMMANDS, makeHelpers, resolveOutputMode, parseShellLine } from './dispatch.js'
+import { COMPOUND_COMMANDS, OFFLINE_COMMANDS, ADMIN_COMMANDS, makeHelpers, resolveOutputMode, parseShellLine } from './dispatch.js'
 import * as identity from './commands/identity.js'
 import * as social from './commands/social.js'
 import * as trust from './commands/trust.js'
@@ -144,10 +144,23 @@ Sync (NIP-77 reconciliation, then explicit REQ/EVENT transfer):
   Options: --protocol auto|nip77|req-fallback --timeout ms --max-remote N
 
 Admin (NIP-86 relay management):
-  admin allowpubkey|banpubkey <relay-url> <pubkey-hex>
+  admin supportedmethods <relay-url>                    List methods the relay implements
+  admin allowpubkey|unallowpubkey <relay-url> <pubkey> [reason]
+  admin banpubkey|unbanpubkey <relay-url> <pubkey> [reason]
   admin listallowedpubkeys|listbannedpubkeys <relay-url>
-  admin allowkind|bankind <relay-url> <kind>   (list: listallowedkinds|listbannedkinds)
-  admin blockip|unblockip <relay-url> <ip>     (list: listblockedips)
+  admin allowkind|disallowkind <relay-url> <kind>
+  admin listallowedkinds|listdisallowedkinds <relay-url>
+  admin allowevent|banevent <relay-url> <event-id> [reason]
+  admin listbannedevents|listeventsneedingmoderation <relay-url>
+  admin changerelayname|changerelaydescription|changerelayicon <relay-url> <value>
+  admin createrole|editrole <relay-url> <id> <label> <description> <colour> <order>
+  admin deleterole <relay-url> <id>
+  admin assignrole|unassignrole <relay-url> <pubkey> <role-id>
+  admin grantadmin|revokeadmin <relay-url> <pubkey>
+  admin blockip|unblockip <relay-url> <ip> [reason]
+  admin listblockedips <relay-url>
+  (bankind and listbannedkinds are accepted as aliases for disallowkind and
+   listdisallowedkinds; they were never NIP-86 method names)
 
 Wallet (NIP-47 Nostr Wallet Connect):
   wallet connect <nwc-url>            Store NWC URI for the active identity
@@ -378,11 +391,8 @@ const UTIL_CMDS = new Set([
 ])
 const MUSIG2_CMDS = new Set(['musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate'])
 const SYNC_CMDS = new Set(['sync-plan', 'sync-pull', 'sync-push'])
-const ADMIN_CMDS = new Set([
-  'admin-allowpubkey', 'admin-banpubkey', 'admin-listallowedpubkeys', 'admin-listbannedpubkeys',
-  'admin-allowkind', 'admin-bankind', 'admin-listallowedkinds', 'admin-listbannedkinds',
-  'admin-blockip', 'admin-unblockip', 'admin-listblockedips',
-])
+// Bare `admin` is routed too so an unrecognised subcommand gets a useful error
+const ADMIN_CMDS = new Set(['admin', ...ADMIN_COMMANDS])
 const WALLET_CMDS = new Set([
   'wallet-connect', 'wallet-disconnect', 'wallet-status', 'wallet-pay', 'wallet-balance', 'wallet-history',
 ])
@@ -439,9 +449,7 @@ const ALL_COMMANDS = [
   'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'validate-event', 'encrypt', 'decrypt', 'count', 'fetch',
   'musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate',
   'sync-plan', 'sync-pull', 'sync-push',
-  'admin-allowpubkey', 'admin-banpubkey', 'admin-listallowedpubkeys', 'admin-listbannedpubkeys',
-  'admin-allowkind', 'admin-bankind', 'admin-listallowedkinds', 'admin-listbannedkinds',
-  'admin-blockip', 'admin-unblockip', 'admin-listblockedips',
+  ...ADMIN_COMMANDS,
   'wallet-connect', 'wallet-disconnect', 'wallet-status', 'wallet-pay', 'wallet-balance', 'wallet-history',
   'relay-curl',
   'bunker',

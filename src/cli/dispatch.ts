@@ -1,5 +1,24 @@
 /** Shared dispatch helpers shared across all CLI command modules. */
 
+// NIP-86 relay management subcommands, plus the two legacy bray spellings
+// (`bankind`, `listbannedkinds`) kept as aliases. Declared once and reused for
+// compound-command normalisation, routing, and shell completion.
+export const ADMIN_SUBCOMMANDS = [
+  'supportedmethods',
+  'allowpubkey', 'unallowpubkey', 'banpubkey', 'unbanpubkey',
+  'listallowedpubkeys', 'listbannedpubkeys',
+  'allowkind', 'disallowkind', 'listallowedkinds', 'listdisallowedkinds',
+  'allowevent', 'banevent', 'listbannedevents', 'listeventsneedingmoderation',
+  'changerelayname', 'changerelaydescription', 'changerelayicon',
+  'createrole', 'editrole', 'deleterole', 'assignrole', 'unassignrole',
+  'grantadmin', 'revokeadmin',
+  'blockip', 'unblockip', 'listblockedips',
+  // legacy aliases
+  'bankind', 'listbannedkinds',
+] as const
+
+export const ADMIN_COMMANDS = ADMIN_SUBCOMMANDS.map(s => `admin-${s}`)
+
 // Known two-word commands: `noun subverb` → normalised to `noun-subverb` internally.
 // Enumerated explicitly to avoid swallowing positional args (e.g. `profile <pubkey>`).
 export const COMPOUND_COMMANDS = new Set([
@@ -17,9 +36,7 @@ export const COMPOUND_COMMANDS = new Set([
   // sync
   'sync-plan', 'sync-pull', 'sync-push',
   // admin (NIP-86 relay management)
-  'admin-allowpubkey', 'admin-banpubkey', 'admin-listallowedpubkeys', 'admin-listbannedpubkeys',
-  'admin-allowkind', 'admin-bankind', 'admin-listallowedkinds', 'admin-listbannedkinds',
-  'admin-blockip', 'admin-unblockip', 'admin-listblockedips',
+  ...ADMIN_COMMANDS,
   // wallet (NIP-47 Nostr Wallet Connect)
   'wallet-connect', 'wallet-disconnect', 'wallet-status', 'wallet-pay', 'wallet-balance', 'wallet-history',
 ])
@@ -35,6 +52,8 @@ export const OFFLINE_COMMANDS = new Set([
   'musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate',
   // wallet config subcommands don't touch the relay
   'wallet-connect', 'wallet-disconnect', 'wallet-status',
+  // NIP-86 admin calls are plain HTTP to the target relay; the pool is not used
+  ...ADMIN_COMMANDS,
 ])
 
 export interface Helpers {
