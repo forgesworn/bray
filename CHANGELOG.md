@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.42.2 (2026-07-28)
+
+### Bug Fixes
+
+- resolve @hono/node-server onto 2.x, clearing the advisory that blocked
+  publishing of 1.42.0 and 1.42.1
+
+
 ## 1.42.1 (2026-07-28)
 
 ### Bug Fixes
