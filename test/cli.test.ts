@@ -1,20 +1,37 @@
-import { describe, it, expect, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { startRelay } from '../src/serve.js'
 
 const CLI_PATH = 'dist/cli.js'
 const TEST_CONFIG_HOME = mkdtempSync(join(tmpdir(), 'bray-cli-config-'))
-const ENV = {
-  NOSTR_SECRET_KEY: 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8',
-  NOSTR_RELAYS: 'wss://relay.damus.io',
-  PATH: process.env.PATH,
-  HOME: TEST_CONFIG_HOME,
-  XDG_CONFIG_HOME: TEST_CONFIG_HOME,
-}
+
+// These cases spawn the real CLI, so any relay named here is genuinely dialled.
+// Pointing them at a public relay made the suite fail offline and turned an
+// unrelated relay outage into what looked like a bray regression. The bundled
+// in-memory relay speaks the NIP-01 and NIP-11 these cases need, on a port the
+// OS assigns so parallel runs cannot collide.
+let relay: ReturnType<typeof startRelay>
+let ENV: Record<string, string | undefined>
+
+beforeAll(async () => {
+  relay = startRelay({ port: 0, quiet: true })
+  await relay.ready
+  ENV = {
+    NOSTR_SECRET_KEY: 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8',
+    NOSTR_RELAYS: relay.url,
+    // The bundled relay binds loopback, which the pool rejects by default
+    BRAY_ALLOW_PRIVATE_RELAYS: '1',
+    PATH: process.env.PATH,
+    HOME: TEST_CONFIG_HOME,
+    XDG_CONFIG_HOME: TEST_CONFIG_HOME,
+  }
+})
 
 afterAll(() => {
+  relay?.close()
   rmSync(TEST_CONFIG_HOME, { recursive: true, force: true })
 })
 
