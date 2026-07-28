@@ -8,6 +8,7 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import { createServer } from 'node:http'
 import { readFileSync } from 'node:fs'
+import { randomBytes } from 'node:crypto'
 import { verifyEvent } from 'nostr-tools/pure'
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
 
@@ -16,6 +17,16 @@ export interface ServeOptions {
   port?: number
   eventsFile?: string
   quiet?: boolean
+  /**
+   * Require NIP-42 AUTH before serving EVENT or REQ.
+   *
+   * Exists so clients can be tested against an auth-gated relay without
+   * needing a real one — bray's own NIP-42 support is otherwise only
+   * exercisable against third-party infrastructure.
+   */
+  auth?: boolean
+  /** Send the AUTH challenge on connect rather than waiting for a rejection. */
+  eagerAuth?: boolean
 }
 
 interface Subscription {
@@ -53,10 +64,35 @@ function matchFilters(filters: Filter[], event: NostrEvent): boolean {
   return filters.some(f => matchFilter(f, event))
 }
 
+/**
+ * Check a NIP-42 auth event against the challenge this connection issued.
+ *
+ * Returns a reason string when it should be rejected, or undefined when it is
+ * good. Beyond the signature this checks kind, freshness and that the
+ * `challenge` tag matches — without the last one an auth event captured from
+ * another connection would be replayable here.
+ */
+function checkAuthEvent(event: NostrEvent | undefined, challenge: string): string | undefined {
+  if (!event?.id || !event?.sig || !event?.pubkey) return 'malformed auth event'
+  if (event.kind !== 22242) return `expected kind 22242, got ${event.kind}`
+  if (!verifyEvent(event)) return 'invalid signature'
+
+  const sent = event.tags?.find(t => t[0] === 'challenge')?.[1]
+  if (sent !== challenge) return 'challenge mismatch'
+
+  // NIP-42 suggests rejecting anything far from the present
+  const age = Math.abs(Math.floor(Date.now() / 1000) - event.created_at)
+  if (age > 600) return 'auth event timestamp too far from now'
+
+  return undefined
+}
+
 export function startRelay(opts: ServeOptions = {}): { url: string; port: number; ready: Promise<void>; close: () => void } {
   const hostname = opts.hostname ?? 'localhost'
   const port = opts.port ?? 10547
   const quiet = opts.quiet ?? false
+  const requireAuth = opts.auth ?? false
+  const eagerAuth = opts.eagerAuth ?? false
   const log = quiet ? () => {} : (...args: unknown[]) => console.error('[relay]', ...args)
 
   // The bundled test relay has no auth and accepts arbitrary signed events.
@@ -107,7 +143,15 @@ export function startRelay(opts: ServeOptions = {}): { url: string; port: number
 
   wss.on('connection', (ws) => {
     const clientSubs = new Set<string>()
+    // NIP-42: one challenge per connection; authedPubkey is set once the
+    // client returns a valid kind 22242 naming this relay and that challenge.
+    const challenge = randomBytes(16).toString('hex')
+    let authedPubkey: string | undefined
     log('Client connected')
+
+    if (requireAuth && eagerAuth) {
+      ws.send(JSON.stringify(['AUTH', challenge]))
+    }
 
     ws.on('message', (raw) => {
       let msg: unknown[]
@@ -124,6 +168,32 @@ export function startRelay(opts: ServeOptions = {}): { url: string; port: number
       }
 
       const type = msg[0]
+
+      if (type === 'AUTH') {
+        const authEvent = msg[1] as NostrEvent
+        const problem = checkAuthEvent(authEvent, challenge)
+        if (problem) {
+          ws.send(JSON.stringify(['OK', authEvent?.id ?? '', false, `auth-required: ${problem}`]))
+          return
+        }
+        authedPubkey = authEvent.pubkey
+        log('Client authenticated as', authedPubkey)
+        ws.send(JSON.stringify(['OK', authEvent.id, true, '']))
+        return
+      }
+
+      if (requireAuth && !authedPubkey && (type === 'EVENT' || type === 'REQ')) {
+        // Send the challenge alongside the rejection so a client that did not
+        // ask for one up front can still recover without reconnecting.
+        ws.send(JSON.stringify(['AUTH', challenge]))
+        if (type === 'EVENT') {
+          const e = msg[1] as NostrEvent
+          ws.send(JSON.stringify(['OK', e?.id ?? '', false, 'auth-required: authentication required']))
+        } else {
+          ws.send(JSON.stringify(['CLOSED', String(msg[1]), 'auth-required: authentication required']))
+        }
+        return
+      }
 
       if (type === 'EVENT') {
         const event = msg[1] as NostrEvent

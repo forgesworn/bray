@@ -62,7 +62,12 @@ if (command === 'serve' && !args.includes('--help')) {
   const hostname = args.includes('--hostname') ? args[args.indexOf('--hostname') + 1] : 'localhost'
   const port = args.includes('--port') ? parseInt(args[args.indexOf('--port') + 1], 10) : 10547
   const eventsFile = args.includes('--events') ? args[args.indexOf('--events') + 1] : undefined
-  const relayServer = startRelay({ hostname, port, eventsFile, quiet: args.includes('--quiet') })
+  const relayServer = startRelay({
+    hostname, port, eventsFile,
+    quiet: args.includes('--quiet'),
+    auth: args.includes('--auth') || args.includes('--eager-auth'),
+    eagerAuth: args.includes('--eager-auth'),
+  })
   console.error(`nostr-bray test relay running at ${relayServer.url}`)
   console.error('Press Ctrl+C to stop')
   process.on('SIGINT', () => { relayServer.close(); process.exit(0) })
@@ -238,7 +243,8 @@ MuSig2 (BIP-327 multi-signature):
 
 Modes:
   (no command)                        Start MCP server (stdio)
-  serve [--port N] [--events file]    Start in-memory test relay
+  serve [--port N] [--events file] [--auth] [--eager-auth]  Start in-memory test relay
+                                      (--auth requires NIP-42; --eager-auth also challenges on connect)
   bunker connect <bunker://…>              Save remote bunker URI for future commands
   bunker authorize <hex-pubkey>           Pre-authorise an app pubkey on the local bunker
   bunker status                           Show saved bunker connection state

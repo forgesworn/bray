@@ -4,7 +4,7 @@
   "version": "2.0.0",
   "description": "Trust-aware Nostr for AI and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "homepage": "https://bray.forgesworn.dev",
-  "generated": "2026-07-28T16:08:53.169Z",
+  "generated": "2026-07-28T16:13:52.722Z",
   "totalTools": 254,
   "note": "Parameter schemas for every registered tool. Most tools live in the catalog (discoverable via search-actions + execute-action); 51 promoted tools are exposed directly on the MCP server. This manifest covers both.",
   "tools": [
