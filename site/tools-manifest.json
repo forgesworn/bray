@@ -4,8 +4,8 @@
   "version": "2.0.0",
   "description": "Trust-aware Nostr for AI and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "homepage": "https://bray.forgesworn.dev",
-  "generated": "2026-07-28T16:04:12.741Z",
-  "totalTools": 252,
+  "generated": "2026-07-28T16:08:53.169Z",
+  "totalTools": 254,
   "note": "Parameter schemas for every registered tool. Most tools live in the catalog (discoverable via search-actions + execute-action); 51 promoted tools are exposed directly on the MCP server. This manifest covers both.",
   "tools": [
     {
@@ -2796,6 +2796,134 @@
         "required": [
           "event",
           "filter"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gift-unwrap",
+      "description": "Unwrap a NIP-59 kind 1059 gift wrap addressed to the active identity, returning the hidden rumor and the pubkey that sealed it. Also reports whether the sealer matches the rumor's claimed author — a rumor is unsigned, so its pubkey is a claim rather than proof, and a mismatch means someone sealed an event attributed to a third party.",
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "pubkey": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "sig": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{128}$"
+              },
+              "kind": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "created_at": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8640000000000
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "content": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "pubkey",
+              "sig",
+              "kind",
+              "created_at",
+              "tags",
+              "content"
+            ],
+            "additionalProperties": false,
+            "description": "The kind 1059 gift wrap to open"
+          }
+        },
+        "required": [
+          "event"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gift-wrap",
+      "description": "Seal and gift-wrap any event for one recipient (NIP-59). Returns a kind 1059 wrap signed by a throwaway key, so nothing public links it to you. Use for metadata-private delivery of arbitrary events; DMs already wrap themselves via dm-send.",
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Kind of the event to wrap"
+              },
+              "content": {
+                "description": "Event content",
+                "type": "string"
+              },
+              "tags": {
+                "description": "Event tags",
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "created_at": {
+                "description": "Unix timestamp (defaults to now)",
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "additionalProperties": false,
+            "description": "The event to wrap. It is sealed unsigned, as NIP-59 requires."
+          },
+          "recipient_pubkey": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Recipient hex public key"
+          }
+        },
+        "required": [
+          "event",
+          "recipient_pubkey"
         ],
         "additionalProperties": false
       }

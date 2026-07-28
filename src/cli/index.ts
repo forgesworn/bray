@@ -222,6 +222,8 @@ Utility:
   nips                                List all official NIPs
   nip <number>                        Show a specific NIP
   kind <number|text>                  Look up an event kind: required tags, value shapes
+  gift-wrap <pubkey-hex> <event|-> [--file f]  Seal + wrap an event for a recipient (NIP-59)
+  gift-unwrap <event-json|-> [--file f]        Open a kind 1059 gift wrap addressed to you
   verify <event-json>                 Verify event hash and signature
   encrypt <pubkey-hex> "plaintext"    NIP-44 encrypt for a recipient
   decrypt <pubkey-hex> <ciphertext>   NIP-44 decrypt from a sender
@@ -421,7 +423,7 @@ const SAFETY_CMDS = new Set(['safety-configure', 'safety-activate'])
 const EVENT_CMDS = new Set(['event', 'publish-raw'])
 const UTIL_CMDS = new Set([
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
-  'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'validate-event', 'kind', 'encrypt', 'decrypt', 'count', 'fetch',
+  'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'validate-event', 'kind', 'gift-wrap', 'gift-unwrap', 'encrypt', 'decrypt', 'count', 'fetch',
 ])
 const MUSIG2_CMDS = new Set(['musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate'])
 const SYNC_CMDS = new Set(['sync-plan', 'sync-pull', 'sync-push'])
@@ -481,7 +483,7 @@ const ALL_COMMANDS = [
   'group-forum-topics', 'group-forum-topic-create', 'group-forum-comments', 'group-forum-comment',
   'event', 'publish-raw',
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
-  'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'validate-event', 'kind', 'encrypt', 'decrypt', 'count', 'fetch',
+  'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'validate-event', 'kind', 'gift-wrap', 'gift-unwrap', 'encrypt', 'decrypt', 'count', 'fetch',
   'musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate',
   'sync-plan', 'sync-pull', 'sync-push',
   ...ADMIN_COMMANDS,

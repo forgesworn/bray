@@ -5,7 +5,7 @@ import {
   handleFilter, handleNipList, handleNipShow,
   handleKeyEncrypt, handleKeyDecrypt,
   handleValidateEvent,
-  lookupKind, searchKinds,
+  lookupKind, searchKinds, handleGiftWrap, handleGiftUnwrap,
 } from '../../exports.js'
 import { validateInputPath } from '../../validation.js'
 import * as fmt from '../../format.js'
@@ -102,6 +102,21 @@ export async function dispatch(
       break
     }
 
+    case 'gift-wrap': {
+      const recipient = req(1, 'gift-wrap <recipient-pubkey-hex> <event-json|-> [--file path]')
+      out(await handleGiftWrap(ctx, {
+        event: JSON.parse(await readJsonArg(cmdArgs[2], flag('file'))),
+        recipientPubkey: recipient,
+      }))
+      break
+    }
+
+    case 'gift-unwrap':
+      out(await handleGiftUnwrap(ctx, {
+        event: JSON.parse(await readJsonArg(cmdArgs[1], flag('file'))),
+      }))
+      break
+
     case 'kind': {
       const arg = req(1, 'kind <number|search text>')
       if (/^\d+$/.test(arg)) {
@@ -145,4 +160,15 @@ export async function dispatch(
     default:
       throw new Error(`Unknown command: ${cmd}. Run --help for usage.`)
   }
+}
+
+/**
+ * Read a JSON argument from, in order: an explicit --file, a positional
+ * argument, or stdin. `-` selects stdin explicitly, matching common CLI usage.
+ */
+async function readJsonArg(positional: string | undefined, filePath: string | undefined): Promise<string> {
+  const { readFileSync } = await import('node:fs')
+  if (filePath) return readFileSync(validateInputPath(filePath), 'utf8')
+  if (positional && positional !== '-' && !positional.startsWith('--')) return positional
+  return readFileSync(0, 'utf8')
 }
