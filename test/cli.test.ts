@@ -18,20 +18,27 @@ afterAll(() => {
   rmSync(TEST_CONFIG_HOME, { recursive: true, force: true })
 })
 
+// Each case spawns the built CLI, which loads the whole dependency tree on
+// every call. Steady state is around 1.3s, but the first spawn after a fresh
+// `npm ci` — nothing in the OS page cache — can take an order of magnitude
+// longer and was blowing a 10s cap. Sized to absorb that; the commands
+// themselves are not slow.
+const SUBPROCESS_TIMEOUT_MS = 30_000
+
 function run(...args: string[]): string {
-  return execFileSync('node', [CLI_PATH, ...args], { env: ENV, encoding: 'utf-8', timeout: 10_000, stdio: ['pipe', 'pipe', 'pipe'] }).trim()
+  return execFileSync('node', [CLI_PATH, ...args], { env: ENV, encoding: 'utf-8', timeout: SUBPROCESS_TIMEOUT_MS, stdio: ['pipe', 'pipe', 'pipe'] }).trim()
 }
 
 function runExpectFail(...args: string[]): string {
   try {
-    execFileSync('node', [CLI_PATH, ...args], { env: ENV, encoding: 'utf-8', timeout: 10_000, stdio: 'pipe' })
+    execFileSync('node', [CLI_PATH, ...args], { env: ENV, encoding: 'utf-8', timeout: SUBPROCESS_TIMEOUT_MS, stdio: 'pipe' })
     return ''
   } catch (e: any) {
     return e.stderr?.toString() ?? e.message
   }
 }
 
-describe('CLI', { timeout: 15_000 }, () => {
+describe('CLI', { timeout: 45_000 }, () => {
   it('--help shows usage without requiring config', () => {
     const out = execFileSync('node', [CLI_PATH, '--help'], {
       encoding: 'utf-8',
