@@ -210,6 +210,11 @@ Safety:
 
 Utility:
   req [--kinds N,N] [--authors hex,hex] [--since ts] [--limit N] [--relay url] [--min-trust level]  Query events
+      [--paginate]                    Walk 'until' backwards until --limit is met
+                                      (--max-pages N caps round-trips, default 20;
+                                       --paginate-interval ms waits between pages)
+      [--ids-only]                    Fetch only event IDs, via NIP-77 negentropy
+      [--only-missing <events.jsonl>] Fetch only events absent from that file (NIP-77)
   event -k <number|name> [-c content] [-t k=v] [-p pk] [-e id] [-d ident] [-h group]
         [--relay url] [--pow N] [--created-at ts|ISO|now] [--envelope] [--nevent]
         [--validation strict-known|off] [--no-publish]
