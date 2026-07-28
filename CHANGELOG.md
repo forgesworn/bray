@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.0 (2026-07-28)
+
+### Breaking Changes
+
+- require Node 22, test the floor in CI, and take undici 8
+- Node 22.19 or newer is now required. Node 20 and 21 are
+
+
+
 ## 1.42.3 (2026-07-28)
 
 ### Bug Fixes
