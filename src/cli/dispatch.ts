@@ -48,7 +48,7 @@ export const OFFLINE_COMMANDS = new Set([
   'ring-verify', 'zap-decode', 'safety-configure', 'safety-activate',
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
   'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'verify', 'encrypt', 'decrypt',
-  'validate-event',
+  'validate-event', 'kind',
   'musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate',
   // wallet config subcommands don't touch the relay
   'wallet-connect', 'wallet-disconnect', 'wallet-status',

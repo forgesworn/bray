@@ -26,6 +26,7 @@ import {
 } from './handlers.js'
 import { handleValidateEvent } from '../event-validation/validator.js'
 import { eventValidationModeSchema, semanticEventInputSchema } from '../event-validation/tools-schema.js'
+import { lookupKind, searchKinds } from '../event-validation/kind-lookup.js'
 
 export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('decode', {
@@ -114,6 +115,29 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
   }, async ({ event, mode }) => {
     const result = handleValidateEvent(event, mode)
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('kind-info', {
+    description:
+      'Look up what a Nostr event kind is for and what shape it takes: description, storage class ' +
+      '(regular/replaceable/ephemeral/addressable), required tags, repeatable tags, and the expected value type ' +
+      'at each tag position. Call this before constructing an event of an unfamiliar kind, then validate-event ' +
+      'afterwards to check the result. Reads the same pinned Registry of Kinds snapshot as validate-event. ' +
+      'Pass a kind number, or a search string to find kinds by description.',
+    inputSchema: {
+      kind: z.number().int().min(0).max(65_535).optional().describe('Kind number to look up (e.g. 1, 30023)'),
+      search: z.string().optional().describe('Search kinds by description instead (e.g. "long-form", "badge")'),
+      limit: z.number().int().min(1).max(50).optional().describe('Maximum search results (default 20)'),
+    },
+    annotations: { readOnlyHint: true, openWorldHint: false },
+  }, async ({ kind, search, limit }) => {
+    if (kind === undefined && !search) {
+      throw new Error('kind-info needs either a kind number or a search string')
+    }
+    const payload = kind !== undefined
+      ? lookupKind(kind)
+      : { query: search, results: searchKinds(search!, limit ?? 20) }
+    return { content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }] }
   })
 
   server.registerTool('nip44-encrypt', {

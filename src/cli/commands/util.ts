@@ -5,6 +5,7 @@ import {
   handleFilter, handleNipList, handleNipShow,
   handleKeyEncrypt, handleKeyDecrypt,
   handleValidateEvent,
+  lookupKind, searchKinds,
 } from '../../exports.js'
 import { validateInputPath } from '../../validation.js'
 import * as fmt from '../../format.js'
@@ -98,6 +99,18 @@ export async function dispatch(
       const mode = flag('validation') ?? 'strict-known'
       if (mode !== 'strict-known' && mode !== 'off') throw new Error('Validation mode must be strict-known or off')
       out(handleValidateEvent(JSON.parse(raw), mode))
+      break
+    }
+
+    case 'kind': {
+      const arg = req(1, 'kind <number|search text>')
+      if (/^\d+$/.test(arg)) {
+        out(lookupKind(Number(arg)), fmt.formatKindInfo)
+      } else {
+        const results = searchKinds(cmdArgs.slice(1).filter(a => !a.startsWith('--')).join(' '))
+        if (results.length === 0) throw new Error(`No kind matches "${arg}"`)
+        out(results, rs => rs.map(fmt.formatKindInfo).join('\n\n'))
+      }
       break
     }
 

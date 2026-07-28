@@ -174,6 +174,58 @@ export function formatNipList(nips: Array<{ number: number; title: string }>): s
   return nips.map(n => `NIP-${String(n.number).padStart(2, '0')}  ${n.title}`).join('\n')
 }
 
+/** Render one tag position spec as a chain, e.g. `id! > relay > free`. */
+function formatTagShape(spec: {
+  type?: string
+  required?: boolean
+  variadic?: boolean
+  either?: string[]
+  next?: unknown
+} | undefined): string {
+  const parts: string[] = []
+  let cur = spec
+  while (cur) {
+    let label = cur.type ?? 'any'
+    if (cur.either?.length) label += `(${cur.either.join('|')})`
+    if (cur.required) label += '!'
+    if (cur.variadic) label += '...'
+    parts.push(label)
+    cur = cur.next as typeof cur
+  }
+  return parts.join(' > ')
+}
+
+export function formatKindInfo(info: {
+  kind: number
+  description?: string
+  inUse: boolean
+  class: string
+  known: boolean
+  content?: { type?: string }
+  requiredTags: string[]
+  repeatableTags: string[]
+  tags: Array<{ name?: string; prefix?: string; next?: unknown; description?: string }>
+}): string {
+  const lines = [`kind ${info.kind}${info.description ? ` — ${info.description}` : ''}`]
+  lines.push(`  class:      ${info.class}${info.inUse ? '' : ' (not marked in use)'}`)
+  if (!info.known) {
+    lines.push('  not in the pinned registry of kinds; only the storage class is known')
+    return lines.join('\n')
+  }
+  if (info.content?.type) lines.push(`  content:    ${info.content.type}`)
+  if (info.requiredTags.length) lines.push(`  required:   ${info.requiredTags.join(', ')}`)
+  if (info.repeatableTags.length) lines.push(`  repeatable: ${info.repeatableTags.join(', ')}`)
+  if (info.tags.length) {
+    lines.push('  tags:')
+    for (const t of info.tags) {
+      const name = t.name ?? `${t.prefix}*`
+      const shape = formatTagShape(t.next as any)
+      lines.push(`    ${name.padEnd(14)} ${shape}${t.description ? `   # ${t.description}` : ''}`)
+    }
+  }
+  return lines.join('\n')
+}
+
 export function formatDecode(result: { type: string; data: unknown }): string {
   const lines = [`Type: ${result.type}`]
   if (typeof result.data === 'string') {

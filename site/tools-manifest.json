@@ -1,11 +1,11 @@
 {
   "name": "nostr-bray",
   "mcpName": "dev.forgesworn/bray",
-  "version": "1.39.1",
+  "version": "1.41.0",
   "description": "Trust-aware Nostr for AI and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "homepage": "https://bray.forgesworn.dev",
-  "generated": "2026-07-18T08:22:17.808Z",
-  "totalTools": 251,
+  "generated": "2026-07-28T12:59:19.483Z",
+  "totalTools": 252,
   "note": "Parameter schemas for every registered tool. Most tools live in the catalog (discoverable via search-actions + execute-action); 51 promoted tools are exposed directly on the MCP server. This manifest covers both.",
   "tools": [
     {
@@ -4144,6 +4144,37 @@
       }
     },
     {
+      "name": "kind-info",
+      "description": "Look up what a Nostr event kind is for and what shape it takes: description, storage class (regular/replaceable/ephemeral/addressable), required tags, repeatable tags, and the expected value type at each tag position. Call this before constructing an event of an unfamiliar kind, then validate-event afterwards to check the result. Reads the same pinned Registry of Kinds snapshot as validate-event. Pass a kind number, or a search string to find kinds by description.",
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "kind": {
+            "description": "Kind number to look up (e.g. 1, 30023)",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "search": {
+            "description": "Search kinds by description instead (e.g. \"long-form\", \"badge\")",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Maximum search results (default 20)",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "label-create",
       "description": "Label an event, pubkey, or addressable event using NIP-32 (kind 1985). Requires a namespace (L tag) and label value (l tag). Provide at least one target: targetEventId (e-tag), targetPubkey (p-tag), or targetAddress (a-tag).",
       "annotations": {
@@ -6274,6 +6305,18 @@
               "strict-known",
               "off"
             ]
+          },
+          "pow": {
+            "description": "NIP-13 proof-of-work difficulty in leading zero bits (1-40). Some relays require a minimum. Cost doubles per bit: 20 is roughly a second, 30 is roughly ten minutes.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 40
+          },
+          "pow_timeout_ms": {
+            "description": "Wall-clock budget for mining, in milliseconds (default 30000). Mining aborts with an error rather than running forever.",
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 300000
           }
         },
         "required": [
@@ -6730,6 +6773,16 @@
           "search": {
             "description": "Full-text search query (NIP-50). Only works on relays that support NIP-50; others will ignore it.",
             "type": "string"
+          },
+          "paginate": {
+            "description": "Issue repeated REQs, walking \"until\" backwards, until \"limit\" events are collected or the relay runs dry. Relays cap a single REQ (commonly 100-500 events), so without this a large \"limit\" is silently truncated and the result looks complete when it is not.",
+            "type": "boolean"
+          },
+          "max_pages": {
+            "description": "Cap on REQ round-trips when paginating (default 20). Guards against a slow relay turning one query into a long loop.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
           },
           "filter": {
             "description": "Alias: all filter fields wrapped in a single object. Merged with any top-level fields; top-level values win on conflict.",
