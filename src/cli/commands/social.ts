@@ -6,6 +6,9 @@ import {
   handleNotifications, handleFeed,
   handleNipPublish, handleNipRead,
   handleBlossomUpload, handleBlossomList, handleBlossomDelete,
+  handleBlossomDownload, handleBlossomCheck, handleBlossomDiscover,
+  handleBlossomVerify, handleBlossomRepair, handleBlossomUsage,
+  handleBlossomMirror, handleBlossomServersGet, handleBlossomServersSet,
   handleGroupInfo, handleGroupChat, handleGroupSend, handleGroupMembers,
   handleGroupCreate, handleGroupUpdate, handleGroupAddUser, handleGroupRemoveUser,
   handleGroupAdmins, handleGroupRoles, handleGroupInspect,
@@ -162,6 +165,76 @@ export async function dispatch(
         server: req(1, 'blossom-delete <server> <sha256>'),
         sha256: req(2, 'blossom-delete <server> <sha256>'),
       }))
+      break
+
+    case 'blossom-download': {
+      const { writeFileSync } = await import('node:fs')
+      const result = await handleBlossomDownload({
+        server: req(1, 'blossom-download <server> <sha256> [out-file]'),
+        sha256: req(2, 'blossom-download <server> <sha256> [out-file]'),
+      })
+      const dest = cmdArgs[3]
+      if (dest) {
+        writeFileSync(dest, result.data)
+        out({ sha256: cmdArgs[2], bytes: result.data.length, contentType: result.contentType, path: dest })
+      } else {
+        // No destination: stream the blob to stdout so it can be piped
+        process.stdout.write(result.data)
+      }
+      break
+    }
+
+    case 'blossom-check':
+      out(await handleBlossomCheck({
+        server: req(1, 'blossom-check <server> <sha256> [--verify]'),
+        sha256: req(2, 'blossom-check <server> <sha256> [--verify]'),
+        verify: hasFlag('verify'),
+      }))
+      break
+
+    case 'blossom-discover':
+      out(await handleBlossomDiscover(pool, ctx.activeNpub, {
+        pubkeys: flags('pubkey').length ? flags('pubkey') : undefined,
+      }))
+      break
+
+    case 'blossom-verify':
+      out(await handleBlossomVerify({
+        content: req(1, 'blossom-verify <content> [--verify-hash]'),
+        verifyHash: hasFlag('verify-hash'),
+      }))
+      break
+
+    case 'blossom-repair':
+      out(await handleBlossomRepair(ctx, {
+        sha256: req(1, 'blossom-repair <sha256> --search <url> [--search <url>...] [--target <url>]'),
+        searchServers: flags('search'),
+        targetServer: flag('target'),
+      }))
+      break
+
+    case 'blossom-usage':
+      out(await handleBlossomUsage({
+        servers: flags('server'),
+        pubkeyHex: req(1, 'blossom-usage <pubkey-hex> --server <url> [--server <url>...]'),
+      }))
+      break
+
+    case 'blossom-mirror':
+      out(await handleBlossomMirror(ctx, {
+        servers: flags('server'),
+        sourceUrl: flag('source'),
+        filePath: flag('file'),
+      }))
+      break
+
+    case 'blossom-servers':
+      out(await handleBlossomServersGet(pool, ctx.activeNpub,
+        req(1, 'blossom-servers <pubkey-hex>')))
+      break
+
+    case 'blossom-servers-set':
+      out(await handleBlossomServersSet(ctx, pool, { servers: flags('server') }))
       break
 
     case 'group-info':

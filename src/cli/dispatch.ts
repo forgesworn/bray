@@ -30,6 +30,8 @@ export const COMPOUND_COMMANDS = new Set([
   'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-rank',
   'nip-publish', 'nip-read',
   'relay-set', 'relay-add', 'relay-curl',
+  // blossom two-word forms
+  'blossom-servers-set',
   'outbox-relays', 'outbox-publish',
   'ring-prove', 'ring-verify',
   'musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate',

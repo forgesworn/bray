@@ -109,6 +109,15 @@ Social:
   blossom-upload <server> <file>      Upload file to blossom media server
   blossom-list <server> <pubkey>      List blobs on blossom server
   blossom-delete <server> <sha256>    Delete blob from blossom server
+  blossom-download <server> <sha256> [file]  Download a blob (stdout if no file)
+  blossom-check <server> <sha256> [--verify]  Check a blob exists
+  blossom-discover [--pubkey hex ...] Discover servers from kind 10063 lists
+  blossom-verify <content> [--verify-hash]    Check media URLs in content resolve
+  blossom-repair <sha256> --search <url>... [--target <url>]  Re-upload a lost blob
+  blossom-usage <pubkey-hex> --server <url>...  Storage used per server
+  blossom-mirror --server <url>... [--source <url>|--file <path>]  Copy a blob to servers
+  blossom-servers <pubkey-hex>        Read a kind 10063 server list
+  blossom-servers-set --server <url>...  Publish your kind 10063 server list
   group-info <relay> <group-id>       Fetch verified NIP-29 group metadata
   group-chat <relay> <group-id>       Fetch relay-scoped group chat
   group-send <relay> <group-id> "message"  Send a group message
@@ -395,6 +404,7 @@ const SOCIAL_CMDS = new Set([
   'contacts', 'follow', 'unfollow', 'dm', 'dm-read', 'feed', 'notifications',
   'nip-publish', 'nip-read',
   'blossom-upload', 'blossom-list', 'blossom-delete',
+  'blossom-download', 'blossom-check', 'blossom-discover', 'blossom-verify', 'blossom-repair', 'blossom-usage', 'blossom-mirror', 'blossom-servers', 'blossom-servers-set',
   'group-info', 'group-chat', 'group-send', 'group-members',
   'group-admins', 'group-roles', 'group-inspect',
   'group-create', 'group-update', 'group-add-user', 'group-remove-user',
@@ -463,6 +473,7 @@ const ALL_COMMANDS = [
   'zap-send', 'zap-balance', 'zap-invoice', 'zap-lookup', 'zap-transactions', 'zap-receipts', 'zap-decode',
   'safety-configure', 'safety-activate',
   'blossom-upload', 'blossom-list', 'blossom-delete',
+  'blossom-download', 'blossom-check', 'blossom-discover', 'blossom-verify', 'blossom-repair', 'blossom-usage', 'blossom-mirror', 'blossom-servers', 'blossom-servers-set',
   'group-info', 'group-chat', 'group-send', 'group-members',
   'group-admins', 'group-roles', 'group-inspect',
   'group-create', 'group-update', 'group-add-user', 'group-remove-user',
