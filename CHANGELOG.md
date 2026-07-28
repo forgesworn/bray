@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.1.0 (2026-07-28)
+
+### Features
+
+- NIP-42 AUTH in the bundled test relay
+- gift-wrap and gift-unwrap any event (NIP-59)
+- expose the remaining blossom commands on the CLI
+
+
+
 ## 2.0.0 (2026-07-28)
 
 ### Breaking Changes
