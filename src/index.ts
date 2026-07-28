@@ -18,6 +18,7 @@ import { registerPrivacyTools } from './privacy/tools.js'
 import { registerModerationTools } from './moderation/tools.js'
 import { TrustContext } from './trust-context.js'
 import type { SigningContext } from './signing-context.js'
+import type { BunkerContext } from './bunker-context.js'
 import { registerSignetTools } from './signet/tools.js'
 import { registerVaultTools } from './vault/tools.js'
 import { registerDispatchTools } from './dispatch/tools.js'
@@ -54,31 +55,59 @@ const nip65 = new Nip65Manager(pool, config.relays)
 // sends arbitrary NIP-46 method names via sendRequest; the probe only
 // controlled whether to expose those methods as typed instance methods
 // on HeartwoodContext, which is a cosmetic distinction for MCP use.
+// Load an identity's NIP-65 relay list in the background and point the pool at
+// its write relays. Never blocks startup.
+function loadIdentityRelays(npub: string): void {
+  nip65.loadForIdentity(npub)
+    .then(masterRelays => pool.reconfigure(npub, masterRelays))
+    .catch(e => console.error('NIP-65 relay load failed:', (e as Error).message))
+}
+
+// Establish the bunker connection in the background, with a bounded connect and
+// exponential backoff. Crucially this does NOT block startup: a slow or offline
+// signer would otherwise leave the MCP stdio transport unconnected, Claude
+// Code's health check would mark the server "failed to connect" and respawn it,
+// and every respawn fires a fresh `connect` at the signer -- a respawn loop that
+// floods the bunker, each attempt with a throwaway client key. Connecting
+// in-process keeps one stable client key and one attempt per backoff interval,
+// and self-heals when the signer returns.
+async function establishBunkerInBackground(base: BunkerContext): Promise<void> {
+  const { HeartwoodContext } = await import('./heartwood-context.js')
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await base.establish()
+      await base.resolvePublicKey()
+      console.error(`Connected to bunker -- signing as ${base.activeNpub}`)
+      loadIdentityRelays(base.activeNpub)
+      try {
+        // Probe for Heartwood extensions and upgrade the prototype in place so
+        // tools that check `ctx instanceof HeartwoodContext` see it.
+        const hw = await HeartwoodContext.probe(base)
+        if (hw) console.error(`Heartwood extensions detected -- ${base.activeNpub}`)
+      } catch (e) {
+        console.error('Heartwood probe failed (non-fatal):', (e as Error).message)
+      }
+      return
+    } catch (e) {
+      const delay = Math.min(30_000, 1_000 * 2 ** Math.min(attempt, 5))
+      console.error(`Bunker connect failed (attempt ${attempt + 1}), retrying in ${delay}ms:`, (e as Error).message)
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
+  }
+}
+
 let ctx: SigningContext
 if (config.bunkerUri) {
   const { BunkerContext } = await import('./bunker-context.js')
-  const base = await BunkerContext.connect(config.bunkerUri)
-  await base.resolvePublicKey()
+  // Bring the context up synchronously (no network) and connect in the
+  // background so a flaky signer cannot wedge startup. See above.
+  const base = BunkerContext.create(config.bunkerUri)
   ctx = base
-  console.error(`Connected to bunker — signing as ${base.activeNpub}`)
-
-  // Probe for Heartwood extensions in the background and upgrade in place.
-  // Object.setPrototypeOf on the existing ctx instance lets tools that
-  // check `ctx instanceof HeartwoodContext` see the upgraded class after
-  // the probe resolves, without having to coordinate a ctx swap.
-  ;(async () => {
-    try {
-      const { HeartwoodContext } = await import('./heartwood-context.js')
-      const hw = await HeartwoodContext.probe(base)
-      if (hw) {
-        console.error(`Heartwood extensions detected — ${base.activeNpub}`)
-      }
-    } catch (e) {
-      console.error('Heartwood probe failed (non-fatal):', (e as Error).message)
-    }
-  })()
+  void establishBunkerInBackground(base)
 } else {
   ctx = new IdentityContext(config.secretKey, config.secretFormat)
+  // Local key is ready immediately -- load its relay list now.
+  loadIdentityRelays(ctx.activeNpub)
 }
 
 // NIP-42: hand the pool a signer so it can answer AUTH challenges. Only takes
@@ -102,10 +131,8 @@ export const deps = {
 ;(config as any).nwcUri = undefined
 ;(config as any).bunkerUri = undefined
 
-// Load master identity relay list in the background — don't block tool registration
-nip65.loadForIdentity(ctx.activeNpub).then(masterRelays => {
-  pool.reconfigure(ctx.activeNpub, masterRelays)
-}).catch(e => console.error('NIP-65 relay load failed:', e.message))
+// NIP-65 relay list is loaded via loadIdentityRelays(): immediately for a local
+// key, or after the bunker pubkey resolves (see establishBunkerInBackground).
 
 const server = new McpServer({ name: 'nostr-bray', version: '0.1.0' }, {
   instructions: 'Always check whoami before posting or signing. Use signet-badge to check trust before interacting with unfamiliar pubkeys. Use trust-score for the full three-dimensional view (verification + proximity + access). Use social-feed or social-notifications to get event IDs and author pubkeys before calling social-reply or social-react. DMs default to NIP-17 gift wrap (most private); only use NIP-04 if the recipient requires it. Respect vault tiers -- do not share decrypted content outside its intended audience. For less common actions, use search-actions to discover them, then execute-action to run them.',

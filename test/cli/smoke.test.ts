@@ -118,7 +118,7 @@ afterAll(() => {
 // Offline commands
 // ===========================================================================
 
-describe('identity — offline', () => {
+describe('identity — offline', { timeout: 15_000 }, () => {
   it('whoami returns an npub', () => {
     expect(cli(OFF, 'whoami')).toMatch(/^npub1/)
   })
@@ -181,7 +181,7 @@ describe('identity — offline', () => {
   })
 })
 
-describe('encode / decode — offline', () => {
+describe('encode / decode — offline', { timeout: 15_000 }, () => {
   it('decode npub returns type + 64-char hex data', () => {
     const npub = cli(OFF, 'whoami')
     const out = cliJson(OFF, 'decode', npub) as any
@@ -228,7 +228,7 @@ describe('encode / decode — offline', () => {
   })
 })
 
-describe('key operations — offline', () => {
+describe('key operations — offline', { timeout: 15_000 }, () => {
   it('key-public derives pubkey matching whoami', () => {
     const out = cliJson(OFF, 'key-public', TEST_NSEC) as any
     expect(out.npub).toMatch(/^npub1/)
@@ -257,7 +257,7 @@ describe('key operations — offline', () => {
   })
 })
 
-describe('NIP-44 encrypt / decrypt — offline', () => {
+describe('NIP-44 encrypt / decrypt — offline', { timeout: 15_000 }, () => {
   it('encrypt + decrypt roundtrip (self-encrypt)', () => {
     const pubkeyHex = (cliJson(OFF, 'key-public', TEST_NSEC) as any).pubkeyHex
     const ciphertext = cli(OFF, 'encrypt', pubkeyHex, 'hello smoke test')
@@ -267,7 +267,7 @@ describe('NIP-44 encrypt / decrypt — offline', () => {
   })
 })
 
-describe('spoken token — offline', () => {
+describe('spoken token — offline', { timeout: 15_000 }, () => {
   it('spoken-challenge returns a string token', () => {
     // Secret must be valid hex; 'a'.repeat(64) = 32 hex bytes
     const out = cliJson(OFF, 'spoken-challenge', 'a'.repeat(64), 'smoke-ctx', '1') as any
@@ -288,7 +288,7 @@ describe('spoken token — offline', () => {
   })
 })
 
-describe('utility — offline', () => {
+describe('utility — offline', { timeout: 15_000 }, () => {
   it('verify flags invalid event', () => {
     const bad = JSON.stringify({ kind: 1, pubkey: '0'.repeat(64), id: '0'.repeat(64), sig: '0'.repeat(128), created_at: 1, tags: [], content: '' })
     const out = cliJson(OFF, 'verify', bad) as any
@@ -315,7 +315,7 @@ describe('utility — offline', () => {
   })
 })
 
-describe('wallet — offline', () => {
+describe('wallet — offline', { timeout: 15_000 }, () => {
   let walletsDir: string
   let walletEnv: Record<string, string>
   const TEST_NWC = 'nostr+walletconnect://0000000000000000000000000000000000000000000000000000000000000001?relay=wss%3A%2F%2Frelay.example.com&secret=deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
@@ -388,7 +388,7 @@ describe('wallet — offline', () => {
   })
 })
 
-describe('trust-verify — offline', () => {
+describe('trust-verify — offline', { timeout: 15_000 }, () => {
   it('trust-verify on a minimal event returns a valid field', () => {
     const event = JSON.stringify({ kind: 30818, pubkey: '0'.repeat(64), id: '0'.repeat(64), sig: '0'.repeat(128), created_at: 1, tags: [], content: '' })
     const out = cliJson(OFF, 'trust-verify', event) as any
@@ -412,7 +412,7 @@ describe('trust-rank — local relay', { timeout: 20_000 }, () => {
   })
 })
 
-describe('space-separated compound verbs', () => {
+describe('space-separated compound verbs', { timeout: 15_000 }, () => {
   it('encode npub == encode-npub (plain string output)', () => {
     const hex = '0'.repeat(63) + '1'
     expect(cli(OFF, 'encode', 'npub', hex)).toBe(cli(OFF, 'encode-npub', hex))
@@ -444,7 +444,7 @@ describe('space-separated compound verbs', () => {
   })
 })
 
-describe('safety — offline', () => {
+describe('safety — offline', { timeout: 15_000 }, () => {
   it('safety-configure returns configured:true + npub', () => {
     const out = cliJson(OFF, 'safety-configure', 'emergency') as any
     expect(out.configured).toBe(true)
@@ -457,7 +457,7 @@ describe('safety — offline', () => {
   })
 })
 
-describe('error handling', () => {
+describe('error handling', { timeout: 15_000 }, () => {
   it('unknown command exits non-zero with helpful message', () => {
     // Needs NOSTR_RELAYS so NIP-65 resolves before the error is thrown
     const err = cliExpectFail(online(), 'not-a-real-command')

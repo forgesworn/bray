@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { readStateFile } from '../src/state.js'
-import { resolveClientKey, buildConnectParams, CLIENT_NAME } from '../src/bunker-context.js'
+import { resolveClientKey, buildConnectParams, withTimeout, CLIENT_NAME } from '../src/bunker-context.js'
 
 describe('resolveClientKey', () => {
   let stateDir: string
@@ -57,5 +57,26 @@ describe('buildConnectParams', () => {
 
   it('names the client nostr-bray', () => {
     expect(CLIENT_NAME).toBe('nostr-bray')
+  })
+})
+
+describe('withTimeout', () => {
+  it('resolves when the promise settles in time', async () => {
+    const result = await withTimeout(Promise.resolve('ok'), 1_000, 'fast')
+    expect(result).toBe('ok')
+  })
+
+  it('rejects with a labelled error when the promise hangs', async () => {
+    // A promise that never settles -- models a hung NIP-46 connect.
+    const hang = new Promise<string>(() => {})
+    await expect(withTimeout(hang, 20, 'bunker connect')).rejects.toThrow(
+      /bunker connect timed out after 20ms/,
+    )
+  })
+
+  it('propagates the original rejection', async () => {
+    await expect(
+      withTimeout(Promise.reject(new Error('boom')), 1_000, 'x'),
+    ).rejects.toThrow('boom')
   })
 })

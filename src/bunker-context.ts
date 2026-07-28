@@ -25,6 +25,27 @@ import { readStateFile, writeStateFile } from './state.js'
 
 useWebSocketImplementation(WebSocket)
 
+/** Bound the NIP-46 connect handshake. nostr-tools' BunkerSigner has no
+ *  per-request timeout, so an offline signer or unreachable relays make the
+ *  connect hang forever. */
+const CONNECT_TIMEOUT_MS = 15_000
+/** Bound individual signer round-trips (sign_event, get_public_key, nip44). */
+const REQUEST_TIMEOUT_MS = 30_000
+
+/**
+ * Reject if `promise` does not settle within `ms`. Converts a silent NIP-46
+ * hang into a catchable error so callers can fail fast or retry with backoff
+ * instead of wedging -- which, at startup under an MCP health check, becomes a
+ * respawn loop that floods the signer.
+ */
+export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+  })
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
+}
+
 export interface BunkerConfig {
   pubkey: string
   /**
@@ -117,15 +138,29 @@ export class BunkerContext implements SigningContext {
   protected pool: SimplePool
   protected pubkeyHex: string | undefined
   private clientSk: Uint8Array
+  private config: ReturnType<typeof parseBunkerUri>
 
-  protected constructor(signer: BunkerSigner, pool: SimplePool, clientSk: Uint8Array) {
+  protected constructor(
+    signer: BunkerSigner,
+    pool: SimplePool,
+    clientSk: Uint8Array,
+    config: ReturnType<typeof parseBunkerUri>,
+  ) {
     this.signer = signer
     this.pool = pool
     this.clientSk = clientSk
+    this.config = config
   }
 
-  /** Connect to a remote bunker. Blocks until the connection is established. */
-  static async connect(uri: string, _timeoutMs = 15_000, stateDir?: string): Promise<BunkerContext> {
+  /**
+   * Construct a BunkerContext WITHOUT performing the network handshake.
+   * Lets a caller bring its process up immediately and connect in the
+   * background (see {@link establish}), so a slow or unreachable signer
+   * cannot wedge startup. Under an MCP stdio health check that respawns
+   * "failed to connect" servers, a wedged startup turns a flaky signer into
+   * a respawn loop that floods the bunker with `connect` requests.
+   */
+  static create(uri: string, stateDir?: string): BunkerContext {
     const config = parseBunkerUri(uri)
     const clientSk = resolveClientKey(config, stateDir)
     const pool = new SimplePool()
@@ -144,19 +179,48 @@ export class BunkerContext implements SigningContext {
       { pool },
     )
 
-    // Only the `connect` handshake is needed at startup. Ping is
-    // redundant (if connect succeeded the signer is alive), and
-    // getPublicKey is deferred to first access so startup stays fast.
-    // Sent via sendRequest (not signer.connect()) so params[3] can carry
-    // the client-name metadata that signer approval screens display.
-    // nostr-tools' connect() is literally sendRequest('connect', [pubkey,
-    // secret]) — semantics are otherwise identical.
-    await signer.sendRequest('connect', buildConnectParams(config))
+    // Do NOT use config.pubkey as the identity -- it is the bunker's
+    // transport key from the URI, not the signing identity. The actual
+    // identity pubkey is resolved lazily via resolvePublicKey().
+    // The parsed config is retained so establish() can send the connect
+    // handshake with its client-name metadata.
+    return new BunkerContext(signer, pool, clientSk, config)
+  }
 
-    const ctx = new BunkerContext(signer, pool, clientSk)
-    // Do NOT use config.pubkey here — that is the bunker's transport
-    // key from the URI, not the signing identity. The actual identity
-    // pubkey is resolved lazily via getPublicKey() on first access.
+  /**
+   * Perform the NIP-46 `connect` handshake, bounded by `timeoutMs`.
+   *
+   * nostr-tools' BunkerSigner has no per-request timeout, so a signer that is
+   * offline or whose relays are unreachable makes `signer.connect()` hang
+   * forever. We race it against a timer and reject on expiry so the caller can
+   * retry with backoff. Ping is redundant (a successful connect proves the
+   * signer is alive) and getPublicKey is deferred to first access.
+   */
+  async establish(timeoutMs = CONNECT_TIMEOUT_MS): Promise<void> {
+    // Sent via sendRequest (not signer.connect()) so params[3] can carry the
+    // client-name metadata that signer approval screens display. nostr-tools'
+    // connect() is literally sendRequest('connect', [pubkey, secret]);
+    // semantics are otherwise identical.
+    await withTimeout(
+      this.signer.sendRequest('connect', buildConnectParams(this.config)),
+      timeoutMs,
+      'bunker connect',
+    )
+  }
+
+  /** Connect to a remote bunker. Blocks until the connection is established. */
+  static async connect(
+    uri: string,
+    timeoutMs = CONNECT_TIMEOUT_MS,
+    stateDir?: string,
+  ): Promise<BunkerContext> {
+    const ctx = BunkerContext.create(uri, stateDir)
+    try {
+      await ctx.establish(timeoutMs)
+    } catch (e) {
+      ctx.destroy()
+      throw e
+    }
     return ctx
   }
 
@@ -167,7 +231,11 @@ export class BunkerContext implements SigningContext {
    */
   async resolvePublicKey(): Promise<string> {
     if (!this.pubkeyHex) {
-      this.pubkeyHex = await this.signer.getPublicKey()
+      this.pubkeyHex = await withTimeout(
+        this.signer.getPublicKey(),
+        REQUEST_TIMEOUT_MS,
+        'bunker get_public_key',
+      )
     }
     return this.pubkeyHex
   }
@@ -191,7 +259,11 @@ export class BunkerContext implements SigningContext {
   /** Sign an event via the remote bunker */
   getSigningFunction(): SignFn {
     return async (template: EventTemplate): Promise<NostrEvent> => {
-      return this.signer.signEvent(template) as unknown as NostrEvent
+      return withTimeout(
+        this.signer.signEvent(template) as unknown as Promise<NostrEvent>,
+        REQUEST_TIMEOUT_MS,
+        'bunker sign_event',
+      )
     }
   }
 
@@ -202,12 +274,20 @@ export class BunkerContext implements SigningContext {
 
   /** NIP-44 encrypt via the remote bunker */
   async nip44Encrypt(recipientPubkey: string, plaintext: string): Promise<string> {
-    return this.signer.nip44Encrypt(recipientPubkey, plaintext)
+    return withTimeout(
+      this.signer.nip44Encrypt(recipientPubkey, plaintext),
+      REQUEST_TIMEOUT_MS,
+      'bunker nip44_encrypt',
+    )
   }
 
   /** NIP-44 decrypt via the remote bunker */
   async nip44Decrypt(senderPubkey: string, ciphertext: string): Promise<string> {
-    return this.signer.nip44Decrypt(senderPubkey, ciphertext)
+    return withTimeout(
+      this.signer.nip44Decrypt(senderPubkey, ciphertext),
+      REQUEST_TIMEOUT_MS,
+      'bunker nip44_decrypt',
+    )
   }
 
   /** Clean up */
