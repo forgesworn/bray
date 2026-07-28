@@ -32,6 +32,17 @@ for (const flag of ['--bunker', '--key']) {
   }
 }
 
+// Boolean global flags, recognised only in the leading position (`--auth req ...`)
+// so they can be stripped before command detection. Anything after the command
+// belongs to that command: `relay curl <url> --auth` means NIP-98, not NIP-42.
+let authFlagPresent = false
+let eagerAuthFlagPresent = false
+while (args[0] === '--auth' || args[0] === '--eager-auth') {
+  if (args[0] === '--eager-auth') eagerAuthFlagPresent = true
+  else authFlagPresent = true
+  args.shift()
+}
+
 const command = args[0]
 
 // No command = start MCP server.
@@ -228,6 +239,7 @@ Environment:
   NOSTR_SECRET_KEY_FILE         Path to secret key file
   BUNKER_URI / BUNKER_URI_FILE  bunker:// URI (use INSTEAD of secret key)
   NOSTR_RELAYS                  Comma-separated relay URLs
+  NOSTR_AUTH                    NIP-42 policy: off (default), on-demand, eager
   NWC_URI / NWC_URI_FILE        Nostr Wallet Connect URI
   TOR_PROXY                     SOCKS5h proxy URL
   NOSTR_BRAY_OUTPUT             Default output: "human" (default) or "json"
@@ -244,6 +256,8 @@ Quick examples:
 Flags:
   --bunker <uri>                      Use bunker:// URI (overrides env/config)
   --key <nsec|hex|mnemonic>           Use this secret key (overrides env/config)
+  --auth                              Answer NIP-42 AUTH after an auth-required rejection
+  --eager-auth                        Answer the NIP-42 AUTH challenge as soon as it arrives
   --json                              Output raw JSON (for piping/scripts)
   --human                             Force human-readable output
   --jsonl | --csv | --tsv             Structured list output (line-, comma- or tab-delimited)
@@ -326,11 +340,17 @@ if (command === 'validate-event') {
 const config = await loadConfig()
 const { configureHttpClient } = await import('../http-client.js')
 configureHttpClient({ torProxy: config.torProxy })
+// `--auth` / `--eager-auth` override the NOSTR_AUTH env default for one run.
+const authMode = eagerAuthFlagPresent
+  ? 'eager'
+  : authFlagPresent ? 'on-demand' : config.authMode
+
 const pool = new RelayPool({
   torProxy: config.torProxy,
   allowClearnet: config.allowClearnetWithTor || !config.torProxy,
   defaultRelays: config.relays,
   allowPrivateRelays: config.allowPrivateRelays,
+  authMode,
 })
 const nip65 = new Nip65Manager(pool, config.relays)
 
@@ -346,6 +366,9 @@ if (config.bunkerUri) {
 } else {
   ctx = new IdentityContext(config.secretKey, config.secretFormat)
 }
+// NIP-42: the pool answers AUTH challenges with the active identity's key.
+pool.setAuthSigner(async evt => ctx.getSigningFunction()(evt) as any)
+
 const globalNwcUri = config.nwcUri
 const walletsFile = config.walletsFile
 

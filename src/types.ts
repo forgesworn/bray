@@ -54,6 +54,8 @@ export interface BrayConfig {
   readonly torProxy?: string
   readonly allowClearnetWithTor: boolean
   readonly allowPrivateRelays: boolean
+  /** NIP-42 AUTH policy: 'off' (default), 'on-demand', or 'eager'. */
+  readonly authMode: 'off' | 'on-demand' | 'eager'
   readonly nip04Enabled: boolean
   readonly veilCacheTtl: number
   readonly veilCacheMax: number

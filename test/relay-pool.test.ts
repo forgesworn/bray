@@ -220,9 +220,11 @@ describe('RelayPool', () => {
       const result = await pool.publish(NPUB_A, fakeEvent)
       expect(result.success).toBe(true)
       expect(result.accepted).toEqual(['wss://write1.example.com', 'wss://write2.example.com'])
+      // Third arg carries NIP-42 params; empty when auth mode is 'off' (the default)
       expect(inner.publish).toHaveBeenCalledWith(
         ['wss://write1.example.com', 'wss://write2.example.com'],
         fakeEvent,
+        {},
       )
       pool.close()
     })
