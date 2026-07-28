@@ -67,6 +67,7 @@ if (command === 'serve' && !args.includes('--help')) {
     quiet: args.includes('--quiet'),
     auth: args.includes('--auth') || args.includes('--eager-auth'),
     eagerAuth: args.includes('--eager-auth'),
+    blossom: args.includes('--blossom'),
   })
   console.error(`nostr-bray test relay running at ${relayServer.url}`)
   console.error('Press Ctrl+C to stop')
@@ -252,7 +253,7 @@ MuSig2 (BIP-327 multi-signature):
 
 Modes:
   (no command)                        Start MCP server (stdio)
-  serve [--port N] [--events file] [--auth] [--eager-auth]  Start in-memory test relay
+  serve [--port N] [--events file] [--auth] [--eager-auth] [--blossom]  Start in-memory test relay
                                       (--auth requires NIP-42; --eager-auth also challenges on connect)
   bunker connect <bunker://…>              Save remote bunker URI for future commands
   bunker authorize <hex-pubkey>           Pre-authorise an app pubkey on the local bunker
