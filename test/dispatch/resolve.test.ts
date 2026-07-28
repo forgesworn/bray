@@ -53,7 +53,7 @@ describe('resolveRecipient', () => {
   // NIP-19 (nprofile)
   // -------------------------------------------------------------------------
   it('resolves an nprofile to hex', async () => {
-    const nprofile = nprofileEncode({ pubkey: ALICE_HEX, relays: ['wss://relay.trotters.cc'] })
+    const nprofile = nprofileEncode({ pubkey: ALICE_HEX, relays: ['wss://relay.example.com'] })
     const result = await resolveRecipient(nprofile, makeIdentities())
     expect(result.pubkeyHex).toBe(ALICE_HEX)
     expect(result.resolvedVia).toBe('nprofile')

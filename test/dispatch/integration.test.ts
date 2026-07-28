@@ -26,7 +26,7 @@ function mockPool() {
     publish: vi.fn().mockResolvedValue({
       success: true,
       allAccepted: true,
-      accepted: ['wss://relay.trotters.cc'],
+      accepted: ['wss://relay.example.com'],
       rejected: [],
       errors: [],
     }),
@@ -39,7 +39,7 @@ function mockPool() {
     }),
     getRelays: vi.fn().mockReturnValue({
       read: [],
-      write: ['wss://relay.trotters.cc'],
+      write: ['wss://relay.example.com'],
     }),
   }
 }
