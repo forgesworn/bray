@@ -210,7 +210,16 @@ Safety:
 
 Utility:
   req [--kinds N,N] [--authors hex,hex] [--since ts] [--limit N] [--relay url] [--min-trust level]  Query events
-  event --kind N [--tag k=v] [--content s] [--relay url] [--validation strict-known|off]  Validate, sign and publish an arbitrary event
+      [--paginate]                    Walk 'until' backwards until --limit is met
+                                      (--max-pages N caps round-trips, default 20;
+                                       --paginate-interval ms waits between pages)
+      [--ids-only]                    Fetch only event IDs, via NIP-77 negentropy
+      [--only-missing <events.jsonl>] Fetch only events absent from that file (NIP-77)
+  event -k <number|name> [-c content] [-t k=v] [-p pk] [-e id] [-d ident] [-h group]
+        [--relay url] [--pow N] [--created-at ts|ISO|now] [--envelope] [--nevent]
+        [--validation strict-known|off] [--no-publish]
+                                      Validate, sign and publish an arbitrary event.
+                                      -k takes a kind number or a registry name, e.g. -k "short text note"
   validate-event [event-json|--file path] [--validation strict-known|off]  Semantic protocol validation (no signature check)
   publish-raw [--file path] [--report] [--timeout ms] [--quorum n] [--validation strict-known|off]  Validate, sign+broadcast event
   subscribe [--kinds N,N] [--authors hex] [--relay url]  Live-tail events to stdout (JSONL) until SIGINT

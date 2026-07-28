@@ -101,3 +101,43 @@ export function searchKinds(query: string, limit = 20): KindInfo[] {
   scored.sort((a, b) => a.score - b.score || a.kind - b.kind)
   return scored.slice(0, limit).map(s => lookupKind(s.kind))
 }
+
+/**
+ * Resolve a kind given either a number or a description.
+ *
+ * `-k 1` and `-k "short text note"` should both work, which is what nak does
+ * and what makes the CLI usable without memorising kind numbers. An ambiguous
+ * name is an error rather than a guess: silently picking one of several
+ * matching kinds would publish the wrong thing.
+ *
+ * @throws if the name matches no kind, or more than one.
+ */
+export function resolveKind(input: string): number {
+  const trimmed = input.trim()
+  if (/^\d+$/.test(trimmed)) return Number(trimmed)
+
+  const q = trimmed.toLowerCase()
+  const exact: number[] = []
+  const partial: number[] = []
+  for (const [k, schema] of Object.entries(PINNED_KIND_REGISTRY.kinds)) {
+    const desc = (schema.description ?? '').toLowerCase()
+    if (!desc) continue
+    if (desc === q) exact.push(Number(k))
+    else if (desc.includes(q)) partial.push(Number(k))
+  }
+
+  if (exact.length === 1) return exact[0]
+  if (exact.length > 1) {
+    throw new Error(`Kind name "${input}" matches several kinds: ${exact.join(', ')}. Use the number.`)
+  }
+  if (partial.length === 1) return partial[0]
+  if (partial.length > 1) {
+    const shown = partial.slice(0, 8)
+      .map(k => `${k} (${PINNED_KIND_REGISTRY.kinds[String(k)].description})`)
+      .join(', ')
+    throw new Error(
+      `Kind name "${input}" is ambiguous — matches ${partial.length}: ${shown}${partial.length > 8 ? ', …' : ''}. Use the number.`,
+    )
+  }
+  throw new Error(`No kind matches "${input}". Try: nostr-bray kind "${input}"`)
+}

@@ -6,6 +6,7 @@ import {
   isAddressableKind,
   isReplaceableKind,
   isEphemeralKind,
+  resolveKind,
 } from '../../src/event-validation/kind-lookup.js'
 import { handleValidateEvent } from '../../src/event-validation/validator.js'
 
@@ -103,5 +104,35 @@ describe('lookup and validation agree', () => {
   it('reports the same description the registry holds for a kind', () => {
     expect(lookupKind(0).description).toBeTruthy()
     expect(lookupKind(1).description).toBeTruthy()
+  })
+})
+
+describe('resolveKind', () => {
+  it('passes a numeric kind straight through', () => {
+    expect(resolveKind('1')).toBe(1)
+    expect(resolveKind('30023')).toBe(30023)
+    expect(resolveKind(' 7 ')).toBe(7)
+  })
+
+  it('resolves an exact description, case-insensitively', () => {
+    expect(resolveKind('short text note')).toBe(1)
+    expect(resolveKind('SHORT TEXT NOTE')).toBe(1)
+  })
+
+  it('resolves a substring when only one kind matches', () => {
+    expect(resolveKind('long-form content')).toBe(30023)
+  })
+
+  it('refuses an ambiguous name rather than guessing', () => {
+    // Guessing here would publish the wrong kind, silently
+    expect(() => resolveKind('note')).toThrow(/ambiguous/)
+  })
+
+  it('names the candidates when refusing', () => {
+    expect(() => resolveKind('note')).toThrow(/Short text note/)
+  })
+
+  it('points at the kind command when nothing matches', () => {
+    expect(() => resolveKind('definitely-not-a-kind')).toThrow(/nostr-bray kind/)
   })
 })

@@ -46,12 +46,19 @@ export async function dispatch(
       break
 
     case 'req': {
-      // Support JSON filter on stdin when stdin is a pipe
+      // Support a JSON filter on stdin when stdin is a pipe. Not being a TTY
+      // does not guarantee stdin is readable — under a test runner, or a
+      // service manager that hands over a closed descriptor, the read throws
+      // EAGAIN and there is no filter to find anyway.
       let stdinFilter: Record<string, unknown> | undefined
-      const isTTY = process.stdin.isTTY
-      if (!isTTY) {
+      if (!process.stdin.isTTY) {
         const { readFileSync } = await import('node:fs')
-        const raw = readFileSync(0, 'utf-8').trim()
+        let raw = ''
+        try {
+          raw = readFileSync(0, 'utf-8').trim()
+        } catch {
+          raw = ''
+        }
         if (raw) stdinFilter = JSON.parse(raw)
       }
 
@@ -78,6 +85,61 @@ export async function dispatch(
       const paginate = hasFlag('paginate')
       const paginateIntervalMs = flag('paginate-interval') ? parseInt(flag('paginate-interval')!, 10) : undefined
       const maxPages = flag('max-pages') ? parseInt(flag('max-pages')!, 10) : undefined
+
+      // NIP-77 paths run before the normal REQ: both reconcile IDs with one
+      // relay rather than transferring events, which is the whole point.
+      if (hasFlag('ids-only') || hasFlag('only-missing')) {
+        const target = relayOverrides[0] ?? pool.getRelays(ctx.activeNpub).read[0]
+        if (!target) throw new Error('--ids-only and --only-missing need a relay: pass --relay <url>')
+
+        const negFilter = {
+          ...(kindsRaw ? { kinds: kindsRaw.split(',').map(Number) } : {}),
+          ...(authorsRaw ? { authors: authorsRaw.split(',') } : {}),
+          ...(since !== undefined ? { since } : {}),
+          ...(until !== undefined ? { until } : {}),
+        }
+
+        // Reconcile against what we already hold: nothing for --ids-only, the
+        // supplied jsonl for --only-missing.
+        let local: Array<{ id: string; createdAt: number }> = []
+        if (hasFlag('only-missing')) {
+          const { readFileSync } = await import('node:fs')
+          const { validateInputPath } = await import('../../validation.js')
+          const path = flag('only-missing')
+          if (!path) throw new Error('Usage: req --only-missing <events.jsonl> [--relay url]')
+          local = readFileSync(validateInputPath(path), 'utf8')
+            .split('\n')
+            .filter(l => l.trim())
+            .map(l => {
+              const e = JSON.parse(l)
+              return { id: e.id, createdAt: e.created_at }
+            })
+        }
+
+        const recon = await pool.reconcileDirect(target, local, negFilter, {
+          timeoutMs: flag('timeout') ? parseInt(flag('timeout')!, 10) : undefined,
+          maxIds: limit,
+        })
+
+        if (recon.truncated) {
+          console.error(`note: result truncated at ${recon.remoteOnlyIds.length} ids; raise --limit to see more`)
+        }
+
+        if (hasFlag('ids-only')) {
+          for (const id of recon.remoteOnlyIds) console.log(id)
+          break
+        }
+
+        // --only-missing: fetch just the events we do not already have
+        if (recon.remoteOnlyIds.length === 0) break
+        const missing = await handleRelayQuery(pool, ctx.activeNpub, {
+          ids: recon.remoteOnlyIds,
+          relays: [target],
+          limit: recon.remoteOnlyIds.length,
+        } as any)
+        for (const ev of missing) console.log(JSON.stringify(ev))
+        break
+      }
 
       const queryArgs = {
         ...(stdinFilter ?? {

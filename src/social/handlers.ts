@@ -634,11 +634,13 @@ export async function handlePublishEvent(
     pow?: number
     /** Wall-clock budget for mining, in milliseconds. */
     powTimeoutMs?: number
+    /** Unix timestamp for created_at. Defaults to now. */
+    createdAt?: number
   },
 ): Promise<ValidatedPostResult & { pow?: Omit<MinePowResult, 'template'> }> {
   let template = {
     kind: args.kind,
-    created_at: Math.floor(Date.now() / 1000),
+    created_at: args.createdAt ?? Math.floor(Date.now() / 1000),
     tags: args.tags ?? [],
     content: args.content,
   }

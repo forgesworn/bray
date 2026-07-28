@@ -109,11 +109,11 @@ nak has no library surface at all. It is a binary.
 ### Worth doing
 
 1. ~~**Standalone NIP-59 `gift wrap` / `gift unwrap`**~~ Done — `gift-wrap` / `gift-unwrap`, for arbitrary events, via the SigningContext so it works under NIP-46.
-2. **`serve --auth`** done; `--negentropy` and `--blossom` still outstanding.
-3. **Event ergonomics** — tag shortcuts, kind-by-name, `--created-at`, `--envelope`, `--nevent`. Still outstanding.
+2. **`serve --auth`** done. `--blossom` still outstanding. **`--negentropy` is blocked**: nostr-tools' `Negentropy` is initiator-only — on receiving an IdList it fires `onhave`/`onneed` and emits nothing, so it cannot answer as a relay. Serving NIP-77 means hand-writing the responder half of the protocol (bounds, fingerprints, varints), which is not a small or safe bolt-on. Until then `req --ids-only`, `req --only-missing` and `sync-plan` can only be exercised against a third-party relay that supports NIP-77.
+3. ~~**Event ergonomics**~~ Done — `-k/-c/-t/-r` aliases, `-p/-e/-d/-h` tag shortcuts, kind-by-name, `--created-at`, `--envelope`, `--nevent`.
 4. ~~**Expose the 7 blossom tools missing from the CLI.**~~ Done — all ten reachable now.
 5. **`bunker --qrcode`** — deliberately skipped. It needs a new runtime dependency (QR encoding is not something to hand-roll) for a convenience feature, and bray's dependency surface is deliberately small. Worth revisiting if bunker pairing from a phone becomes a common flow.
-6. **`--ids-only` / `--only-missing` on `req`**, reusing the NIP-77 work already done for `sync-plan`. Still outstanding.
+6. ~~**`--ids-only` / `--only-missing` on `req`**~~ Done, reusing `reconcileDirect`. Wiring is unit-tested; end-to-end needs a NIP-77 relay, for the reason in item 2.
 
 ### Decide rather than default
 

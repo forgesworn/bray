@@ -63,6 +63,10 @@ export interface Helpers {
   flag(name: string, fallback?: string): string | undefined
   flags(name: string): string[]
   hasFlag(name: string): boolean
+  /** First value of whichever alias is present. Single-character names take one dash. */
+  flagAny(...names: string[]): string | undefined
+  /** Every value across all the given aliases, in command-line order. */
+  flagsAny(...names: string[]): string[]
   out(data: unknown, humanFormatter?: (d: any) => string): void
 }
 
@@ -143,6 +147,27 @@ export function makeHelpers(cmdArgs: string[], outputMode: OutputMode): Helpers 
     return result
   }
 
+  // `-k` and `--kind` should behave identically, so aliases are resolved by
+  // dash count rather than requiring every callsite to spell out both forms.
+  const asSwitch = (name: string): string => (name.length === 1 ? `-${name}` : `--${name}`)
+
+  function flagAny(...names: string[]): string | undefined {
+    const wanted = names.map(asSwitch)
+    for (let i = 0; i < cmdArgs.length - 1; i++) {
+      if (wanted.includes(cmdArgs[i])) return cmdArgs[i + 1]
+    }
+    return undefined
+  }
+
+  function flagsAny(...names: string[]): string[] {
+    const wanted = names.map(asSwitch)
+    const result: string[] = []
+    for (let i = 0; i < cmdArgs.length - 1; i++) {
+      if (wanted.includes(cmdArgs[i])) result.push(cmdArgs[i + 1])
+    }
+    return result
+  }
+
   function out(data: unknown, humanFormatter?: (d: any) => string): void {
     switch (outputMode) {
       case 'jsonl':
@@ -170,7 +195,7 @@ export function makeHelpers(cmdArgs: string[], outputMode: OutputMode): Helpers 
     }
   }
 
-  return { req, flag, flags, hasFlag, out }
+  return { req, flag, flags, hasFlag, flagAny, flagsAny, out }
 }
 
 /** Parse a shell line into args, respecting quotes */
