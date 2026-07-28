@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.0 (2026-07-28)
+
+### Features
+
+- serve Blossom blob endpoints from the test relay
+
+
+
 ## 2.2.0 (2026-07-28)
 
 ### Features
