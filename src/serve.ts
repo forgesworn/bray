@@ -53,7 +53,7 @@ function matchFilters(filters: Filter[], event: NostrEvent): boolean {
   return filters.some(f => matchFilter(f, event))
 }
 
-export function startRelay(opts: ServeOptions = {}): { url: string; close: () => void } {
+export function startRelay(opts: ServeOptions = {}): { url: string; port: number; ready: Promise<void>; close: () => void } {
   const hostname = opts.hostname ?? 'localhost'
   const port = opts.port ?? 10547
   const quiet = opts.quiet ?? false
@@ -201,12 +201,30 @@ export function startRelay(opts: ServeOptions = {}): { url: string; close: () =>
     })
   })
 
-  httpServer.listen(port, hostname, () => {
-    log(`Listening on ws://${hostname}:${port}`)
+  // Resolves once the socket is actually bound. Callers that connect straight
+  // after startRelay() returns would otherwise race the listen callback — and
+  // with port 0 the assigned port is not even known until it fires.
+  const ready = new Promise<void>((resolve, reject) => {
+    httpServer.once('error', reject)
+    httpServer.listen(port, hostname, () => {
+      log(`Listening on ${urlFor(boundPort())}`)
+      resolve()
+    })
   })
 
+  // With port 0 the OS assigns a free port, so the requested port is not the
+  // one we ended up on. Callers (and tests, which use 0 to avoid colliding
+  // with a parallel run) need the real one.
+  const boundPort = (): number => {
+    const addr = httpServer.address()
+    return typeof addr === 'object' && addr ? addr.port : port
+  }
+  const urlFor = (p: number): string => `ws://${hostname}:${p}`
+
   return {
-    url: `ws://${hostname}:${port}`,
+    get url() { return urlFor(boundPort()) },
+    get port() { return boundPort() },
+    ready,
     close: () => {
       wss.close()
       httpServer.close()

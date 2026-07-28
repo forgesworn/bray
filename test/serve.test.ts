@@ -42,17 +42,13 @@ function collectMessages(ws: WebSocket, count: number, timeoutMs = 3000): Promis
 }
 
 describe('serve — in-memory relay', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
+    // Port 0 lets the OS pick a free port. A fixed port made this suite fail
+    // intermittently whenever anything else held it — including another vitest
+    // worker in the same run. Await `ready`, or the first connection races the
+    // listen callback and the assigned port is not yet known.
     relay = startRelay({ port: 0, quiet: true })
-    // Extract actual port from url
-    url = relay.url
-    // startRelay uses the given port; for test isolation let's use a random one
-  })
-
-  // Use a fixed port for predictable tests
-  beforeAll(() => {
-    relay.close()
-    relay = startRelay({ port: 19547, quiet: true })
+    await relay.ready
     url = relay.url
   })
 
