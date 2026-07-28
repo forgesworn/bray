@@ -27,6 +27,7 @@ import {
 import { handleValidateEvent } from '../event-validation/validator.js'
 import { eventValidationModeSchema, semanticEventInputSchema } from '../event-validation/tools-schema.js'
 import { lookupKind, searchKinds } from '../event-validation/kind-lookup.js'
+import { handleGiftWrap, handleGiftUnwrap } from '../event/gift-wrap.js'
 
 export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('decode', {
@@ -114,6 +115,39 @@ export function registerUtilTools(server: McpServer, deps: ToolDeps): void {
     annotations: { readOnlyHint: true, openWorldHint: false },
   }, async ({ event, mode }) => {
     const result = handleValidateEvent(event, mode)
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('gift-wrap', {
+    description:
+      'Seal and gift-wrap any event for one recipient (NIP-59). Returns a kind 1059 wrap signed by a throwaway key, ' +
+      'so nothing public links it to you. Use for metadata-private delivery of arbitrary events; DMs already wrap themselves via dm-send.',
+    inputSchema: {
+      event: z.object({
+        kind: z.number().int().min(0).describe('Kind of the event to wrap'),
+        content: z.string().optional().describe('Event content'),
+        tags: z.array(z.array(z.string())).optional().describe('Event tags'),
+        created_at: z.number().int().optional().describe('Unix timestamp (defaults to now)'),
+      }).describe('The event to wrap. It is sealed unsigned, as NIP-59 requires.'),
+      recipient_pubkey: hexId.describe('Recipient hex public key'),
+    },
+    annotations: { readOnlyHint: true, openWorldHint: false },
+  }, async ({ event, recipient_pubkey }) => {
+    const result = await handleGiftWrap(deps.ctx, { event, recipientPubkey: recipient_pubkey })
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+  })
+
+  server.registerTool('gift-unwrap', {
+    description:
+      'Unwrap a NIP-59 kind 1059 gift wrap addressed to the active identity, returning the hidden rumor and the ' +
+      'pubkey that sealed it. Also reports whether the sealer matches the rumor\'s claimed author — a rumor is ' +
+      'unsigned, so its pubkey is a claim rather than proof, and a mismatch means someone sealed an event attributed to a third party.',
+    inputSchema: {
+      event: nostrEventSchema.describe('The kind 1059 gift wrap to open'),
+    },
+    annotations: { readOnlyHint: true, openWorldHint: false },
+  }, async ({ event }) => {
+    const result = await handleGiftUnwrap(deps.ctx, { event: event as any })
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
 

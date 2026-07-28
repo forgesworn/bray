@@ -30,6 +30,8 @@ export const COMPOUND_COMMANDS = new Set([
   'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-rank',
   'nip-publish', 'nip-read',
   'relay-set', 'relay-add', 'relay-curl',
+  // blossom two-word forms
+  'blossom-servers-set',
   'outbox-relays', 'outbox-publish',
   'ring-prove', 'ring-verify',
   'musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate',
@@ -48,7 +50,7 @@ export const OFFLINE_COMMANDS = new Set([
   'ring-verify', 'zap-decode', 'safety-configure', 'safety-activate',
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
   'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'verify', 'encrypt', 'decrypt',
-  'validate-event', 'kind',
+  'validate-event', 'kind', 'gift-wrap', 'gift-unwrap',
   'musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate',
   // wallet config subcommands don't touch the relay
   'wallet-connect', 'wallet-disconnect', 'wallet-status',

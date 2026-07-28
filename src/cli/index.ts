@@ -62,7 +62,12 @@ if (command === 'serve' && !args.includes('--help')) {
   const hostname = args.includes('--hostname') ? args[args.indexOf('--hostname') + 1] : 'localhost'
   const port = args.includes('--port') ? parseInt(args[args.indexOf('--port') + 1], 10) : 10547
   const eventsFile = args.includes('--events') ? args[args.indexOf('--events') + 1] : undefined
-  const relayServer = startRelay({ hostname, port, eventsFile, quiet: args.includes('--quiet') })
+  const relayServer = startRelay({
+    hostname, port, eventsFile,
+    quiet: args.includes('--quiet'),
+    auth: args.includes('--auth') || args.includes('--eager-auth'),
+    eagerAuth: args.includes('--eager-auth'),
+  })
   console.error(`nostr-bray test relay running at ${relayServer.url}`)
   console.error('Press Ctrl+C to stop')
   process.on('SIGINT', () => { relayServer.close(); process.exit(0) })
@@ -109,6 +114,15 @@ Social:
   blossom-upload <server> <file>      Upload file to blossom media server
   blossom-list <server> <pubkey>      List blobs on blossom server
   blossom-delete <server> <sha256>    Delete blob from blossom server
+  blossom-download <server> <sha256> [file]  Download a blob (stdout if no file)
+  blossom-check <server> <sha256> [--verify]  Check a blob exists
+  blossom-discover [--pubkey hex ...] Discover servers from kind 10063 lists
+  blossom-verify <content> [--verify-hash]    Check media URLs in content resolve
+  blossom-repair <sha256> --search <url>... [--target <url>]  Re-upload a lost blob
+  blossom-usage <pubkey-hex> --server <url>...  Storage used per server
+  blossom-mirror --server <url>... [--source <url>|--file <path>]  Copy a blob to servers
+  blossom-servers <pubkey-hex>        Read a kind 10063 server list
+  blossom-servers-set --server <url>...  Publish your kind 10063 server list
   group-info <relay> <group-id>       Fetch verified NIP-29 group metadata
   group-chat <relay> <group-id>       Fetch relay-scoped group chat
   group-send <relay> <group-id> "message"  Send a group message
@@ -213,6 +227,8 @@ Utility:
   nips                                List all official NIPs
   nip <number>                        Show a specific NIP
   kind <number|text>                  Look up an event kind: required tags, value shapes
+  gift-wrap <pubkey-hex> <event|-> [--file f]  Seal + wrap an event for a recipient (NIP-59)
+  gift-unwrap <event-json|-> [--file f]        Open a kind 1059 gift wrap addressed to you
   verify <event-json>                 Verify event hash and signature
   encrypt <pubkey-hex> "plaintext"    NIP-44 encrypt for a recipient
   decrypt <pubkey-hex> <ciphertext>   NIP-44 decrypt from a sender
@@ -227,7 +243,8 @@ MuSig2 (BIP-327 multi-signature):
 
 Modes:
   (no command)                        Start MCP server (stdio)
-  serve [--port N] [--events file]    Start in-memory test relay
+  serve [--port N] [--events file] [--auth] [--eager-auth]  Start in-memory test relay
+                                      (--auth requires NIP-42; --eager-auth also challenges on connect)
   bunker connect <bunker://…>              Save remote bunker URI for future commands
   bunker authorize <hex-pubkey>           Pre-authorise an app pubkey on the local bunker
   bunker status                           Show saved bunker connection state
@@ -395,6 +412,7 @@ const SOCIAL_CMDS = new Set([
   'contacts', 'follow', 'unfollow', 'dm', 'dm-read', 'feed', 'notifications',
   'nip-publish', 'nip-read',
   'blossom-upload', 'blossom-list', 'blossom-delete',
+  'blossom-download', 'blossom-check', 'blossom-discover', 'blossom-verify', 'blossom-repair', 'blossom-usage', 'blossom-mirror', 'blossom-servers', 'blossom-servers-set',
   'group-info', 'group-chat', 'group-send', 'group-members',
   'group-admins', 'group-roles', 'group-inspect',
   'group-create', 'group-update', 'group-add-user', 'group-remove-user',
@@ -411,7 +429,7 @@ const SAFETY_CMDS = new Set(['safety-configure', 'safety-activate'])
 const EVENT_CMDS = new Set(['event', 'publish-raw'])
 const UTIL_CMDS = new Set([
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
-  'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'validate-event', 'kind', 'encrypt', 'decrypt', 'count', 'fetch',
+  'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'validate-event', 'kind', 'gift-wrap', 'gift-unwrap', 'encrypt', 'decrypt', 'count', 'fetch',
 ])
 const MUSIG2_CMDS = new Set(['musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate'])
 const SYNC_CMDS = new Set(['sync-plan', 'sync-pull', 'sync-push'])
@@ -463,6 +481,7 @@ const ALL_COMMANDS = [
   'zap-send', 'zap-balance', 'zap-invoice', 'zap-lookup', 'zap-transactions', 'zap-receipts', 'zap-decode',
   'safety-configure', 'safety-activate',
   'blossom-upload', 'blossom-list', 'blossom-delete',
+  'blossom-download', 'blossom-check', 'blossom-discover', 'blossom-verify', 'blossom-repair', 'blossom-usage', 'blossom-mirror', 'blossom-servers', 'blossom-servers-set',
   'group-info', 'group-chat', 'group-send', 'group-members',
   'group-admins', 'group-roles', 'group-inspect',
   'group-create', 'group-update', 'group-add-user', 'group-remove-user',
@@ -470,7 +489,7 @@ const ALL_COMMANDS = [
   'group-forum-topics', 'group-forum-topic-create', 'group-forum-comments', 'group-forum-comment',
   'event', 'publish-raw',
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
-  'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'validate-event', 'kind', 'encrypt', 'decrypt', 'count', 'fetch',
+  'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'validate-event', 'kind', 'gift-wrap', 'gift-unwrap', 'encrypt', 'decrypt', 'count', 'fetch',
   'musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate',
   'sync-plan', 'sync-pull', 'sync-push',
   ...ADMIN_COMMANDS,
