@@ -69,6 +69,8 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
       limit: z.number().int().min(1).max(500).optional().describe('Maximum number of events to return (default 50, max 500)'),
       relays: z.array(relayUrl).optional().describe('Explicit relay URLs to query (overrides identity relay set)'),
       search: z.string().optional().describe('Full-text search query (NIP-50). Only works on relays that support NIP-50; others will ignore it.'),
+      paginate: z.boolean().optional().describe('Issue repeated REQs, walking "until" backwards, until "limit" events are collected or the relay runs dry. Relays cap a single REQ (commonly 100-500 events), so without this a large "limit" is silently truncated and the result looks complete when it is not.'),
+      max_pages: z.number().int().min(1).max(100).optional().describe('Cap on REQ round-trips when paginating (default 20). Guards against a slow relay turning one query into a long loop.'),
       // Alias: some MCP clients naturally wrap the whole filter in a single "filter" object.
       // Without this alias the MCP SDK silently strips the unknown key, leaving the handler
       // with an empty argument set and returning a broad firehose of events.
@@ -101,6 +103,8 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
       limit: mergedLimit,
       relays: args.relays,
       search: args.search ?? f.search,
+      paginate: args.paginate,
+      maxPages: args.max_pages,
     })
     const summary = events.map(e => ({
       id: e.id,
@@ -110,9 +114,18 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
       content: e.content.length > 500 ? e.content.slice(0, 500) + '...' : e.content,
       created_at: e.created_at,
     }))
+    // A full page is indistinguishable from a truncated one unless we say so.
+    // Without this the caller reads `count: 50` as "that is all there is".
+    const maybeMore = !args.paginate && events.length >= mergedLimit
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(
-        { count: events.length, events: summary },
+        {
+          count: events.length,
+          ...(maybeMore ? {
+            note: `Returned exactly the limit (${mergedLimit}), so there may be more. Re-run with paginate: true to collect the full set, or raise the limit.`,
+          } : {}),
+          events: summary,
+        },
         null, 2,
       ) }],
     }

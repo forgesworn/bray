@@ -184,6 +184,19 @@ export interface RelayQueryArgs {
   limit?: number
   relays?: string[]
   search?: string
+  /**
+   * Keep issuing REQs, walking `until` backwards, until `limit` events have
+   * been collected or the relay runs dry.
+   *
+   * Relays cap how many events one REQ returns (commonly 100-500), so a plain
+   * query silently truncates: the caller cannot tell a complete result from a
+   * partial one. Pagination makes `limit` mean what it says.
+   */
+  paginate?: boolean
+  /** Milliseconds to wait between pages. Defaults to 0. */
+  paginateIntervalMs?: number
+  /** Safety valve on the number of REQs issued when paginating. Defaults to 20. */
+  maxPages?: number
 }
 
 /**
@@ -239,10 +252,78 @@ export async function handleRelayQuery(
 
   if (args.relays?.length) {
     for (const url of args.relays) validateRelayUrl(url)
-    return pool.queryDirect(args.relays, filter)
   }
 
-  return pool.query(npub, filter)
+  const runQuery = (f: Filter): Promise<NostrEvent[]> =>
+    args.relays?.length ? pool.queryDirect(args.relays, f) : pool.query(npub, f)
+
+  if (!args.paginate) return runQuery(filter)
+
+  return paginateQuery(runQuery, filter, {
+    intervalMs: args.paginateIntervalMs ?? 0,
+    maxPages: args.maxPages ?? DEFAULT_MAX_PAGES,
+  })
+}
+
+/** Default cap on REQ round-trips for a single paginated query. */
+export const DEFAULT_MAX_PAGES = 20
+
+/**
+ * Issue repeated REQs, walking `until` backwards, until `limit` events are
+ * collected or the relay stops returning anything new.
+ *
+ * Each page asks for the full remaining count. `until` moves to the oldest
+ * `created_at` seen so far; events sharing that exact timestamp are deduplicated
+ * by id, which is what stops a page boundary that lands mid-second from either
+ * looping forever or skipping events.
+ */
+export async function paginateQuery(
+  runQuery: (filter: Filter) => Promise<NostrEvent[]>,
+  baseFilter: Filter,
+  opts: { intervalMs: number; maxPages: number },
+): Promise<NostrEvent[]> {
+  const target = baseFilter.limit ?? 50
+  const seen = new Set<string>()
+  const collected: NostrEvent[] = []
+  let until = baseFilter.until
+  let pages = 0
+
+  while (collected.length < target && pages < opts.maxPages) {
+    // Every page after the first re-fetches the boundary event (until is
+    // inclusive), so ask for one extra or the final page comes up short.
+    const remaining = target - collected.length
+    const pageFilter: Filter = {
+      ...baseFilter,
+      limit: until !== undefined ? remaining + 1 : remaining,
+      ...(until !== undefined ? { until } : {}),
+    }
+
+    const page = await runQuery(pageFilter)
+    pages++
+
+    let added = 0
+    let oldest = until
+    for (const ev of page) {
+      if (oldest === undefined || ev.created_at < oldest) oldest = ev.created_at
+      if (seen.has(ev.id)) continue
+      seen.add(ev.id)
+      collected.push(ev)
+      added++
+      if (collected.length >= target) break
+    }
+
+    // Nothing new came back, or the relay cannot go further back: we are done.
+    if (added === 0 || page.length === 0) break
+    if (oldest === undefined) break
+    if (baseFilter.since !== undefined && oldest <= baseFilter.since) break
+
+    // Include the oldest timestamp again so events sharing that second are not
+    // skipped; the id dedupe above absorbs the overlap.
+    until = oldest
+    if (opts.intervalMs > 0) await new Promise(r => setTimeout(r, opts.intervalMs))
+  }
+
+  return collected
 }
 
 /**

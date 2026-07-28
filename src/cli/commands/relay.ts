@@ -75,15 +75,25 @@ export async function dispatch(
         }
       }
 
-      const queryArgs = stdinFilter ?? {
-        ...(kindsRaw ? { kinds: kindsRaw.split(',').map(Number) } : {}),
-        ...(authorsRaw ? { authors: authorsRaw.split(',') } : {}),
-        ...(since !== undefined ? { since } : {}),
-        ...(until !== undefined ? { until } : {}),
-        ...(limit !== undefined ? { limit } : {}),
-        ...(search ? { search } : {}),
-        ...(Object.keys(tags).length ? { tags } : {}),
-        ...(relayOverrides.length ? { relays: relayOverrides } : {}),
+      const paginate = hasFlag('paginate')
+      const paginateIntervalMs = flag('paginate-interval') ? parseInt(flag('paginate-interval')!, 10) : undefined
+      const maxPages = flag('max-pages') ? parseInt(flag('max-pages')!, 10) : undefined
+
+      const queryArgs = {
+        ...(stdinFilter ?? {
+          ...(kindsRaw ? { kinds: kindsRaw.split(',').map(Number) } : {}),
+          ...(authorsRaw ? { authors: authorsRaw.split(',') } : {}),
+          ...(since !== undefined ? { since } : {}),
+          ...(until !== undefined ? { until } : {}),
+          ...(limit !== undefined ? { limit } : {}),
+          ...(search ? { search } : {}),
+          ...(Object.keys(tags).length ? { tags } : {}),
+          ...(relayOverrides.length ? { relays: relayOverrides } : {}),
+        }),
+        // Pagination is a transport concern, so it applies to a stdin filter too
+        ...(paginate ? { paginate } : {}),
+        ...(paginateIntervalMs !== undefined ? { paginateIntervalMs } : {}),
+        ...(maxPages !== undefined ? { maxPages } : {}),
       }
 
       let events = await handleRelayQuery(pool, ctx.activeNpub, queryArgs as any)
