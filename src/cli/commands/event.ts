@@ -23,12 +23,19 @@ export async function dispatch(
       const content = flag('content') ?? ''
       const validationMode = parseValidationMode(flag('validation'))
       const relayOverrides = flags('relay')
+      const pow = flag('pow') ? parseInt(flag('pow')!, 10) : undefined
+      const powTimeoutMs = flag('pow-timeout') ? parseInt(flag('pow-timeout')!, 10) : undefined
+
       if (hasFlag('no-publish')) {
-        const template = {
+        const { minePow } = await import('../../event/pow.js')
+        let template = {
           kind,
           created_at: Math.floor(Date.now() / 1000),
           tags: tagValues,
           content,
+        }
+        if (pow !== undefined) {
+          template = minePow(template, { difficulty: pow, pubkey: ctx.activePublicKeyHex, timeoutMs: powTimeoutMs }).template
         }
         const validation = assertEventSemanticallyValid(template, validationMode)
         reportWarnings(validation.issues)
@@ -43,6 +50,8 @@ export async function dispatch(
         tags: tagValues,
         relays: relayOverrides.length ? relayOverrides : undefined,
         validationMode,
+        pow,
+        powTimeoutMs,
       }))
       break
     }
@@ -66,6 +75,8 @@ export async function dispatch(
         timeoutMs,
         quorum,
         validationMode,
+        pow: flag('pow') ? parseInt(flag('pow')!, 10) : undefined,
+        powTimeoutMs: flag('pow-timeout') ? parseInt(flag('pow-timeout')!, 10) : undefined,
       })
 
       if (report) {

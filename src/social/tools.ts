@@ -53,6 +53,7 @@ import { handleBadgeCreate, handleBadgeAward, handleBadgeAccept, handleBadgeList
 import { handleCommunityCreate, handleCommunityFeed, handleCommunityPost, handleCommunityApprove, handleCommunityList } from './communities.js'
 import { handleWikiPublish, handleWikiRead, handleWikiList } from './wiki.js'
 import { handlePostSchedule, handlePostQueueList, handlePostQueueCancel } from './scheduled.js'
+import { MAX_POW_DIFFICULTY } from '../event/pow.js'
 import { eventValidationModeSchema } from '../event-validation/tools-schema.js'
 import { EventSemanticValidationError } from '../event-validation/validator.js'
 
@@ -1360,11 +1361,17 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       content: z.string().describe('Event content'),
       tags: z.array(z.array(z.string())).optional().describe('Event tags as [[key, value, ...], ...]'),
       validationMode: eventValidationModeSchema.describe('strict-known rejects malformed known kinds; off is an explicit escape hatch'),
+      pow: z.number().int().min(1).max(MAX_POW_DIFFICULTY).optional()
+        .describe(`NIP-13 proof-of-work difficulty in leading zero bits (1-${MAX_POW_DIFFICULTY}). Some relays require a minimum. Cost doubles per bit: 20 is roughly a second, 30 is roughly ten minutes.`),
+      pow_timeout_ms: z.number().int().min(1000).max(300_000).optional()
+        .describe('Wall-clock budget for mining, in milliseconds (default 30000). Mining aborts with an error rather than running forever.'),
     },
     annotations: { readOnlyHint: false, destructiveHint: true },
-  }, async ({ kind, content, tags, validationMode }) => {
+  }, async ({ kind, content, tags, validationMode, pow, pow_timeout_ms }) => {
     try {
-      const result = await handlePublishEvent(deps.ctx, deps.pool, { kind, content, tags, validationMode })
+      const result = await handlePublishEvent(deps.ctx, deps.pool, {
+        kind, content, tags, validationMode, pow, powTimeoutMs: pow_timeout_ms,
+      })
       return {
         content: [{ type: 'text' as const, text: JSON.stringify({
           id: result.event.id,
@@ -1373,6 +1380,7 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
           tags: result.event.tags,
           validation: result.validation,
           publish: result.publish,
+          ...(result.pow ? { pow: result.pow } : {}),
         }, null, 2) }],
       }
     } catch (error) {

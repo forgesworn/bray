@@ -12,6 +12,7 @@ import type { PublishResult } from '../types.js'
 import { verifyEvent } from 'nostr-tools/pure'
 import { assertEventSemanticallyValid } from '../event-validation/validator.js'
 import type { EventValidationMode, EventValidationResult } from '../event-validation/validator.js'
+import { minePow, type MinePowResult } from './pow.js'
 
 export interface PublishRawResult {
   event: NostrEvent
@@ -19,6 +20,8 @@ export interface PublishRawResult {
   /** True when the handler signed the event (vs broadcasting as-is). */
   signed: boolean
   validation: EventValidationResult
+  /** Present when NIP-13 proof of work was mined for this event. */
+  pow?: Omit<MinePowResult, 'template'>
 }
 
 /**
@@ -60,24 +63,47 @@ export async function handlePublishRaw(
     quorum?: number
     /** Semantic validation policy. strict-known is the safe default. */
     validationMode?: EventValidationMode
+    /** NIP-13 difficulty in leading zero bits. Requires signing (incompatible with `noSign`). */
+    pow?: number
+    /** Wall-clock budget for mining, in milliseconds. */
+    powTimeoutMs?: number
   },
 ): Promise<PublishRawResult> {
   let event: NostrEvent
   let signed = false
   let validation: EventValidationResult
+  let pow: Omit<MinePowResult, 'template'> | undefined
 
   if (!args.noSign && (!args.event.id || !args.event.sig)) {
-    const template = {
+    let template = {
       kind: (args.event.kind as number) ?? 1,
       created_at: (args.event.created_at as number) ?? Math.floor(Date.now() / 1000),
       tags: (args.event.tags as string[][]) ?? [],
       content: (args.event.content as string) ?? '',
     }
+
+    if (args.pow !== undefined) {
+      // Mine before validating and signing: the nonce tag and the mined
+      // created_at are part of the hashed payload, so both the validator and
+      // the signer must see the final template.
+      const mined = minePow(template, {
+        difficulty: args.pow,
+        pubkey: ctx.activePublicKeyHex,
+        timeoutMs: args.powTimeoutMs,
+      })
+      template = mined.template
+      const { template: _discard, ...stats } = mined
+      pow = stats
+    }
+
     validation = assertEventSemanticallyValid(template, args.validationMode)
     const sign = ctx.getSigningFunction()
     event = await sign(template)
     signed = true
   } else {
+    if (args.pow !== undefined) {
+      throw new Error('pow requires signing — it cannot be combined with noSign or a pre-signed event')
+    }
     event = args.event as NostrEvent
     validation = assertEventSemanticallyValid(event, args.validationMode)
     if (!verifyEvent(event)) {
@@ -96,5 +122,5 @@ export async function handlePublishRaw(
     ;(publish as { success: boolean }).success = met
   }
 
-  return { event, publish, signed, validation }
+  return { event, publish, signed, validation, ...(pow ? { pow } : {}) }
 }
