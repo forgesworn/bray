@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.42.0 (2026-07-28)
+
+### Features
+
+- add kind-info lookup over the pinned registry
+- mine NIP-13 proof of work before signing
+- answer NIP-42 AUTH challenges, off by default
+- paginate relay queries past the single-REQ cap
+
+### Bug Fixes
+
+- send NIP-86 spec method names and cover the full management API
+
+
+
 ## 1.41.0 (2026-07-18)
 
 ### Features
