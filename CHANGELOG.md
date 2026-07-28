@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.42.1 (2026-07-28)
+
+### Bug Fixes
+
+- bound bunker connect and make startup non-blocking
+
+
+
 ## 1.42.0 (2026-07-28)
 
 ### Features
