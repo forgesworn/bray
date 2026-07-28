@@ -7,8 +7,9 @@
 
 import { WebSocketServer, WebSocket } from 'ws'
 import { createServer } from 'node:http'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import { readFileSync } from 'node:fs'
-import { randomBytes } from 'node:crypto'
+import { randomBytes, createHash } from 'node:crypto'
 import { verifyEvent } from 'nostr-tools/pure'
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
 
@@ -27,6 +28,13 @@ export interface ServeOptions {
   auth?: boolean
   /** Send the AUTH challenge on connect rather than waiting for a rejection. */
   eagerAuth?: boolean
+  /**
+   * Serve Blossom blob endpoints (BUD-01/02) alongside the relay.
+   *
+   * bray has ten blossom tools but no way to exercise them without a real
+   * blossom server, the same gap `--auth` closed for NIP-42.
+   */
+  blossom?: boolean
 }
 
 interface Subscription {
@@ -87,12 +95,155 @@ function checkAuthEvent(event: NostrEvent | undefined, challenge: string): strin
   return undefined
 }
 
+type BlobStore = Map<string, { data: Buffer; type: string; uploader: string; uploaded: number }>
+
+const SHA256_PATH = /^\/([0-9a-f]{64})(\.[a-z0-9]+)?$/i
+const LIST_PATH = /^\/list\/([0-9a-f]{64})$/i
+/** 10 MiB, matching what the client refuses to send. */
+const MAX_BLOB = 10 * 1024 * 1024
+
+/** Does this URL belong to the Blossom surface rather than the relay? */
+function isBlossomRequest(url: string): boolean {
+  const path = url.split('?')[0]
+  return path === '/upload' || SHA256_PATH.test(path) || LIST_PATH.test(path)
+}
+
+/**
+ * Check a BUD-01 `Authorization: Nostr <base64 kind 24242>` header.
+ *
+ * Returns the uploader pubkey, or a reason to reject. The `t` and `x` tags are
+ * both checked: without `x` an upload authorisation could be replayed to
+ * delete a different blob, which is the whole point of binding it to a hash.
+ */
+function checkBlossomAuth(
+  header: string | undefined,
+  action: 'upload' | 'delete' | 'list',
+  sha256: string | undefined,
+): { pubkey: string } | { error: string } {
+  if (!header?.startsWith('Nostr ')) return { error: 'missing Nostr authorization header' }
+
+  let event: NostrEvent
+  try {
+    event = JSON.parse(Buffer.from(header.slice(6), 'base64').toString('utf8'))
+  } catch {
+    return { error: 'authorization header is not base64-encoded JSON' }
+  }
+
+  if (event.kind !== 24242) return { error: `expected kind 24242, got ${event.kind}` }
+  if (!verifyEvent(event)) return { error: 'invalid signature' }
+
+  const t = event.tags?.find(tag => tag[0] === 't')?.[1]
+  if (t !== action) return { error: `authorization is for "${t}", not "${action}"` }
+
+  const expiration = event.tags?.find(tag => tag[0] === 'expiration')?.[1]
+  if (expiration && Number(expiration) < Math.floor(Date.now() / 1000)) {
+    return { error: 'authorization expired' }
+  }
+
+  if (sha256) {
+    const x = event.tags?.filter(tag => tag[0] === 'x').map(tag => tag[1]) ?? []
+    if (!x.includes(sha256)) return { error: 'authorization does not name this blob hash' }
+  }
+
+  return { pubkey: event.pubkey }
+}
+
+function readBody(req: IncomingMessage): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = []
+    let size = 0
+    req.on('data', (c: Buffer) => {
+      size += c.length
+      if (size > MAX_BLOB) {
+        reject(new Error(`blob exceeds ${MAX_BLOB} bytes`))
+        req.destroy()
+        return
+      }
+      chunks.push(c)
+    })
+    req.on('end', () => resolve(Buffer.concat(chunks)))
+    req.on('error', reject)
+  })
+}
+
+/** Serve BUD-01/02: PUT /upload, GET|HEAD /<sha256>, GET /list/<pubkey>, DELETE /<sha256>. */
+async function serveBlossom(
+  req: IncomingMessage,
+  res: ServerResponse,
+  blobs: BlobStore,
+  hostname: string,
+  log: (...args: unknown[]) => void,
+): Promise<void> {
+  const path = (req.url ?? '/').split('?')[0]
+  const port = (req.socket.localPort ?? 0)
+  const base = `http://${hostname}:${port}`
+  const json = (code: number, body: unknown): void => {
+    res.writeHead(code, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify(body))
+  }
+
+  try {
+    if (path === '/upload' && req.method === 'PUT') {
+      const body = await readBody(req)
+      const sha256 = createHash('sha256').update(body).digest('hex')
+      const auth = checkBlossomAuth(req.headers.authorization, 'upload', sha256)
+      if ('error' in auth) return json(401, { message: auth.error })
+
+      const type = req.headers['content-type'] ?? 'application/octet-stream'
+      const uploaded = Math.floor(Date.now() / 1000)
+      blobs.set(sha256, { data: body, type: String(type), uploader: auth.pubkey, uploaded })
+      log(`blossom: stored ${sha256.slice(0, 12)}… (${body.length} bytes)`)
+      return json(200, { url: `${base}/${sha256}`, sha256, size: body.length, type, uploaded })
+    }
+
+    const listMatch = LIST_PATH.exec(path)
+    if (listMatch && req.method === 'GET') {
+      const pubkey = listMatch[1].toLowerCase()
+      const owned = [...blobs.entries()]
+        .filter(([, b]) => b.uploader === pubkey)
+        .map(([sha256, b]) => ({ url: `${base}/${sha256}`, sha256, size: b.data.length, type: b.type, uploaded: b.uploaded }))
+      return json(200, owned)
+    }
+
+    const blobMatch = SHA256_PATH.exec(path)
+    if (blobMatch) {
+      const sha256 = blobMatch[1].toLowerCase()
+      const blob = blobs.get(sha256)
+
+      if (req.method === 'GET' || req.method === 'HEAD') {
+        if (!blob) return json(404, { message: 'blob not found' })
+        res.writeHead(200, { 'Content-Type': blob.type, 'Content-Length': String(blob.data.length) })
+        res.end(req.method === 'HEAD' ? undefined : blob.data)
+        return
+      }
+
+      if (req.method === 'DELETE') {
+        const auth = checkBlossomAuth(req.headers.authorization, 'delete', sha256)
+        if ('error' in auth) return json(401, { message: auth.error })
+        if (!blob) return json(404, { message: 'blob not found' })
+        // Only the uploader may delete, otherwise anyone could clear the store
+        if (blob.uploader !== auth.pubkey) return json(403, { message: 'not the uploader of this blob' })
+        blobs.delete(sha256)
+        log(`blossom: deleted ${sha256.slice(0, 12)}…`)
+        return json(200, { message: 'deleted' })
+      }
+    }
+
+    json(405, { message: `method ${req.method} not allowed on ${path}` })
+  } catch (e) {
+    json(400, { message: (e as Error).message })
+  }
+}
+
 export function startRelay(opts: ServeOptions = {}): { url: string; port: number; ready: Promise<void>; close: () => void } {
   const hostname = opts.hostname ?? 'localhost'
   const port = opts.port ?? 10547
   const quiet = opts.quiet ?? false
   const requireAuth = opts.auth ?? false
   const eagerAuth = opts.eagerAuth ?? false
+  const enableBlossom = opts.blossom ?? false
+  /** sha256 -> blob. In memory, like the event store. */
+  const blobs = new Map<string, { data: Buffer; type: string; uploader: string; uploaded: number }>()
   const log = quiet ? () => {} : (...args: unknown[]) => console.error('[relay]', ...args)
 
   // The bundled test relay has no auth and accepts arbitrary signed events.
@@ -123,6 +274,11 @@ export function startRelay(opts: ServeOptions = {}): { url: string; port: number
   }
 
   const httpServer = createServer((req, res) => {
+    if (enableBlossom && isBlossomRequest(req.url ?? '/')) {
+      void serveBlossom(req, res, blobs, hostname, log)
+      return
+    }
+
     // NIP-11 relay info document
     if (req.headers.accept?.includes('application/nostr+json')) {
       res.writeHead(200, { 'Content-Type': 'application/nostr+json' })
