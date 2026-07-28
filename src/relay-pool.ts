@@ -1,8 +1,32 @@
-import type { Event as NostrEvent, Filter } from 'nostr-tools'
+import type { Event as NostrEvent, EventTemplate, Filter } from 'nostr-tools'
 import type { AbstractRelay } from 'nostr-tools/abstract-relay'
 import type { PublishResult, RelaySet } from './types.js'
 import { validatePublicUrl, validateRelayScheme } from './validation.js'
 import { brayFetch } from './http-client.js'
+
+/**
+ * Signs a NIP-42 kind 22242 template produced by the relay layer.
+ *
+ * The relay builds the template (it owns the `relay` and `challenge` tags);
+ * this only has to sign it.
+ */
+export type AuthSigner = (evt: EventTemplate) => Promise<NostrEvent>
+
+/**
+ * How aggressively to answer NIP-42 AUTH challenges.
+ *
+ * - `off` — never authenticate. Queries and publishes to auth-gated relays fail.
+ * - `on-demand` — authenticate only after a relay rejects with `auth-required:`,
+ *   then retry the operation once.
+ * - `eager` — additionally answer the AUTH challenge as soon as it arrives,
+ *   before any operation has been rejected.
+ *
+ * Defaults to `off`. Authenticating proves control of the active pubkey to the
+ * relay, so it is opt-in rather than automatic: for a tool with personas, duress
+ * identities and a Tor policy, silently identifying yourself to every relay that
+ * asks is not a safe default.
+ */
+export type AuthMode = 'off' | 'on-demand' | 'eager'
 
 // 512 KiB cap on any inbound relay frame. Protects against malicious relays
 // pushing 100 MB EVENTs that would exhaust memory (ws library defaults to
@@ -13,12 +37,21 @@ export interface Subscription {
   close(): void
 }
 
-/** Minimal pool interface for dependency injection (testability) */
+/** Params threaded through to nostr-tools: deadlines plus NIP-42 auth retry. */
+export interface PoolParams {
+  maxWait?: number
+  abort?: AbortSignal
+  /** Lets nostr-tools answer `auth-required:` and retry the operation once. */
+  onauth?: AuthSigner
+}
+
 export interface PoolLike {
-  publish(relays: string[], event: NostrEvent, params?: { maxWait?: number; abort?: AbortSignal }): Promise<string>[]
-  querySync(relays: string[], filter: Filter, params?: { maxWait?: number; abort?: AbortSignal }): Promise<NostrEvent[]>
-  subscribeMany?(relays: string[], filter: Filter, handlers: { onevent(event: NostrEvent): void; oneose?(): void }): Subscription
+  publish(relays: string[], event: NostrEvent, params?: PoolParams): Promise<string>[]
+  querySync(relays: string[], filter: Filter, params?: PoolParams): Promise<NostrEvent[]>
+  subscribeMany?(relays: string[], filter: Filter, handlers: { onevent(event: NostrEvent): void; oneose?(): void } & Pick<PoolParams, 'onauth'>): Subscription
   ensureRelay?(url: string, params?: { connectionTimeout?: number; abort?: AbortSignal }): Promise<AbstractRelay>
+  /** Install the eager AUTH-challenge responder. Absent on injected test doubles. */
+  setAutomaticAuth?(signer: ((relayUrl: string) => AuthSigner | null) | undefined): void
   destroy(): void
 }
 
@@ -73,6 +106,8 @@ export interface RelayPoolConfig {
    * networked relays, etc). Gated by BRAY_ALLOW_PRIVATE_RELAYS=1.
    */
   allowPrivateRelays?: boolean
+  /** NIP-42 AUTH policy. Defaults to 'off'. See {@link AuthMode}. */
+  authMode?: AuthMode
 }
 
 /** Initialise WebSocket and create a real SimplePool — lazy-loaded to avoid side effects at import */
@@ -102,10 +137,14 @@ async function createRealPool(torProxy?: string): Promise<PoolLike> {
 
   const pool = new SimplePool()
   return {
-    publish: (relays, event, params) => pool.publish(relays, event, params),
-    querySync: (relays, filter, params) => pool.querySync(relays, filter, params),
-    subscribeMany: (relays, filters, handlers) => pool.subscribeMany(relays, filters, handlers),
+    // `onauth` is spread straight through to the subscription params by
+    // querySync/subscribeEose, so it works despite not being in querySync's
+    // narrowed parameter type.
+    publish: (relays, event, params) => pool.publish(relays, event, params as any),
+    querySync: (relays, filter, params) => pool.querySync(relays, filter, params as any),
+    subscribeMany: (relays, filters, handlers) => pool.subscribeMany(relays, filters, handlers as any),
     ensureRelay: (url, params) => pool.ensureRelay(url, params),
+    setAutomaticAuth: signer => { (pool as any).automaticallyAuth = signer },
     destroy: () => pool.destroy(),
   } satisfies PoolLike
 }
@@ -121,11 +160,16 @@ export class RelayPool {
   private torProxy?: string
   private allowClearnet: boolean
   private allowPrivateRelays: boolean
+  private authMode: AuthMode
+  private authSigner: AuthSigner | undefined
+  /** Relays we have signed an AUTH event for, for diagnostics. */
+  private authedRelays = new Set<string>()
 
   constructor(config: RelayPoolConfig, injectedPool?: PoolLike) {
     this.torProxy = config.torProxy
     this.allowClearnet = config.allowClearnet
     this.allowPrivateRelays = config.allowPrivateRelays ?? false
+    this.authMode = config.authMode ?? 'off'
 
     // Validate default relays up-front with the same rules reconfigure applies.
     // Without this, a NOSTR_RELAYS env var or config file containing
@@ -204,6 +248,85 @@ export class RelayPool {
     return this.relaySets.get(npub) ?? this.defaults
   }
 
+  /**
+   * Supply the signer used to answer NIP-42 AUTH challenges.
+   *
+   * Called once the identity context exists, which is after the pool is
+   * constructed. Passing `undefined` disables authentication again (used when
+   * switching identity, so a challenge is never answered with a stale key).
+   */
+  setAuthSigner(signer: AuthSigner | undefined): void {
+    this.authSigner = signer
+    this.authedRelays.clear()
+    void this.#applyEagerAuth()
+  }
+
+  /** Current NIP-42 policy. */
+  getAuthMode(): AuthMode {
+    return this.authMode
+  }
+
+  /** Change the NIP-42 policy at runtime. */
+  setAuthMode(mode: AuthMode): void {
+    this.authMode = mode
+    void this.#applyEagerAuth()
+  }
+
+  /** Relay URLs this pool has authenticated to during its lifetime. */
+  getAuthedRelays(): string[] {
+    return [...this.authedRelays]
+  }
+
+  /**
+   * In `eager` mode, install a responder that answers the AUTH challenge as
+   * soon as a relay sends one, rather than waiting for a rejection.
+   */
+  async #applyEagerAuth(): Promise<void> {
+    const pool = await this.poolReady
+    if (!pool.setAutomaticAuth) return
+    if (this.authMode !== 'eager' || !this.authSigner) {
+      pool.setAutomaticAuth(undefined)
+      return
+    }
+    pool.setAutomaticAuth(() => this.#signAuth)
+  }
+
+  /**
+   * Bound signer handed to nostr-tools. Records which relays were authenticated
+   * to so callers can tell whether a query identified them.
+   */
+  #signAuth = async (evt: EventTemplate): Promise<NostrEvent> => {
+    if (!this.authSigner) throw new Error('NIP-42 AUTH requested but no signer is configured')
+    const relayTag = evt.tags.find(t => t[0] === 'relay')?.[1]
+    const signed = await this.authSigner(evt)
+    if (relayTag) this.authedRelays.add(relayTag)
+    return signed
+  }
+
+  /**
+   * Auth params for a single operation. Returns `{}` when authentication is
+   * off or unavailable, so nostr-tools takes its non-auth path unchanged.
+   */
+  #authParams(): Pick<PoolParams, 'onauth'> {
+    if (this.authMode === 'off' || !this.authSigner) return {}
+    return { onauth: this.#signAuth }
+  }
+
+  /**
+   * Explain an `auth-required:` failure in terms of what the caller can do
+   * about it, rather than leaving a bare relay error.
+   */
+  #annotateAuthError(message: string): string {
+    if (!/auth-required|restricted:/i.test(message)) return message
+    if (this.authMode === 'off') {
+      return `${message} (relay requires NIP-42 AUTH; bray will not authenticate because auth mode is "off" — set NOSTR_AUTH=1 to authenticate on demand)`
+    }
+    if (!this.authSigner) {
+      return `${message} (relay requires NIP-42 AUTH but no signer is configured on the relay pool)`
+    }
+    return `${message} (NIP-42 AUTH was attempted and the relay still refused)`
+  }
+
   /** Publish event to write relays for the given identity */
   async publish(npub: string, event: NostrEvent, opts: { timeoutMs?: number } = {}): Promise<PublishResult> {
     const pool = await this.poolReady
@@ -213,7 +336,7 @@ export class RelayPool {
       return { success: false, allAccepted: false, accepted: [], rejected: [], errors: ['no write relays configured'] }
     }
 
-    const promises = pool.publish(writeRelays, event)
+    const promises = pool.publish(writeRelays, event, this.#authParams())
     return this.#settlePublish(writeRelays, promises, opts.timeoutMs)
   }
 
@@ -230,8 +353,8 @@ export class RelayPool {
     }
 
     const promises = opts.timeoutMs || opts.signal
-      ? pool.publish(relays, event, { maxWait: opts.timeoutMs, abort: opts.signal })
-      : pool.publish(relays, event)
+      ? pool.publish(relays, event, { maxWait: opts.timeoutMs, abort: opts.signal, ...this.#authParams() })
+      : pool.publish(relays, event, this.#authParams())
     return this.#settlePublish(relays, promises, opts.timeoutMs, opts.signal)
   }
 
@@ -281,7 +404,7 @@ export class RelayPool {
         accepted.push(url)
       } else {
         rejected.push(url)
-        errors.push(`${url}: ${result.reason}`)
+        errors.push(`${url}: ${this.#annotateAuthError(String(result.reason))}`)
       }
     }
 
@@ -304,7 +427,7 @@ export class RelayPool {
     if (!pool.subscribeMany) {
       throw new Error('The underlying pool does not support subscriptions. Ensure nostr-tools/pool is available.')
     }
-    const sub = pool.subscribeMany(relays, filter, { onevent: onEvent })
+    const sub = pool.subscribeMany(relays, filter, { onevent: onEvent, ...this.#authParams() })
     return () => sub.close()
   }
 
@@ -312,7 +435,7 @@ export class RelayPool {
   async query(npub: string, filter: Filter): Promise<NostrEvent[]> {
     const pool = await this.poolReady
     const relays = this.getRelays(npub)
-    return pool.querySync(relays.read, filter)
+    return pool.querySync(relays.read, filter, this.#authParams())
   }
 
   /** One-shot query against explicit relay URLs (not identity-bound) */
@@ -324,8 +447,8 @@ export class RelayPool {
     this.#validateDirectRelays(relays)
     const pool = await this.poolReady
     return opts.timeoutMs || opts.signal
-      ? pool.querySync(relays, filter, { maxWait: opts.timeoutMs, abort: opts.signal })
-      : pool.querySync(relays, filter)
+      ? pool.querySync(relays, filter, { maxWait: opts.timeoutMs, abort: opts.signal, ...this.#authParams() })
+      : pool.querySync(relays, filter, this.#authParams())
   }
 
   /** Reconcile local event IDs with one relay using NIP-77 Negentropy. */

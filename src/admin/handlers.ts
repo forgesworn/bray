@@ -11,18 +11,90 @@ import type { SigningContext } from '../signing-context.js'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+/** Method names defined by NIP-86, plus widely-implemented extensions. */
 export type AdminMethod =
+  // discovery
+  | 'supportedmethods'
+  // pubkeys
   | 'allowpubkey'
+  | 'unallowpubkey'
   | 'banpubkey'
+  | 'unbanpubkey'
   | 'listallowedpubkeys'
   | 'listbannedpubkeys'
+  // kinds
   | 'allowkind'
-  | 'bankind'
+  | 'disallowkind'
   | 'listallowedkinds'
-  | 'listbannedkinds'
+  // events
+  | 'allowevent'
+  | 'banevent'
+  | 'listbannedevents'
+  | 'listeventsneedingmoderation'
+  // relay metadata
+  | 'changerelayname'
+  | 'changerelaydescription'
+  | 'changerelayicon'
+  // roles and admins
+  | 'createrole'
+  | 'editrole'
+  | 'deleterole'
+  | 'assignrole'
+  | 'unassignrole'
+  | 'grantadmin'
+  | 'revokeadmin'
+  // IPs
   | 'blockip'
   | 'unblockip'
   | 'listblockedips'
+  // non-spec extension, implemented by nak and some relays
+  | 'listdisallowedkinds'
+
+/**
+ * Legacy bray subcommand names retained as aliases.
+ *
+ * `bankind` and `listbannedkinds` were never NIP-86 method names, so requests
+ * using them were rejected by spec-compliant relays. They are still accepted as
+ * input and rewritten to the correct wire method.
+ */
+export const ADMIN_METHOD_ALIASES: Record<string, AdminMethod> = {
+  bankind: 'disallowkind',
+  listbannedkinds: 'listdisallowedkinds',
+}
+
+/**
+ * Positions (zero-indexed) whose parameter is a number rather than a string.
+ *
+ * Everything else is passed through verbatim. Blanket numeric coercion is
+ * unsafe here because an all-digit 64-character pubkey would be mangled by
+ * `Number()`.
+ */
+const NUMERIC_PARAM_POSITIONS: Partial<Record<AdminMethod, number[]>> = {
+  allowkind: [0],
+  disallowkind: [0],
+  createrole: [4],
+  editrole: [4],
+}
+
+/** Resolve a user-supplied method name to its NIP-86 wire name. */
+export function resolveAdminMethod(method: string): AdminMethod {
+  return ADMIN_METHOD_ALIASES[method] ?? (method as AdminMethod)
+}
+
+/** Coerce the parameters a given method expects as numbers, leaving the rest alone. */
+export function coerceAdminParams(
+  method: AdminMethod,
+  params: Array<string | number>,
+): Array<string | number> {
+  const numeric = NUMERIC_PARAM_POSITIONS[method]
+  if (!numeric) return params
+  return params.map((p, i) => {
+    if (!numeric.includes(i) || typeof p === 'number') return p
+    const n = Number(p)
+    if (!Number.isFinite(n)) throw new Error(`${method}: parameter ${i + 1} must be a number, got "${p}"`)
+    return n
+  })
+}
 
 export interface AdminCallOptions {
   /** Relay HTTP URL (e.g. https://relay.example.com) */
@@ -86,9 +158,12 @@ export async function handleAdminCall(
   // NIP-86 always POSTs to the relay root URL
   const url = opts.relay.replace(/\/$/, '')
 
+  // Rewrite legacy aliases so SDK callers get the spec method name on the wire too
+  const method = resolveAdminMethod(opts.method)
+
   const body = JSON.stringify({
-    method: opts.method,
-    params: opts.params ?? [],
+    method,
+    params: coerceAdminParams(method, opts.params ?? []),
   })
 
   // Hash the request body for the NIP-98 payload tag (SHA-256 hex)
@@ -116,7 +191,7 @@ export async function handleAdminCall(
 
   return {
     relay: opts.relay,
-    method: opts.method,
+    method,
     result: json.result,
   }
 }

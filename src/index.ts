@@ -36,6 +36,7 @@ const pool = new RelayPool({
   allowClearnet: config.allowClearnetWithTor || !config.torProxy,
   defaultRelays: config.relays,
   allowPrivateRelays: config.allowPrivateRelays,
+  authMode: config.authMode,
 })
 const nip65 = new Nip65Manager(pool, config.relays)
 
@@ -79,6 +80,10 @@ if (config.bunkerUri) {
 } else {
   ctx = new IdentityContext(config.secretKey, config.secretFormat)
 }
+
+// NIP-42: hand the pool a signer so it can answer AUTH challenges. Only takes
+// effect when authMode is not 'off' -- the pool checks the mode per operation.
+pool.setAuthSigner(async evt => ctx.getSigningFunction()(evt) as any)
 
 const trust = new TrustContext(ctx, pool, {
   cacheTtl: config.trustCacheTtl,

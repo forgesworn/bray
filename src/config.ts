@@ -2,6 +2,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { BrayConfig } from './types.js'
+import type { AuthMode } from './relay-pool.js'
 
 const NSEC_RE = /^nsec1[a-z0-9]{58}$/
 const HEX_RE = /^[0-9a-f]{64}$/
@@ -15,6 +16,23 @@ export function detectKeyFormat(key: string): 'nsec' | 'hex' | 'mnemonic' {
   const words = key.split(/\s+/)
   if (words.length >= 12 && words.every(w => /^[a-z]+$/.test(w))) return 'mnemonic'
   throw new Error(`Invalid key format: expected nsec1..., 64-char hex, or BIP-39 mnemonic`)
+}
+
+/**
+ * Parse the NIP-42 AUTH policy from `NOSTR_AUTH` or the config file.
+ *
+ * Accepts `1`/`true`/`on`/`on-demand` for on-demand, `eager`/`force`/`2` for
+ * eager, and anything unset/`0`/`off`/`false` for off. An unrecognised value is
+ * a configuration error rather than a silent fallback, because the quiet
+ * failure mode (typo disables auth) would look identical to a relay problem.
+ */
+export function parseAuthMode(raw: string | undefined): AuthMode {
+  if (raw == null || raw === '') return 'off'
+  const v = raw.trim().toLowerCase()
+  if (['0', 'off', 'false', 'no'].includes(v)) return 'off'
+  if (['1', 'on', 'true', 'yes', 'on-demand', 'ondemand'].includes(v)) return 'on-demand'
+  if (['2', 'eager', 'force', 'force-pre-auth'].includes(v)) return 'eager'
+  throw new Error(`Invalid NOSTR_AUTH value: "${raw}". Expected off, on-demand, or eager.`)
 }
 
 /** Read and trim a secret from a file */
@@ -50,6 +68,8 @@ interface ConfigFile {
   walletsFile?: string
   torProxy?: string
   allowClearnetWithTor?: boolean
+  /** NIP-42 policy: 'off' (default), 'on-demand', or 'eager'. */
+  auth?: AuthMode
   nip04Enabled?: boolean
   transport?: 'stdio' | 'http'
   port?: number
@@ -219,6 +239,9 @@ export async function loadConfig(): Promise<BrayConfig> {
   // --- Dev: allow private-network relay URLs (for the in-memory test relay)
   const allowPrivateRelays = process.env.BRAY_ALLOW_PRIVATE_RELAYS === '1'
 
+  // --- NIP-42 AUTH ---
+  const authMode = parseAuthMode(process.env.NOSTR_AUTH ?? file.auth)
+
   // --- Transport ---
   const transportRaw = process.env.TRANSPORT ?? file.transport
   const transport = (transportRaw === 'http' ? 'http' : 'stdio') as 'stdio' | 'http'
@@ -302,6 +325,7 @@ export async function loadConfig(): Promise<BrayConfig> {
     torProxy,
     allowClearnetWithTor,
     allowPrivateRelays,
+    authMode,
     nip04Enabled,
     veilCacheTtl,
     veilCacheMax,

@@ -5,6 +5,7 @@ import type { PublishResult } from '../types.js'
 import type { VeilScoring } from '../veil/scoring.js'
 import { assertEventSemanticallyValid } from '../event-validation/validator.js'
 import type { EventValidationMode, EventValidationResult } from '../event-validation/validator.js'
+import { minePow, type MinePowResult } from '../event/pow.js'
 
 export interface PostResult {
   event: NostrEvent
@@ -611,7 +612,8 @@ export async function handleContactsUnfollow(
  * @param args.content - Raw content string for the event.
  * @param args.tags - Optional tag array (e.g. `[['d', 'my-identifier']]`).
  * @param args.relays - Optional explicit relay URLs to publish to.
- * @returns The signed event and publish result.
+ * @param args.pow - Optional NIP-13 difficulty in leading zero bits.
+ * @returns The signed event and publish result, plus mining stats when `pow` was requested.
  * @example
  * const result = await handlePublishEvent(ctx, pool, {
  *   kind: 30023,
@@ -628,19 +630,38 @@ export async function handlePublishEvent(
     tags?: string[][]
     relays?: string[]
     validationMode?: EventValidationMode
+    /** NIP-13 difficulty in leading zero bits. */
+    pow?: number
+    /** Wall-clock budget for mining, in milliseconds. */
+    powTimeoutMs?: number
   },
-): Promise<ValidatedPostResult> {
-  const template = {
+): Promise<ValidatedPostResult & { pow?: Omit<MinePowResult, 'template'> }> {
+  let template = {
     kind: args.kind,
     created_at: Math.floor(Date.now() / 1000),
     tags: args.tags ?? [],
     content: args.content,
   }
+
+  // Mining must precede validation and signing: the nonce tag and mined
+  // created_at are inputs to the event id that the signature commits to.
+  let pow: Omit<MinePowResult, 'template'> | undefined
+  if (args.pow !== undefined) {
+    const mined = minePow(template, {
+      difficulty: args.pow,
+      pubkey: ctx.activePublicKeyHex,
+      timeoutMs: args.powTimeoutMs,
+    })
+    template = mined.template
+    const { template: _discard, ...stats } = mined
+    pow = stats
+  }
+
   const validation = assertEventSemanticallyValid(template, args.validationMode)
   const sign = ctx.getSigningFunction()
   const event = await sign(template)
   const publish = args.relays?.length
     ? await pool.publishDirect(args.relays, event)
     : await pool.publish(ctx.activeNpub, event)
-  return { event, publish, validation }
+  return { event, publish, validation, ...(pow ? { pow } : {}) }
 }

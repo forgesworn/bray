@@ -1,12 +1,21 @@
-import { handleAdminCall } from '../../exports.js'
+import { handleAdminCall, coerceAdminParams, resolveAdminMethod, ADMIN_METHOD_ALIASES } from '../../exports.js'
 import type { AdminMethod } from '../../exports.js'
 import type { Helpers } from '../dispatch.js'
 
-const ADMIN_METHODS = new Set<AdminMethod>([
-  'allowpubkey', 'banpubkey', 'listallowedpubkeys', 'listbannedpubkeys',
-  'allowkind', 'bankind', 'listallowedkinds', 'listbannedkinds',
+export const ADMIN_METHODS = new Set<AdminMethod>([
+  'supportedmethods',
+  'allowpubkey', 'unallowpubkey', 'banpubkey', 'unbanpubkey',
+  'listallowedpubkeys', 'listbannedpubkeys',
+  'allowkind', 'disallowkind', 'listallowedkinds', 'listdisallowedkinds',
+  'allowevent', 'banevent', 'listbannedevents', 'listeventsneedingmoderation',
+  'changerelayname', 'changerelaydescription', 'changerelayicon',
+  'createrole', 'editrole', 'deleterole', 'assignrole', 'unassignrole',
+  'grantadmin', 'revokeadmin',
   'blockip', 'unblockip', 'listblockedips',
 ])
+
+/** Legacy subcommand spellings still accepted on the CLI. */
+export const ADMIN_ALIASES = Object.keys(ADMIN_METHOD_ALIASES)
 
 export async function dispatch(
   cmd: string,
@@ -18,24 +27,27 @@ export async function dispatch(
   // After COMPOUND_COMMANDS normalisation: cmd = 'admin-<subcommand>'
   const { req, out } = h
 
-  // Extract the method from the compound command name
-  const method = cmd.replace(/^admin-/, '') as AdminMethod
+  // Extract the method from the compound command name, mapping legacy spellings.
+  // A bare `admin` means the subcommand was not recognised during normalisation.
+  const requested = cmd === 'admin' ? (cmdArgs[1] ?? '') : cmd.replace(/^admin-/, '')
+  const method = resolveAdminMethod(requested)
 
-  if (!ADMIN_METHODS.has(method)) {
+  if (!requested || !ADMIN_METHODS.has(method)) {
     throw new Error(
-      `Unknown admin subcommand: ${method}. Valid: ${[...ADMIN_METHODS].join(', ')}`
+      `${requested ? `Unknown admin subcommand: ${requested}.` : 'admin needs a subcommand.'}\n` +
+      `Usage: admin <subcommand> <relay-url> [param...]\n` +
+      `Valid: ${[...ADMIN_METHODS].join(', ')}`
     )
+  }
+
+  if (requested !== method) {
+    console.error(`note: "admin ${requested}" is not a NIP-86 method name; sending "${method}" instead`)
   }
 
   const relay = req(1, `admin ${method} <relay-url> [param...]`)
   // Remaining positional args after relay URL are method params
   const params = cmdArgs.slice(2).filter(a => !a.startsWith('--'))
-
-  // allowkind / bankind take integer params
-  const coercedParams: Array<string | number> = params.map(p => {
-    const n = Number(p)
-    return isNaN(n) ? p : n
-  })
+  const coercedParams = coerceAdminParams(method, params)
 
   out(await handleAdminCall(ctx, {
     relay,

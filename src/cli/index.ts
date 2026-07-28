@@ -5,7 +5,7 @@ import { RelayPool } from '../relay-pool.js'
 import { Nip65Manager } from '../nip65.js'
 import { getCommandHelp } from '../help.js'
 
-import { COMPOUND_COMMANDS, OFFLINE_COMMANDS, makeHelpers, resolveOutputMode, parseShellLine } from './dispatch.js'
+import { COMPOUND_COMMANDS, OFFLINE_COMMANDS, ADMIN_COMMANDS, makeHelpers, resolveOutputMode, parseShellLine } from './dispatch.js'
 import * as identity from './commands/identity.js'
 import * as social from './commands/social.js'
 import * as trust from './commands/trust.js'
@@ -30,6 +30,17 @@ for (const flag of ['--bunker', '--key']) {
     process.env[envKey] = args[i + 1]
     args.splice(i, 2)
   }
+}
+
+// Boolean global flags, recognised only in the leading position (`--auth req ...`)
+// so they can be stripped before command detection. Anything after the command
+// belongs to that command: `relay curl <url> --auth` means NIP-98, not NIP-42.
+let authFlagPresent = false
+let eagerAuthFlagPresent = false
+while (args[0] === '--auth' || args[0] === '--eager-auth') {
+  if (args[0] === '--eager-auth') eagerAuthFlagPresent = true
+  else authFlagPresent = true
+  args.shift()
 }
 
 const command = args[0]
@@ -144,10 +155,23 @@ Sync (NIP-77 reconciliation, then explicit REQ/EVENT transfer):
   Options: --protocol auto|nip77|req-fallback --timeout ms --max-remote N
 
 Admin (NIP-86 relay management):
-  admin allowpubkey|banpubkey <relay-url> <pubkey-hex>
+  admin supportedmethods <relay-url>                    List methods the relay implements
+  admin allowpubkey|unallowpubkey <relay-url> <pubkey> [reason]
+  admin banpubkey|unbanpubkey <relay-url> <pubkey> [reason]
   admin listallowedpubkeys|listbannedpubkeys <relay-url>
-  admin allowkind|bankind <relay-url> <kind>   (list: listallowedkinds|listbannedkinds)
-  admin blockip|unblockip <relay-url> <ip>     (list: listblockedips)
+  admin allowkind|disallowkind <relay-url> <kind>
+  admin listallowedkinds|listdisallowedkinds <relay-url>
+  admin allowevent|banevent <relay-url> <event-id> [reason]
+  admin listbannedevents|listeventsneedingmoderation <relay-url>
+  admin changerelayname|changerelaydescription|changerelayicon <relay-url> <value>
+  admin createrole|editrole <relay-url> <id> <label> <description> <colour> <order>
+  admin deleterole <relay-url> <id>
+  admin assignrole|unassignrole <relay-url> <pubkey> <role-id>
+  admin grantadmin|revokeadmin <relay-url> <pubkey>
+  admin blockip|unblockip <relay-url> <ip> [reason]
+  admin listblockedips <relay-url>
+  (bankind and listbannedkinds are accepted as aliases for disallowkind and
+   listdisallowedkinds; they were never NIP-86 method names)
 
 Wallet (NIP-47 Nostr Wallet Connect):
   wallet connect <nwc-url>            Store NWC URI for the active identity
@@ -188,6 +212,7 @@ Utility:
   filter <event-json> <filter-json>   Test if event matches filter
   nips                                List all official NIPs
   nip <number>                        Show a specific NIP
+  kind <number|text>                  Look up an event kind: required tags, value shapes
   verify <event-json>                 Verify event hash and signature
   encrypt <pubkey-hex> "plaintext"    NIP-44 encrypt for a recipient
   decrypt <pubkey-hex> <ciphertext>   NIP-44 decrypt from a sender
@@ -215,6 +240,7 @@ Environment:
   NOSTR_SECRET_KEY_FILE         Path to secret key file
   BUNKER_URI / BUNKER_URI_FILE  bunker:// URI (use INSTEAD of secret key)
   NOSTR_RELAYS                  Comma-separated relay URLs
+  NOSTR_AUTH                    NIP-42 policy: off (default), on-demand, eager
   NWC_URI / NWC_URI_FILE        Nostr Wallet Connect URI
   TOR_PROXY                     SOCKS5h proxy URL
   NOSTR_BRAY_OUTPUT             Default output: "human" (default) or "json"
@@ -231,6 +257,8 @@ Quick examples:
 Flags:
   --bunker <uri>                      Use bunker:// URI (overrides env/config)
   --key <nsec|hex|mnemonic>           Use this secret key (overrides env/config)
+  --auth                              Answer NIP-42 AUTH after an auth-required rejection
+  --eager-auth                        Answer the NIP-42 AUTH challenge as soon as it arrives
   --json                              Output raw JSON (for piping/scripts)
   --human                             Force human-readable output
   --jsonl | --csv | --tsv             Structured list output (line-, comma- or tab-delimited)
@@ -313,11 +341,17 @@ if (command === 'validate-event') {
 const config = await loadConfig()
 const { configureHttpClient } = await import('../http-client.js')
 configureHttpClient({ torProxy: config.torProxy })
+// `--auth` / `--eager-auth` override the NOSTR_AUTH env default for one run.
+const authMode = eagerAuthFlagPresent
+  ? 'eager'
+  : authFlagPresent ? 'on-demand' : config.authMode
+
 const pool = new RelayPool({
   torProxy: config.torProxy,
   allowClearnet: config.allowClearnetWithTor || !config.torProxy,
   defaultRelays: config.relays,
   allowPrivateRelays: config.allowPrivateRelays,
+  authMode,
 })
 const nip65 = new Nip65Manager(pool, config.relays)
 
@@ -333,6 +367,9 @@ if (config.bunkerUri) {
 } else {
   ctx = new IdentityContext(config.secretKey, config.secretFormat)
 }
+// NIP-42: the pool answers AUTH challenges with the active identity's key.
+pool.setAuthSigner(async evt => ctx.getSigningFunction()(evt) as any)
+
 const globalNwcUri = config.nwcUri
 const walletsFile = config.walletsFile
 
@@ -374,15 +411,12 @@ const SAFETY_CMDS = new Set(['safety-configure', 'safety-activate'])
 const EVENT_CMDS = new Set(['event', 'publish-raw'])
 const UTIL_CMDS = new Set([
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
-  'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'validate-event', 'encrypt', 'decrypt', 'count', 'fetch',
+  'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'validate-event', 'kind', 'encrypt', 'decrypt', 'count', 'fetch',
 ])
 const MUSIG2_CMDS = new Set(['musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate'])
 const SYNC_CMDS = new Set(['sync-plan', 'sync-pull', 'sync-push'])
-const ADMIN_CMDS = new Set([
-  'admin-allowpubkey', 'admin-banpubkey', 'admin-listallowedpubkeys', 'admin-listbannedpubkeys',
-  'admin-allowkind', 'admin-bankind', 'admin-listallowedkinds', 'admin-listbannedkinds',
-  'admin-blockip', 'admin-unblockip', 'admin-listblockedips',
-])
+// Bare `admin` is routed too so an unrecognised subcommand gets a useful error
+const ADMIN_CMDS = new Set(['admin', ...ADMIN_COMMANDS])
 const WALLET_CMDS = new Set([
   'wallet-connect', 'wallet-disconnect', 'wallet-status', 'wallet-pay', 'wallet-balance', 'wallet-history',
 ])
@@ -436,12 +470,10 @@ const ALL_COMMANDS = [
   'group-forum-topics', 'group-forum-topic-create', 'group-forum-comments', 'group-forum-comment',
   'event', 'publish-raw',
   'decode', 'encode-npub', 'encode-note', 'encode-nprofile', 'encode-nevent', 'encode-nsec',
-  'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'validate-event', 'encrypt', 'decrypt', 'count', 'fetch',
+  'key-public', 'key-encrypt', 'key-decrypt', 'filter', 'nips', 'nip', 'verify', 'validate-event', 'kind', 'encrypt', 'decrypt', 'count', 'fetch',
   'musig2-key', 'musig2-nonce', 'musig2-partial-sign', 'musig2-aggregate',
   'sync-plan', 'sync-pull', 'sync-push',
-  'admin-allowpubkey', 'admin-banpubkey', 'admin-listallowedpubkeys', 'admin-listbannedpubkeys',
-  'admin-allowkind', 'admin-bankind', 'admin-listallowedkinds', 'admin-listbannedkinds',
-  'admin-blockip', 'admin-unblockip', 'admin-listblockedips',
+  ...ADMIN_COMMANDS,
   'wallet-connect', 'wallet-disconnect', 'wallet-status', 'wallet-pay', 'wallet-balance', 'wallet-history',
   'relay-curl',
   'bunker',
