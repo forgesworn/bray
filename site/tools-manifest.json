@@ -1,10 +1,10 @@
 {
   "name": "nostr-bray",
   "mcpName": "dev.forgesworn/bray",
-  "version": "1.42.2",
+  "version": "1.42.3",
   "description": "Trust-aware Nostr for AI and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "homepage": "https://bray.forgesworn.dev",
-  "generated": "2026-07-28T15:10:02.584Z",
+  "generated": "2026-07-28T15:19:33.425Z",
   "totalTools": 252,
   "note": "Parameter schemas for every registered tool. Most tools live in the catalog (discoverable via search-actions + execute-action); 51 promoted tools are exposed directly on the MCP server. This manifest covers both.",
   "tools": [
