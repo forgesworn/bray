@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.0 (2026-07-28)
+
+### Features
+
+- NIP-77 --ids-only and --only-missing on req
+- nak-style flags and kind names on the event command
+
+
+
 ## 2.1.0 (2026-07-28)
 
 ### Features
