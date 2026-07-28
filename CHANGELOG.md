@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.42.3 (2026-07-28)
+
+### Bug Fixes
+
+- exit the CLI instead of waiting on relay sockets
+
+
+
 ## 1.42.2 (2026-07-28)
 
 ### Bug Fixes
