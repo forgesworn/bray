@@ -1,10 +1,10 @@
 {
   "name": "nostr-bray",
   "mcpName": "dev.forgesworn/bray",
-  "version": "1.39.1",
+  "version": "1.41.0",
   "description": "Trust-aware Nostr for AI and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "homepage": "https://bray.forgesworn.dev",
-  "generated": "2026-07-18T08:22:17.808Z",
+  "generated": "2026-07-28T12:44:11.828Z",
   "totalTools": 251,
   "note": "Parameter schemas for every registered tool. Most tools live in the catalog (discoverable via search-actions + execute-action); 51 promoted tools are exposed directly on the MCP server. This manifest covers both.",
   "tools": [
@@ -1886,7 +1886,7 @@
             "description": "Supported task types: \"think\", \"build\", or custom types"
           },
           "repos": {
-            "description": "Repository names this agent can work on (e.g. [\"toll-booth\", \"trott-sdk\"])",
+            "description": "Repository names this agent can work on (e.g. [\"toll-booth\", \"nsec-tree\"])",
             "type": "array",
             "items": {
               "type": "string"
@@ -2267,7 +2267,7 @@
             "description": "The task description. For think: what to analyse and what questions to answer. For build: what to implement and acceptance criteria."
           },
           "repos": {
-            "description": "Repository directory names the recipient needs (e.g. [\"toll-booth\", \"trott-sdk\"])",
+            "description": "Repository directory names the recipient needs (e.g. [\"toll-booth\", \"nsec-tree\"])",
             "type": "array",
             "items": {
               "type": "string"

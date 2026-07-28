@@ -23,14 +23,14 @@ describe('dispatch protocol', () => {
   describe('buildThinkMessage', () => {
     it('creates a valid claude-think message', () => {
       const msg = buildThinkMessage({
-        prompt: 'Analyse the architecture of trott-sdk',
-        repos: ['trott-sdk'],
+        prompt: 'Analyse the architecture of nsec-tree',
+        repos: ['nsec-tree'],
         respond_to: 'npub1abc',
       })
       expect(msg.v).toBe(1)
       expect(msg.type).toBe('dispatch-think')
-      expect(msg.prompt).toBe('Analyse the architecture of trott-sdk')
-      expect(msg.repos).toEqual(['trott-sdk'])
+      expect(msg.prompt).toBe('Analyse the architecture of nsec-tree')
+      expect(msg.repos).toEqual(['nsec-tree'])
       expect(msg.respond_to).toBe('npub1abc')
       expect(msg.id).toMatch(/^think-/)
       expect(msg.ts).toBeDefined()
@@ -194,7 +194,7 @@ describe('dispatch protocol', () => {
 
   describe('validateRepos', () => {
     it('accepts valid simple directory names', () => {
-      expect(() => validateRepos(['bray', 'trott-sdk', 'trott_devtools'])).not.toThrow()
+      expect(() => validateRepos(['bray', 'nsec-tree', 'trott_devtools'])).not.toThrow()
     })
 
     it('accepts names with numbers', () => {
@@ -283,7 +283,7 @@ describe('dispatch protocol', () => {
     it('includes depends_on in think messages when provided', () => {
       const msg = buildThinkMessage({
         prompt: 'Analyse after prerequisites',
-        repos: ['trott-sdk'],
+        repos: ['nsec-tree'],
         respond_to: 'npub1abc',
         depends_on: ['think-abc-1', 'build-def-2'],
       })

@@ -12,7 +12,7 @@ const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364
 function mockPool(events: any[] = []) {
   return {
     query: vi.fn().mockResolvedValue(events),
-    publish: vi.fn().mockResolvedValue({ success: true, allAccepted: true, accepted: ['wss://relay.trotters.cc'], rejected: [], errors: [] }),
+    publish: vi.fn().mockResolvedValue({ success: true, allAccepted: true, accepted: ['wss://relay.example.com'], rejected: [], errors: [] }),
   }
 }
 
@@ -71,7 +71,7 @@ describe('dispatch capability handlers', () => {
         name: 'Prometheus',
         description: 'Full-stack TypeScript agent',
         taskTypes: ['think', 'build'],
-        repos: ['toll-booth', 'trott-sdk'],
+        repos: ['toll-booth', 'nsec-tree'],
         availability: 'available',
         maxDepth: 3,
       })
