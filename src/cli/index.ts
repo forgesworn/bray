@@ -545,4 +545,28 @@ if (command === 'shell') {
     ctx.destroy()
     pool.close()
   }
+  await exitCleanly()
+}
+
+/**
+ * Leave the process, rather than waiting for the event loop to drain.
+ *
+ * `pool.close()` asks nostr-tools to close its relay connections, but a relay
+ * that holds the socket open leaves a handle behind and Node then waits on it
+ * indefinitely — the command prints its result and never returns. That is fatal
+ * for scripting: `nostr-bray req ... | head` simply hangs.
+ *
+ * stdout is drained first. Writes to a pipe are asynchronous, so exiting
+ * immediately after a large `console.log` can truncate it.
+ */
+async function exitCleanly(): Promise<void> {
+  const stream = process.stdout as NodeJS.WriteStream & { writableLength?: number }
+  if ((stream.writableLength ?? 0) > 0) {
+    await new Promise<void>(resolve => {
+      stream.once('drain', () => resolve())
+      // Never block on a stalled consumer
+      setTimeout(resolve, 2_000).unref()
+    })
+  }
+  process.exit(process.exitCode ?? 0)
 }
