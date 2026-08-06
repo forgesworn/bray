@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.3.1 (2026-08-06)
+
+### Fixes
+
+- blossom-upload sends the real content type instead of
+  application/octet-stream, which a server that sniffs the body rejects: a
+  valid PNG returned 400 "Content-Type header does not match the file content".
+  Detected from the leading bytes rather than the file name, since the bytes
+  are what the server checks
+- switch reports the derivation path it chose. A bare name resolves to the
+  persona path, so `switch work` and `derive work` are different keys and the
+  npub alone made that invisible until something had been signed by the wrong
+  identity. It now names the other key, and says the switch applies to the
+  current command only
+
+
+
 ## 2.3.0 (2026-07-28)
 
 ### Features
