@@ -81,6 +81,24 @@ describe('IdentityContext', () => {
   })
 
   describe('switch', () => {
+    // A bare name means the persona path, so `switch work` and `derive work`
+    // are different keys. activePurpose exists so a caller can say which one
+    // is active before it signs anything.
+    it('reports the derivation path it actually chose', async () => {
+      const ctx = new IdentityContext(TEST_NSEC, 'nsec')
+      await ctx.switch('work')
+      expect(ctx.activePurpose).toBe('persona/work')
+      const persona = ctx.activeNpub
+
+      await ctx.switch('work:0')
+      expect(ctx.activePurpose).toBe('work:0')
+      expect(ctx.activeNpub).not.toBe(persona)
+
+      await ctx.switch('master')
+      expect(ctx.activePurpose).toBe('master')
+      ctx.destroy()
+    })
+
     it('changes active identity', async () => {
       const ctx = new IdentityContext(TEST_NSEC, 'nsec')
       const masterNpub = ctx.activeNpub
