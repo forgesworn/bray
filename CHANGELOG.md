@@ -4,25 +4,18 @@
 
 ### Bug Fixes
 
-- say which derivation path switch actually chose (cli)
-- send the real content type on upload (blossom)
-
-
-
-## 2.3.1 (2026-08-06)
-
-### Fixes
-
-- blossom-upload sends the real content type instead of
-  application/octet-stream, which a server that sniffs the body rejects: a
-  valid PNG returned 400 "Content-Type header does not match the file content".
-  Detected from the leading bytes rather than the file name, since the bytes
-  are what the server checks
-- switch reports the derivation path it chose. A bare name resolves to the
-  persona path, so `switch work` and `derive work` are different keys and the
-  npub alone made that invisible until something had been signed by the wrong
-  identity. It now names the other key, and says the switch applies to the
-  current command only
+- send the real content type on upload (blossom). Every upload went out as
+  application/octet-stream, which a server that sniffs the body rejects: a valid
+  PNG returned 400 "Content-Type header does not match the file content".
+  Detected from the leading bytes rather than the file name, since the bytes are
+  what the server checks
+- say which derivation path switch actually chose (cli). A bare name resolves to
+  the persona path, so `switch work` and `derive work` are different keys, and
+  printing only the npub made that invisible until something had been signed by
+  the wrong identity
+- pick up hono 4.13.0 for GHSA-8j4g-w8fx-2239, a ReDoS in its CORS middleware.
+  The release gate refuses to publish with a runtime advisory, so 2.3.1 and the
+  first 2.3.2 attempt could not reach npm
 
 
 
