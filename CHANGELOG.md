@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.3.2 (2026-08-06)
+
+### Bug Fixes
+
+- say which derivation path switch actually chose (cli)
+- send the real content type on upload (blossom)
+
+
+
 ## 2.3.1 (2026-08-06)
 
 ### Fixes
