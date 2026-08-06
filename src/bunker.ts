@@ -123,11 +123,33 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
         result = ctx.activePublicKeyHex
         break
 
-      case 'sign_event': {
-        const template = JSON.parse(request.params[0]) as EventTemplate
+      // `sign_event_compact` is the Heartwood dialect, and Bray speaks it so a
+      // client does not have to keep two code paths or waste a round trip
+      // discovering it is unsupported.
+      //
+      // Two differences from NIP-46, both about not moving the event around as
+      // a string. params[0] may be the event OBJECT rather than a stringified
+      // event, which spares a signer an unescape pass costing twice the content
+      // in one allocation; and the compact reply returns only what the client
+      // cannot work out itself. On a hardware signer those two copies are the
+      // difference between a 12 KB and an 18 KB ceiling. Bray has no such
+      // limit, but matching the dialect keeps clients simple.
+      case 'sign_event':
+      case 'sign_event_compact': {
+        // Declared string[], but that was always a claim about the client
+        // rather than a guarantee, and here it is genuinely either.
+        const raw: unknown = request.params[0]
+        const template = (typeof raw === 'string' ? JSON.parse(raw) : raw) as EventTemplate
         const sign = ctx.getSigningFunction()
         const signed = await sign(template)
-        result = JSON.stringify(signed)
+        result = request.method === 'sign_event_compact'
+          ? JSON.stringify({
+              id: signed.id,
+              pubkey: signed.pubkey,
+              created_at: signed.created_at,
+              sig: signed.sig,
+            })
+          : JSON.stringify(signed)
         break
       }
 
