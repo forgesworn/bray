@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.1 (2026-08-06)
+
+### Bug Fixes
+
+- send the real content type on upload (blossom)
+
+
+
 ## 2.3.0 (2026-07-28)
 
 ### Features
