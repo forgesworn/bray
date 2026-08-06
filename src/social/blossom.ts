@@ -18,6 +18,36 @@ export interface BlobDescriptor {
   uploaded?: number
 }
 
+// Blossom servers sniff the body and reject a mismatched Content-Type, so
+// `application/octet-stream` fails for any format they recognise. Detect from
+// the leading bytes rather than the file name: the bytes are what the server
+// checks, and an uploader should not be able to mislabel a blob by renaming it.
+const MAGIC: { type: string; test: (b: Uint8Array) => boolean }[] = [
+  { type: 'image/png', test: (b) => b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 },
+  { type: 'image/jpeg', test: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+  { type: 'image/gif', test: (b) => b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 },
+  {
+    type: 'image/webp',
+    test: (b) =>
+      b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
+      b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50,
+  },
+  { type: 'application/pdf', test: (b) => b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46 },
+  { type: 'image/svg+xml', test: (b) => Buffer.from(b.subarray(0, 256)).toString('utf8').includes('<svg') },
+]
+
+export function detectContentType(body: Uint8Array): string | undefined {
+  if (body.byteLength < 4) return undefined
+  for (const { type, test } of MAGIC) {
+    try {
+      if (test(body)) return type
+    } catch {
+      // a short or odd buffer simply does not match this signature
+    }
+  }
+  return undefined
+}
+
 /** Upload a file to a blossom media server */
 export async function handleBlossomUpload(
   ctx: SigningContext,
@@ -62,7 +92,7 @@ export async function handleBlossomUpload(
     method: 'PUT',
     headers: {
       Authorization: authHeader,
-      'Content-Type': args.contentType ?? 'application/octet-stream',
+      'Content-Type': args.contentType ?? detectContentType(body) ?? 'application/octet-stream',
     },
     body: Buffer.from(body),
     signal: AbortSignal.timeout(30_000),

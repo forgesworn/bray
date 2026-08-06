@@ -14,6 +14,7 @@ import {
   handleBlossomUsage,
   handleBlossomServersGet,
   handleBlossomServersSet,
+  detectContentType,
 } from '../../src/social/blossom.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
@@ -735,5 +736,28 @@ describe('blossom handlers', () => {
       await expect(handleBlossomServersSet(ctx, mockPool as any, { servers: ['https://127.0.0.1'] }))
         .rejects.toThrow(/private/)
     })
+  })
+})
+
+describe('detectContentType', () => {
+  it('recognises the formats a blossom server sniffs for', () => {
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+    const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0])
+    const gif = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61])
+    const webp = new Uint8Array([
+      0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50,
+    ])
+    const pdf = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])
+    expect(detectContentType(png)).toBe('image/png')
+    expect(detectContentType(jpeg)).toBe('image/jpeg')
+    expect(detectContentType(gif)).toBe('image/gif')
+    expect(detectContentType(webp)).toBe('image/webp')
+    expect(detectContentType(pdf)).toBe('application/pdf')
+  })
+
+  it('falls back to undefined rather than guessing', () => {
+    expect(detectContentType(new Uint8Array([1, 2, 3, 4, 5]))).toBeUndefined()
+    expect(detectContentType(new Uint8Array([1, 2]))).toBeUndefined()
+    expect(detectContentType(new Uint8Array())).toBeUndefined()
   })
 })
