@@ -37,11 +37,27 @@ export async function dispatch(
       out(await ctx.derivePersona(req(1, 'persona <name> [index]'), parseInt(cmdArgs[2] ?? '0', 10)))
       break
 
-    case 'switch':
-      await ctx.switch(req(1, 'switch <target> [index]'), cmdArgs[2] ? parseInt(cmdArgs[2], 10) : undefined)
-      console.error(`Now signing as ${ctx.activeNpub}`)
+    case 'switch': {
+      const target = req(1, 'switch <target> [index]')
+      await ctx.switch(target, cmdArgs[2] ? parseInt(cmdArgs[2], 10) : undefined)
+      // Name the derivation path, not just the npub. A bare name means the
+      // persona path, so `switch work` and `derive work` are different keys;
+      // without the path on screen the difference is invisible until something
+      // has been signed by the wrong identity.
+      console.error(`Now signing as ${ctx.activeNpub} (${ctx.activePurpose})`)
+      if (target !== 'master' && !target.includes(':') && ctx.activePurpose === `persona/${target}`) {
+        console.error(
+          `Note: "${target}" resolved to the persona path. The raw purpose ` +
+            `"${target}" is a different key — see \`derive ${target}\`.`,
+        )
+      }
+      // The CLI is one process per command, so this applies to the rest of this
+      // invocation only. Say so rather than implying a saved default.
+      console.error('This switch applies to this command only; use --key or --bunker to sign as')
+      console.error('another identity in a later command.')
       console.log(ctx.activeNpub)
       break
+    }
 
     case 'prove':
       out(await handleIdentityProve(ctx, { mode: (cmdArgs[1] === 'full' ? 'full' : 'blind') }))

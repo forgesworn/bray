@@ -77,6 +77,11 @@ export class IdentityContext implements ExtendedSigningContext {
     return this.activeEntry.identity.npub
   }
 
+  /** Derivation path of the current active identity, for reporting to a human */
+  get activePurpose(): string {
+    return this.activeEntry.purpose
+  }
+
   /** Current active identity's hex public key — use this in relay filters */
   get activePublicKeyHex(): string {
     return Buffer.from(this.activeEntry.identity.publicKey).toString('hex')
