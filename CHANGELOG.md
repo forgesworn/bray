@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.4.0 (2026-08-07)
+
+### Features
+
+- speak the compact signing dialect as well as NIP-46 (#87)
+
+### Bug Fixes
+
+- ship the hono CORS ReDoS fix in a published version (deps)
+
+
+
 ## 2.3.2 (2026-08-06)
 
 ### Bug Fixes
