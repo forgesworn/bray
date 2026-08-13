@@ -163,7 +163,7 @@
     "@modelcontextprotocol/sdk": "^1.27.1",
     "canary-kit": "^2.6.2",
     "dominion-protocol": "^1.0.0",
-    "farrier-kit": "^1.1.1",
+    "farrier-kit": "1.1.2",
     "nostr-attestations": "^2.5.4",
     "nostr-tools": "^2.23.3",
     "nostr-veil": "^0.30.0",
