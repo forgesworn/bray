@@ -1,10 +1,9 @@
 {
   "name": "nostr-bray",
   "mcpName": "dev.forgesworn/bray",
-  "version": "2.3.1",
+  "version": "2.4.0",
   "description": "Trust-aware Nostr for AI and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "homepage": "https://bray.forgesworn.dev",
-  "generated": "2026-08-06T15:20:28.069Z",
   "totalTools": 254,
   "note": "Parameter schemas for every registered tool. Most tools live in the catalog (discoverable via search-actions + execute-action); 51 promoted tools are exposed directly on the MCP server. This manifest covers both.",
   "tools": [
@@ -9635,7 +9634,7 @@
     },
     {
       "name": "zap-wallet-clear",
-      "description": "Remove the NWC wallet for the active identity. Falls back to the global NWC_URI if set.",
+      "description": "Remove the NWC wallet file reference for the active identity. Falls back to global NWC_URI_FILE configuration.",
       "annotations": {
         "readOnlyHint": false
       },
@@ -9647,21 +9646,22 @@
     },
     {
       "name": "zap-wallet-set",
-      "description": "Set the NWC wallet URI for the active identity. Each persona can have its own Lightning wallet.",
+      "description": "Set the private local file containing the NWC wallet URI for the active identity. The bearer URI never crosses MCP.",
       "annotations": {
-        "readOnlyHint": false
+        "readOnlyHint": false,
+        "destructiveHint": true
       },
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
-          "nwcUri": {
+          "nwcUriFile": {
             "type": "string",
-            "description": "nostr+walletconnect:// URI for this identity"
+            "description": "Path to a local 0600 file containing the nostr+walletconnect:// URI"
           }
         },
         "required": [
-          "nwcUri"
+          "nwcUriFile"
         ],
         "additionalProperties": false
       }

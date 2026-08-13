@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { BrayConfig } from './types.js'
 import type { AuthMode } from './relay-pool.js'
+import { readNwcUriFile } from './zap/nwc-file.js'
 
 const NSEC_RE = /^nsec1[a-z0-9]{58}$/
 const HEX_RE = /^[0-9a-f]{64}$/
@@ -116,11 +117,36 @@ export function loadConfigFile(): ConfigFile {
 /** Load configuration from config file, environment variables, and secret files.
  *  Priority: env vars > config file > defaults */
 export async function loadConfig(): Promise<BrayConfig> {
+  // Capture then remove bearer credentials before any parsing or validation can
+  // throw. This keeps failure paths from leaving secrets in process.env.
+  const secretEnvironment = {
+    secretKey: process.env.NOSTR_SECRET_KEY,
+    secretKeyFile: process.env.NOSTR_SECRET_KEY_FILE,
+    bunkerUri: process.env.BUNKER_URI,
+    bunkerUriFile: process.env.BUNKER_URI_FILE,
+    ncryptsec: process.env.NOSTR_NCRYPTSEC,
+    ncryptsecFile: process.env.NOSTR_NCRYPTSEC_FILE,
+    ncryptsecPassword: process.env.NOSTR_NCRYPTSEC_PASSWORD,
+    ncryptsecPasswordFile: process.env.NOSTR_NCRYPTSEC_PASSWORD_FILE,
+    nwcUri: process.env.NWC_URI,
+    nwcUriFile: process.env.NWC_URI_FILE,
+  }
+  delete process.env.NOSTR_SECRET_KEY
+  delete process.env.NOSTR_SECRET_KEY_FILE
+  delete process.env.NWC_URI
+  delete process.env.NWC_URI_FILE
+  delete process.env.BUNKER_URI
+  delete process.env.BUNKER_URI_FILE
+  delete process.env.NOSTR_NCRYPTSEC
+  delete process.env.NOSTR_NCRYPTSEC_FILE
+  delete process.env.NOSTR_NCRYPTSEC_PASSWORD
+  delete process.env.NOSTR_NCRYPTSEC_PASSWORD_FILE
+
   const file = loadConfigFile()
 
   // --- Secret key ---
-  const keyFilePath = process.env.NOSTR_SECRET_KEY_FILE ?? file.secretKeyFile
-  const keyEnvVar = process.env.NOSTR_SECRET_KEY
+  const keyFilePath = secretEnvironment.secretKeyFile ?? file.secretKeyFile
+  const keyEnvVar = secretEnvironment.secretKey
   let secretKey: string
 
   // A local key source is an explicit choice to sign locally. A bunker URI
@@ -130,16 +156,16 @@ export async function loadConfig(): Promise<BrayConfig> {
   const hasLocalKeySource = !!(
     keyFilePath
     || keyEnvVar
-    || process.env.NOSTR_NCRYPTSEC_FILE
-    || process.env.NOSTR_NCRYPTSEC
+    || secretEnvironment.ncryptsecFile
+    || secretEnvironment.ncryptsec
     || file.ncryptsecFile
   )
 
   let bunkerUri: string | undefined
-  if (process.env.BUNKER_URI_FILE) {
-    bunkerUri = readSecretFile(process.env.BUNKER_URI_FILE)
-  } else if (process.env.BUNKER_URI) {
-    bunkerUri = process.env.BUNKER_URI
+  if (secretEnvironment.bunkerUriFile) {
+    bunkerUri = readSecretFile(secretEnvironment.bunkerUriFile)
+  } else if (secretEnvironment.bunkerUri) {
+    bunkerUri = secretEnvironment.bunkerUri
   } else if (file.bunkerUriFile) {
     bunkerUri = readSecretFile(file.bunkerUriFile)
   } else if (!hasLocalKeySource) {
@@ -151,10 +177,10 @@ export async function loadConfig(): Promise<BrayConfig> {
   }
 
   // --- NIP-49 ncryptsec (password-encrypted key) ---
-  const ncryptsec = process.env.NOSTR_NCRYPTSEC_FILE
-    ? readSecretFile(process.env.NOSTR_NCRYPTSEC_FILE)
-    : process.env.NOSTR_NCRYPTSEC
-      ? process.env.NOSTR_NCRYPTSEC
+  const ncryptsec = secretEnvironment.ncryptsecFile
+    ? readSecretFile(secretEnvironment.ncryptsecFile)
+    : secretEnvironment.ncryptsec
+      ? secretEnvironment.ncryptsec
       : file.ncryptsecFile
         ? readSecretFile(file.ncryptsecFile)
         : undefined
@@ -162,11 +188,11 @@ export async function loadConfig(): Promise<BrayConfig> {
   // Prefer file-based sources so the password can be delivered via systemd
   // credentials, docker secrets, or similar secure channels and never appears
   // in the process environment or config JSON.
-  const ncryptsecPasswordFile = process.env.NOSTR_NCRYPTSEC_PASSWORD_FILE ?? file.ncryptsecPasswordFile
+  const ncryptsecPasswordFile = secretEnvironment.ncryptsecPasswordFile ?? file.ncryptsecPasswordFile
   let ncryptsecPasswordBuf: Buffer | null = null
   let ncryptsecPassword: string | undefined
-  if (process.env.NOSTR_NCRYPTSEC_PASSWORD) {
-    ncryptsecPassword = process.env.NOSTR_NCRYPTSEC_PASSWORD
+  if (secretEnvironment.ncryptsecPassword) {
+    ncryptsecPassword = secretEnvironment.ncryptsecPassword
   } else if (ncryptsecPasswordFile) {
     // Read as Buffer so we can zeroise the at-rest byte representation even
     // though the derived UTF-8 string is immutable in V8.
@@ -218,12 +244,14 @@ export async function loadConfig(): Promise<BrayConfig> {
   const secretFormat = secretKey ? detectKeyFormat(secretKey) : 'nsec' as const
 
   // --- NWC URI ---
-  const nwcFilePath = process.env.NWC_URI_FILE ?? file.nwcUriFile
+  const rawNwcUri = secretEnvironment.nwcUri
+  const nwcFilePath = secretEnvironment.nwcUriFile ?? file.nwcUriFile
+  if (rawNwcUri) {
+    throw new Error('NWC_URI is disabled because bearer wallet credentials must not be stored in environment variables; use NWC_URI_FILE')
+  }
   let nwcUri: string | undefined
   if (nwcFilePath) {
-    nwcUri = readSecretFile(nwcFilePath)
-  } else if (process.env.NWC_URI) {
-    nwcUri = process.env.NWC_URI
+    nwcUri = readNwcUriFile(nwcFilePath)
   }
 
   // --- Relays ---
@@ -302,18 +330,6 @@ export async function loadConfig(): Promise<BrayConfig> {
   const walletsFile = process.env.BRAY_WALLETS_FILE
     ?? file.walletsFile
     ?? (process.env.HOME ? `${process.env.HOME}/.nostr/bray-wallets.json` : '')
-
-  // --- Clean up secrets from process.env ---
-  delete process.env.NOSTR_SECRET_KEY
-  delete process.env.NOSTR_SECRET_KEY_FILE
-  delete process.env.NWC_URI
-  delete process.env.NWC_URI_FILE
-  delete process.env.BUNKER_URI
-  delete process.env.BUNKER_URI_FILE
-  delete process.env.NOSTR_NCRYPTSEC
-  delete process.env.NOSTR_NCRYPTSEC_FILE
-  delete process.env.NOSTR_NCRYPTSEC_PASSWORD
-  delete process.env.NOSTR_NCRYPTSEC_PASSWORD_FILE
 
   return {
     secretKey,

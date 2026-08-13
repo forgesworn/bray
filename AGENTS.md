@@ -112,7 +112,7 @@ Tests mirror at `test/<group>/handlers.test.ts`.
 Extra care when modifying:
 
 - `src/context.ts` — key material lifecycle, zeroise on eviction/destroy
-- `src/zap/handlers.ts` — NWC secret handling, NIP-44 encrypt/decrypt
+- `src/zap/handlers.ts` — NWC capability lifecycle and verified payment results
 - `src/config.ts` — secret loading and env var cleanup
 - `src/relay-pool.ts` — Tor policy enforcement
 - `src/nip65.ts` — event signature verification

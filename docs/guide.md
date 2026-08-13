@@ -182,11 +182,21 @@ trust-spoken-verify({ secret: "<shared-hex>", context: "meeting-2026-03-24", cou
 
 ## Lightning Payments (NWC)
 
-Configure Nostr Wallet Connect by setting `NWC_URI` or `NWC_URI_FILE`:
+Bray requires Node.js 24 or newer.
+
+Put the Nostr Wallet Connect bearer URI in a private local file and reference
+that file. Raw `NWC_URI` environment values are refused so the spending
+credential is not copied into process environments, command histories or MCP
+transcripts:
 
 ```bash
-export NWC_URI="nostr+walletconnect://<wallet-pubkey>?relay=wss://relay&secret=<hex>"
+chmod 600 /run/secrets/bray-nwc
+export NWC_URI_FILE=/run/secrets/bray-nwc
 ```
+
+For a persona-specific wallet, use
+`nostr-bray wallet connect /run/secrets/persona-nwc`. The registry stores only
+the absolute file path, never the bearer URI.
 
 Then use the zap tools:
 
@@ -197,7 +207,16 @@ zap-make-invoice({ amountMsats: 100000, description: "Payment for service" })
 zap-receipts({ limit: 10 })
 ```
 
-All NWC communication is NIP-44 encrypted. The NWC secret is zeroised from memory after each operation.
+Bray delegates NIP-47 communication to `@forgesworn/nwc-kit`. It requires
+NIP-44 v2, signed wallet capability and response events, and bounded request
+lifetimes. Bray verifies the returned preimage against the challenged BOLT-11
+invoice with `farrier-kit` before it reports a payment as paid. The NWC secret
+is never returned. If submission may have happened but Bray cannot prove
+settlement, it throws `ZapPaymentOutcomeUnknownError` with the payment hash.
+Reconcile that invoice before retrying; Bray never retries a payment
+automatically.
+The URI remains caller-owned configuration because JavaScript strings cannot be
+reliably erased; library-owned key byte arrays are zeroised after each operation.
 
 ## Relay Management
 

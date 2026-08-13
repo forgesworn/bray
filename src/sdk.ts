@@ -694,7 +694,7 @@ let _default: Promise<BrayClient> | null = null
 
 /**
  * Get or create a singleton BrayClient built from environment variables.
- * Reads NOSTR_SECRET_KEY / BUNKER_URI / NOSTR_RELAYS / NWC_URI etc.
+ * Reads NOSTR_SECRET_KEY / BUNKER_URI / NOSTR_RELAYS / NWC_URI_FILE etc.
  */
 export function defaultBray(): Promise<BrayClient> {
   if (!_default) {

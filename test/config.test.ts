@@ -232,12 +232,12 @@ describe('loadConfig', () => {
     unlinkSync(keyFile)
   })
 
-  it('deletes secret env vars from process.env after parsing', async () => {
+  it('deletes secret env vars and refuses a raw NWC_URI', async () => {
     const { loadConfig } = await import('../src/config.js')
     process.env.NOSTR_SECRET_KEY = TEST_NSEC
     process.env.NOSTR_RELAYS = 'wss://relay.example.com'
     process.env.NWC_URI = 'nostr+walletconnect://test'
-    await loadConfig()
+    await expect(loadConfig()).rejects.toThrow('NWC_URI is disabled')
     expect(process.env.NOSTR_SECRET_KEY).toBeUndefined()
     expect(process.env.NWC_URI).toBeUndefined()
   })
@@ -281,8 +281,8 @@ describe('loadConfig', () => {
     const { loadConfig } = await import('../src/config.js')
     const dir = mkdtempSync(join(tmpdir(), 'bray-test-'))
     const nwcFile = join(dir, 'nwc.uri')
-    const nwcUri = 'nostr+walletconnect://abc123'
-    writeFileSync(nwcFile, `${nwcUri}\n`)
+    const nwcUri = `nostr+walletconnect://${'01'.padStart(64, '0')}?relay=wss%3A%2F%2Frelay.example.com&secret=${'02'.padStart(64, '0')}`
+    writeFileSync(nwcFile, `${nwcUri}\n`, { mode: 0o600 })
 
     process.env.NOSTR_SECRET_KEY = TEST_NSEC
     process.env.NOSTR_RELAYS = 'wss://relay.example.com'

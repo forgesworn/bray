@@ -102,7 +102,6 @@ const manifest = {
   version: pkg.version,
   description: pkg.description,
   homepage: 'https://bray.forgesworn.dev',
-  generated: new Date().toISOString(),
   totalTools: collected.length,
   note:
     'Parameter schemas for every registered tool. Most tools live in the catalog ' +

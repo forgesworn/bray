@@ -212,13 +212,17 @@ Search order: `BRAY_CONFIG` env var > `$XDG_CONFIG_HOME/bray/config.json` > `~/.
 | `NOSTR_SECRET_KEY_FILE` | Path to secret key file |
 | `NOSTR_NCRYPTSEC` | NIP-49 encrypted key |
 | `NOSTR_NCRYPTSEC_PASSWORD` | Password for ncryptsec |
+| `NWC_URI_FILE` | Path to a private `0600` file containing the NWC bearer URI |
 | `NOSTR_RELAYS` | Comma-separated relay URLs |
 | `TOR_PROXY` | SOCKS5h proxy for Tor |
 | `NIP04_ENABLED` | Set `1` to enable legacy NIP-04 DMs |
 | `TRANSPORT` | `stdio` (default) or `http` |
 | `PORT` | HTTP port (default 3000) |
 
-All secret env vars are deleted from `process.env` immediately after parsing.
+All secret env vars are deleted from `process.env` before parsing can fail.
+Raw `NWC_URI` is refused; use `NWC_URI_FILE` or `wallet connect <nwc-file>` so
+the bearer credential never appears in a process environment, command argument
+or MCP tool argument.
 
 ## CLI
 

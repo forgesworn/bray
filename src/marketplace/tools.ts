@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { randomUUID } from 'node:crypto'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
 import { hexId, relayUrl } from '../validation.js'
@@ -186,6 +187,8 @@ export function registerMarketplaceTools(server: McpServer, deps: ToolDeps): voi
     annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ macaroon, invoice, confirm }) => {
     const decoded = handleZapDecode(invoice)
+    if (decoded.expiry === undefined) throw new Error('Invalid BOLT-11 invoice')
+    if (decoded.amountMsats === undefined) throw new Error('Amountless L402 invoices are not supported')
     const costSats = extractBolt11AmountSats(invoice)
 
     if (!confirm) {
@@ -209,18 +212,16 @@ export function registerMarketplaceTools(server: McpServer, deps: ToolDeps): voi
       nwcUri: resolveNwcUri(deps.ctx, deps.walletsFile, deps.nwcUri),
     })
 
-    // Store credentials keyed by event ID (opaque to caller)
-    const credentialId = payResult.event.id
-    // In a real L402 flow the preimage comes from the payment result.
-    // NWC pay_invoice returns asynchronously — use the payment hash as placeholder
-    // until the wallet confirms. For now we store with the event id as preimage proxy.
-    storeCredential(credentialId, macaroon, credentialId)
+    // Keep the bearer credential in process and return only an opaque handle.
+    const credentialId = randomUUID()
+    storeCredential(credentialId, macaroon, payResult.preimage)
 
     return {
       content: [{
         type: 'text' as const,
         text: JSON.stringify({
           paid: true,
+          verified: payResult.verified,
           credentialId,
           costSats,
           amountMsats: decoded.amountMsats,
