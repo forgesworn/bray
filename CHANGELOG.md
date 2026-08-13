@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0 (2026-08-13)
+
+### Breaking Changes
+
+- adopt nwc-kit for wallet payments
+
+
+
 ## 2.4.0 (2026-08-07)
 
 ### Features
