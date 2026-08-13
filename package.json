@@ -155,7 +155,7 @@
     "node": ">=24"
   },
   "dependencies": {
-    "@forgesworn/nwc-kit": "file:../nwc-kit",
+    "@forgesworn/nwc-kit": "0.1.1",
     "@forgesworn/range-proof": "^2.0.1",
     "@forgesworn/ring-sig": "^3.0.0",
     "@forgesworn/shamir-words": "^1.0.4",
