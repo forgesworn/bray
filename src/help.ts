@@ -63,15 +63,15 @@ export const COMMAND_HELP: Record<string, { usage: string; description: string; 
   'relay-info': { usage: 'relay-info <wss://url>', description: 'Fetch the NIP-11 relay information document (name, description, supported NIPs, limits).', examples: ['nostr-bray relay-info wss://relay.damus.io'] },
 
   // Wallet (NIP-47 Nostr Wallet Connect)
-  'wallet-connect': { usage: 'wallet connect <nwc-url>', description: 'Store a nostr+walletconnect:// URI for the active identity. Each identity can have its own Lightning wallet.', examples: ['nostr-bray wallet connect "nostr+walletconnect://pubkey?relay=wss%3A%2F%2Frelay.example&secret=deadbeef"'], notes: 'URI is stored per-identity in the wallets file (0600). Use `wallet status` to confirm.' },
-  'wallet-disconnect': { usage: 'wallet disconnect', description: 'Remove the stored NWC URI for the active identity. Falls back to NWC_URI env var if set.', examples: ['nostr-bray wallet disconnect'] },
+  'wallet-connect': { usage: 'wallet connect <nwc-file>', description: 'Store a reference to a private local file containing the NWC URI for the active identity.', examples: ['nostr-bray wallet connect /run/secrets/alice-nwc'], notes: 'The file must be a regular 0600 file. The bearer URI is never passed on the command line or stored in the wallet registry.' },
+  'wallet-disconnect': { usage: 'wallet disconnect', description: 'Remove the stored NWC file reference for the active identity. Falls back to NWC_URI_FILE if configured.', examples: ['nostr-bray wallet disconnect'] },
   'wallet-status': { usage: 'wallet status', description: 'Show the wallet pubkey and relay configured for the active identity. The connection secret is never shown.', examples: ['nostr-bray wallet status --json'] },
-  'wallet-pay': { usage: 'wallet pay <bolt11>', description: 'Pay a Lightning invoice via Nostr Wallet Connect (NIP-47). Requires a wallet configured via `wallet connect` or NWC_URI.', examples: ['nostr-bray wallet pay lnbc10u1...'], notes: 'SPENDS REAL SATS. Decodes the invoice and sends a pay_invoice NIP-47 request.' },
+  'wallet-pay': { usage: 'wallet pay <bolt11>', description: 'Pay a Lightning invoice via Nostr Wallet Connect (NIP-47). Requires a wallet configured via `wallet connect` or NWC_URI_FILE.', examples: ['nostr-bray wallet pay lnbc10u1...'], notes: 'SPENDS REAL SATS. Waits for an authenticated wallet result and verifies the returned preimage without printing it.' },
   'wallet-balance': { usage: 'wallet balance', description: 'Request wallet balance via Nostr Wallet Connect (NIP-47).', examples: ['nostr-bray wallet balance', 'nostr-bray wallet balance --json'] },
   'wallet-history': { usage: 'wallet history [--limit N]', description: 'List recent Lightning transactions via Nostr Wallet Connect (NIP-47). Default limit: 10.', examples: ['nostr-bray wallet history', 'nostr-bray wallet history --limit 25 --json'] },
 
   // Zap
-  'zap-send': { usage: 'zap-send <bolt11>', description: 'Pay a Lightning invoice via Nostr Wallet Connect (NIP-47). Requires NWC_URI configured.', examples: ['nostr-bray zap-send lnbc10u1...'] },
+  'zap-send': { usage: 'zap-send <bolt11>', description: 'Pay a Lightning invoice via Nostr Wallet Connect (NIP-47). Requires NWC_URI_FILE or a persona wallet file.', examples: ['nostr-bray zap-send lnbc10u1...'] },
   'zap-balance': { usage: 'zap-balance', description: 'Request wallet balance via NWC.', examples: ['nostr-bray zap-balance'] },
   'zap-invoice': { usage: 'zap-invoice <msats> [description]', description: 'Generate a Lightning invoice via NWC to receive payments.', examples: ['nostr-bray zap-invoice 100000 "Coffee payment"'] },
   'zap-lookup': { usage: 'zap-lookup <payment-hash>', description: 'Look up a Lightning invoice payment status via NWC.', examples: ['nostr-bray zap-lookup abc123...'] },

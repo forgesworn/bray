@@ -19,9 +19,11 @@ export async function dispatch(
   const { globalNwcUri, walletsFile } = extras
 
   switch (cmd) {
-    case 'zap-send':
-      out(await handleZapSend(ctx, pool, { invoice: req(1, 'zap-send <bolt11>'), nwcUri: resolveNwcUri(ctx, walletsFile, globalNwcUri) }))
+    case 'zap-send': {
+      const result = await handleZapSend(ctx, pool, { invoice: req(1, 'zap-send <bolt11>'), nwcUri: resolveNwcUri(ctx, walletsFile, globalNwcUri) })
+      out({ paid: true, verified: result.verified, paymentHash: result.paymentHash, feesPaidMsats: result.fees_paid })
       break
+    }
 
     case 'zap-balance':
       out(await handleZapBalance(ctx, pool, { nwcUri: resolveNwcUri(ctx, walletsFile, globalNwcUri) }))

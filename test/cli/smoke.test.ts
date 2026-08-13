@@ -19,6 +19,7 @@ import { IdentityContext } from '../../src/context.js'
 
 const CLI = 'dist/cli.js'
 const TEST_CONFIG_HOME = mkdtempSync(join(tmpdir(), 'bray-smoke-config-'))
+const VALID_BOLT11 = 'lnbc10n1pj48ugqpp5urnh55r5z2cjpahduc0ky22mrfajluva8hxg7ujnu5txx3cv3z8qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqgp0xzz'
 
 // Deterministic test identity — never use in production
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
@@ -310,18 +311,24 @@ describe('utility — offline', { timeout: 15_000 }, () => {
   })
 
   it('zap-decode parses lnbc prefix to msats', () => {
-    const out = cliJson(OFF, 'zap-decode', 'lnbc10u1test') as any
-    expect(out.amountMsats).toBe(1_000_000)
+    const out = cliJson(OFF, 'zap-decode', VALID_BOLT11) as any
+    expect(out.amountMsats).toBe(1_000)
   })
 })
 
 describe('wallet — offline', { timeout: 15_000 }, () => {
   let walletsDir: string
   let walletEnv: Record<string, string>
+  let walletSecretFile: string
+  let invalidWalletSecretFile: string
   const TEST_NWC = 'nostr+walletconnect://0000000000000000000000000000000000000000000000000000000000000001?relay=wss%3A%2F%2Frelay.example.com&secret=deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
 
   beforeAll(() => {
     walletsDir = mkdtempSync(join(tmpdir(), 'bray-wallet-test-'))
+    walletSecretFile = join(walletsDir, 'wallet.nwc')
+    invalidWalletSecretFile = join(walletsDir, 'invalid-wallet.nwc')
+    writeFileSync(walletSecretFile, `${TEST_NWC}\n`, { mode: 0o600 })
+    writeFileSync(invalidWalletSecretFile, 'not-a-valid-uri\n', { mode: 0o600 })
     walletEnv = {
       ...OFF,
       BRAY_WALLETS_FILE: join(walletsDir, 'wallets.json'),
@@ -337,8 +344,8 @@ describe('wallet — offline', { timeout: 15_000 }, () => {
     expect(out.configured).toBe(false)
   })
 
-  it('wallet connect stores URI and returns ok', () => {
-    const out = cliJson(walletEnv, 'wallet', 'connect', TEST_NWC) as any
+  it('wallet connect stores a secret-file reference and returns ok', () => {
+    const out = cliJson(walletEnv, 'wallet', 'connect', walletSecretFile) as any
     expect(out.ok).toBe(true)
     expect(out.identity).toMatch(/^npub1/)
   })
@@ -347,7 +354,7 @@ describe('wallet — offline', { timeout: 15_000 }, () => {
     const out = cliJson(walletEnv, 'wallet', 'status') as any
     expect(out.configured).toBe(true)
     expect(out.walletPubkey).toBeDefined()
-    expect(out.relay).toBe('wss://relay.example.com')
+    expect(out.relay).toBe('wss://relay.example.com/')
   })
 
   it('wallet status never exposes the NWC secret', () => {
@@ -367,8 +374,8 @@ describe('wallet — offline', { timeout: 15_000 }, () => {
     expect(out.removed).toBe(false)
   })
 
-  it('wallet connect rejects invalid NWC URI', () => {
-    const err = cliExpectFail(walletEnv, 'wallet', 'connect', 'not-a-valid-uri')
+  it('wallet connect rejects an invalid NWC secret file', () => {
+    const err = cliExpectFail(walletEnv, 'wallet', 'connect', invalidWalletSecretFile)
     expect(err).toMatch(/invalid|error/i)
   })
 

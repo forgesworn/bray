@@ -115,10 +115,13 @@
     "build": "tsc && node scripts/build-widgets.mjs && node scripts/export-tool-schemas.mjs",
     "update:kind-registry": "node scripts/update-kind-registry.mjs",
     "test": "vitest run",
+    "test:release": "npm run check:publish-dependencies && npm test",
+    "check:publish-dependencies": "node scripts/check-publish-dependencies.mjs",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run check:publish-dependencies && npm run build && npm test"
   },
   "keywords": [
     "nostr",
@@ -149,9 +152,10 @@
   "homepage": "https://github.com/forgesworn/bray#readme",
   "license": "MIT",
   "engines": {
-    "node": ">=22.19.0"
+    "node": ">=24"
   },
   "dependencies": {
+    "@forgesworn/nwc-kit": "file:../nwc-kit",
     "@forgesworn/range-proof": "^2.0.1",
     "@forgesworn/ring-sig": "^3.0.0",
     "@forgesworn/shamir-words": "^1.0.4",
@@ -159,6 +163,7 @@
     "@modelcontextprotocol/sdk": "^1.27.1",
     "canary-kit": "^2.6.2",
     "dominion-protocol": "^1.0.0",
+    "farrier-kit": "^1.1.1",
     "nostr-attestations": "^2.5.4",
     "nostr-tools": "^2.23.3",
     "nostr-veil": "^0.30.0",

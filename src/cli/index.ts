@@ -189,8 +189,8 @@ Admin (NIP-86 relay management):
    listdisallowedkinds; they were never NIP-86 method names)
 
 Wallet (NIP-47 Nostr Wallet Connect):
-  wallet connect <nwc-url>            Store NWC URI for the active identity
-  wallet disconnect                   Remove stored NWC URI for the active identity
+  wallet connect <nwc-file>           Store a private NWC secret-file reference
+  wallet disconnect                   Remove stored NWC file reference
   wallet status                       Show configured wallet pubkey and relay
   wallet pay <bolt11>                 Pay a Lightning invoice via NWC
   wallet balance                      Request wallet balance via NWC
@@ -268,7 +268,7 @@ Environment:
   BUNKER_URI / BUNKER_URI_FILE  bunker:// URI (use INSTEAD of secret key)
   NOSTR_RELAYS                  Comma-separated relay URLs
   NOSTR_AUTH                    NIP-42 policy: off (default), on-demand, eager
-  NWC_URI / NWC_URI_FILE        Nostr Wallet Connect URI
+  NWC_URI_FILE                  Private 0600 file containing an NWC URI
   TOR_PROXY                     SOCKS5h proxy URL
   NOSTR_BRAY_OUTPUT             Default output: "human" (default) or "json"
 

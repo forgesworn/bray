@@ -6,6 +6,7 @@ import {
   loadWallets,
   saveWallets,
   parseNwcUri,
+  normaliseNwcUriFile,
 } from '../../exports.js'
 import type { Helpers } from '../dispatch.js'
 
@@ -18,8 +19,8 @@ export interface WalletExtras {
  * Dispatch `wallet *` subcommands (NIP-47 Nostr Wallet Connect).
  *
  * Commands:
- *   wallet connect <nwc-url>      Store NWC URI for the active identity
- *   wallet disconnect             Remove the stored NWC URI for the active identity
+ *   wallet connect <nwc-file>     Store an NWC secret-file reference for the active identity
+ *   wallet disconnect             Remove the stored NWC file reference for the active identity
  *   wallet status                 Show configured wallet pubkey and relay
  *   wallet pay <bolt11>           Pay a Lightning invoice via NWC
  *   wallet balance                Request wallet balance via NWC
@@ -38,13 +39,11 @@ export async function dispatch(
 
   switch (cmd) {
     case 'wallet-connect': {
-      const uri = req(1, 'wallet connect <nwc-url>')
-      // Validate URI before storing
-      parseNwcUri(uri)
+      const secretFile = normaliseNwcUriFile(req(1, 'wallet connect <nwc-file>'))
       const pubkey = ctx.activePublicKeyHex as string
       const npub = ctx.activeNpub as string
       const wallets = loadWallets(walletsFile)
-      wallets[pubkey] = uri
+      wallets[pubkey] = secretFile
       saveWallets(walletsFile, wallets)
       out({ ok: true, identity: npub, message: `Wallet configured for ${npub}` })
       break
@@ -65,7 +64,7 @@ export async function dispatch(
       const npub = ctx.activeNpub as string
       const uri = resolveNwcUri(ctx, walletsFile, globalNwcUri)
       if (!uri) {
-        out({ ok: false, identity: npub, configured: false, message: 'No wallet configured. Use `wallet connect <nwc-url>` or set NWC_URI.' })
+        out({ ok: false, identity: npub, configured: false, message: 'No wallet configured. Use `wallet connect <nwc-file>` or set NWC_URI_FILE.' })
         break
       }
       const conn = parseNwcUri(uri)
@@ -74,12 +73,16 @@ export async function dispatch(
       break
     }
 
-    case 'wallet-pay':
-      out(await handleZapSend(ctx, pool, {
+    case 'wallet-pay': {
+      const result = await handleZapSend(ctx, pool, {
         invoice: req(1, 'wallet pay <bolt11>'),
         nwcUri: resolveNwcUri(ctx, walletsFile, globalNwcUri),
-      }))
+      })
+      // A preimage can be an L402 bearer credential when the challenge macaroon
+      // is known. Report verified payment without printing the preimage.
+      out({ paid: true, verified: result.verified, paymentHash: result.paymentHash, feesPaidMsats: result.fees_paid })
       break
+    }
 
     case 'wallet-balance':
       out(await handleZapBalance(ctx, pool, { nwcUri: resolveNwcUri(ctx, walletsFile, globalNwcUri) }))

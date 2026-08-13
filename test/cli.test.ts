@@ -7,6 +7,7 @@ import { startRelay } from '../src/serve.js'
 
 const CLI_PATH = 'dist/cli.js'
 const TEST_CONFIG_HOME = mkdtempSync(join(tmpdir(), 'bray-cli-config-'))
+const VALID_BOLT11 = 'lnbc10n1pj48ugqpp5urnh55r5z2cjpahduc0ky22mrfajluva8hxg7ujnu5txx3cv3z8qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqgp0xzz'
 
 // These cases spawn the real CLI, so any relay named here is genuinely dialled.
 // Pointing them at a public relay made the suite fail offline and turned an
@@ -20,7 +21,7 @@ beforeAll(async () => {
   relay = startRelay({ port: 0, quiet: true })
   await relay.ready
   ENV = {
-    NOSTR_SECRET_KEY: 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8',
+    NOSTR_SECRET_KEY: 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8', // gitleaks:allow -- deterministic test-only key
     NOSTR_RELAYS: relay.url,
     // The bundled relay binds loopback, which the pool rejects by default
     BRAY_ALLOW_PRIVATE_RELAYS: '1',
@@ -177,8 +178,8 @@ describe('CLI', { timeout: 45_000 }, () => {
   })
 
   it('zap-decode parses bolt11', () => {
-    const output = JSON.parse(run('zap-decode', 'lnbc10u1test'))
-    expect(output.amountMsats).toBe(1_000_000)
+    const output = JSON.parse(run('zap-decode', VALID_BOLT11))
+    expect(output.amountMsats).toBe(1_000)
   })
 
   it('relay-list returns read/write arrays', () => {

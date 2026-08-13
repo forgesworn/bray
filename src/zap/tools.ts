@@ -12,8 +12,8 @@ import {
   resolveNwcUri,
   loadWallets,
   saveWallets,
-  parseNwcUri,
 } from './handlers.js'
+import { normaliseNwcUriFile } from './nwc-file.js'
 
 /** Resolve the NWC URI for the active identity, with per-identity and global fallback */
 function getNwcUri(deps: ToolDeps): string | undefined {
@@ -22,18 +22,17 @@ function getNwcUri(deps: ToolDeps): string | undefined {
 
 export function registerZapTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('zap-wallet-set', {
-    description: 'Set the NWC wallet URI for the active identity. Each persona can have its own Lightning wallet.',
+    description: 'Set the private local file containing the NWC wallet URI for the active identity. The bearer URI never crosses MCP.',
     inputSchema: {
-      nwcUri: z.string().describe('nostr+walletconnect:// URI for this identity'),
+      nwcUriFile: z.string().describe('Path to a local 0600 file containing the nostr+walletconnect:// URI'),
     },
-    annotations: { readOnlyHint: false },
-  }, async ({ nwcUri }) => {
-    // Validate URI format
-    parseNwcUri(nwcUri)
+    annotations: { readOnlyHint: false, destructiveHint: true },
+  }, async ({ nwcUriFile }) => {
+    const secretFile = normaliseNwcUriFile(nwcUriFile)
     const pubkey = deps.ctx.activePublicKeyHex
     const npub = deps.ctx.activeNpub
     const wallets = loadWallets(deps.walletsFile)
-    wallets[pubkey] = nwcUri
+    wallets[pubkey] = secretFile
     saveWallets(deps.walletsFile, wallets)
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({
@@ -45,7 +44,7 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('zap-wallet-clear', {
-    description: 'Remove the NWC wallet for the active identity. Falls back to the global NWC_URI if set.',
+    description: 'Remove the NWC wallet file reference for the active identity. Falls back to global NWC_URI_FILE configuration.',
     annotations: { readOnlyHint: false },
   }, async () => {
     const pubkey = deps.ctx.activePublicKeyHex
@@ -74,6 +73,8 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
   }, async ({ invoice, confirm }) => {
     // Always decode first so the caller sees what they're paying
     const decoded = handleZapDecode(invoice)
+    if (decoded.expiry === undefined) throw new Error('Invalid BOLT-11 invoice')
+    if (decoded.amountMsats === undefined) throw new Error('Amountless BOLT-11 invoices are not supported')
     if (!confirm) {
       return {
         content: [{ type: 'text' as const, text: JSON.stringify({
@@ -88,9 +89,10 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({
         paid: true,
+        verified: result.verified,
         amountMsats: decoded.amountMsats,
-        id: result.event.id,
-        publish: result.publish,
+        paymentHash: result.paymentHash,
+        feesPaidMsats: result.fees_paid,
       }, null, 2) }],
     }
   })
@@ -101,7 +103,7 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
   }, async () => {
     const result = await handleZapBalance(deps.ctx, deps.pool, { nwcUri: getNwcUri(deps) })
     return {
-      content: [{ type: 'text' as const, text: JSON.stringify({ id: result.event.id, publish: result.publish }, null, 2) }],
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }
   })
 
@@ -117,7 +119,7 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
       amountMsats, description, nwcUri: getNwcUri(deps),
     })
     return {
-      content: [{ type: 'text' as const, text: JSON.stringify({ id: result.event.id, publish: result.publish }, null, 2) }],
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }
   })
 
@@ -133,7 +135,7 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
       paymentHash, invoice, nwcUri: getNwcUri(deps),
     })
     return {
-      content: [{ type: 'text' as const, text: JSON.stringify({ id: result.event.id, publish: result.publish }, null, 2) }],
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }
   })
 
@@ -149,7 +151,7 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
       limit, offset, nwcUri: getNwcUri(deps),
     })
     return {
-      content: [{ type: 'text' as const, text: JSON.stringify({ id: result.event.id, publish: result.publish }, null, 2) }],
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }
   })
 

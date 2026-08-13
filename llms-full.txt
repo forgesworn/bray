@@ -18,8 +18,7 @@ Single-process MCP server (stdio or HTTP transport) with 253 tools in 28 groups.
 | NOSTR_SECRET_KEY_FILE | Tier 3* | Path to file containing the secret key |
 | NOSTR_SECRET_KEY | Tier 4* | nsec bech32, 64-char hex, or BIP-39 mnemonic |
 | NOSTR_RELAYS | Yes | Comma-separated relay WebSocket URLs |
-| NWC_URI | No | Nostr Wallet Connect URI for zap operations |
-| NWC_URI_FILE | No | Path to file containing NWC URI |
+| NWC_URI_FILE | No | Path to a private 0600 file containing the NWC URI |
 | TOR_PROXY | No | SOCKS5h proxy URL (e.g. socks5h://127.0.0.1:9050) |
 | ALLOW_CLEARNET_WITH_TOR | No | Set to "1" to allow clearnet relays with Tor |
 | NIP04_ENABLED | No | Set to "1" to enable legacy NIP-04 DMs |
@@ -608,11 +607,11 @@ Recommend relays for your use case. Strategies: balanced, privacy, performance, 
 ### Zap Tools (9)
 
 #### zap-wallet-set
-Set the NWC wallet URI for the active identity. Each persona can have its own Lightning wallet.
-- Input: nwcUri (nostr+walletconnect:// URI)
+Set the private local file containing the NWC wallet URI for the active identity. The bearer URI never crosses MCP.
+- Input: nwcUriFile (path to a regular 0600 secret file)
 
 #### zap-wallet-clear
-Remove the NWC wallet for the active identity. Falls back to global NWC_URI.
+Remove the NWC wallet file reference for the active identity. Falls back to global NWC_URI_FILE configuration.
 - No inputs
 
 #### zap-send
@@ -1130,7 +1129,9 @@ Execute an action found via search-actions.
 - Private keys never appear in tool responses
 - LRU cache with cryptographic zeroing on eviction (active entry never evicted)
 - Secrets deleted from process.env after parsing, references cleared after startup
-- NWC secret buffers zeroised in try/finally after each operation
+- NWC uses @forgesworn/nwc-kit with NIP-44 v2 and authenticated wallet events
+- Returned payment preimages are verified against the challenged BOLT-11 invoice with farrier-kit
+- Caller-owned NWC URI strings cannot be erased; library-owned key byte arrays are zeroised in try/finally after each operation
 - NIP-04 disabled by default (requires explicit opt-in)
 - Tor proxy support via SOCKS5h with clearnet blocking enforced on runtime relay additions
 - Per-identity relay separation to prevent linking
