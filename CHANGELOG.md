@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.2.0 (2026-08-18)
+
+### Features
+
+- adopt the family type system and self-host the fonts
+
+
+
 ## 3.1.0 (2026-08-18)
 
 ### Features
