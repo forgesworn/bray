@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.1.0 (2026-08-18)
+
+### Features
+
+- motion on the site, and a reduced-motion block it never had
+
+
+
 ## 3.0.0 (2026-08-13)
 
 ### Breaking Changes
