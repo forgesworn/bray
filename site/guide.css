@@ -1,3 +1,28 @@
+/* Self-hosted, so this page makes no third-party requests. Previously
+   these came from fonts.googleapis.com, which meant every visitor to a
+   freedom-tech landing page pinged Google before the first paint.
+   All three families are SIL OFL 1.1. */
+@font-face {
+  font-family: "Fraunces";
+  src: url("/fonts/fraunces-latin.woff2") format("woff2");
+  font-weight: 300 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Fraunces";
+  src: url("/fonts/fraunces-italic-latin.woff2") format("woff2");
+  font-weight: 300 700; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-latin.woff2") format("woff2");
+  font-weight: 400 600; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/jetbrains-mono-latin.woff2") format("woff2");
+  font-weight: 400 700; font-style: normal; font-display: swap;
+}
+
 /* Bray guides: bray.forgesworn.dev/guide/ and /guide/trust/
    Self-contained stylesheet for the walkthrough pages. Same design tokens as
    the front page, no scripts, nothing third-party beyond the shared fonts. */
@@ -23,9 +48,9 @@
   --accent-red: #f87171;
   --accent-purple: #a78bfa;
 
-  --font-display: 'Instrument Serif', Georgia, serif;
-  --font-body: 'DM Sans', -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-body: "Inter", ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   --measure: 68ch;
   --gutter: clamp(1.25rem, 4vw, 2.5rem);
@@ -102,7 +127,11 @@ strong { color: var(--text-primary); font-weight: 600; }
 }
 .page-hero h1 {
   font-family: var(--font-display);
-  font-weight: 400;
+  /* Fraunces' opsz axis defaults to 9, its caption cut, which at heading size
+     renders like a different and much worse typeface. Instrument Serif had no
+     such axis, so nothing needed to set this before. */
+  font-variation-settings: "opsz" 72;
+  font-weight: 450;
   font-size: clamp(2.2rem, 5vw, 3.4rem);
   line-height: 1.12;
   letter-spacing: -0.01em;
