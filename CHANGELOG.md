@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.2.1 (2026-08-18)
+
+### Bug Fixes
+
+- stop the site scrolling sideways on a phone
+
+
+
 ## 3.2.0 (2026-08-18)
 
 ### Features
