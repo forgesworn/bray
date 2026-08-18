@@ -1197,6 +1197,16 @@
     .reveal-stagger.visible > *:nth-child(12) { transition-delay: 0.6s; }
     .reveal-stagger.visible > *:nth-child(13) { transition-delay: 0.65s; }
 
+    /* Grids longer than the ladder above are handed to assets/motion.js,
+       which swaps this class in and animates the cards itself. The cards are
+       only hidden once that swap has happened, so a page where motion.js or
+       its vendored anime.js failed to load keeps the ladder and strands
+       nothing. */
+    .motion-cascade > * {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+
     /* ========================================
        RESPONSIVE
        ======================================== */
@@ -1266,6 +1276,26 @@
       background: linear-gradient(to right, transparent, var(--accent-gold-dim), transparent);
       opacity: 0.3;
       margin: 0;
+    }
+
+    /* ========================================
+       REDUCED MOTION
+       ======================================== */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+
+      /* Anything held back for a reveal has to be handed straight over,
+         otherwise killing the transition above leaves it invisible. */
+      .reveal, .reveal-stagger > *, .motion-cascade > * {
+        opacity: 1;
+        transform: none;
+      }
+
+      html { scroll-behavior: auto; }
     }
   </style>
 </head>
@@ -2356,6 +2386,11 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
       <span class="demo-modal-hint">click anywhere to close</span>
     </div>
   </div>
+
+  <!-- Motion. Both files are enhancements: the inline script below owns the
+       baseline reveal and runs with or without them. -->
+  <script src="assets/vendor/anime.min.js"></script>
+  <script src="assets/motion.js"></script>
 
   <script>
     /* ========================================
