@@ -284,6 +284,12 @@ const html = `<!DOCTYPE html>
   position: relative;
   display: block;
   width: 100%;
+  /* Grid items default to min-width: auto and will not shrink below their
+     content, so a long command string stretched its cell and pushed the whole
+     page sideways on a phone. Shrink, then wrap rather than scroll: a button
+     is an awkward thing to scroll horizontally. */
+  min-width: 0;
+  overflow-wrap: anywhere;
   text-align: left;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;

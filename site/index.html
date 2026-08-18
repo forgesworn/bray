@@ -941,6 +941,11 @@
     .code-block {
       padding: 1.5rem 1.75rem;
       overflow-x: auto;
+      /* Grid and flex items default to min-width: auto, which refuses to
+         shrink below their content. Without this the block was handed its
+         content's full width, so overflow-x never engaged and a long code
+         line pushed the whole page sideways on a phone. */
+      min-width: 0;
     }
 
     .code-block pre {
@@ -1117,6 +1122,10 @@
       gap: 1.5rem;
       align-items: start;
     }
+    /* The grid item holding the code block. Same min-width: auto trap: without
+       this the cell grows to its widest line instead of letting the block
+       inside it scroll. */
+    .step-content { min-width: 0; }
 
     .step-number {
       width: 3.5rem;
