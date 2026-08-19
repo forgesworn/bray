@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.2.2 (2026-08-19)
+
+### Bug Fixes
+
+- swap the Fraunces roman and italic files (site)
+
+
+
 ## 3.2.1 (2026-08-18)
 
 ### Bug Fixes
