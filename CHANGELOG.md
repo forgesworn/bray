@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.3.0 (2026-08-23)
+
+### Features
+
+- count the wallet-service tools in the headline (#93)
+
+
+
 ## 3.2.2 (2026-08-19)
 
 ### Bug Fixes
