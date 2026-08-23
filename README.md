@@ -85,6 +85,7 @@ For production use, prefer [Heartwood](https://github.com/forgesworn/heartwood) 
 | **Blossom** | 10 | `blossom-upload`, `blossom-mirror`, `blossom-verify`, `blossom-repair` |
 | **Privacy** | 10 | `privacy-commit`, `privacy-prove-range`, `privacy-prove-age`, `privacy-publish-proof` |
 | **Zap** | 9 | `zap-send`, `zap-balance`, `zap-make-invoice`, `zap-decode` |
+| **Wallet service** | 5 | `wallet-grant`, `wallet-grants`, `wallet-revoke`, `wallet-refill`, `wallet-serve` |
 | **Vault** | 9 | `vault-create`, `vault-encrypt`, `vault-share`, `vault-rotate` |
 | **Workflow** | 7 | `trust-score`, `verify-person`, `identity-setup`, `relay-health`, `feed-discover` |
 | **Signet** | 7 | `signet-badge`, `signet-vouch`, `signet-credentials`, `signet-challenge` |
@@ -223,6 +224,52 @@ All secret env vars are deleted from `process.env` before parsing can fail.
 Raw `NWC_URI` is refused; use `NWC_URI_FILE` or `wallet connect <nwc-file>` so
 the bearer credential never appears in a process environment, command argument
 or MCP tool argument.
+
+## Handing out a wallet connection
+
+`zap-send` spends through the NWC URI you configured. That URI is an
+unbounded capability over the wallet behind it: every method it supports, no
+ceiling, until it is rotated. Handing one to an agent hands over everything.
+
+`wallet-grant` issues connections over the same wallet that are narrower.
+
+```
+wallet-grant   { name: "research-agent", methods: ["get_info","pay_invoice"],
+                 budgetMsat: 50000, maxPaymentMsat: 5000 }
+wallet-grants  # what exists, what it may do, what it has spent
+wallet-revoke  { nameOrId: "research-agent" }
+wallet-refill  { nameOrId: "research-agent", budgetMsat: 50000 }
+wallet-serve   { action: "start" }
+```
+
+What a connection may do is an allowlist, and the default grants no spending
+and does not disclose the balance: `get_info`, `make_invoice`,
+`lookup_invoice`. Both of the others are opt-in per connection, and **a
+connection that can spend must carry a budget** - there is no unlimited grant
+to issue by accident.
+
+The rules exist because a payment cannot be recalled:
+
+- A request is answered **once**. Its id is persisted *before* the payment is
+  attempted, so a process that dies mid-payment comes back knowing not to try
+  again - a relay will hand the same signed request over twice.
+- Requests on one connection are **serialised**, so two arriving together
+  cannot both read the same remaining budget.
+- A request older than five minutes is not answered, whatever its own
+  `expiration` tag claims.
+- Each connection has **its own service key**: two grants share nothing a
+  relay can correlate, and revoking one is deleting a key.
+- The budget is charged what the **invoice** says, decoded here. A budget
+  checked against a figure the payer supplied is not a budget.
+- A claimed payment whose preimage does not settle the invoice is refused
+  rather than passed on. Repeating an unproven claim would make this service
+  the one telling the lie.
+
+Grants live in `wallet-grants.json` (0600, per identity), and they are
+answered **only while `wallet-serve` is running** - which is to say, only for
+as long as this process is alive. That is worth telling whoever you hand a URI
+to: a connection that works while an MCP session is open is a different
+promise from one that works overnight.
 
 ## CLI
 
