@@ -1,5 +1,45 @@
 # Changelog
 
+## 3.2.2 (2026-08-19)
+
+### Bug Fixes
+
+- swap the Fraunces roman and italic files (site)
+
+
+
+## 3.2.1 (2026-08-18)
+
+### Bug Fixes
+
+- stop the site scrolling sideways on a phone
+
+
+
+## 3.2.0 (2026-08-18)
+
+### Features
+
+- adopt the family type system and self-host the fonts
+
+
+
+## 3.1.0 (2026-08-18)
+
+### Features
+
+- motion on the site, and a reduced-motion block it never had
+
+
+
+## 3.0.0 (2026-08-13)
+
+### Breaking Changes
+
+- adopt nwc-kit for wallet payments
+
+
+
 ## 2.4.0 (2026-08-07)
 
 ### Features

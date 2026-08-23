@@ -14,10 +14,34 @@
   <meta name="twitter:title" content="nostr-bray | Trust-aware Nostr for AI and humans">
   <meta name="twitter:description" content="Give your AI its own Nostr identity, or run yours from the terminal. Trust scoring, encrypted vaults, Lightning payments and agent-to-agent dispatch, in plain English.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a0f'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='%23e8a838' font-family='serif'>b</text></svg>">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
   <style>
+    /* Self-hosted, so this page makes no third-party requests. Previously
+       these came from fonts.googleapis.com, which meant every visitor to a
+       freedom-tech landing page pinged Google before the first paint.
+       All three families are SIL OFL 1.1. */
+    @font-face {
+      font-family: "Fraunces";
+      src: url("/fonts/fraunces-latin.woff2") format("woff2");
+      font-weight: 300 700; font-style: normal; font-display: swap;
+    }
+    @font-face {
+      font-family: "Fraunces";
+      src: url("/fonts/fraunces-italic-latin.woff2") format("woff2");
+      font-weight: 300 700; font-style: italic; font-display: swap;
+    }
+    @font-face {
+      font-family: "Inter";
+      src: url("/fonts/inter-latin.woff2") format("woff2");
+      font-weight: 400 600; font-style: normal; font-display: swap;
+    }
+    @font-face {
+      font-family: "JetBrains Mono";
+      src: url("/fonts/jetbrains-mono-latin.woff2") format("woff2");
+      font-weight: 400 700; font-style: normal; font-display: swap;
+    }
+
     /* ========================================
        RESET & BASE
        ======================================== */
@@ -46,9 +70,9 @@
       --accent-red: #f87171;
       --accent-purple: #a78bfa;
 
-      --font-display: 'Instrument Serif', Georgia, serif;
-      --font-body: 'DM Sans', -apple-system, sans-serif;
-      --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+      --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+      --font-body: "Inter", ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
       --max-width: 1200px;
       --section-gap: clamp(6rem, 12vh, 10rem);
@@ -106,9 +130,15 @@
        ======================================== */
     h1, h2, h3 {
       font-family: var(--font-display);
-      font-weight: 400;
+      font-weight: 450;
       line-height: 1.1;
     }
+    /* opsz must be explicit: the axis defaults to 9, its caption cut. */
+    h1 { font-variation-settings: "opsz" 144; }
+    h2 { font-variation-settings: "opsz" 60; }
+    h3 { font-variation-settings: "opsz" 32; }
+    .section-title { font-variation-settings: "opsz" 72; }
+    .creed-lede, .stat-value { font-variation-settings: "opsz" 48; }
 
     h2 {
       font-size: clamp(2.2rem, 5vw, 3.5rem);
@@ -911,6 +941,11 @@
     .code-block {
       padding: 1.5rem 1.75rem;
       overflow-x: auto;
+      /* Grid and flex items default to min-width: auto, which refuses to
+         shrink below their content. Without this the block was handed its
+         content's full width, so overflow-x never engaged and a long code
+         line pushed the whole page sideways on a phone. */
+      min-width: 0;
     }
 
     .code-block pre {
@@ -1087,6 +1122,10 @@
       gap: 1.5rem;
       align-items: start;
     }
+    /* The grid item holding the code block. Same min-width: auto trap: without
+       this the cell grows to its widest line instead of letting the block
+       inside it scroll. */
+    .step-content { min-width: 0; }
 
     .step-number {
       width: 3.5rem;
@@ -1197,6 +1236,16 @@
     .reveal-stagger.visible > *:nth-child(12) { transition-delay: 0.6s; }
     .reveal-stagger.visible > *:nth-child(13) { transition-delay: 0.65s; }
 
+    /* Grids longer than the ladder above are handed to assets/motion.js,
+       which swaps this class in and animates the cards itself. The cards are
+       only hidden once that swap has happened, so a page where motion.js or
+       its vendored anime.js failed to load keeps the ladder and strands
+       nothing. */
+    .motion-cascade > * {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+
     /* ========================================
        RESPONSIVE
        ======================================== */
@@ -1266,6 +1315,26 @@
       background: linear-gradient(to right, transparent, var(--accent-gold-dim), transparent);
       opacity: 0.3;
       margin: 0;
+    }
+
+    /* ========================================
+       REDUCED MOTION
+       ======================================== */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+
+      /* Anything held back for a reveal has to be handed straight over,
+         otherwise killing the transition above leaves it invisible. */
+      .reveal, .reveal-stagger > *, .motion-cascade > * {
+        opacity: 1;
+        transform: none;
+      }
+
+      html { scroll-behavior: auto; }
     }
   </style>
 </head>
@@ -2356,6 +2425,11 @@ post-schedule content=<span class="string">"launching tomorrow"</span> at=<span 
       <span class="demo-modal-hint">click anywhere to close</span>
     </div>
   </div>
+
+  <!-- Motion. Both files are enhancements: the inline script below owns the
+       baseline reveal and runs with or without them. -->
+  <script src="assets/vendor/anime.min.js"></script>
+  <script src="assets/motion.js"></script>
 
   <script>
     /* ========================================
