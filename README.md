@@ -1,6 +1,6 @@
 # nostr-bray
 
-**Trust-aware Nostr MCP for AI and humans.** 253 tools across 28 groups. Model-agnostic. Works with Claude, ChatGPT, Gemini, Cursor, Windsurf, or any MCP client.
+**Trust-aware Nostr MCP for AI and humans.** 258 tools across 29 groups. Model-agnostic. Works with Claude, ChatGPT, Gemini, Cursor, Windsurf, or any MCP client.
 
 [![npm](https://img.shields.io/npm/v/nostr-bray)](https://www.npmjs.com/package/nostr-bray)
 [![CI](https://github.com/forgesworn/bray/actions/workflows/ci.yml/badge.svg)](https://github.com/forgesworn/bray/actions/workflows/ci.yml)
