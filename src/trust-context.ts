@@ -186,7 +186,7 @@ export class TrustContext {
     this.signet = new SignetAssessor(pool, { ttl: opts.cacheTtl, maxEntries: opts.cacheMax })
     this.vault = new VaultResolver(pool, { ttl: opts.cacheTtl, maxEntries: opts.cacheMax })
     this.veilCache = new TrustCache({ ttl: opts.cacheTtl, maxEntries: opts.cacheMax })
-    this.veil = new VeilScoring(pool, this.veilCache, ctx.activeNpub)
+    this.veil = new VeilScoring(pool, this.veilCache, () => ctx.activeNpub)
   }
 
   /** Assess trust for a target pubkey across all three dimensions in parallel. */
