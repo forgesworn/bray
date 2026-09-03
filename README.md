@@ -215,6 +215,7 @@ Search order: `BRAY_CONFIG` env var > `$XDG_CONFIG_HOME/bray/config.json` > `~/.
 | `NOSTR_NCRYPTSEC_PASSWORD` | Password for ncryptsec |
 | `NWC_URI_FILE` | Path to a private `0600` file containing the NWC bearer URI |
 | `NOSTR_RELAYS` | Comma-separated relay URLs |
+| `NOSTR_FORBID_PUBKEY` | Comma-separated npubs or hex this process must never sign as. See below. |
 | `TOR_PROXY` | SOCKS5h proxy for Tor |
 | `NIP04_ENABLED` | Set `1` to enable legacy NIP-04 DMs |
 | `TRANSPORT` | `stdio` (default) or `http` |
@@ -224,6 +225,32 @@ All secret env vars are deleted from `process.env` before parsing can fail.
 Raw `NWC_URI` is refused; use `NWC_URI_FILE` or `wallet connect <nwc-file>` so
 the bearer credential never appears in a process environment, command argument
 or MCP tool argument.
+
+### Keys this process must never be
+
+An agent that comes up holding the wrong key is indistinguishable from one
+working correctly. Every signature verifies, every tool succeeds, and the
+only symptom is that `whoami` quietly answers with somebody else's npub —
+which the driving model has no reason to doubt, because it is its own tool
+telling it.
+
+The worst version is a **principal's** key: a person's own. An agent signing
+as its principal can attest that it belongs to itself, and approve its own
+requests, because it *is* the principal those checks look for.
+
+```bash
+NOSTR_FORBID_PUBKEY=npub1yourownkey...,npub1anotherhuman...
+```
+
+or `forbidPubkeys` in the config file. Either takes npubs or hex. Activating
+one of those keys throws instead — at startup, on `identity-switch`, and on
+`bunker --persona` alike, because the check sits at the moment an identity
+becomes active rather than at any one entry point. An entry that cannot be
+parsed is an error too: a list nobody can read must not silently permit
+everything.
+
+The active npub is printed on stderr on every start, so the answer to "which
+key is this?" does not depend on asking the agent.
 
 ## Handing out a wallet connection
 

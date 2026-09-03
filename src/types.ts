@@ -67,6 +67,11 @@ export interface BrayConfig {
   readonly port: number
   readonly bindAddress: string
   readonly dispatchIdentities?: string
+  /** Public keys this process must never sign as, hex or npub. For
+   *  principals: an agent holding one can attest that it belongs to itself
+   *  and approve its own requests. Enforced in IdentityContext, at the
+   *  moment an identity is activated. */
+  readonly forbidPubkeys?: string[]
 }
 
 export type { SigningContext, ExtendedSigningContext } from './signing-context.js'

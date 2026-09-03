@@ -392,7 +392,7 @@ if (config.bunkerUri) {
   if (hw) ctx = hw
   console.error(`Connected to ${hw ? 'Heartwood' : 'bunker'} — signing as ${ctx.activeNpub}`)
 } else {
-  ctx = new IdentityContext(config.secretKey, config.secretFormat)
+  ctx = new IdentityContext(config.secretKey, config.secretFormat, { forbidPubkeys: config.forbidPubkeys })
 }
 // NIP-42: the pool answers AUTH challenges with the active identity's key.
 pool.setAuthSigner(async evt => ctx.getSigningFunction()(evt) as any)

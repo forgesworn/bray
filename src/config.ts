@@ -82,6 +82,8 @@ interface ConfigFile {
   trustCacheTtl?: number
   trustCacheMax?: number
   dispatchIdentities?: string
+  /** Public keys this process must never sign as. See ContextOptions. */
+  forbidPubkeys?: string[]
 }
 
 /**
@@ -326,6 +328,15 @@ export async function loadConfig(): Promise<BrayConfig> {
   // --- Dispatch identities file ---
   const dispatchIdentities = process.env.DISPATCH_IDENTITIES ?? file.dispatchIdentities ?? undefined
 
+  // Comma-separated npubs or hex. A list nobody can parse is rejected at
+  // startup by resolvePubkeyRef rather than silently permitting everything.
+  const forbidPubkeys = [
+    ...(process.env.NOSTR_FORBID_PUBKEY ?? '').split(','),
+    ...(file.forbidPubkeys ?? []),
+  ]
+    .map((s) => s.trim())
+    .filter(Boolean)
+
   // --- Wallets file ---
   const walletsFile = process.env.BRAY_WALLETS_FILE
     ?? file.walletsFile
@@ -353,5 +364,6 @@ export async function loadConfig(): Promise<BrayConfig> {
     port,
     bindAddress,
     dispatchIdentities,
+    forbidPubkeys,
   }
 }

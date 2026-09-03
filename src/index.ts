@@ -106,7 +106,12 @@ if (config.bunkerUri) {
   ctx = base
   void establishBunkerInBackground(base)
 } else {
-  ctx = new IdentityContext(config.secretKey, config.secretFormat)
+  ctx = new IdentityContext(config.secretKey, config.secretFormat, { forbidPubkeys: config.forbidPubkeys })
+  // Said out loud, on stderr, every start. The alternative is asking the
+  // agent which identity it holds, and an agent whose key is wrong will
+  // answer that confidently and wrongly - it has no reason to doubt its
+  // own tools. stdout is reserved for JSON-RPC.
+  console.error(`Signing as ${ctx.activeNpub}`)
   // Local key is ready immediately -- load its relay list now.
   loadIdentityRelays(ctx.activeNpub)
 }

@@ -6,6 +6,7 @@ import type { TreeRoot, Identity, LinkageProof } from 'nsec-tree'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 import type { PublicIdentity, SignFn } from './types.js'
 import type { ExtendedSigningContext } from './signing-context.js'
+import { decode as decodeNip19 } from 'nostr-tools/nip19'
 
 interface CacheEntry {
   identity: Identity
@@ -31,17 +32,53 @@ function rawIdentity(privateKey: Uint8Array): Identity {
 
 export interface ContextOptions {
   maxCache?: number
+  /** Public keys this process must never sign as, hex or npub.
+   *
+   *  For PRINCIPALS - a person's own key. An agent that comes up holding one
+   *  is indistinguishable from one working correctly: every signature
+   *  verifies, every tool succeeds, and the only symptom is that `whoami`
+   *  quietly answers with a human's npub. Listing them here turns that into
+   *  a refusal at the moment of activation, which covers startup, an
+   *  `identity-switch`, and `bunker --persona` alike. */
+  forbidPubkeys?: string[]
+}
+
+/** An npub or 64-hex pubkey as lowercase hex. Throws on anything else, so a
+ *  forbidden entry nobody can parse fails loudly rather than silently
+ *  permitting everything. */
+export function resolvePubkeyRef(ref: string): string {
+  const trimmed = ref.trim()
+  if (!trimmed) throw new Error('forbidPubkeys entry is empty')
+  if (/^[0-9a-fA-F]{64}$/.test(trimmed)) return trimmed.toLowerCase()
+  if (trimmed.toLowerCase().startsWith('nsec1')) {
+    throw new Error('forbidPubkeys wants a PUBLIC key; that is an nsec. Treat it as exposed.')
+  }
+  try {
+    const decoded = decodeNip19(trimmed)
+    if (decoded.type === 'npub') return decoded.data as string
+    throw new Error(`forbidPubkeys entry "${trimmed}" is a ${decoded.type}, not an npub`)
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith('forbidPubkeys')) throw err
+    throw new Error(`forbidPubkeys entry "${trimmed}" is neither an npub nor 64 hex characters`)
+  }
 }
 
 export class IdentityContext implements ExtendedSigningContext {
   private root: TreeRoot
   private cache = new Map<string, CacheEntry>()
   private masterEntry: CacheEntry
-  private activeEntry: CacheEntry
+  // Definite-assignment asserted: every branch of the constructor assigns it
+  // through activate(), and TypeScript does not track assignments made
+  // inside a called method.
+  private activeEntry!: CacheEntry
   private maxCacheSize: number
+  private forbidden: Set<string>
 
   constructor(secretKey: string, format: 'nsec' | 'hex' | 'mnemonic', opts?: ContextOptions) {
     this.maxCacheSize = opts?.maxCache ?? 5
+    // Built before anything is activated, so the constructor's own
+    // activation is checked too.
+    this.forbidden = new Set((opts?.forbidPubkeys ?? []).map(resolvePubkeyRef))
 
     // Parse the raw secret key bytes — this IS the user's actual Nostr identity
     let rawKeyBytes: Uint8Array
@@ -50,7 +87,7 @@ export class IdentityContext implements ExtendedSigningContext {
       this.root = fromMnemonic(secretKey)
       const derived = derive(this.root, 'master', 0)
       this.masterEntry = { identity: derived, purpose: 'master', index: 0, lastUsed: Date.now() }
-      this.activeEntry = this.masterEntry
+      this.activate(this.masterEntry)
       return
     } else if (format === 'hex') {
       rawKeyBytes = Buffer.from(secretKey, 'hex')
@@ -66,10 +103,35 @@ export class IdentityContext implements ExtendedSigningContext {
       index: 0,
       lastUsed: Date.now(),
     }
-    this.activeEntry = this.masterEntry
+    this.activate(this.masterEntry)
 
     // nsec-tree root for child derivation
     this.root = fromNsec(rawKeyBytes)
+  }
+
+  /**
+   * Make an identity the active one, refusing a forbidden key.
+   *
+   * Every assignment to `activeEntry` goes through here - the constructor,
+   * `use()`, `switch()` and the persona paths - so there is no route to
+   * signing as a forbidden key, and no new route can be added by accident.
+   *
+   * Throws rather than falling back to the master identity. A process asked
+   * to be a key it must not be has been misconfigured, and quietly running
+   * as something else is how the misconfiguration survives to do damage.
+   * Only the npub is in the message; it is public, and nothing else is.
+   */
+  private activate(entry: CacheEntry): void {
+    const hex = Buffer.from(entry.identity.publicKey).toString('hex')
+    if (this.forbidden.has(hex)) {
+      throw new Error(
+        `Refusing to activate ${entry.identity.npub}: it is on this process's forbidden list. ` +
+          'That list is for principals - a person\'s key, never an agent\'s. An agent signing as its ' +
+          'principal can attest that it belongs to itself and approve its own requests, because it is ' +
+          'the principal those checks look for. Point NOSTR_SECRET_KEY at the agent\'s own key.',
+      )
+    }
+    this.activeEntry = entry
   }
 
   /** Current active identity's npub (bech32) */
@@ -116,14 +178,14 @@ export class IdentityContext implements ExtendedSigningContext {
     for (const [, entry] of this.cache) {
       if (entry.purpose === purpose && entry.index === index && !entry.personaName) {
         entry.lastUsed = Date.now()
-        this.activeEntry = entry
+        this.activate(entry)
         return
       }
     }
     const identity = derive(this.root, purpose, index)
     const entry: CacheEntry = { identity, purpose, index, lastUsed: Date.now() }
     this.putCache(identity.npub, entry)
-    this.activeEntry = entry
+    this.activate(entry)
   }
 
   /** Derive a named persona */
@@ -152,7 +214,7 @@ export class IdentityContext implements ExtendedSigningContext {
   /** Switch active identity by purpose+index, persona name, or "master" */
   async switch(purposeOrName: string, index?: number): Promise<void> {
     if (purposeOrName === 'master') {
-      this.activeEntry = this.masterEntry
+      this.activate(this.masterEntry)
       this.masterEntry.lastUsed = Date.now()
       return
     }
@@ -163,7 +225,7 @@ export class IdentityContext implements ExtendedSigningContext {
       const matchesPersona = entry.personaName === purposeOrName && (index === undefined || entry.index === index)
       if (matchesPurpose || matchesPersona) {
         entry.lastUsed = Date.now()
-        this.activeEntry = entry
+        this.activate(entry)
         return
       }
     }
@@ -190,7 +252,7 @@ export class IdentityContext implements ExtendedSigningContext {
       lastUsed: Date.now(),
     }
     this.putCache(identity.npub, entry)
-    this.activeEntry = entry
+    this.activate(entry)
   }
 
   /** Get a signing function bound to the current active identity */
