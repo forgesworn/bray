@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.4.0 (2026-09-03)
+
+### Features
+
+- refuse to sign as a key this process must never be
+
+
+
 ## 3.3.0 (2026-08-23)
 
 ### Features
