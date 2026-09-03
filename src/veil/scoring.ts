@@ -17,8 +17,15 @@ export class VeilScoring {
   constructor(
     private readonly pool: RelayPool,
     private readonly cache: TrustCache,
-    private readonly npub: string, // Captured at call time — create new instance per tool call
+    // A string is captured now; a function is read on every query, which is
+    // what a bunker-backed identity needs: its npub is not known until the
+    // bunker has answered, and the trust layer is built before that.
+    private readonly npub: string | (() => string),
   ) {}
+
+  private get selfNpub(): string {
+    return typeof this.npub === 'function' ? this.npub() : this.npub
+  }
 
   async scorePubkey(pubkey: string): Promise<TrustScoreResult> {
     // 1. Check cache first
@@ -28,7 +35,7 @@ export class VeilScoring {
     }
 
     // 2. Query kind 30382 (NIP-85) assertions from relays
-    const events = await this.pool.query(this.npub, {
+    const events = await this.pool.query(this.selfNpub, {
       kinds: [30382],
       '#d': [pubkey],
     } as any)
