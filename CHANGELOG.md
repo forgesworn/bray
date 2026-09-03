@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.4.1 (2026-09-03)
+
+### Bug Fixes
+
+- read the identity npub lazily in VeilScoring so bunker-mode MCP startup does not throw (#95)
+
+
+
 ## 3.4.0 (2026-09-03)
 
 ### Features
