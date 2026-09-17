@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { readStateFile } from '../src/state.js'
-import { resolveClientKey, buildConnectParams, withTimeout, CLIENT_NAME } from '../src/bunker-context.js'
+import { resolveClientKey, buildConnectParams, withTimeout, TimeoutError, CLIENT_NAME } from '../src/bunker-context.js'
 
 describe('resolveClientKey', () => {
   let stateDir: string
@@ -74,9 +74,20 @@ describe('withTimeout', () => {
     )
   })
 
+  it('rejects with a TimeoutError instance, not a plain Error, when it times out', async () => {
+    const hang = new Promise<string>(() => {})
+    await expect(withTimeout(hang, 20, 'x')).rejects.toBeInstanceOf(TimeoutError)
+  })
+
   it('propagates the original rejection', async () => {
     await expect(
       withTimeout(Promise.reject(new Error('boom')), 1_000, 'x'),
     ).rejects.toThrow('boom')
+  })
+
+  it('does not fire early -- a promise that settles just before the deadline wins', async () => {
+    const settleJustInTime = new Promise<string>(resolve => setTimeout(() => resolve('phew'), 10))
+    const result = await withTimeout(settleJustInTime, 200, 'x')
+    expect(result).toBe('phew')
   })
 })

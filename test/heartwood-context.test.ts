@@ -1,9 +1,20 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest'
 import { startRelay } from '../src/serve.js'
 import { startBunker } from '../src/bunker.js'
 import { IdentityContext } from '../src/context.js'
-import { BunkerContext } from '../src/bunker-context.js'
+import { BunkerContext, TimeoutError } from '../src/bunker-context.js'
 import { HeartwoodContext, isHeartwoodIdentitiesResponse } from '../src/heartwood-context.js'
+
+/**
+ * A minimal stand-in for a connected BunkerContext, exposing just the
+ * protected `signer.sendRequest` that `HeartwoodContext.probe()` reads.
+ * Lets the probe's error-classification branches be exercised without a
+ * real relay/bunker round trip (and without waiting out the real
+ * 60-second REQUEST_TIMEOUT_MS for the timeout case).
+ */
+function fakeBase(sendRequest: (method: string, params: string[]) => Promise<string>): BunkerContext {
+  return { signer: { sendRequest } } as unknown as BunkerContext
+}
 
 describe('isHeartwoodIdentitiesResponse', () => {
   const validNpub = 'npub1' + 'a'.repeat(58)
@@ -39,6 +50,59 @@ describe('isHeartwoodIdentitiesResponse', () => {
     expect(isHeartwoodIdentitiesResponse('')).toBe(false)
     expect(isHeartwoodIdentitiesResponse('not json')).toBe(false)
     expect(isHeartwoodIdentitiesResponse('[unterminated')).toBe(false)
+  })
+})
+
+describe('HeartwoodContext.probe error classification', () => {
+  it('(a) method unknown -- returns null, silently, as a plain bunker', async () => {
+    const base = fakeBase(() => Promise.reject('unsupported method: heartwood_list_identities'))
+    const hw = await HeartwoodContext.probe(base)
+    expect(hw).toBeNull()
+  })
+
+  it('(a) treats an unrecognised/ambiguous error the same as method-unknown', async () => {
+    // Deliberately not matching either the "unauthorised" or "method unknown"
+    // patterns -- probe() should stay conservative and not claim Heartwood.
+    const base = fakeBase(() => Promise.reject('relay connection reset'))
+    const hw = await HeartwoodContext.probe(base)
+    expect(hw).toBeNull()
+  })
+
+  it('(b) unauthorised/denied -- IS a Heartwood, listing marked unavailable', async () => {
+    const base = fakeBase(() => Promise.reject('unauthorised'))
+    const hw = await HeartwoodContext.probe(base)
+    expect(hw).not.toBeNull()
+    expect(hw).toBeInstanceOf(HeartwoodContext)
+    expect(hw!.listingAvailable).toBe(false)
+    expect(hw!.listingUnavailableReason).toBe('denied')
+    expect(hw!.listingUnavailableMessage).toMatch(/denied identity listing/i)
+  })
+
+  it('(b) also recognises the American spelling and "denied" wording', async () => {
+    const base = fakeBase(() => Promise.reject('request denied by policy'))
+    const hw = await HeartwoodContext.probe(base)
+    expect(hw!.listingUnavailableReason).toBe('denied')
+  })
+
+  it('(c) timeout -- IS a Heartwood, listing marked unavailable pending approval', async () => {
+    const base = fakeBase(() => Promise.reject(new TimeoutError('heartwood probe timed out after 60000ms')))
+    const hw = await HeartwoodContext.probe(base)
+    expect(hw).not.toBeNull()
+    expect(hw).toBeInstanceOf(HeartwoodContext)
+    expect(hw!.listingAvailable).toBe(false)
+    expect(hw!.listingUnavailableReason).toBe('pending-approval')
+    expect(hw!.listingUnavailableMessage).toMatch(/awaiting approval on the device/i)
+  })
+
+  it('a HeartwoodContext with listing unavailable rejects listIdentities() without another device round trip', async () => {
+    const sendRequest = vi.fn(() => Promise.reject('unauthorised'))
+    const base = fakeBase(sendRequest)
+    const hw = await HeartwoodContext.probe(base)
+    expect(hw).not.toBeNull()
+
+    sendRequest.mockClear()
+    await expect(hw!.listIdentities()).rejects.toThrow(/denied identity listing/i)
+    expect(sendRequest).not.toHaveBeenCalled()
   })
 })
 
@@ -102,6 +166,7 @@ describe('with Heartwood extensions', () => {
     const hw = await HeartwoodContext.probe(base)
     expect(hw).not.toBeNull()
     expect(hw).toBeInstanceOf(HeartwoodContext)
+    expect(hw!.listingAvailable).toBe(true)
     hw!.destroy()
   }, 15_000)
 
