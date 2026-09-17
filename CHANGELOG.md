@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.4.3 (2026-09-17)
+
+### Bug Fixes
+
+- raise NIP-46 timeouts and classify Heartwood probe denials/timeouts
+
+
+
 ## 3.4.2 (2026-09-03)
 
 ### Bug Fixes
