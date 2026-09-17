@@ -391,6 +391,7 @@ if (config.bunkerUri) {
   const hw = await HeartwoodContext.probe(ctx)
   if (hw) ctx = hw
   console.error(`Connected to ${hw ? 'Heartwood' : 'bunker'} — signing as ${ctx.activeNpub}`)
+  if (hw && !hw.listingAvailable) console.error(hw.listingUnavailableMessage)
 } else {
   ctx = new IdentityContext(config.secretKey, config.secretFormat, { forbidPubkeys: config.forbidPubkeys })
 }

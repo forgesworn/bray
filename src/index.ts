@@ -84,7 +84,10 @@ async function establishBunkerInBackground(base: BunkerContext): Promise<void> {
         // Probe for Heartwood extensions and upgrade the prototype in place so
         // tools that check `ctx instanceof HeartwoodContext` see it.
         const hw = await HeartwoodContext.probe(base)
-        if (hw) console.error(`Heartwood extensions detected -- ${base.activeNpub}`)
+        if (hw) {
+          console.error(`Heartwood extensions detected -- ${base.activeNpub}`)
+          if (!hw.listingAvailable) console.error(hw.listingUnavailableMessage)
+        }
       } catch (e) {
         console.error('Heartwood probe failed (non-fatal):', (e as Error).message)
       }

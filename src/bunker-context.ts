@@ -27,10 +27,26 @@ useWebSocketImplementation(WebSocket)
 
 /** Bound the NIP-46 connect handshake. nostr-tools' BunkerSigner has no
  *  per-request timeout, so an offline signer or unreachable relays make the
- *  connect hang forever. */
-const CONNECT_TIMEOUT_MS = 15_000
-/** Bound individual signer round-trips (sign_event, get_public_key, nip44). */
-const REQUEST_TIMEOUT_MS = 30_000
+ *  connect hang forever. A hardware signer (e.g. Heartwood) may also wait on
+ *  a physical button press -- roughly a 30-second window -- so this must sit
+ *  comfortably above that, not at or under it. */
+export const CONNECT_TIMEOUT_MS = 60_000
+/** Bound individual signer round-trips (sign_event, get_public_key, nip44).
+ *  Same button-press headroom as {@link CONNECT_TIMEOUT_MS}. */
+export const REQUEST_TIMEOUT_MS = 60_000
+
+/**
+ * Thrown by {@link withTimeout} when the wrapped promise does not settle in
+ * time. A distinct class (rather than a plain `Error`) lets callers tell a
+ * timeout apart from a genuine rejection -- e.g. `HeartwoodContext.probe()`
+ * treats a timed-out request differently from a denied one.
+ */
+export class TimeoutError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'TimeoutError'
+  }
+}
 
 /**
  * Reject if `promise` does not settle within `ms`. Converts a silent NIP-46
@@ -41,7 +57,7 @@ const REQUEST_TIMEOUT_MS = 30_000
 export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout>
   const timeout = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    timer = setTimeout(() => reject(new TimeoutError(`${label} timed out after ${ms}ms`)), ms)
   })
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
 }
