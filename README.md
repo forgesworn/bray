@@ -335,6 +335,15 @@ See [llms.txt](./llms.txt) for a concise summary optimised for AI context window
 | [dominion](https://github.com/forgesworn/dominion) | Epoch-based encrypted access control |
 | [nostr-veil](https://github.com/forgesworn/nostr-veil) | Privacy-preserving Web of Trust |
 
+## Support
+
+For issues and feature requests, see [GitHub Issues](https://github.com/forgesworn/bray/issues).
+
+If bray is useful to you, a tip is always welcome:
+
+- Lightning: `profusemeat89@walletofsatoshi.com`
+- Nostr zaps: `npub1mgvlrnf5hm9yf0n5mf9nqmvarhvxkc6remu5ec3vf8r0txqkuk7su0e7q2`
+
 ## Licence
 
 MIT
