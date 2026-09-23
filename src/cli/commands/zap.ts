@@ -1,4 +1,4 @@
-import { handleZapSend, handleZapBalance, handleZapMakeInvoice, handleZapLookupInvoice, handleZapListTransactions, handleZapReceipts, handleZapDecode, resolveNwcUri } from '../../exports.js'
+import { handleZapSend, handleZapBalance, handleZapMakeInvoice, handleZapLookupInvoice, handleZapListTransactions, handleZapReceipts, handleZapDecode, resolveNwcUri, defaultPaymentGuard } from '../../exports.js'
 import * as fmt from '../../format.js'
 import type { Helpers } from '../dispatch.js'
 
@@ -20,7 +20,7 @@ export async function dispatch(
 
   switch (cmd) {
     case 'zap-send': {
-      const result = await handleZapSend(ctx, pool, { invoice: req(1, 'zap-send <bolt11>'), nwcUri: resolveNwcUri(ctx, walletsFile, globalNwcUri) })
+      const result = await handleZapSend(ctx, pool, { invoice: req(1, 'zap-send <bolt11>'), nwcUri: resolveNwcUri(ctx, walletsFile, globalNwcUri), guard: defaultPaymentGuard() })
       out({ paid: true, verified: result.verified, paymentHash: result.paymentHash, feesPaidMsats: result.fees_paid })
       break
     }

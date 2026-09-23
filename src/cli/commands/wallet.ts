@@ -7,6 +7,7 @@ import {
   saveWallets,
   parseNwcUri,
   normaliseNwcUriFile,
+  defaultPaymentGuard,
 } from '../../exports.js'
 import type { Helpers } from '../dispatch.js'
 
@@ -77,6 +78,7 @@ export async function dispatch(
       const result = await handleZapSend(ctx, pool, {
         invoice: req(1, 'wallet pay <bolt11>'),
         nwcUri: resolveNwcUri(ctx, walletsFile, globalNwcUri),
+        guard: defaultPaymentGuard(),
       })
       // A preimage can be an L402 bearer credential when the challenge macaroon
       // is known. Report verified payment without printing the preimage.

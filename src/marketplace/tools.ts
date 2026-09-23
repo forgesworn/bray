@@ -21,6 +21,7 @@ import {
   parseL402ChallengeHeader,
 } from './handlers.js'
 import { handleZapSend, handleZapDecode } from '../zap/handlers.js'
+import { defaultPaymentGuard } from '../zap/payment-guard.js'
 import {
   handleListingCreate,
   handleListingRead,
@@ -210,6 +211,7 @@ export function registerMarketplaceTools(server: McpServer, deps: ToolDeps): voi
     const payResult = await handleZapSend(deps.ctx, deps.pool, {
       invoice,
       nwcUri: resolveNwcUri(deps.ctx, deps.walletsFile, deps.nwcUri),
+      guard: defaultPaymentGuard(),
     })
 
     // Keep the bearer credential in process and return only an opaque handle.

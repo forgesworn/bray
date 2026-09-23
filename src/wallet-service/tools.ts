@@ -4,6 +4,7 @@ import type { ToolDeps } from '../identity/tools.js'
 import { resolveNwcUri } from '../zap/handlers.js'
 import { defaultGrantsFile, loadGrants, saveGrants } from './grants.js'
 import { upstreamWallet } from './upstream.js'
+import { defaultPaymentGuard } from '../zap/payment-guard.js'
 import {
   DEFAULT_METHODS,
   SUPPORTED_METHODS,
@@ -76,7 +77,7 @@ export function registerWalletServiceTools(server: McpServer, deps: ToolDeps): v
     if (!uri) throw new Error('No wallet is configured - `zap-wallet-set` points this identity at one first.')
     servingFor = pubkey
     service = new WalletService({
-      wallet: upstreamWallet({ uri, alias: deps.ctx.activeNpub }),
+      wallet: upstreamWallet({ uri, alias: deps.ctx.activeNpub, guard: defaultPaymentGuard() }),
       transport: {
         subscribe: (relays, filter, onEvent) => deps.pool.subscribe(relays, filter, onEvent),
         publish: async (relays, event) => {

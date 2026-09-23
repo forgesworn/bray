@@ -2,6 +2,7 @@ import { NwcClient } from '@forgesworn/nwc-kit'
 import type { NwcTransport } from '@forgesworn/nwc-kit'
 import { tryDecodeBolt11, verifyPreimage } from 'farrier-kit'
 import { PaymentNotSentError, ServiceError, type ServiceInvoice, type ServiceWallet } from './service.js'
+import { PaymentLimitError, type PaymentGuard } from '../zap/payment-guard.js'
 
 // The wallet behind the service: the one the operator already configured
 // for `zap-send`, reached as an NWC client.
@@ -22,6 +23,9 @@ export interface UpstreamOptions {
   uri: string
   transport?: NwcTransport
   alias?: string
+  // bray's own ceilings apply to what a grant spends as well: a grant's
+  // budget narrows what bray may spend, it never widens it.
+  guard?: PaymentGuard
 }
 
 async function withClient<T>(options: UpstreamOptions, run: (client: NwcClient) => Promise<T>): Promise<T> {
@@ -79,24 +83,40 @@ export function upstreamWallet(options: UpstreamOptions): ServiceWallet {
       })
     },
 
-    async payInvoice({ invoice }) {
+    async payInvoice({ invoice, amountMsat }) {
       const decoded = tryDecodeBolt11(invoice)
       if (!decoded) throw new PaymentNotSentError('That is not a decodable BOLT-11 invoice.')
+      const paymentHash = decoded.paymentHashHex
+      const guard = options.guard
       return withClient(options, async (client) => {
         const capabilities = await client.connect()
         if (!capabilities.methods.includes('pay_invoice')) {
           throw new PaymentNotSentError('The wallet behind this service cannot pay invoices.')
         }
-        const result = await client.payInvoice({ invoice })
-        if (!result.preimage || !verifyPreimage(result.preimage, decoded.paymentHashHex)) {
+        try {
+          guard?.reserve(paymentHash, amountMsat)
+        } catch (err) {
+          if (err instanceof PaymentLimitError) throw new PaymentNotSentError(err.message)
+          throw err
+        }
+        let result
+        try {
+          result = await client.payInvoice({ invoice })
+        } catch (err) {
+          guard?.markUnknown(paymentHash)
+          throw err
+        }
+        if (!result.preimage || !verifyPreimage(result.preimage, paymentHash)) {
           // The wallet says it paid and cannot prove it. Not a refusal -
           // something may well have gone out - so the budget keeps the
           // charge and the caller is told the proof is missing.
+          guard?.markUnknown(paymentHash)
           throw new ServiceError(
             'OTHER',
             'The wallet claims payment but its preimage does not settle that invoice.',
           )
         }
+        guard?.settle(paymentHash, result.fees_paid)
         return { preimage: result.preimage, feesPaidMsat: Number(result.fees_paid ?? 0) }
       })
     },

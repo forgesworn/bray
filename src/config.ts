@@ -4,6 +4,7 @@ import { homedir } from 'node:os'
 import type { BrayConfig } from './types.js'
 import type { AuthMode } from './relay-pool.js'
 import { readNwcUriFile } from './zap/nwc-file.js'
+import { paymentLimitsFromEnv } from './zap/payment-guard.js'
 
 const NSEC_RE = /^nsec1[a-z0-9]{58}$/
 const HEX_RE = /^[0-9a-f]{64}$/
@@ -255,6 +256,8 @@ export async function loadConfig(): Promise<BrayConfig> {
   if (nwcFilePath) {
     nwcUri = readNwcUriFile(nwcFilePath)
   }
+  // A mistyped spending ceiling is a startup error, not a silent default.
+  paymentLimitsFromEnv()
 
   // --- Relays ---
   const relays = process.env.NOSTR_RELAYS

@@ -14,6 +14,7 @@ import {
   saveWallets,
 } from './handlers.js'
 import { normaliseNwcUriFile } from './nwc-file.js'
+import { defaultPaymentGuard } from './payment-guard.js'
 
 /** Resolve the NWC URI for the active identity, with per-identity and global fallback */
 function getNwcUri(deps: ToolDeps): string | undefined {
@@ -85,7 +86,11 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
         }, null, 2) }],
       }
     }
-    const result = await handleZapSend(deps.ctx, deps.pool, { invoice, nwcUri: getNwcUri(deps) })
+    const result = await handleZapSend(deps.ctx, deps.pool, {
+      invoice,
+      nwcUri: getNwcUri(deps),
+      guard: defaultPaymentGuard(),
+    })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({
         paid: true,
