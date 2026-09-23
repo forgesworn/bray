@@ -532,8 +532,8 @@ button.cell { cursor: copy; font-family: inherit; }
     </div>
     <div class="pairs">
       <div class="pair">
-      <div class="cell cell-human cell-tf"><span class="cell-text">Keep it in the terminal. An NWC URI carries its own secret, and secrets do not belong in a conversation.</span></div>
-      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray wallet connect &lt;nwc-url&gt;</span></button>
+      <div class="cell cell-human cell-tf"><span class="cell-text">Keep it in the terminal. An NWC URI carries its own secret, and secrets do not belong in a conversation: save it to a 0600 file and pass the path.</span></div>
+      <button type="button" class="cell cell-cli" title="click to copy"><span class="cell-text">npx nostr-bray wallet connect &lt;nwc-file&gt;</span></button>
       </div>
       <div class="pair">
       <button type="button" class="cell cell-human" title="click to copy"><span class="cell-text">Disconnect my wallet</span></button>
@@ -845,8 +845,10 @@ button.cell { cursor: copy; font-family: inherit; }
         <dd>Comma-separated relay URLs to use by default.</dd>
       </div>
       <div class="spec-row">
-        <dt><code>NWC_URI</code> / <code>NWC_URI_FILE</code></dt>
-        <dd>Nostr Wallet Connect URI for zaps and payments.</dd>
+        <dt><code>NWC_URI_FILE</code></dt>
+        <dd>Path to a private (0600) file holding the Nostr Wallet Connect
+        URI for payments. <code>NWC_URI</code> itself is refused: a bearer
+        wallet secret does not belong in the environment.</dd>
       </div>
       <div class="spec-row">
         <dt><code>NOSTR_BRAY_OUTPUT</code></dt>

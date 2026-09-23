@@ -418,11 +418,18 @@
       exactly what it needs rather than improvising with money.
     </p>
     <div class="callout">
-      <strong>One-time setup.</strong> Ask your assistant to set the wallet
-      connection and give it the <code>nostr+walletconnect://</code> string
-      from your wallet (Alby, Coinos, Primal and most Lightning wallets can
-      issue one). Each persona can have its own wallet, or none. After
-      that, balance, invoice and payment are one sentence each.
+      <strong>One-time setup, in a terminal.</strong> The
+      <code>nostr+walletconnect://</code> string your wallet issues is a
+      bearer secret: whoever holds it can spend. Never paste it into a chat.
+      Save it to a file only you can read (paste it in with any editor,
+      then <code>chmod 600 ~/wallet.nwc</code>) and run
+      <code>npx nostr-bray wallet connect ~/wallet.nwc</code>. Bray reads
+      the file; the URI itself never crosses MCP. Issue that connection
+      with a spending budget in your wallet: the wallet's budget is the
+      hard limit on what bray can spend. The wallet must speak NIP-44 v2
+      encryption for NWC; connections that only offer NIP-04 are refused.
+      Each persona can have its own wallet, or none. After that, balance,
+      invoice and payment are one sentence each.
     </div>
   </div>
 </section>
