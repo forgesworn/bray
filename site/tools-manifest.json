@@ -1,10 +1,10 @@
 {
   "name": "nostr-bray",
   "mcpName": "dev.forgesworn/bray",
-  "version": "3.4.3",
+  "version": "3.5.0",
   "description": "Trust-aware Nostr for AI and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "homepage": "https://bray.forgesworn.dev",
-  "totalTools": 260,
+  "totalTools": 261,
   "promotedTools": 50,
   "note": "Parameter schemas for every registered tool. Most tools live in the catalog (discoverable via search-actions + execute-action); 50 promoted tools and the two meta-tools are exposed directly on the MCP server. This manifest covers all of them, including wallet-grant, wallet-refill and wallet-serve, which are registered only with BRAY_WALLET_SERVICE=1, and the dispatch tools, which need DISPATCH_IDENTITIES.",
   "tools": [
@@ -5969,6 +5969,18 @@
       }
     },
     {
+      "name": "onboard-verified",
+      "description": "Guided workflow to build a verified trust profile. Shows your current Signet tier, what steps remain (self-declaration, vouches, professional verification, vault setup), and lists contacts who could vouch for you.",
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "post-queue-cancel",
       "description": "Cancel a scheduled post by event ID. Removes it from the queue.",
       "annotations": {
@@ -7149,7 +7161,7 @@
     },
     {
       "name": "search-actions",
-      "description": "Search 208 additional actions by describing what you want to do. Returns matching actions with names, descriptions, and parameter schemas. Use this when the promoted tools (whoami, social-post, social-reply, social-feed, dm-send, dm-read, zap-balance, identity-switch, relay-query) do not cover what you need.",
+      "description": "Search 209 additional actions by describing what you want to do. Returns matching actions with names, descriptions, and parameter schemas. Use this when the promoted tools (whoami, social-post, social-reply, social-feed, dm-send, dm-read, zap-balance, identity-switch, relay-query) do not cover what you need.",
       "annotations": {
         "readOnlyHint": true
       },
