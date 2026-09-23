@@ -150,6 +150,20 @@
     "url": "https://github.com/forgesworn/bray.git"
   },
   "homepage": "https://github.com/forgesworn/bray#readme",
+  "funding": [
+    {
+      "type": "individual",
+      "url": "https://github.com/sponsors/TheCryptoDonkey"
+    },
+    {
+      "type": "individual",
+      "url": "https://ko-fi.com/brays"
+    },
+    {
+      "type": "individual",
+      "url": "https://geyser.fund/project/forgesworn"
+    }
+  ],
   "license": "MIT",
   "engines": {
     "node": ">=24"
