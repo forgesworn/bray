@@ -1,14 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { matchFilter } from 'nostr-tools'
-import type { Event as NostrEvent, Filter } from 'nostr-tools'
 import { NwcClient } from '@forgesworn/nwc-kit'
-import type { NwcEvent, NwcTransport } from '@forgesworn/nwc-kit'
 import {
   WalletService,
   grantUri,
   newGrant,
   type Grant,
-  type ServiceTransport,
   type ServiceWallet,
 } from '../../src/wallet-service/service.js'
 
@@ -20,73 +16,7 @@ import {
 // anything it is asked to; the point of these tests is that what is handed
 // out cannot ask for anything.
 
-const RELAY = 'wss://relay.test'
-// 1000 msat, decodable, from the same fixture the zap tests use
-const ONE_SAT =
-  'lnbc10n1pj48ugqpp5urnh55r5z2cjpahduc0ky22mrfajluva8hxg7ujnu5txx3cv3z8qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqgp0xzz'
-
-const fakeRelay = () => {
-  const stored: NostrEvent[] = []
-  const live: Array<{ filter: Filter; onEvent: (event: NostrEvent) => void }> = []
-  const deliver = (event: NostrEvent) => {
-    stored.push(event)
-    for (const subscription of [...live]) {
-      if (matchFilter(subscription.filter, event)) subscription.onEvent(event)
-    }
-  }
-  const subscribe = (filter: Filter, onEvent: (event: NostrEvent) => void) => {
-    const entry = { filter, onEvent }
-    live.push(entry)
-    for (const event of [...stored]) if (matchFilter(filter, event)) onEvent(event)
-    return () => {
-      const index = live.indexOf(entry)
-      if (index >= 0) live.splice(index, 1)
-    }
-  }
-  const service: ServiceTransport = {
-    subscribe: async (_relays, filter, onEvent) => subscribe(filter, onEvent),
-    publish: async (_relays, event) => {
-      deliver(event)
-    },
-  }
-  const nwc: NwcTransport = {
-    query: async (_relays, filter) => stored.filter((event) => matchFilter(filter as Filter, event)) as NwcEvent[],
-    subscribe: (_relays, filter, handlers) => {
-      const stop = subscribe(filter as Filter, (event) => handlers.onevent(event as NwcEvent))
-      return { close: stop }
-    },
-    publish: async (relays, event) => {
-      deliver(event as NostrEvent)
-      return [...relays].map((relay) => ({ relay, accepted: true }))
-    },
-    close: () => {},
-  }
-  return { service, nwc, stored, deliver }
-}
-
-// A wallet with no opinions at all: it pays whatever it is handed. Every
-// refusal in these tests therefore comes from the grant, which is the
-// whole claim being made.
-const openWallet = () => {
-  const paid: string[] = []
-  const wallet: ServiceWallet = {
-    alias: () => 'upstream',
-    balanceMsat: async () => 5_000_000,
-    makeInvoice: async ({ amountMsat }) => ({
-      type: 'incoming',
-      invoice: ONE_SAT,
-      paymentHash: 'ab'.repeat(32),
-      amountMsat,
-      createdAt: 1_700_000_000,
-    }),
-    payInvoice: async ({ invoice }) => {
-      paid.push(invoice)
-      return { preimage: 'cd'.repeat(32), feesPaidMsat: 0 }
-    },
-    lookupInvoice: async () => null,
-  }
-  return { wallet, paid }
-}
+import { ONE_SAT, RELAY, fakeRelay, openWallet } from './helpers.js'
 
 let running: WalletService | null = null
 afterEach(() => {

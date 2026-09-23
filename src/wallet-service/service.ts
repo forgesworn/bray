@@ -251,14 +251,41 @@ function invoiceResult(view: ServiceInvoice): Record<string, unknown> {
   }
 }
 
+// Where grants are recorded, when that is somewhere other processes can
+// change them. The service re-reads a grant before every request and makes
+// every change through `update`, so a revocation, a refill or a spend made
+// by another process is neither missed nor overwritten.
+export interface GrantStore {
+  read(grantId: string): Grant | undefined
+  // Applies `mutate` to the grant as it stands in the store now and returns
+  // the result, or undefined when the grant no longer exists. If `mutate`
+  // throws, nothing is changed.
+  update(grantId: string, mutate: (grant: Grant) => void): Grant | undefined
+}
+
 export interface ServiceOptions {
   wallet: ServiceWallet
   transport: ServiceTransport
+  store?: GrantStore
   // Awaited BEFORE an answer goes out: a budget that has been spent must be
-  // on disk before the payer is told it worked.
-  persist: () => Promise<void>
+  // recorded before the payer is told it worked. Only needed without a
+  // store, whose updates are already durable.
+  persist?: () => Promise<void>
   log?: (message: string) => void
   now?: () => number
+}
+
+// The fields another process may change while this one serves.
+function adopt(target: Grant, source: Grant): void {
+  target.methods = source.methods
+  target.spentMsat = source.spentMsat
+  target.seen = source.seen
+  if (source.budgetMsat === undefined) delete target.budgetMsat
+  else target.budgetMsat = source.budgetMsat
+  if (source.maxPaymentMsat === undefined) delete target.maxPaymentMsat
+  else target.maxPaymentMsat = source.maxPaymentMsat
+  if (source.lastUsedAt !== undefined) target.lastUsedAt = source.lastUsedAt
+  if (source.revokedAt !== undefined) target.revokedAt = source.revokedAt
 }
 
 export class WalletService {
@@ -302,6 +329,30 @@ export class WalletService {
     for (const id of [...this.#stops.keys()]) this.stop(id)
   }
 
+  // The grant as the store has it now. False when it is gone or revoked.
+  #refresh(grant: Grant): boolean {
+    const store = this.#opts.store
+    if (store) {
+      const current = store.read(grant.id)
+      if (!current) return false
+      adopt(grant, current)
+    }
+    return !grant.revokedAt
+  }
+
+  // Change a grant where it is recorded, then here.
+  async #change(grant: Grant, mutate: (held: Grant) => void): Promise<void> {
+    const store = this.#opts.store
+    if (store) {
+      const updated = store.update(grant.id, mutate)
+      if (!updated) throw new ServiceError('UNAUTHORIZED', 'This connection no longer exists.')
+      adopt(grant, updated)
+    } else {
+      mutate(grant)
+    }
+    await this.#opts.persist?.()
+  }
+
   // Every request on one connection runs after the last has finished. Two
   // pay_invoice requests arriving together must not both read the same
   // remaining budget and both decide there is room.
@@ -317,7 +368,14 @@ export class WalletService {
 
   async #handle(grantId: string, event: NostrEvent): Promise<void> {
     const grant = this.#grants.get(grantId)
-    if (!grant || grant.revokedAt) return
+    if (!grant) return
+    // Revoked by any process, or refilled, or spent from: the stored grant
+    // is the one that counts.
+    if (!this.#refresh(grant)) {
+      this.stop(grantId)
+      this.#opts.log?.(`stopped serving ${grant.name}: it has been revoked`)
+      return
+    }
 
     // Anyone can publish an event tagged at this pubkey - it is in the info
     // event, which is public. What keeps a stranger out is further down:
@@ -333,8 +391,7 @@ export class WalletService {
     const expiration = event.tags.find((tag) => tag[0] === 'expiration')?.[1]
     if (expiration && Number(expiration) < seconds) return
 
-    const seen = grant.seen ?? []
-    if (seen.includes(event.id)) {
+    if ((grant.seen ?? []).includes(event.id)) {
       this.#opts.log?.(`ignored a replayed request on ${grant.name}`)
       return
     }
@@ -350,9 +407,11 @@ export class WalletService {
     const params = (parsed.params ?? {}) as Record<string, unknown>
 
     const remember = async (): Promise<void> => {
-      grant.seen = [...seen, event.id].slice(-SEEN_LIMIT)
-      grant.lastUsedAt = this.#now()
-      await this.#opts.persist()
+      const at = this.#now()
+      await this.#change(grant, (held) => {
+        held.seen = [...(held.seen ?? []), event.id].slice(-SEEN_LIMIT)
+        held.lastUsedAt = at
+      })
     }
 
     // A spending request is written down before it runs, so a crash between
@@ -416,19 +475,22 @@ export class WalletService {
         const invoice = typeof params.invoice === 'string' ? params.invoice.trim() : ''
         if (!invoice) throw new ServiceError('OTHER', 'pay_invoice needs an invoice.')
         const amountMsat = priceOf(invoice, params)
-        charge(grant, amountMsat)
-        // Spent BEFORE the attempt and persisted: a crash mid-payment must
-        // leave a budget that has paid for it. The other order lets one
-        // connection spend its grant twice by dying at the right moment.
-        grant.spentMsat += amountMsat
-        await this.#opts.persist()
+        // Checked and spent in one step against the stored grant, BEFORE the
+        // attempt: a crash mid-payment must leave a budget that has paid for
+        // it. The other order lets one connection spend its grant twice by
+        // dying at the right moment.
+        await this.#change(grant, (held) => {
+          charge(held, amountMsat)
+          held.spentMsat += amountMsat
+        })
         try {
           const paid = await this.#opts.wallet.payInvoice({ invoice, amountMsat })
           return { preimage: paid.preimage, fees_paid: paid.feesPaidMsat }
         } catch (err) {
           if (err instanceof PaymentNotSentError) {
-            grant.spentMsat -= amountMsat
-            await this.#opts.persist()
+            await this.#change(grant, (held) => {
+              held.spentMsat = Math.max(0, held.spentMsat - amountMsat)
+            })
           }
           throw err
         }
