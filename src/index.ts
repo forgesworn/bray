@@ -27,6 +27,7 @@ import { registerHandlerTools } from './handler/tools.js'
 import { registerSyncTools } from './sync/tools.js'
 import { ActionCatalog, createCatalogProxy, PROMOTED_TOOLS } from './catalog.js'
 import { configureHttpClient } from './http-client.js'
+import { BRAY_VERSION } from './version.js'
 
 const config = await loadConfig()
 // Route every fetch() in this process through the SOCKS proxy when Tor is
@@ -143,7 +144,7 @@ export const deps = {
 // NIP-65 relay list is loaded via loadIdentityRelays(): immediately for a local
 // key, or after the bunker pubkey resolves (see establishBunkerInBackground).
 
-const server = new McpServer({ name: 'nostr-bray', version: '0.1.0' }, {
+const server = new McpServer({ name: 'nostr-bray', version: BRAY_VERSION }, {
   instructions: 'Always check whoami before posting or signing. Use signet-badge to check trust before interacting with unfamiliar pubkeys. Use trust-score for the full three-dimensional view (verification + proximity + access). Use social-feed or social-notifications to get event IDs and author pubkeys before calling social-reply or social-react. DMs default to NIP-17 gift wrap (most private); only use NIP-04 if the recipient requires it. Respect vault tiers -- do not share decrypted content outside its intended audience. For less common actions, use search-actions to discover them, then execute-action to run them.',
 })
 
