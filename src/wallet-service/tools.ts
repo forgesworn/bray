@@ -11,6 +11,7 @@ import {
   releaseServeLock,
   revokeGrant,
   updateGrants,
+  writeGrantUriFile,
 } from './grants.js'
 import { upstreamWallet } from './upstream.js'
 import { defaultPaymentGuard } from '../zap/payment-guard.js'
@@ -18,7 +19,6 @@ import {
   DEFAULT_METHODS,
   SUPPORTED_METHODS,
   WalletService,
-  grantUri,
   newGrant,
   remainingBudgetMsat,
   type Grant,
@@ -128,7 +128,7 @@ export function registerWalletServiceTools(
     'wallet-grant',
     {
       description:
-        'Issue a NIP-47 connection over this identity\'s wallet, narrower than the URI you hold. Defaults to invoice-only: no spending and no balance disclosure. A connection that can spend must carry a budget. Returns the nostr+walletconnect:// URI to hand over.',
+        'Issue a scoped NIP-47 connection over this identity\'s one wallet, narrower than the URI you hold. Defaults to invoice-only: no spending and no balance disclosure. A connection that can spend must carry a budget. Writes the nostr+walletconnect:// URI to a private 0600 file and returns its path; the URI itself is never returned.',
       inputSchema: {
         name: z.string().describe('What this connection is for - it is how you revoke the right one later'),
         methods: z
@@ -156,12 +156,13 @@ export function registerWalletServiceTools(
         }
         grants.push(grant)
       })
+      const uriFile = writeGrantUriFile(grantsFile, grant)
       if (service) await startServing(grant)
       return text({
         ok: true,
         ...shown(grant),
-        uri: grantUri(grant),
-        note: 'Whoever holds this URI can do exactly the above and nothing else. It is answered only while `wallet-serve` is running.',
+        uriFile,
+        note: 'The connection URI is in uriFile (mode 0600) and is deliberately not shown here: it is a bearer secret. Hand that file to whoever should hold the connection. Whoever holds the URI can do exactly the above and nothing else, and it is answered only while `wallet-serve` is running.',
       })
     },
   )

@@ -2,7 +2,7 @@ import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, re
 import { dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
-import type { Grant, GrantStore } from './service.js'
+import { grantUri, type Grant, type GrantStore } from './service.js'
 import { withFileLock } from '../file-lock.js'
 
 // Where the grants live.
@@ -190,4 +190,22 @@ export function refillGrant(path: string, pubkeyHex: string, nameOrId: string, b
     grant.spentMsat = 0
     return structuredClone(grant)
   })
+}
+
+/**
+ * Write a grant's connection URI to its own 0600 file and return the path.
+ *
+ * The URI is a bearer secret: whoever holds it can do what the grant
+ * allows. It goes to a file for the operator to hand over, never into a
+ * tool result, where it would sit in a model's context and transcript.
+ */
+export function writeGrantUriFile(grantsFile: string, grant: Grant): string {
+  const directory = join(dirname(grantsFile), 'wallet-connections')
+  mkdirSync(directory, { recursive: true, mode: 0o700 })
+  chmodSync(directory, 0o700)
+  const slug = grant.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'connection'
+  const path = join(directory, `${slug}-${grant.id}.nwc`)
+  writeFileSync(path, `${grantUri(grant)}\n`, { mode: 0o600, flag: 'wx' })
+  chmodSync(path, 0o600)
+  return path
 }
