@@ -43,7 +43,7 @@ describe('a grant is narrower than the URI behind it', () => {
 
     const client = new NwcClient(uri, { transport: relay.nwc })
     const capabilities = await client.connect()
-    expect(capabilities.methods).toEqual(['get_info', 'make_invoice', 'lookup_invoice'])
+    expect(capabilities.methods).toEqual(['get_info', 'make_invoice'])
     await expect(client.getBalance()).rejects.toThrow(/does not advertise get_balance/)
     await expect(client.payInvoice({ invoice: ONE_SAT })).rejects.toThrow(/does not advertise pay_invoice/)
     expect(paid).toHaveLength(0)
@@ -186,6 +186,67 @@ describe('a grant is narrower than the URI behind it', () => {
     await expect(client.payInvoice({ invoice: ONE_SAT })).rejects.toThrow()
     expect(paid).toHaveLength(0)
     expect(relay.stored.filter((event) => event.kind === 23195)).toHaveLength(0)
+    client.close()
+  })
+})
+
+describe('a grant sees only its own invoices', () => {
+  const OTHER_HASH = 'ef'.repeat(32)
+  const history = () => {
+    const asked: string[] = []
+    const { wallet, paid } = openWallet()
+    const withHistory: ServiceWallet = {
+      ...wallet,
+      // The wallet behind the service knows every invoice anyone made,
+      // with its preimage.
+      lookupInvoice: async ({ paymentHash }) => {
+        asked.push(paymentHash!)
+        return {
+          type: 'outgoing',
+          invoice: ONE_SAT,
+          paymentHash: paymentHash!,
+          amountMsat: 1_000,
+          createdAt: 1_700_000_000,
+          preimage: '99'.repeat(32),
+        }
+      },
+    }
+    return { wallet: withHistory, asked, paid }
+  }
+
+  it('does not offer lookup_invoice by default', () => {
+    expect(newGrant({ name: 'reader', relays: [RELAY] }).methods).not.toContain('lookup_invoice')
+  })
+
+  it('answers for invoices it issued and refuses everyone else\'s as not found', async () => {
+    const relay = fakeRelay()
+    const { wallet, asked } = history()
+    const { uri } = await serve(relay, wallet, { name: 'shop', methods: ['get_info', 'make_invoice', 'lookup_invoice'] })
+    const client = new NwcClient(uri, { transport: relay.nwc })
+    await client.connect()
+
+    const made = await client.makeInvoice({ amount: 1_000 })
+    await expect(client.lookupInvoice({ payment_hash: made.payment_hash! })).resolves.toMatchObject({
+      payment_hash: made.payment_hash,
+    })
+    await expect(client.lookupInvoice({ payment_hash: OTHER_HASH })).rejects.toThrow(/No invoice here/)
+    // The wallet was never asked about somebody else's payment.
+    expect(asked).not.toContain(OTHER_HASH)
+    client.close()
+  })
+
+  it('answers for invoices it paid', async () => {
+    const relay = fakeRelay()
+    const { wallet } = history()
+    const { uri } = await serve(relay, wallet, {
+      name: 'agent',
+      methods: ['get_info', 'pay_invoice', 'lookup_invoice'],
+      budgetMsat: 10_000,
+    })
+    const client = new NwcClient(uri, { transport: relay.nwc })
+    await client.connect()
+    await client.payInvoice({ invoice: ONE_SAT })
+    await expect(client.lookupInvoice({ invoice: ONE_SAT })).resolves.toMatchObject({ amount: 1_000 })
     client.close()
   })
 })
