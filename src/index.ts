@@ -193,9 +193,9 @@ if (config.transport === 'stdio') {
   )
   const { isInitializeRequest } = await import('@modelcontextprotocol/sdk/types.js')
   const { randomUUID, timingSafeEqual } = await import('node:crypto')
+  const { resolveHttpToken } = await import('./http-token.js')
 
-  const token = process.env.BRAY_HTTP_TOKEN ?? randomUUID()
-  console.error(`nostr-bray HTTP auth token: ${token}`)
+  const token = resolveHttpToken()
 
   const expectedAuth = Buffer.from(`Bearer ${token}`)
 
