@@ -22,6 +22,7 @@ import {
 } from './handlers.js'
 import { handleZapSend, handleZapDecode } from '../zap/handlers.js'
 import { defaultPaymentGuard } from '../zap/payment-guard.js'
+import { askHumanToApprovePayment } from '../zap/confirm.js'
 import {
   handleListingCreate,
   handleListingRead,
@@ -178,7 +179,8 @@ export function registerMarketplaceTools(server: McpServer, deps: ToolDeps): voi
   server.registerTool('marketplace-pay', {
     description:
       'Pay an L402 invoice via NWC and store credentials for authenticated API calls. ' +
-      'SPENDS REAL SATS. Decodes the invoice first — set confirm: true to execute payment. ' +
+      'SPENDS REAL SATS. Decodes the invoice first; set confirm: true to pay. When the MCP client supports ' +
+      'elicitation the human is asked to approve the payment as well, and bray\'s spending caps always apply. ' +
       'Returns an opaque credential ID for use with marketplace-call.',
     inputSchema: {
       macaroon: z.string().describe('Base64-encoded macaroon from L402 challenge'),
@@ -206,12 +208,35 @@ export function registerMarketplaceTools(server: McpServer, deps: ToolDeps): voi
       }
     }
 
+    const guard = defaultPaymentGuard()
+    guard.check(decoded.paymentHash!, decoded.amountMsats)
+    const approval = await askHumanToApprovePayment(server, {
+      amountMsats: decoded.amountMsats,
+      purpose: 'buy access to a paid API (L402)',
+      ...(decoded.description ? { description: decoded.description } : {}),
+      paymentHash: decoded.paymentHash!,
+    })
+    if (approval === 'declined') {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            paid: false,
+            declined: true,
+            amountMsats: decoded.amountMsats,
+            message: 'The payment was not approved, so nothing was sent.',
+          }, null, 2),
+        }],
+      }
+    }
+
     // Pay via NWC (same as zap-send) — resolve per-identity wallet
     const { resolveNwcUri } = await import('../zap/handlers.js')
     const payResult = await handleZapSend(deps.ctx, deps.pool, {
       invoice,
       nwcUri: resolveNwcUri(deps.ctx, deps.walletsFile, deps.nwcUri),
-      guard: defaultPaymentGuard(),
+      guard,
+      ...(deps.nwcTransport ? { transport: deps.nwcTransport } : {}),
     })
 
     // Keep the bearer credential in process and return only an opaque handle.
@@ -224,6 +249,7 @@ export function registerMarketplaceTools(server: McpServer, deps: ToolDeps): voi
         text: JSON.stringify({
           paid: true,
           verified: payResult.verified,
+          humanApproved: approval === 'approved',
           credentialId,
           costSats,
           amountMsats: decoded.amountMsats,

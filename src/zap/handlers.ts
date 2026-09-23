@@ -259,6 +259,7 @@ export function handleZapDecode(bolt11: string): {
   amountMsats?: number
   description?: string
   expiry?: number
+  paymentHash?: string
 } {
   const decoded = tryDecodeBolt11(bolt11)
   if (!decoded) return {}
@@ -269,6 +270,7 @@ export function handleZapDecode(bolt11: string): {
     ...(decoded.amountMsats !== null ? { amountMsats: Number(decoded.amountMsats) } : {}),
     ...(decoded.description !== null ? { description: decoded.description } : {}),
     expiry: decoded.expirySeconds,
+    paymentHash: decoded.paymentHashHex,
   }
 }
 

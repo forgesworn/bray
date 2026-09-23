@@ -21,6 +21,7 @@ import { hexId } from '../validation.js'
 import { handleIdentityBackup, handleIdentityRestore, handleIdentityMigrate } from './migration.js'
 import { handleNip05Lookup, handleNip05Verify, handleNip05Relays } from './nip05.js'
 import type { IdentityContext } from '../context.js'
+import type { NwcTransport } from '@forgesworn/nwc-kit'
 
 export interface ToolDeps {
   ctx: SigningContext
@@ -28,6 +29,8 @@ export interface ToolDeps {
   nip65: Nip65Manager
   nwcUri?: string
   walletsFile: string
+  /** NWC relay transport override. Tests only; production uses the default relays. */
+  nwcTransport?: NwcTransport
   nip04Enabled?: boolean
   veilCacheTtl?: number
   veilCacheMax?: number
