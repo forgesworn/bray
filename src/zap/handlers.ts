@@ -331,6 +331,41 @@ async function withClient<T>(
 }
 
 /**
+ * An earlier attempt at this invoice ended without an answer. Ask the wallet
+ * what happened before anything is sent again: settled means it was paid
+ * (and the proof is returned), failed or expired means it may be retried,
+ * and anything else leaves it unknown and refused.
+ */
+async function reconcileUnknownPayment(
+  uri: string,
+  paymentHash: string,
+  guard: PaymentGuard,
+  args: NwcOperationOptions,
+): Promise<ZapPaymentResult | null> {
+  let found: NwcTransaction
+  try {
+    found = await withClient(uri, args.transport, (client) =>
+      client.lookupInvoice({ payment_hash: paymentHash }, requestOptions(args)))
+  } catch {
+    throw new ZapPaymentOutcomeUnknownError(paymentHash)
+  }
+  if (typeof found.preimage === 'string' && verifyPreimage(found.preimage, paymentHash)) {
+    guard.settle(paymentHash, found.fees_paid)
+    return {
+      preimage: found.preimage,
+      ...(found.fees_paid === undefined ? {} : { fees_paid: found.fees_paid }),
+      paymentHash,
+      verified: true,
+    }
+  }
+  if (found.state === 'failed' || found.state === 'expired') {
+    guard.release(paymentHash)
+    return null
+  }
+  throw new ZapPaymentOutcomeUnknownError(paymentHash)
+}
+
+/**
  * Pay a BOLT-11 invoice and return only after the wallet proves settlement.
  *
  * With a `guard`, bray's own per-payment and rolling daily ceilings are
@@ -353,6 +388,11 @@ export async function handleZapSend(
   }
   const paymentHash = decoded.paymentHashHex
   const guard = args.guard
+  const prior = guard?.status(paymentHash)
+  if (guard && (prior === 'pending' || prior === 'unknown')) {
+    const settled = await reconcileUnknownPayment(uri, paymentHash, guard, args)
+    if (settled) return settled
+  }
   guard?.reserve(paymentHash, Number(decoded.amountMsats))
   let paid: PayInvoiceResult
   try {

@@ -128,3 +128,52 @@ describe('bray-side payment limits', () => {
     expect(() => guard.check(PAYMENT_HASH, 1_000)).toThrow(/refusing to spend/)
   })
 })
+
+describe('a payment with an unknown outcome', () => {
+  const limits = { maxPaymentMsat: 5_000, maxDailyMsat: 100_000 }
+  // The mock hands back a preimage that does not settle the invoice, so
+  // bray cannot say whether the money went.
+  const unproven = () => createMockWallet({ balance: 500_000, paymentPreimage: 'ff'.repeat(32) })
+
+  it('is not attempted again while the wallet cannot say what happened', async () => {
+    const guard = guardAt(limits)
+    await expect(pay(guard, unproven())).rejects.toThrow(/outcome is unknown/)
+    expect(guard.status(PAYMENT_HASH)).toBe('unknown')
+
+    // The lookup says nothing conclusive: no settling preimage, no failure.
+    const wallet = createMockWallet({ balance: 500_000, lookupResult: { payment_hash: PAYMENT_HASH, state: 'pending' } })
+    await expect(pay(guard, wallet)).rejects.toThrow(/outcome is unknown/)
+    expect(wallet.history.map((entry) => entry.method)).toEqual(['lookup_invoice'])
+  })
+
+  it('is retried once a lookup shows it failed', async () => {
+    const guard = guardAt(limits)
+    await expect(pay(guard, unproven())).rejects.toThrow()
+    const wallet = createMockWallet({ balance: 500_000, lookupResult: { payment_hash: PAYMENT_HASH, state: 'failed' } })
+    await expect(pay(guard, wallet)).resolves.toMatchObject({ verified: true })
+    expect(wallet.history.map((entry) => entry.method)).toEqual(['lookup_invoice', 'pay_invoice'])
+    expect(guard.status(PAYMENT_HASH)).toBe('paid')
+  })
+
+  it('is reported as paid, without paying again, once a lookup proves it settled', async () => {
+    const guard = guardAt(limits)
+    await expect(pay(guard, unproven())).rejects.toThrow()
+    const wallet = createMockWallet({
+      balance: 500_000,
+      lookupResult: { payment_hash: PAYMENT_HASH, state: 'settled', preimage: 'aa'.repeat(32), fees_paid: 0 },
+    })
+    await expect(pay(guard, wallet)).resolves.toMatchObject({ verified: true, paymentHash: PAYMENT_HASH })
+    expect(wallet.history.map((entry) => entry.method)).toEqual(['lookup_invoice'])
+    expect(guard.status(PAYMENT_HASH)).toBe('paid')
+  })
+
+  it('is refused outright through the wallet service, which cannot look it up for the holder', async () => {
+    const guard = guardAt(limits)
+    guard.reserve(PAYMENT_HASH, 1_000)
+    guard.markUnknown(PAYMENT_HASH)
+    const mock = createMockWallet({ balance: 500_000 })
+    const wallet = upstreamWallet({ uri: buildNwcUri(mock.pubkey, CLIENT_SECRET), transport: mock.transport, guard })
+    await expect(wallet.payInvoice({ invoice: SETTLED_INVOICE, amountMsat: 1_000 })).rejects.toThrow(PaymentNotSentError)
+    expect(mock.history.filter((entry) => entry.method === 'pay_invoice')).toHaveLength(0)
+  })
+})

@@ -157,9 +157,15 @@ export class PaymentGuard {
     return total
   }
 
-  #refusal(file: LedgerFile, paymentHash: string, amountMsat: number): string | null {
+  #refusal(file: LedgerFile, paymentHash: string, amountMsat: number, unknownRefused = true): string | null {
     const prior = file.payments[paymentHash]
     if (prior?.status === 'paid') return 'That invoice has already been paid.'
+    // A payment that may have gone out is not tried again until a lookup
+    // shows it failed: a retry of an unknown outcome is how one invoice
+    // gets paid twice.
+    if (unknownRefused && (prior?.status === 'pending' || prior?.status === 'unknown')) {
+      return `An earlier attempt to pay ${paymentHash} has an unknown outcome. Look the invoice up first; it is only retried once the wallet shows it failed.`
+    }
     if (amountMsat > this.limits.maxPaymentMsat) {
       return `That is ${amountMsat} msat and bray's ceiling for one payment is ${this.limits.maxPaymentMsat} msat (BRAY_MAX_PAYMENT_MSAT).`
     }
@@ -172,9 +178,13 @@ export class PaymentGuard {
     return null
   }
 
-  /** Throw if a payment would be refused, without recording anything. */
+  /**
+   * Throw if the caps would refuse a payment, without recording anything.
+   * An earlier attempt with an unknown outcome is left to the payment
+   * itself, which looks it up before deciding.
+   */
   check(paymentHash: string, amountMsat: number): void {
-    const refusal = this.#refusal(this.#read(), paymentHash, amountMsat)
+    const refusal = this.#refusal(this.#read(), paymentHash, amountMsat, false)
     if (refusal) throw new PaymentLimitError(refusal)
   }
 

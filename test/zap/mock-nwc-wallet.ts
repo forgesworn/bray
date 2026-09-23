@@ -36,7 +36,12 @@ export interface MockWallet {
   history: Array<{ method: string; params: Record<string, unknown> }>
 }
 
-export function createMockWallet(opts?: { balance?: number; paymentPreimage?: string }): MockWallet {
+export function createMockWallet(opts?: {
+  balance?: number
+  paymentPreimage?: string
+  /** Replaces the lookup_invoice result. */
+  lookupResult?: Record<string, unknown>
+}): MockWallet {
   const walletSk = generateSecretKey()
   const walletSkHex = Buffer.from(walletSk).toString('hex')
   const walletPubkey = getPublicKey(walletSk)
@@ -98,7 +103,7 @@ export function createMockWallet(opts?: { balance?: number; paymentPreimage?: st
       case 'lookup_invoice':
         responsePayload = {
           result_type: 'lookup_invoice',
-          result: {
+          result: opts?.lookupResult ?? {
             invoice: params.invoice ?? 'lnbc1mock',
             paid: true,
             preimage: 'c'.repeat(64),
