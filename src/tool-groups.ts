@@ -49,6 +49,7 @@ export function registerAllTools(server: McpServer, deps: ToolDeps, options: Too
     nip65: deps.nip65,
     veilCacheTtl: options.veilCacheTtl,
     veilCacheMax: options.veilCacheMax,
+    trust: deps.trust,
   })
   registerMarketplaceTools(server, deps)
   registerPrivacyTools(server, deps)

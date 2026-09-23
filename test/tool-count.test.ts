@@ -23,7 +23,7 @@ function registeredTools(): string[] {
   try {
     const identities = join(directory, 'identities.md')
     writeFileSync(identities, `| Name | Hex Pubkey |\n| --- | --- |\n| stub | ${'a'.repeat(64)} |\n`)
-    registerAllTools(capture, { ctx: stub, pool: stub, nip65: stub, walletsFile: '' }, {
+    registerAllTools(capture, { ctx: stub, pool: stub, nip65: stub, trust: stub, walletsFile: '' }, {
       veilCacheTtl: 300_000,
       veilCacheMax: 500,
       dispatchIdentitiesPath: identities,
@@ -43,6 +43,10 @@ describe('tool count', () => {
   it('registers each tool once, and every promoted tool exists', () => {
     expect(new Set(tools).size).toBe(total)
     for (const name of PROMOTED_TOOLS) expect(tools).toContain(name)
+  })
+
+  it('registers onboard-verified when a trust context is supplied', () => {
+    expect(tools).toContain('onboard-verified')
   })
 
   it('matches the generated manifest', () => {
