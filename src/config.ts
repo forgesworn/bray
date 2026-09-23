@@ -85,6 +85,8 @@ interface ConfigFile {
   dispatchIdentities?: string
   /** Public keys this process must never sign as. See ContextOptions. */
   forbidPubkeys?: string[]
+  /** Register the tools that mint spending connections (wallet-grant, wallet-refill, wallet-serve). */
+  walletService?: boolean
 }
 
 /**
@@ -340,6 +342,12 @@ export async function loadConfig(): Promise<BrayConfig> {
     .map((s) => s.trim())
     .filter(Boolean)
 
+  // --- Wallet service ---
+  // Off unless asked for: wallet-grant, wallet-refill and wallet-serve hand
+  // out spending authority over the operator's wallet, which is not
+  // something a model should find in its tool list by default.
+  const walletService = process.env.BRAY_WALLET_SERVICE === '1' || file.walletService === true
+
   // --- Wallets file ---
   const walletsFile = process.env.BRAY_WALLETS_FILE
     ?? file.walletsFile
@@ -368,5 +376,6 @@ export async function loadConfig(): Promise<BrayConfig> {
     bindAddress,
     dispatchIdentities,
     forbidPubkeys,
+    walletService,
   }
 }

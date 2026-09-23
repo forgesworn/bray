@@ -51,6 +51,8 @@ export interface BrayConfig {
   readonly bunkerUri?: string
   readonly nwcUri?: string
   readonly walletsFile: string
+  /** Whether the spending-authority wallet-service tools are registered (BRAY_WALLET_SERVICE=1). */
+  readonly walletService?: boolean
   readonly torProxy?: string
   readonly allowClearnetWithTor: boolean
   readonly allowPrivateRelays: boolean

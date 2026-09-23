@@ -14,6 +14,31 @@ interface CatalogEntry {
 }
 
 /**
+ * Tools registered directly on the MCP server, always in the client's tool
+ * list. Everything else is reached through search-actions + execute-action.
+ *
+ * Nothing that spends is promoted: a payment tool in the default list
+ * invites a model to reach for it. zap-send stays one search away.
+ */
+export const PROMOTED_TOOLS: ReadonlySet<string> = new Set([
+  'whoami', 'social-post', 'social-reply', 'social-feed',
+  'dm-send', 'dm-read', 'zap-balance',
+  'identity-switch', 'relay-query',
+  'signet-badge', 'trust-score', 'vault-read',
+  'dispatch-send', 'dispatch-check', 'dispatch-reply',
+  'dispatch-ack', 'dispatch-status', 'dispatch-cancel',
+  'dispatch-refuse', 'dispatch-failure', 'dispatch-query',
+  'article-publish', 'article-read', 'article-list',
+  'search-notes', 'search-profiles', 'hashtag-feed',
+  'social-profile-get', 'dm-conversation', 'verify-person',
+  'dispatch-propose', 'dispatch-capability-publish', 'dispatch-capability-discover', 'dispatch-capability-read',
+  'badge-create', 'badge-award', 'badge-accept', 'badge-list',
+  'community-create', 'community-feed', 'community-post', 'community-approve', 'community-list',
+  'calendar-create', 'calendar-read', 'calendar-rsvp',
+  'listing-create', 'listing-read', 'listing-search', 'listing-close',
+])
+
+/**
  * Holds non-promoted tool definitions and exposes them via search-actions
  * and execute-action meta-tools. This keeps the primary tool list lean
  * (context-window economics) while still making every action discoverable.
@@ -114,7 +139,7 @@ export class ActionCatalog {
         `Search ${catalog.size} additional actions by describing what you want to do. ` +
         'Returns matching actions with names, descriptions, and parameter schemas. ' +
         'Use this when the promoted tools (whoami, social-post, social-reply, social-feed, ' +
-        'dm-send, dm-read, zap-send, zap-balance, identity-switch, relay-query) ' +
+        'dm-send, dm-read, zap-balance, identity-switch, relay-query) ' +
         'do not cover what you need.',
       inputSchema: {
         intent: z.string().describe(
@@ -203,7 +228,7 @@ export class ActionCatalog {
 export function createCatalogProxy(
   server: McpServer,
   catalog: ActionCatalog,
-  promoted: Set<string>,
+  promoted: ReadonlySet<string>,
 ): McpServer {
   return new Proxy(server, {
     get(target, prop, receiver) {

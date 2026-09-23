@@ -54,7 +54,22 @@ const shown = (grant: Grant) => ({
   ...(grant.lastUsedAt === undefined ? {} : { lastUsedAt: new Date(grant.lastUsedAt).toISOString() }),
 })
 
-export function registerWalletServiceTools(server: McpServer, deps: ToolDeps): void {
+export interface WalletServiceToolOptions {
+  /**
+   * Register the tools that mint or widen spending authority: wallet-grant,
+   * wallet-refill and wallet-serve. Off by default; BRAY_WALLET_SERVICE=1
+   * turns it on. Listing and revoking connections are always available,
+   * because taking authority away should never need an opt-in.
+   */
+  issuing?: boolean
+}
+
+export function registerWalletServiceTools(
+  server: McpServer,
+  deps: ToolDeps,
+  options: WalletServiceToolOptions = {},
+): void {
+  const issuing = options.issuing === true
   const grantsFile = defaultGrantsFile()
   const identity = () => deps.ctx.activePublicKeyHex
   const read = () => loadGrants(grantsFile, identity())
@@ -104,7 +119,7 @@ export function registerWalletServiceTools(server: McpServer, deps: ToolDeps): v
     await (await running()).serve(grant)
   }
 
-  server.registerTool(
+  if (issuing) server.registerTool(
     'wallet-grant',
     {
       description:
@@ -181,7 +196,7 @@ export function registerWalletServiceTools(server: McpServer, deps: ToolDeps): v
     },
   )
 
-  server.registerTool(
+  if (issuing) server.registerTool(
     'wallet-refill',
     {
       description: 'Put a spending connection\'s budget back where it started, optionally at a new figure. Deliberately separate from granting: topping up is a decision, not a side effect of use.',
@@ -202,7 +217,7 @@ export function registerWalletServiceTools(server: McpServer, deps: ToolDeps): v
     },
   )
 
-  server.registerTool(
+  if (issuing) server.registerTool(
     'wallet-serve',
     {
       description:

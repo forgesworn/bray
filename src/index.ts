@@ -25,7 +25,7 @@ import { registerVaultTools } from './vault/tools.js'
 import { registerDispatchTools } from './dispatch/tools.js'
 import { registerHandlerTools } from './handler/tools.js'
 import { registerSyncTools } from './sync/tools.js'
-import { ActionCatalog, createCatalogProxy } from './catalog.js'
+import { ActionCatalog, createCatalogProxy, PROMOTED_TOOLS } from './catalog.js'
 import { configureHttpClient } from './http-client.js'
 
 const config = await loadConfig()
@@ -149,25 +149,8 @@ const server = new McpServer({ name: 'nostr-bray', version: '0.1.0' }, {
 
 // Promoted tools are registered directly with the server (always visible to Claude).
 // Everything else goes to the catalog, discoverable via search-actions + execute-action.
-const PROMOTED = new Set([
-  'whoami', 'social-post', 'social-reply', 'social-feed',
-  'dm-send', 'dm-read', 'zap-send', 'zap-balance',
-  'identity-switch', 'relay-query',
-  'signet-badge', 'trust-score', 'vault-read',
-  'dispatch-send', 'dispatch-check', 'dispatch-reply',
-  'dispatch-ack', 'dispatch-status', 'dispatch-cancel',
-  'dispatch-refuse', 'dispatch-failure', 'dispatch-query',
-  'article-publish', 'article-read', 'article-list',
-  'search-notes', 'search-profiles', 'hashtag-feed',
-  'social-profile-get', 'dm-conversation', 'verify-person',
-  'dispatch-propose', 'dispatch-capability-publish', 'dispatch-capability-discover', 'dispatch-capability-read',
-  'badge-create', 'badge-award', 'badge-accept', 'badge-list',
-  'community-create', 'community-feed', 'community-post', 'community-approve', 'community-list',
-  'calendar-create', 'calendar-read', 'calendar-rsvp',
-  'listing-create', 'listing-read', 'listing-search', 'listing-close',
-])
 const catalog = new ActionCatalog()
-const proxy = createCatalogProxy(server, catalog, PROMOTED)
+const proxy = createCatalogProxy(server, catalog, PROMOTED_TOOLS)
 
 // Register all tools — the proxy routes promoted to server, rest to catalog
 registerIdentityTools(proxy, deps)
@@ -176,7 +159,7 @@ registerTrustTools(proxy, deps)
 registerRelayTools(proxy, deps)
 registerRelayIntelligenceTools(proxy, deps)
 registerZapTools(proxy, deps)
-registerWalletServiceTools(proxy, deps)
+registerWalletServiceTools(proxy, deps, { issuing: config.walletService })
 registerSafetyTools(proxy, deps)
 registerUtilTools(proxy, deps)
 registerWorkflowTools(proxy, {
@@ -197,7 +180,7 @@ registerSyncTools(proxy, deps)
 
 // Add search-actions and execute-action meta-tools to the real server
 catalog.registerMetaTools(server)
-console.error(`nostr-bray: ${PROMOTED.size} promoted tools + ${catalog.size} cataloged (${PROMOTED.size + catalog.size + 2} total)`)
+console.error(`nostr-bray: ${PROMOTED_TOOLS.size} promoted tools + ${catalog.size} cataloged (${PROMOTED_TOOLS.size + catalog.size + 2} total)`)
 
 if (config.transport === 'stdio') {
   const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js')
