@@ -1,6 +1,6 @@
 # nostr-bray
 
-**Trust-aware Nostr MCP for AI and humans.** 258 tools across 29 groups. Model-agnostic. Works with Claude, ChatGPT, Gemini, Cursor, Windsurf, or any MCP client.
+**Trust-aware Nostr MCP for AI and humans.** 260 tools across 29 groups. Model-agnostic. Works with Claude, ChatGPT, Gemini, Cursor, Windsurf, or any MCP client.
 
 [![npm](https://img.shields.io/npm/v/nostr-bray)](https://www.npmjs.com/package/nostr-bray)
 [![CI](https://github.com/forgesworn/bray/actions/workflows/ci.yml/badge.svg)](https://github.com/forgesworn/bray/actions/workflows/ci.yml)
@@ -166,12 +166,13 @@ nostr-bray implements or integrates the following NIPs:
 | **NIP-44** | Encrypted payloads v2 |
 | **NIP-45** | Event counts |
 | **NIP-46** | Nostr Connect (bunker) |
+| **NIP-47** | Nostr Wallet Connect: pay BOLT-11 invoices, balance, invoices, and scoped spending connections over one wallet. NIP-44 v2 only |
 | **NIP-49** | Private key encryption (ncryptsec) |
 | **NIP-50** | Search |
 | **NIP-51** | Lists (mute, pin, follow sets, bookmarks) |
 | **NIP-52** | Calendar events |
 | **NIP-54** | Wiki pages |
-| **NIP-57** | Lightning zaps |
+| **NIP-57** | Zap receipts (kind 9735) are read. bray pays BOLT-11 invoices over NIP-47 but does not build kind 9734 zap requests or resolve LNURL, so it cannot yet zap a profile or note by itself |
 | **NIP-58** | Badges |
 | **NIP-65** | Relay list metadata |
 | **NIP-72** | Communities |
@@ -214,6 +215,10 @@ Search order: `BRAY_CONFIG` env var > `$XDG_CONFIG_HOME/bray/config.json` > `~/.
 | `NOSTR_NCRYPTSEC` | NIP-49 encrypted key |
 | `NOSTR_NCRYPTSEC_PASSWORD` | Password for ncryptsec |
 | `NWC_URI_FILE` | Path to a private `0600` file containing the NWC bearer URI |
+| `BRAY_MAX_PAYMENT_MSAT` | bray's ceiling on any one payment, in msat (default `5000000`, 5,000 sats) |
+| `BRAY_MAX_DAILY_MSAT` | bray's ceiling on spending in any rolling 24 hours, in msat (default `20000000`, 20,000 sats) |
+| `BRAY_WALLET_SERVICE` | Set `1` to register `wallet-grant`, `wallet-refill` and `wallet-serve` |
+| `BRAY_HOME` | Directory for bray's state files (default `$XDG_CONFIG_HOME/bray`, else `~/.config/bray`) |
 | `NOSTR_RELAYS` | Comma-separated relay URLs |
 | `NOSTR_FORBID_PUBKEY` | Comma-separated npubs or hex this process must never sign as. See below. |
 | `TOR_PROXY` | SOCKS5h proxy for Tor |
@@ -224,7 +229,8 @@ Search order: `BRAY_CONFIG` env var > `$XDG_CONFIG_HOME/bray/config.json` > `~/.
 All secret env vars are deleted from `process.env` before parsing can fail.
 Raw `NWC_URI` is refused; use `NWC_URI_FILE` or `wallet connect <nwc-file>` so
 the bearer credential never appears in a process environment, command argument
-or MCP tool argument.
+or MCP tool argument. The wallet must speak NIP-44 v2 encryption for NWC;
+wallets that only offer NIP-04 are refused.
 
 ### Keys this process must never be
 
@@ -252,13 +258,45 @@ everything.
 The active npub is printed on stderr on every start, so the answer to "which
 key is this?" does not depend on asking the agent.
 
+## Spending limits
+
+**The hard limit is the wallet's own.** Point `NWC_URI_FILE` (or
+`wallet connect <file>`) at a connection your wallet issued with a spending
+budget. Whatever bray does, and whatever a model asks of it, the wallet will
+not pay past that budget. Everything below is bray policing itself, which is
+worth having but is not the same thing.
+
+On top of that, every payment bray makes (`zap-send`, `marketplace-pay`, the
+CLI's `zap-send` and `wallet pay`, the SDK, and payments made through the
+scoped connections below) is checked before anything is sent:
+
+- **Per payment:** at most `BRAY_MAX_PAYMENT_MSAT` (default 5,000 sats).
+- **Per day:** at most `BRAY_MAX_DAILY_MSAT` in any rolling 24 hours (default
+  20,000 sats), counting a 1% (minimum 1 sat) fee reserve until the real fee
+  is known. Attempts are written to `payment-ledger.json` in the state
+  directory before the wallet is asked, so a restart does not hand the
+  allowance back.
+- **Once per invoice:** an invoice is never paid twice, and an attempt whose
+  outcome is unknown is only retried after a lookup shows it failed.
+
+`confirm: true` is set by the model, so it is not a human approval. When your
+MCP client supports elicitation, `zap-send` and `marketplace-pay` also ask
+you directly and pay only on an explicit yes; clients without elicitation
+fall back to `confirm`, with the caps still applying. `zap-send` is not in
+the default tool list either: it is reached through `search-actions`.
+
 ## Handing out a wallet connection
 
 `zap-send` spends through the NWC URI you configured. That URI is an
 unbounded capability over the wallet behind it: every method it supports, no
 ceiling, until it is rotated. Handing one to an agent hands over everything.
 
-`wallet-grant` issues connections over the same wallet that are narrower.
+`wallet-grant` issues scoped spending connections over that one wallet: one
+wallet, one balance, and several narrower ways in. They are not separate
+wallets. The tools that mint or widen spending authority (`wallet-grant`,
+`wallet-refill`, `wallet-serve`) are registered only with
+`BRAY_WALLET_SERVICE=1`; `wallet-grants` and `wallet-revoke` are always
+available.
 
 ```
 wallet-grant   { name: "research-agent", methods: ["get_info","pay_invoice"],
@@ -269,11 +307,20 @@ wallet-refill  { nameOrId: "research-agent", budgetMsat: 50000 }
 wallet-serve   { action: "start" }
 ```
 
+`wallet-grant` writes the new connection's `nostr+walletconnect://` URI to a
+`0600` file under `wallet-connections/` beside the grants file and returns
+the path; the URI itself never appears in a tool result.
+
 What a connection may do is an allowlist, and the default grants no spending
-and does not disclose the balance: `get_info`, `make_invoice`,
-`lookup_invoice`. Both of the others are opt-in per connection, and **a
-connection that can spend must carry a budget** - there is no unlimited grant
-to issue by accident.
+and does not disclose anything: `get_info` and `make_invoice`. The others are
+opt-in per connection, and **a connection that can spend must carry a
+budget** - there is no unlimited grant to issue by accident. A connection
+sees only itself:
+
+- `get_balance` reports the connection's remaining budget, never the
+  wallet's balance.
+- `lookup_invoice` answers only for invoices that connection issued or paid;
+  anything else is reported as not found.
 
 The rules exist because a payment cannot be recalled:
 
@@ -286,8 +333,13 @@ The rules exist because a payment cannot be recalled:
   `expiration` tag claims.
 - Each connection has **its own service key**: two grants share nothing a
   relay can correlate, and revoking one is deleting a key.
-- The budget is charged what the **invoice** says, decoded here. A budget
-  checked against a figure the payer supplied is not a budget.
+- The budget is charged what the **invoice** says, decoded here, plus the
+  routing fee: a fee reserve is held until the wallet reports the real fee.
+  Invoices that state no amount are refused. A budget checked against a
+  figure the payer supplied is not a budget.
+- A definite refusal from the wallet (insufficient balance, say) gives the
+  budget back, and the connection is not told why the wallet refused.
+- bray's own per-payment and daily caps apply to these payments as well.
 - A claimed payment whose preimage does not settle the invoice is refused
   rather than passed on. Repeating an unproven claim would make this service
   the one telling the lie.
@@ -297,6 +349,12 @@ answered **only while `wallet-serve` is running** - which is to say, only for
 as long as this process is alive. That is worth telling whoever you hand a URI
 to: a connection that works while an MCP session is open is a different
 promise from one that works overnight.
+
+The file is the record, shared by every bray process on the machine. Only one
+process may serve the grants at a time, the serving process re-reads a grant
+before every request, and every change is a locked update of the file, so a
+revocation or refill made from any process applies to the next request and
+cannot be written away by another.
 
 ## CLI
 

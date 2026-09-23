@@ -2,13 +2,23 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolDeps } from '../identity/tools.js'
 import { resolveNwcUri } from '../zap/handlers.js'
-import { defaultGrantsFile, loadGrants, saveGrants } from './grants.js'
+import {
+  acquireServeLock,
+  defaultGrantsFile,
+  fileGrantStore,
+  loadGrants,
+  refillGrant,
+  releaseServeLock,
+  revokeGrant,
+  updateGrants,
+  writeGrantUriFile,
+} from './grants.js'
 import { upstreamWallet } from './upstream.js'
+import { defaultPaymentGuard } from '../zap/payment-guard.js'
 import {
   DEFAULT_METHODS,
   SUPPORTED_METHODS,
   WalletService,
-  grantUri,
   newGrant,
   remainingBudgetMsat,
   type Grant,
@@ -29,13 +39,13 @@ import {
 // works while an MCP session is open is a different promise from one that
 // works overnight.
 
-// The running service, and the grant objects it was handed. The service
-// mutates those in place - a budget it has spent, a request id it has
-// answered - so persisting means writing THOSE back, not re-writing
-// whatever the file already said.
+// The running service. It keeps no authority of its own: every grant it
+// answers for is re-read from the grants file before each request and
+// changed there under a lock, and only one process may serve at a time.
 let service: WalletService | null = null
 let servingFor: string | null = null
-const served = new Map<string, Grant>()
+let lockedFile: string | null = null
+let releaseOnExit = false
 
 const text = (value: unknown) => ({
   content: [{ type: 'text' as const, text: JSON.stringify(value, null, 2) }],
@@ -53,12 +63,32 @@ const shown = (grant: Grant) => ({
   ...(grant.lastUsedAt === undefined ? {} : { lastUsedAt: new Date(grant.lastUsedAt).toISOString() }),
 })
 
-export function registerWalletServiceTools(server: McpServer, deps: ToolDeps): void {
+export interface WalletServiceToolOptions {
+  /**
+   * Register the tools that mint or widen spending authority: wallet-grant,
+   * wallet-refill and wallet-serve. Off by default; BRAY_WALLET_SERVICE=1
+   * turns it on. Listing and revoking connections are always available,
+   * because taking authority away should never need an opt-in.
+   */
+  issuing?: boolean
+}
+
+export function registerWalletServiceTools(
+  server: McpServer,
+  deps: ToolDeps,
+  options: WalletServiceToolOptions = {},
+): void {
+  const issuing = options.issuing === true
   const grantsFile = defaultGrantsFile()
   const identity = () => deps.ctx.activePublicKeyHex
   const read = () => loadGrants(grantsFile, identity())
-  const write = (grants: Grant[]) => {
-    saveGrants(grantsFile, identity(), grants)
+
+  const stopService = (): void => {
+    service?.close()
+    service = null
+    servingFor = null
+    if (lockedFile) releaseServeLock(lockedFile)
+    lockedFile = null
   }
 
   const running = async (): Promise<WalletService> => {
@@ -66,48 +96,39 @@ export function registerWalletServiceTools(server: McpServer, deps: ToolDeps): v
     // An identity switch is a different wallet and different grants, so the
     // old service is stopped rather than left answering under a name this
     // session no longer means.
-    if (service && servingFor !== pubkey) {
-      service.close()
-      service = null
-      served.clear()
-    }
+    if (service && servingFor !== pubkey) stopService()
     if (service) return service
     const uri = resolveNwcUri(deps.ctx, deps.walletsFile, deps.nwcUri)
     if (!uri) throw new Error('No wallet is configured - `zap-wallet-set` points this identity at one first.')
+    acquireServeLock(grantsFile)
+    lockedFile = grantsFile
+    if (!releaseOnExit) {
+      releaseOnExit = true
+      process.once('exit', () => { if (lockedFile) releaseServeLock(lockedFile) })
+    }
     servingFor = pubkey
     service = new WalletService({
-      wallet: upstreamWallet({ uri, alias: deps.ctx.activeNpub }),
+      wallet: upstreamWallet({ uri, alias: deps.ctx.activeNpub, guard: defaultPaymentGuard() }),
       transport: {
         subscribe: (relays, filter, onEvent) => deps.pool.subscribe(relays, filter, onEvent),
         publish: async (relays, event) => {
           await deps.pool.publishDirect(relays, event)
         },
       },
-      persist: async () => {
-        // The in-memory grants win: they are the ones the service has been
-        // charging. Anything on disk it is not serving is carried through
-        // untouched.
-        const stored = loadGrants(grantsFile, pubkey)
-        saveGrants(
-          grantsFile,
-          pubkey,
-          stored.map((held) => served.get(held.id) ?? held),
-        )
-      },
+      store: fileGrantStore(grantsFile, pubkey),
     })
     return service
   }
 
   const startServing = async (grant: Grant): Promise<void> => {
-    served.set(grant.id, grant)
     await (await running()).serve(grant)
   }
 
-  server.registerTool(
+  if (issuing) server.registerTool(
     'wallet-grant',
     {
       description:
-        'Issue a NIP-47 connection over this identity\'s wallet, narrower than the URI you hold. Defaults to invoice-only: no spending and no balance disclosure. A connection that can spend must carry a budget. Returns the nostr+walletconnect:// URI to hand over.',
+        'Issue a scoped NIP-47 connection over this identity\'s one wallet, narrower than the URI you hold. Defaults to invoice-only: no spending and no balance disclosure. A connection that can spend must carry a budget. Writes the nostr+walletconnect:// URI to a private 0600 file and returns its path; the URI itself is never returned.',
       inputSchema: {
         name: z.string().describe('What this connection is for - it is how you revoke the right one later'),
         methods: z
@@ -121,10 +142,6 @@ export function registerWalletServiceTools(server: McpServer, deps: ToolDeps): v
       annotations: { readOnlyHint: false, destructiveHint: true },
     },
     async ({ name, methods, budgetMsat, maxPaymentMsat, relays }) => {
-      const grants = read()
-      if (grants.some((held) => !held.revokedAt && held.name.toLowerCase() === name.trim().toLowerCase())) {
-        throw new Error(`There is already a live connection called ${name}.`)
-      }
       const on = relays?.length ? relays : deps.pool.getRelays(deps.ctx.activeNpub).write
       const grant = newGrant({
         name: name.trim(),
@@ -133,13 +150,19 @@ export function registerWalletServiceTools(server: McpServer, deps: ToolDeps): v
         ...(budgetMsat === undefined ? {} : { budgetMsat }),
         ...(maxPaymentMsat === undefined ? {} : { maxPaymentMsat }),
       })
-      write([...grants, grant])
+      updateGrants(grantsFile, identity(), (grants) => {
+        if (grants.some((held) => !held.revokedAt && held.name.toLowerCase() === grant.name.toLowerCase())) {
+          throw new Error(`There is already a live connection called ${name}.`)
+        }
+        grants.push(grant)
+      })
+      const uriFile = writeGrantUriFile(grantsFile, grant)
       if (service) await startServing(grant)
       return text({
         ok: true,
         ...shown(grant),
-        uri: grantUri(grant),
-        note: 'Whoever holds this URI can do exactly the above and nothing else. It is answered only while `wallet-serve` is running.',
+        uriFile,
+        note: 'The connection URI is in uriFile (mode 0600) and is deliberately not shown here: it is a bearer secret. Hand that file to whoever should hold the connection. Whoever holds the URI can do exactly the above and nothing else, and it is answered only while `wallet-serve` is running.',
       })
     },
   )
@@ -165,22 +188,16 @@ export function registerWalletServiceTools(server: McpServer, deps: ToolDeps): v
       annotations: { readOnlyHint: false, destructiveHint: true },
     },
     async ({ nameOrId }) => {
-      const grants = read()
-      const wanted = nameOrId.trim().toLowerCase()
-      const grant =
-        grants.find((held) => held.id === wanted) ??
-        grants.find((held) => held.name.toLowerCase() === wanted) ??
-        grants.find((held) => held.id.startsWith(wanted))
-      if (!grant) throw new Error(`No connection here called ${nameOrId}.`)
-      grant.revokedAt ??= Date.now()
-      write(grants)
+      // Written to the grants file, which a serving process re-reads before
+      // every request: this takes effect there too, even when that process
+      // is another one.
+      const grant = revokeGrant(grantsFile, identity(), nameOrId)
       service?.stop(grant.id)
-      served.delete(grant.id)
       return text({ ok: true, ...shown(grant) })
     },
   )
 
-  server.registerTool(
+  if (issuing) server.registerTool(
     'wallet-refill',
     {
       description: 'Put a spending connection\'s budget back where it started, optionally at a new figure. Deliberately separate from granting: topping up is a decision, not a side effect of use.',
@@ -188,20 +205,14 @@ export function registerWalletServiceTools(server: McpServer, deps: ToolDeps): v
       annotations: { readOnlyHint: false, destructiveHint: true },
     },
     async ({ nameOrId, budgetMsat }) => {
-      const grants = read()
-      const wanted = nameOrId.trim().toLowerCase()
-      const grant = grants.find((held) => held.id === wanted) ?? grants.find((held) => held.name.toLowerCase() === wanted)
-      if (!grant) throw new Error(`No connection here called ${nameOrId}.`)
-      if (grant.revokedAt) throw new Error('That connection is revoked - issue a new one.')
-      if (grant.budgetMsat === undefined) throw new Error('That connection cannot spend, so it has no budget.')
-      if (budgetMsat !== undefined) grant.budgetMsat = budgetMsat
-      grant.spentMsat = 0
-      write(grants)
+      // The serving process re-reads the grant before each request, so the
+      // new budget applies to the very next payment.
+      const grant = refillGrant(grantsFile, identity(), nameOrId, budgetMsat)
       return text({ ok: true, ...shown(grant) })
     },
   )
 
-  server.registerTool(
+  if (issuing) server.registerTool(
     'wallet-serve',
     {
       description:
@@ -211,10 +222,7 @@ export function registerWalletServiceTools(server: McpServer, deps: ToolDeps): v
     },
     async ({ action }) => {
       if (action === 'stop') {
-        service?.close()
-        service = null
-        servingFor = null
-        served.clear()
+        stopService()
         return text({ ok: true, serving: [], message: 'Stopped. Nothing is answered until it runs again.' })
       }
       if (action === 'start') {

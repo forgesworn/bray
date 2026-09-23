@@ -41,6 +41,7 @@ import { handleSyncPlan, handleSyncPull, handleSyncPush } from './sync/handlers.
 import type { SyncPlanOptions, SyncPlanResult, SyncPullResult, SyncPushResult } from './sync/handlers.js'
 
 import { handleZapSend, handleZapBalance, handleZapMakeInvoice, handleZapLookupInvoice, handleZapListTransactions, handleZapReceipts, handleZapDecode, resolveNwcUri } from './zap/handlers.js'
+import { defaultPaymentGuard } from './zap/payment-guard.js'
 
 import { handleDuressConfigure, handleDuressActivate } from './safety/handlers.js'
 
@@ -577,7 +578,9 @@ class BrayClientImpl implements BrayClient {
 
   // ── Zap ─────────────────────────────────────────────────────────────────────
   #nwc() { return resolveNwcUri(this.#ctx, this.#walletsFile, this.#nwcUri) }
-  async zapSend(bolt11: string) { return handleZapSend(this.#ctx, this.#pool, { invoice: bolt11, nwcUri: this.#nwc() }) }
+  async zapSend(bolt11: string) {
+    return handleZapSend(this.#ctx, this.#pool, { invoice: bolt11, nwcUri: this.#nwc(), guard: defaultPaymentGuard() })
+  }
   async zapBalance() { return handleZapBalance(this.#ctx, this.#pool, { nwcUri: this.#nwc() }) }
   async zapInvoice(amountMsats: number, description?: string) {
     return handleZapMakeInvoice(this.#ctx, this.#pool, { amountMsats, description, nwcUri: this.#nwc() })

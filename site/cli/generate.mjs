@@ -124,7 +124,7 @@ const groups = [
     id: 'wallet', no: '07', title: 'WALLET',
     intro: 'NIP-47 Nostr Wallet Connect: a Lightning wallet on a leash it cannot slip.',
     rows: [
-      { tf: 'Keep it in the terminal. An NWC URI carries its own secret, and secrets do not belong in a conversation.', cli: 'npx nostr-bray wallet connect <nwc-url>' },
+      { tf: 'Keep it in the terminal. An NWC URI carries its own secret, and secrets do not belong in a conversation: save it to a 0600 file and pass the path.', cli: 'npx nostr-bray wallet connect <nwc-file>' },
       { ask: 'Disconnect my wallet', cli: 'npx nostr-bray wallet disconnect' },
       { ask: 'Which wallet am I connected to?', cli: 'npx nostr-bray wallet status' },
       { ask: 'Pay this Lightning invoice', cli: 'npx nostr-bray wallet pay <bolt11>' },
@@ -414,8 +414,10 @@ ${sections}
         <dd>Comma-separated relay URLs to use by default.</dd>
       </div>
       <div class="spec-row">
-        <dt><code>NWC_URI</code> / <code>NWC_URI_FILE</code></dt>
-        <dd>Nostr Wallet Connect URI for zaps and payments.</dd>
+        <dt><code>NWC_URI_FILE</code></dt>
+        <dd>Path to a private (0600) file holding the Nostr Wallet Connect
+        URI for payments. <code>NWC_URI</code> itself is refused: a bearer
+        wallet secret does not belong in the environment.</dd>
       </div>
       <div class="spec-row">
         <dt><code>NOSTR_BRAY_OUTPUT</code></dt>

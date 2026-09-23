@@ -4,6 +4,7 @@ import { homedir } from 'node:os'
 import type { BrayConfig } from './types.js'
 import type { AuthMode } from './relay-pool.js'
 import { readNwcUriFile } from './zap/nwc-file.js'
+import { paymentLimitsFromEnv } from './zap/payment-guard.js'
 
 const NSEC_RE = /^nsec1[a-z0-9]{58}$/
 const HEX_RE = /^[0-9a-f]{64}$/
@@ -84,6 +85,8 @@ interface ConfigFile {
   dispatchIdentities?: string
   /** Public keys this process must never sign as. See ContextOptions. */
   forbidPubkeys?: string[]
+  /** Register the tools that mint spending connections (wallet-grant, wallet-refill, wallet-serve). */
+  walletService?: boolean
 }
 
 /**
@@ -255,6 +258,8 @@ export async function loadConfig(): Promise<BrayConfig> {
   if (nwcFilePath) {
     nwcUri = readNwcUriFile(nwcFilePath)
   }
+  // A mistyped spending ceiling is a startup error, not a silent default.
+  paymentLimitsFromEnv()
 
   // --- Relays ---
   const relays = process.env.NOSTR_RELAYS
@@ -337,6 +342,12 @@ export async function loadConfig(): Promise<BrayConfig> {
     .map((s) => s.trim())
     .filter(Boolean)
 
+  // --- Wallet service ---
+  // Off unless asked for: wallet-grant, wallet-refill and wallet-serve hand
+  // out spending authority over the operator's wallet, which is not
+  // something a model should find in its tool list by default.
+  const walletService = process.env.BRAY_WALLET_SERVICE === '1' || file.walletService === true
+
   // --- Wallets file ---
   const walletsFile = process.env.BRAY_WALLETS_FILE
     ?? file.walletsFile
@@ -365,5 +376,6 @@ export async function loadConfig(): Promise<BrayConfig> {
     bindAddress,
     dispatchIdentities,
     forbidPubkeys,
+    walletService,
   }
 }

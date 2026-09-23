@@ -1,10 +1,10 @@
 # nostr-bray -- Full Documentation for AI Assistants
 
-> Trust-aware Nostr MCP server for AI agents and humans. 253 tools across 28 groups. Three dimensions of trust -- verification (Signet), proximity (web-of-trust), and access (Dominion) -- woven into every interaction. Model-agnostic: works with Claude, ChatGPT, Gemini, Cursor, or any MCP client.
+> Trust-aware Nostr MCP server for AI agents and humans. 260 tools across 28 groups. Three dimensions of trust -- verification (Signet), proximity (web-of-trust), and access (Dominion) -- woven into every interaction. Model-agnostic: works with Claude, ChatGPT, Gemini, Cursor, or any MCP client.
 
 ## Architecture
 
-Single-process MCP server (stdio or HTTP transport) with 253 tools in 28 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction. Universal identity resolution across all tools: names, NIP-05, npubs, and hex pubkeys are accepted anywhere a pubkey is needed.
+Single-process MCP server (stdio or HTTP transport) with 260 tools in 28 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction. Universal identity resolution across all tools: names, NIP-05, npubs, and hex pubkeys are accepted anywhere a pubkey is needed.
 
 ## Configuration
 
@@ -18,7 +18,10 @@ Single-process MCP server (stdio or HTTP transport) with 253 tools in 28 groups.
 | NOSTR_SECRET_KEY_FILE | Tier 3* | Path to file containing the secret key |
 | NOSTR_SECRET_KEY | Tier 4* | nsec bech32, 64-char hex, or BIP-39 mnemonic |
 | NOSTR_RELAYS | Yes | Comma-separated relay WebSocket URLs |
-| NWC_URI_FILE | No | Path to a private 0600 file containing the NWC URI |
+| NWC_URI_FILE | No | Path to a private 0600 file containing the NWC URI. The wallet must support NIP-44 v2; give the connection a budget in the wallet, which is the hard spending limit |
+| BRAY_MAX_PAYMENT_MSAT | No | bray's ceiling on one payment in msat (default 5000000) |
+| BRAY_MAX_DAILY_MSAT | No | bray's ceiling on spending in any rolling 24 hours in msat (default 20000000) |
+| BRAY_WALLET_SERVICE | No | Set to "1" to register wallet-grant, wallet-refill and wallet-serve |
 | TOR_PROXY | No | SOCKS5h proxy URL (e.g. socks5h://127.0.0.1:9050) |
 | ALLOW_CLEARNET_WITH_TOR | No | Set to "1" to allow clearnet relays with Tor |
 | NIP04_ENABLED | No | Set to "1" to enable legacy NIP-04 DMs |
@@ -615,7 +618,7 @@ Remove the NWC wallet file reference for the active identity. Falls back to glob
 - No inputs
 
 #### zap-send
-Pay a Lightning invoice via NWC. SPENDS REAL SATS. Shows amount first -- set confirm: true to execute.
+Pay a BOLT-11 Lightning invoice via NWC. SPENDS REAL SATS. Shows amount first -- set confirm: true to execute. When the client supports MCP elicitation the human is asked to approve as well; bray's per-payment and daily caps always apply. Not promoted: reach it through search-actions. It pays invoices only; it does not build NIP-57 zap requests or resolve LNURL.
 - Input: invoice (bolt11), confirm (default false)
 
 #### zap-balance
@@ -799,12 +802,12 @@ Send HTTP request to an endpoint. Extracts L402 challenge if 402 returned, estim
 - Input: url, method (default GET)
 
 #### marketplace-pay
-Pay an L402 invoice via NWC and store credentials. SPENDS REAL SATS. Preview first, confirm to execute.
-- Input: macaroon (base64), invoice (bolt11), confirm (default false)
-- Returns: credentialId for use with marketplace-call
+Pay an L402 invoice via NWC and store credentials. SPENDS REAL SATS. Preview first, confirm to execute; the human is asked to approve when the client supports MCP elicitation, and bray's spending caps always apply.
+- Input: url (the endpoint whose 402 challenge this is), macaroon (base64), invoice (bolt11), confirm (default false)
+- Returns: credentialId for use with marketplace-call, bound to the origin of url
 
 #### marketplace-call
-Make an authenticated API call using L402 credentials from marketplace-pay.
+Make an authenticated API call using L402 credentials from marketplace-pay. The credential is only sent to the origin it was paid for; any other URL is refused.
 - Input: url, method (default GET), credentialId, body (optional), headers (optional)
 
 #### marketplace-announce
@@ -1056,6 +1059,7 @@ Execute an action found via search-actions.
 - **DM trust scores**: dm-read annotates each message with `senderTrustScore`.
 - **Reply trust warnings**: social-reply computes `authorTrustScore` and warns about untrusted authors.
 - **Payment preview**: zap-send decodes bolt11 and shows amount before executing.
+- **Spending caps**: every payment is checked against BRAY_MAX_PAYMENT_MSAT and a rolling 24-hour BRAY_MAX_DAILY_MSAT before it is sent, and the human approves it via MCP elicitation where the client supports it.
 - **Universal identity resolution**: all tools accepting pubkeys also accept names, NIP-05, and npubs.
 - **NIP-65 relay chasing**: when messaging someone, bray fetches their relay list and writes to their preferred relays.
 
@@ -1101,7 +1105,7 @@ Execute an action found via search-actions.
 1. marketplace-discover(topics: ["ai"])          -> find AI services
 2. marketplace-inspect(eventId: "abc...")         -> full service details
 3. marketplace-probe(url: "https://api.svc/v1")  -> check pricing, extract L402
-4. marketplace-pay(macaroon: "...", invoice: "...") -> preview cost
+4. marketplace-pay(url: "https://api.svc/v1", macaroon: "...", invoice: "...") -> preview cost
 5. marketplace-pay(..., confirm: true)           -> pay and get credentialId
 6. marketplace-call(url: "...", credentialId: "...") -> authenticated API call
 ```

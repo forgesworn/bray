@@ -14,6 +14,8 @@ import {
   saveWallets,
 } from './handlers.js'
 import { normaliseNwcUriFile } from './nwc-file.js'
+import { defaultPaymentGuard } from './payment-guard.js'
+import { askHumanToApprovePayment } from './confirm.js'
 
 /** Resolve the NWC URI for the active identity, with per-identity and global fallback */
 function getNwcUri(deps: ToolDeps): string | undefined {
@@ -64,7 +66,7 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('zap-send', {
-    description: 'Pay a Lightning invoice via Nostr Wallet Connect (NWC). SPENDS REAL SATS. Decodes the invoice and shows amount first — set confirm: true to execute payment.',
+    description: 'Pay a BOLT-11 Lightning invoice via Nostr Wallet Connect (NWC). SPENDS REAL SATS. Decodes the invoice and shows the amount first; set confirm: true to pay. When the MCP client supports elicitation the human is asked to approve the payment as well. bray\'s own caps (BRAY_MAX_PAYMENT_MSAT, BRAY_MAX_DAILY_MSAT) always apply.',
     inputSchema: {
       invoice: z.string().describe('Bolt11 Lightning invoice to pay'),
       confirm: z.boolean().default(false).describe('Set true to execute payment (preview by default)'),
@@ -85,11 +87,36 @@ export function registerZapTools(server: McpServer, deps: ToolDeps): void {
         }, null, 2) }],
       }
     }
-    const result = await handleZapSend(deps.ctx, deps.pool, { invoice, nwcUri: getNwcUri(deps) })
+    const guard = defaultPaymentGuard()
+    // Refuse what the caps would refuse before asking anyone to approve it.
+    guard.check(decoded.paymentHash!, decoded.amountMsats)
+    const approval = await askHumanToApprovePayment(server, {
+      amountMsats: decoded.amountMsats,
+      purpose: 'pay a Lightning invoice',
+      ...(decoded.description ? { description: decoded.description } : {}),
+      paymentHash: decoded.paymentHash!,
+    })
+    if (approval === 'declined') {
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({
+          paid: false,
+          declined: true,
+          amountMsats: decoded.amountMsats,
+          message: 'The payment was not approved, so nothing was sent.',
+        }, null, 2) }],
+      }
+    }
+    const result = await handleZapSend(deps.ctx, deps.pool, {
+      invoice,
+      nwcUri: getNwcUri(deps),
+      guard,
+      ...(deps.nwcTransport ? { transport: deps.nwcTransport } : {}),
+    })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({
         paid: true,
         verified: result.verified,
+        humanApproved: approval === 'approved',
         amountMsats: decoded.amountMsats,
         paymentHash: result.paymentHash,
         feesPaidMsats: result.fees_paid,

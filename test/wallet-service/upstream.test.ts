@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { upstreamWallet } from '../../src/wallet-service/upstream.js'
+import { PaymentNotSentError } from '../../src/wallet-service/service.js'
+import { PaymentGuard } from '../../src/zap/payment-guard.js'
 import { buildNwcUri, createMockWallet } from '../zap/mock-nwc-wallet.js'
 
 // The wallet behind the service. bray sits between two NWC connections, so
@@ -41,5 +46,24 @@ describe('the wallet behind the service', () => {
       /not a decodable/,
     )
     expect(mock.history).toHaveLength(0)
+  })
+
+  it('treats a definite wallet refusal as not sent, without repeating what the wallet said', async () => {
+    // The mock refuses with INSUFFICIENT_BALANCE / "Not enough funds" below 10,000 msat.
+    const poor = createMockWallet({ balance: 1 })
+    const directory = mkdtempSync(join(tmpdir(), 'bray-upstream-'))
+    try {
+      const guard = new PaymentGuard({
+        path: join(directory, 'payment-ledger.json'),
+        limits: { maxPaymentMsat: 5_000, maxDailyMsat: 100_000 },
+      })
+      const wallet = upstreamWallet({ uri: buildNwcUri(poor.pubkey, CLIENT_SECRET), transport: poor.transport, guard })
+      const refused = await wallet.payInvoice({ invoice: SETTLED_INVOICE, amountMsat: 1_000 }).catch((err: unknown) => err)
+      expect(refused).toBeInstanceOf(PaymentNotSentError)
+      expect((refused as Error).message).not.toMatch(/funds|balance/i)
+      expect(guard.spentTodayMsat()).toBe(0)
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
   })
 })

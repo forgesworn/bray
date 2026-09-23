@@ -25,6 +25,7 @@ import {
   readPrivateRegularFile,
   readNwcUriFile,
 } from './nwc-file.js'
+import type { PaymentGuard } from './payment-guard.js'
 
 // --- Per-Identity Wallet Store ---
 
@@ -258,6 +259,7 @@ export function handleZapDecode(bolt11: string): {
   amountMsats?: number
   description?: string
   expiry?: number
+  paymentHash?: string
 } {
   const decoded = tryDecodeBolt11(bolt11)
   if (!decoded) return {}
@@ -268,6 +270,7 @@ export function handleZapDecode(bolt11: string): {
     ...(decoded.amountMsats !== null ? { amountMsats: Number(decoded.amountMsats) } : {}),
     ...(decoded.description !== null ? { description: decoded.description } : {}),
     expiry: decoded.expirySeconds,
+    paymentHash: decoded.paymentHashHex,
   }
 }
 
@@ -327,11 +330,52 @@ async function withClient<T>(
   }
 }
 
-/** Pay a BOLT-11 invoice and return only after the wallet proves settlement. */
+/**
+ * An earlier attempt at this invoice ended without an answer. Ask the wallet
+ * what happened before anything is sent again: settled means it was paid
+ * (and the proof is returned), failed or expired means it may be retried,
+ * and anything else leaves it unknown and refused.
+ */
+async function reconcileUnknownPayment(
+  uri: string,
+  paymentHash: string,
+  guard: PaymentGuard,
+  args: NwcOperationOptions,
+): Promise<ZapPaymentResult | null> {
+  let found: NwcTransaction
+  try {
+    found = await withClient(uri, args.transport, (client) =>
+      client.lookupInvoice({ payment_hash: paymentHash }, requestOptions(args)))
+  } catch {
+    throw new ZapPaymentOutcomeUnknownError(paymentHash)
+  }
+  if (typeof found.preimage === 'string' && verifyPreimage(found.preimage, paymentHash)) {
+    guard.settle(paymentHash, found.fees_paid)
+    return {
+      preimage: found.preimage,
+      ...(found.fees_paid === undefined ? {} : { fees_paid: found.fees_paid }),
+      paymentHash,
+      verified: true,
+    }
+  }
+  if (found.state === 'failed' || found.state === 'expired') {
+    guard.release(paymentHash)
+    return null
+  }
+  throw new ZapPaymentOutcomeUnknownError(paymentHash)
+}
+
+/**
+ * Pay a BOLT-11 invoice and return only after the wallet proves settlement.
+ *
+ * With a `guard`, bray's own per-payment and rolling daily ceilings are
+ * checked and the attempt is recorded before anything is sent. Every bray
+ * surface that spends passes one; library callers should too.
+ */
 export async function handleZapSend(
   _ctx: SigningContext,
   _pool: RelayPool,
-  args: { invoice: string } & NwcArgs,
+  args: { invoice: string; guard?: PaymentGuard } & NwcArgs,
 ): Promise<ZapPaymentResult> {
   const uri = requireWallet(args.nwcUri, 'enable payments')
   const decoded = tryDecodeBolt11(args.invoice)
@@ -342,6 +386,14 @@ export async function handleZapSend(
   if (decoded.amountMsats > BigInt(Number.MAX_SAFE_INTEGER)) {
     throw new Error('BOLT-11 amount exceeds JavaScript safe integer range')
   }
+  const paymentHash = decoded.paymentHashHex
+  const guard = args.guard
+  const prior = guard?.status(paymentHash)
+  if (guard && (prior === 'pending' || prior === 'unknown')) {
+    const settled = await reconcileUnknownPayment(uri, paymentHash, guard, args)
+    if (settled) return settled
+  }
+  guard?.reserve(paymentHash, Number(decoded.amountMsats))
   let paid: PayInvoiceResult
   try {
     paid = await withClient(uri, args.transport, (client) =>
@@ -349,13 +401,19 @@ export async function handleZapSend(
   } catch (error) {
     // An authenticated wallet rejection is definitive. Transport, timeout,
     // abort, and malformed-response failures can happen after submission.
-    if (error instanceof NwcError && error.code === 'WALLET_ERROR') throw error
-    throw new ZapPaymentOutcomeUnknownError(decoded.paymentHashHex)
+    if (error instanceof NwcError && error.code === 'WALLET_ERROR') {
+      guard?.release(paymentHash)
+      throw error
+    }
+    guard?.markUnknown(paymentHash)
+    throw new ZapPaymentOutcomeUnknownError(paymentHash)
   }
-  if (!verifyPreimage(paid.preimage, decoded.paymentHashHex)) {
-    throw new ZapPaymentOutcomeUnknownError(decoded.paymentHashHex)
+  if (!verifyPreimage(paid.preimage, paymentHash)) {
+    guard?.markUnknown(paymentHash)
+    throw new ZapPaymentOutcomeUnknownError(paymentHash)
   }
-  return { ...paid, paymentHash: decoded.paymentHashHex, verified: true }
+  guard?.settle(paymentHash, paid.fees_paid)
+  return { ...paid, paymentHash, verified: true }
 }
 
 /** Return the wallet's confirmed balance in millisatoshis. */

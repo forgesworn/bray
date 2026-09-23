@@ -33,7 +33,8 @@ nostr-bray handles sensitive cryptographic material. Key security properties:
 - Private keys never appear in MCP tool responses
 - LRU cache with cryptographic zeroing on eviction
 - Secrets deleted from `process.env` after parsing
-- NWC secret buffers zeroised after each operation
+- NWC URIs are read only from private (0600) files, and the byte buffers read from disk are zeroised. The URI itself then lives in memory as a JavaScript string, which cannot be erased, until it is garbage collected
+- Spending is capped by bray per payment and per rolling 24 hours (`BRAY_MAX_PAYMENT_MSAT`, `BRAY_MAX_DAILY_MSAT`), and approved by the human via MCP elicitation where the client supports it. The hard limit is a budget set in the wallet on the NWC connection bray holds
 - NIP-65 relay lists signature-verified
 - Relay URLs validated against SSRF (scheme + private IP blocking)
 - HTTP transport: constant-time bearer token auth, rate limiting

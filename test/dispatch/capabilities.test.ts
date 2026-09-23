@@ -68,7 +68,7 @@ describe('dispatch capability handlers', () => {
     it('creates a kind 31990 event with correct tags', async () => {
       const pool = mockPool()
       const result = await handleCapabilityPublish(ctx, pool as any, {
-        name: 'Prometheus',
+        name: 'Research Agent',
         description: 'Full-stack TypeScript agent',
         taskTypes: ['think', 'build'],
         repos: ['toll-booth', 'nsec-tree'],
@@ -82,7 +82,7 @@ describe('dispatch capability handlers', () => {
       // Check d-tag (slugified name)
       const dTag = result.event.tags.find((t: string[]) => t[0] === 'd')
       expect(dTag).toBeDefined()
-      expect(dTag![1]).toBe('prometheus')
+      expect(dTag![1]).toBe('research-agent')
 
       // Check k-tag for NIP-17 DM kind
       const kTag = result.event.tags.find((t: string[]) => t[0] === 'k')
@@ -105,7 +105,7 @@ describe('dispatch capability handlers', () => {
     it('uses custom slug when provided', async () => {
       const pool = mockPool()
       const result = await handleCapabilityPublish(ctx, pool as any, {
-        name: 'Prometheus',
+        name: 'Research Agent',
         description: 'Agent',
         taskTypes: ['think'],
         slug: 'custom-slug',

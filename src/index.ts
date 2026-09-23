@@ -4,29 +4,13 @@ import { loadConfig } from './config.js'
 import { IdentityContext } from './context.js'
 import { RelayPool } from './relay-pool.js'
 import { Nip65Manager } from './nip65.js'
-import { registerIdentityTools } from './identity/tools.js'
-import { registerSocialTools } from './social/tools.js'
-import { registerTrustTools } from './trust/tools.js'
-import { registerRelayTools } from './relay/tools.js'
-import { registerRelayIntelligenceTools } from './relay/intelligence-tools.js'
-import { registerZapTools } from './zap/tools.js'
-import { registerWalletServiceTools } from './wallet-service/tools.js'
-import { registerSafetyTools } from './safety/tools.js'
-import { registerUtilTools } from './util/tools.js'
-import { registerWorkflowTools } from './workflow/tools.js'
-import { registerMarketplaceTools } from './marketplace/tools.js'
-import { registerPrivacyTools } from './privacy/tools.js'
-import { registerModerationTools } from './moderation/tools.js'
 import { TrustContext } from './trust-context.js'
 import type { SigningContext } from './signing-context.js'
 import type { BunkerContext } from './bunker-context.js'
-import { registerSignetTools } from './signet/tools.js'
-import { registerVaultTools } from './vault/tools.js'
-import { registerDispatchTools } from './dispatch/tools.js'
-import { registerHandlerTools } from './handler/tools.js'
-import { registerSyncTools } from './sync/tools.js'
-import { ActionCatalog, createCatalogProxy } from './catalog.js'
+import { ActionCatalog, createCatalogProxy, PROMOTED_TOOLS } from './catalog.js'
+import { registerAllTools } from './tool-groups.js'
 import { configureHttpClient } from './http-client.js'
+import { BRAY_VERSION } from './version.js'
 
 const config = await loadConfig()
 // Route every fetch() in this process through the SOCKS proxy when Tor is
@@ -143,61 +127,27 @@ export const deps = {
 // NIP-65 relay list is loaded via loadIdentityRelays(): immediately for a local
 // key, or after the bunker pubkey resolves (see establishBunkerInBackground).
 
-const server = new McpServer({ name: 'nostr-bray', version: '0.1.0' }, {
+const server = new McpServer({ name: 'nostr-bray', version: BRAY_VERSION }, {
   instructions: 'Always check whoami before posting or signing. Use signet-badge to check trust before interacting with unfamiliar pubkeys. Use trust-score for the full three-dimensional view (verification + proximity + access). Use social-feed or social-notifications to get event IDs and author pubkeys before calling social-reply or social-react. DMs default to NIP-17 gift wrap (most private); only use NIP-04 if the recipient requires it. Respect vault tiers -- do not share decrypted content outside its intended audience. For less common actions, use search-actions to discover them, then execute-action to run them.',
 })
 
 // Promoted tools are registered directly with the server (always visible to Claude).
 // Everything else goes to the catalog, discoverable via search-actions + execute-action.
-const PROMOTED = new Set([
-  'whoami', 'social-post', 'social-reply', 'social-feed',
-  'dm-send', 'dm-read', 'zap-send', 'zap-balance',
-  'identity-switch', 'relay-query',
-  'signet-badge', 'trust-score', 'vault-read',
-  'dispatch-send', 'dispatch-check', 'dispatch-reply',
-  'dispatch-ack', 'dispatch-status', 'dispatch-cancel',
-  'dispatch-refuse', 'dispatch-failure', 'dispatch-query',
-  'article-publish', 'article-read', 'article-list',
-  'search-notes', 'search-profiles', 'hashtag-feed',
-  'social-profile-get', 'dm-conversation', 'verify-person',
-  'dispatch-propose', 'dispatch-capability-publish', 'dispatch-capability-discover', 'dispatch-capability-read',
-  'badge-create', 'badge-award', 'badge-accept', 'badge-list',
-  'community-create', 'community-feed', 'community-post', 'community-approve', 'community-list',
-  'calendar-create', 'calendar-read', 'calendar-rsvp',
-  'listing-create', 'listing-read', 'listing-search', 'listing-close',
-])
 const catalog = new ActionCatalog()
-const proxy = createCatalogProxy(server, catalog, PROMOTED)
+const proxy = createCatalogProxy(server, catalog, PROMOTED_TOOLS)
 
-// Register all tools — the proxy routes promoted to server, rest to catalog
-registerIdentityTools(proxy, deps)
-registerSocialTools(proxy, deps)
-registerTrustTools(proxy, deps)
-registerRelayTools(proxy, deps)
-registerRelayIntelligenceTools(proxy, deps)
-registerZapTools(proxy, deps)
-registerWalletServiceTools(proxy, deps)
-registerSafetyTools(proxy, deps)
-registerUtilTools(proxy, deps)
-registerWorkflowTools(proxy, {
-  ctx: deps.ctx,
-  pool: deps.pool,
-  nip65: deps.nip65,
+// Register all tools. The proxy routes promoted ones to the server and the
+// rest to the catalog.
+registerAllTools(proxy, deps, {
   veilCacheTtl: config.veilCacheTtl,
   veilCacheMax: config.veilCacheMax,
+  ...(config.dispatchIdentities ? { dispatchIdentitiesPath: config.dispatchIdentities } : {}),
+  walletService: config.walletService,
 })
-registerMarketplaceTools(proxy, deps)
-registerPrivacyTools(proxy, deps)
-registerModerationTools(proxy, deps)
-registerSignetTools(proxy, deps)
-registerVaultTools(proxy, deps)
-registerDispatchTools(proxy, { ...deps, dispatchIdentitiesPath: config.dispatchIdentities })
-registerHandlerTools(proxy, deps)
-registerSyncTools(proxy, deps)
 
 // Add search-actions and execute-action meta-tools to the real server
 catalog.registerMetaTools(server)
-console.error(`nostr-bray: ${PROMOTED.size} promoted tools + ${catalog.size} cataloged (${PROMOTED.size + catalog.size + 2} total)`)
+console.error(`nostr-bray: ${catalog.promotedCount} promoted tools + ${catalog.size} cataloged (${catalog.promotedCount + catalog.size + 2} total)`)
 
 if (config.transport === 'stdio') {
   const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js')
@@ -210,9 +160,9 @@ if (config.transport === 'stdio') {
   )
   const { isInitializeRequest } = await import('@modelcontextprotocol/sdk/types.js')
   const { randomUUID, timingSafeEqual } = await import('node:crypto')
+  const { resolveHttpToken } = await import('./http-token.js')
 
-  const token = process.env.BRAY_HTTP_TOKEN ?? randomUUID()
-  console.error(`nostr-bray HTTP auth token: ${token}`)
+  const token = resolveHttpToken()
 
   const expectedAuth = Buffer.from(`Bearer ${token}`)
 

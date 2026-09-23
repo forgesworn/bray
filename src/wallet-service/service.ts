@@ -2,6 +2,7 @@ import { finalizeEvent, getPublicKey, verifyEvent, nip44 } from 'nostr-tools'
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { tryDecodeBolt11 } from 'farrier-kit'
+import { feeReserveMsat } from '../zap/payment-guard.js'
 
 // A NIP-47 wallet service: the server side of Nostr Wallet Connect.
 //
@@ -33,7 +34,10 @@ export const NWC_INFO_KIND = 13194
 export const NWC_REQUEST_KIND = 23194
 export const NWC_RESPONSE_KIND = 23195
 
-export const DEFAULT_METHODS = ['get_info', 'make_invoice', 'lookup_invoice'] as const
+// lookup_invoice is not a default: even scoped to this connection's own
+// invoices it is one more thing to hand out, and a connection that only
+// issues invoices has no need to read them back.
+export const DEFAULT_METHODS = ['get_info', 'make_invoice'] as const
 export const SUPPORTED_METHODS = [
   'get_info',
   'get_balance',
@@ -51,6 +55,8 @@ export const SPENDING_METHODS: readonly string[] = ['pay_invoice']
 const MAX_REQUEST_AGE_SECS = 300
 const MAX_REQUEST_FUTURE_SECS = 60
 const SEEN_LIMIT = 256
+// Payment hashes a connection may look up: the ones it created or paid.
+const OWN_HASHES_LIMIT = 1024
 
 export class ServiceError extends Error {
   code: string
@@ -89,7 +95,8 @@ export interface ServiceWallet {
   alias(): string
   balanceMsat(): Promise<number>
   makeInvoice(request: { amountMsat: number; description?: string }): Promise<ServiceInvoice>
-  payInvoice(request: { invoice: string; amountMsat: number }): Promise<{ preimage: string; feesPaidMsat: number }>
+  // feesPaidMsat is undefined when the wallet does not say what it paid.
+  payInvoice(request: { invoice: string; amountMsat: number }): Promise<{ preimage: string; feesPaidMsat?: number }>
   lookupInvoice(query: { paymentHash?: string; invoice?: string }): Promise<ServiceInvoice | null>
 }
 
@@ -114,6 +121,10 @@ export interface Grant {
   spentMsat: number
   maxPaymentMsat?: number
   seen?: string[]
+  // Payment hashes of invoices this connection issued or paid. lookup_invoice
+  // answers for these and nothing else: the wallet behind it holds everyone's
+  // history, preimages included.
+  hashes?: string[]
   createdAt: number
   lastUsedAt?: number
   revokedAt?: number
@@ -251,14 +262,42 @@ function invoiceResult(view: ServiceInvoice): Record<string, unknown> {
   }
 }
 
+// Where grants are recorded, when that is somewhere other processes can
+// change them. The service re-reads a grant before every request and makes
+// every change through `update`, so a revocation, a refill or a spend made
+// by another process is neither missed nor overwritten.
+export interface GrantStore {
+  read(grantId: string): Grant | undefined
+  // Applies `mutate` to the grant as it stands in the store now and returns
+  // the result, or undefined when the grant no longer exists. If `mutate`
+  // throws, nothing is changed.
+  update(grantId: string, mutate: (grant: Grant) => void): Grant | undefined
+}
+
 export interface ServiceOptions {
   wallet: ServiceWallet
   transport: ServiceTransport
+  store?: GrantStore
   // Awaited BEFORE an answer goes out: a budget that has been spent must be
-  // on disk before the payer is told it worked.
-  persist: () => Promise<void>
+  // recorded before the payer is told it worked. Only needed without a
+  // store, whose updates are already durable.
+  persist?: () => Promise<void>
   log?: (message: string) => void
   now?: () => number
+}
+
+// The fields another process may change while this one serves.
+function adopt(target: Grant, source: Grant): void {
+  target.methods = source.methods
+  target.spentMsat = source.spentMsat
+  target.seen = source.seen
+  target.hashes = source.hashes
+  if (source.budgetMsat === undefined) delete target.budgetMsat
+  else target.budgetMsat = source.budgetMsat
+  if (source.maxPaymentMsat === undefined) delete target.maxPaymentMsat
+  else target.maxPaymentMsat = source.maxPaymentMsat
+  if (source.lastUsedAt !== undefined) target.lastUsedAt = source.lastUsedAt
+  if (source.revokedAt !== undefined) target.revokedAt = source.revokedAt
 }
 
 export class WalletService {
@@ -302,6 +341,37 @@ export class WalletService {
     for (const id of [...this.#stops.keys()]) this.stop(id)
   }
 
+  // The grant as the store has it now. False when it is gone or revoked.
+  #refresh(grant: Grant): boolean {
+    const store = this.#opts.store
+    if (store) {
+      const current = store.read(grant.id)
+      if (!current) return false
+      adopt(grant, current)
+    }
+    return !grant.revokedAt
+  }
+
+  // Change a grant where it is recorded, then here.
+  async #change(grant: Grant, mutate: (held: Grant) => void): Promise<void> {
+    const store = this.#opts.store
+    if (store) {
+      const updated = store.update(grant.id, mutate)
+      if (!updated) throw new ServiceError('UNAUTHORIZED', 'This connection no longer exists.')
+      adopt(grant, updated)
+    } else {
+      mutate(grant)
+    }
+    await this.#opts.persist?.()
+  }
+
+  async #own(grant: Grant, paymentHash: string): Promise<void> {
+    const hash = paymentHash.toLowerCase()
+    await this.#change(grant, (held) => {
+      held.hashes = remembered(held.hashes, hash)
+    })
+  }
+
   // Every request on one connection runs after the last has finished. Two
   // pay_invoice requests arriving together must not both read the same
   // remaining budget and both decide there is room.
@@ -317,7 +387,14 @@ export class WalletService {
 
   async #handle(grantId: string, event: NostrEvent): Promise<void> {
     const grant = this.#grants.get(grantId)
-    if (!grant || grant.revokedAt) return
+    if (!grant) return
+    // Revoked by any process, or refilled, or spent from: the stored grant
+    // is the one that counts.
+    if (!this.#refresh(grant)) {
+      this.stop(grantId)
+      this.#opts.log?.(`stopped serving ${grant.name}: it has been revoked`)
+      return
+    }
 
     // Anyone can publish an event tagged at this pubkey - it is in the info
     // event, which is public. What keeps a stranger out is further down:
@@ -333,8 +410,7 @@ export class WalletService {
     const expiration = event.tags.find((tag) => tag[0] === 'expiration')?.[1]
     if (expiration && Number(expiration) < seconds) return
 
-    const seen = grant.seen ?? []
-    if (seen.includes(event.id)) {
+    if ((grant.seen ?? []).includes(event.id)) {
       this.#opts.log?.(`ignored a replayed request on ${grant.name}`)
       return
     }
@@ -350,9 +426,11 @@ export class WalletService {
     const params = (parsed.params ?? {}) as Record<string, unknown>
 
     const remember = async (): Promise<void> => {
-      grant.seen = [...seen, event.id].slice(-SEEN_LIMIT)
-      grant.lastUsedAt = this.#now()
-      await this.#opts.persist()
+      const at = this.#now()
+      await this.#change(grant, (held) => {
+        held.seen = [...(held.seen ?? []), event.id].slice(-SEEN_LIMIT)
+        held.lastUsedAt = at
+      })
     }
 
     // A spending request is written down before it runs, so a crash between
@@ -388,50 +466,77 @@ export class WalletService {
       case 'get_info':
         return { alias: wallet.alias(), network: 'mainnet', methods: grant.methods, notifications: [] }
       case 'get_balance':
-        return { balance: await wallet.balanceMsat() }
+        // What this connection can spend, not what the wallet holds: the
+        // parent balance is the operator's business, and a connection with
+        // no budget can spend nothing.
+        return { balance: remainingBudgetMsat(grant) }
       case 'make_invoice': {
         const amountMsat = Number(params.amount)
         if (!Number.isSafeInteger(amountMsat) || amountMsat <= 0) {
           throw new ServiceError('OTHER', 'make_invoice needs an amount in milli-satoshis.')
         }
         const description = typeof params.description === 'string' ? params.description : undefined
-        return invoiceResult(
-          await wallet.makeInvoice({ amountMsat, ...(description === undefined ? {} : { description }) }),
-        )
+        const view = await wallet.makeInvoice({ amountMsat, ...(description === undefined ? {} : { description }) })
+        await this.#own(grant, view.paymentHash)
+        return invoiceResult(view)
       }
       case 'lookup_invoice': {
-        const paymentHash = typeof params.payment_hash === 'string' ? params.payment_hash : undefined
-        const invoice = typeof params.invoice === 'string' ? params.invoice : undefined
-        if (!paymentHash && !invoice) {
+        const asked = typeof params.payment_hash === 'string' ? params.payment_hash.trim().toLowerCase() : undefined
+        const invoice = typeof params.invoice === 'string' ? params.invoice.trim() : undefined
+        if (!asked && !invoice) {
           throw new ServiceError('OTHER', 'lookup_invoice needs a payment_hash or an invoice.')
         }
-        const view = await wallet.lookupInvoice({
-          ...(paymentHash === undefined ? {} : { paymentHash }),
-          ...(invoice === undefined ? {} : { invoice }),
-        })
-        if (!view) throw new ServiceError('NOT_FOUND', 'No invoice here by that name.')
+        const fromInvoice = invoice ? tryDecodeBolt11(invoice)?.paymentHashHex : undefined
+        if (invoice && !fromInvoice) throw new ServiceError('OTHER', 'That is not a decodable BOLT-11 invoice.')
+        if (asked && fromInvoice && asked !== fromInvoice) {
+          throw new ServiceError('OTHER', 'That payment_hash and invoice do not match.')
+        }
+        const paymentHash = (asked ?? fromInvoice)!
+        // Not this connection's invoice: answered exactly as a missing one,
+        // so a connection cannot probe the wallet's history either.
+        const notFound = new ServiceError('NOT_FOUND', 'No invoice here by that name.')
+        if (!(grant.hashes ?? []).includes(paymentHash)) throw notFound
+        const view = await wallet.lookupInvoice({ paymentHash })
+        if (!view || view.paymentHash.toLowerCase() !== paymentHash) throw notFound
         return invoiceResult(view)
       }
       case 'pay_invoice': {
         const invoice = typeof params.invoice === 'string' ? params.invoice.trim() : ''
         if (!invoice) throw new ServiceError('OTHER', 'pay_invoice needs an invoice.')
-        const amountMsat = priceOf(invoice, params)
-        charge(grant, amountMsat)
-        // Spent BEFORE the attempt and persisted: a crash mid-payment must
-        // leave a budget that has paid for it. The other order lets one
-        // connection spend its grant twice by dying at the right moment.
-        grant.spentMsat += amountMsat
-        await this.#opts.persist()
+        const { amountMsat, paymentHash } = priceOf(invoice, params)
+        // Checked and spent in one step against the stored grant, BEFORE the
+        // attempt: a crash mid-payment must leave a budget that has paid for
+        // it. The other order lets one connection spend its grant twice by
+        // dying at the right moment.
+        // Routing fees come out of the budget too. They are unknown until
+        // the payment lands, so a margin is reserved up front and swapped
+        // for the real fee afterwards.
+        const reserveMsat = feeReserveMsat(amountMsat)
+        await this.#change(grant, (held) => {
+          charge(held, amountMsat, reserveMsat)
+          held.spentMsat += amountMsat + reserveMsat
+          held.hashes = remembered(held.hashes, paymentHash)
+        })
+        let paid: { preimage: string; feesPaidMsat?: number }
         try {
-          const paid = await this.#opts.wallet.payInvoice({ invoice, amountMsat })
-          return { preimage: paid.preimage, fees_paid: paid.feesPaidMsat }
+          paid = await this.#opts.wallet.payInvoice({ invoice, amountMsat })
         } catch (err) {
           if (err instanceof PaymentNotSentError) {
-            grant.spentMsat -= amountMsat
-            await this.#opts.persist()
+            await this.#change(grant, (held) => {
+              held.spentMsat = Math.max(0, held.spentMsat - amountMsat - reserveMsat)
+            })
           }
           throw err
         }
+        const fee = paid.feesPaidMsat
+        const known = fee !== undefined && Number.isSafeInteger(fee) && fee >= 0
+        // A wallet that does not report its fee keeps the whole margin charged.
+        if (known) {
+          await this.#change(grant, (held) => {
+            held.spentMsat = Math.max(0, held.spentMsat - reserveMsat + fee)
+          })
+        }
+        return { preimage: paid.preimage, ...(known ? { fees_paid: fee } : {}) }
       }
       default:
         throw new ServiceError('NOT_IMPLEMENTED', `This service cannot answer ${method}.`)
@@ -442,7 +547,12 @@ export class WalletService {
 // What this payment costs the budget, read off the invoice itself rather
 // than taken from the request. A budget checked against a figure the payer
 // supplied is not a budget.
-function priceOf(invoice: string, params: Record<string, unknown>): number {
+function remembered(hashes: string[] | undefined, paymentHash: string): string[] {
+  const held = hashes ?? []
+  return held.includes(paymentHash) ? held : [...held, paymentHash].slice(-OWN_HASHES_LIMIT)
+}
+
+function priceOf(invoice: string, params: Record<string, unknown>): { amountMsat: number; paymentHash: string } {
   const decoded = tryDecodeBolt11(invoice)
   if (!decoded) throw new PaymentNotSentError('That is not a decodable BOLT-11 invoice.')
   const asked = params.amount === undefined ? undefined : Number(params.amount)
@@ -454,15 +564,17 @@ function priceOf(invoice: string, params: Record<string, unknown>): number {
     if (asked !== undefined && asked !== stated) {
       throw new PaymentNotSentError(`That invoice is for ${stated} msat, not the ${asked} msat asked for.`)
     }
-    return stated
+    return { amountMsat: stated, paymentHash: decoded.paymentHashHex }
   }
-  if (asked === undefined) throw new PaymentNotSentError('That invoice states no amount - say how much to send.')
-  return asked
+  // An amountless invoice is refused, as zap-send refuses one. The wallet
+  // behind the service is asked to pay the invoice alone, so a figure
+  // checked against the budget here would not be the figure it sent.
+  throw new PaymentNotSentError('Invoices that state no amount are not paid through this connection.')
 }
 
 // Refuses before anything is attempted, and says which ceiling it hit: a
 // payer told only "no" tries again.
-function charge(grant: Grant, amountMsat: number): void {
+function charge(grant: Grant, amountMsat: number, reserveMsat: number): void {
   if (grant.budgetMsat === undefined) {
     throw new ServiceError('RESTRICTED', 'This connection has no budget to spend from.')
   }
@@ -473,10 +585,10 @@ function charge(grant: Grant, amountMsat: number): void {
     )
   }
   const remaining = remainingBudgetMsat(grant)
-  if (amountMsat > remaining) {
+  if (amountMsat + reserveMsat > remaining) {
     throw new ServiceError(
       'QUOTA_EXCEEDED',
-      `That is ${amountMsat} msat and this connection has ${remaining} msat of its budget left.`,
+      `That is ${amountMsat} msat plus up to ${reserveMsat} msat reserved for fees, and this connection has ${remaining} msat of its budget left.`,
     )
   }
 }

@@ -16,11 +16,14 @@ import {
   handleMarketplaceUpdate,
   handleMarketplaceRetire,
   storeCredential,
+  credentialOrigin,
   clearCredentials,
   extractBolt11AmountSats,
   parseL402ChallengeHeader,
 } from './handlers.js'
 import { handleZapSend, handleZapDecode } from '../zap/handlers.js'
+import { defaultPaymentGuard } from '../zap/payment-guard.js'
+import { askHumanToApprovePayment } from '../zap/confirm.js'
 import {
   handleListingCreate,
   handleListingRead,
@@ -177,15 +180,20 @@ export function registerMarketplaceTools(server: McpServer, deps: ToolDeps): voi
   server.registerTool('marketplace-pay', {
     description:
       'Pay an L402 invoice via NWC and store credentials for authenticated API calls. ' +
-      'SPENDS REAL SATS. Decodes the invoice first — set confirm: true to execute payment. ' +
+      'SPENDS REAL SATS. Decodes the invoice first; set confirm: true to pay. When the MCP client supports ' +
+      'elicitation the human is asked to approve the payment as well, and bray\'s spending caps always apply. ' +
       'Returns an opaque credential ID for use with marketplace-call.',
     inputSchema: {
+      url: z.string().url().describe('The endpoint URL whose 402 challenge this is. The credential is only ever sent back to this origin'),
       macaroon: z.string().describe('Base64-encoded macaroon from L402 challenge'),
       invoice: z.string().describe('Bolt11 Lightning invoice from L402 challenge'),
       confirm: z.boolean().default(false).describe('Set true to execute payment (preview by default)'),
     },
     annotations: { readOnlyHint: false, destructiveHint: true },
-  }, async ({ macaroon, invoice, confirm }) => {
+  }, async ({ url, macaroon, invoice, confirm }) => {
+    // Bound before anything is paid: a credential with nowhere valid to go
+    // is money spent for nothing.
+    const origin = credentialOrigin(url)
     const decoded = handleZapDecode(invoice)
     if (decoded.expiry === undefined) throw new Error('Invalid BOLT-11 invoice')
     if (decoded.amountMsats === undefined) throw new Error('Amountless L402 invoices are not supported')
@@ -205,16 +213,40 @@ export function registerMarketplaceTools(server: McpServer, deps: ToolDeps): voi
       }
     }
 
+    const guard = defaultPaymentGuard()
+    guard.check(decoded.paymentHash!, decoded.amountMsats)
+    const approval = await askHumanToApprovePayment(server, {
+      amountMsats: decoded.amountMsats,
+      purpose: 'buy access to a paid API (L402)',
+      ...(decoded.description ? { description: decoded.description } : {}),
+      paymentHash: decoded.paymentHash!,
+    })
+    if (approval === 'declined') {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            paid: false,
+            declined: true,
+            amountMsats: decoded.amountMsats,
+            message: 'The payment was not approved, so nothing was sent.',
+          }, null, 2),
+        }],
+      }
+    }
+
     // Pay via NWC (same as zap-send) — resolve per-identity wallet
     const { resolveNwcUri } = await import('../zap/handlers.js')
     const payResult = await handleZapSend(deps.ctx, deps.pool, {
       invoice,
       nwcUri: resolveNwcUri(deps.ctx, deps.walletsFile, deps.nwcUri),
+      guard,
+      ...(deps.nwcTransport ? { transport: deps.nwcTransport } : {}),
     })
 
     // Keep the bearer credential in process and return only an opaque handle.
     const credentialId = randomUUID()
-    storeCredential(credentialId, macaroon, payResult.preimage)
+    storeCredential(credentialId, macaroon, payResult.preimage, origin)
 
     return {
       content: [{
@@ -222,10 +254,12 @@ export function registerMarketplaceTools(server: McpServer, deps: ToolDeps): voi
         text: JSON.stringify({
           paid: true,
           verified: payResult.verified,
+          humanApproved: approval === 'approved',
           credentialId,
+          origin,
           costSats,
           amountMsats: decoded.amountMsats,
-          note: 'Use this credentialId with marketplace-call to make authenticated requests.',
+          note: `Use this credentialId with marketplace-call to make authenticated requests to ${origin}. It is refused for any other origin.`,
         }, null, 2),
       }],
     }
@@ -234,7 +268,7 @@ export function registerMarketplaceTools(server: McpServer, deps: ToolDeps): voi
   server.registerTool('marketplace-call', {
     description:
       'Make an authenticated API call using L402 credentials obtained from marketplace-pay. ' +
-      'The credential ID maps to a stored macaroon + preimage — never exposed directly.',
+      'The credential ID maps to a stored macaroon + preimage, never exposed directly, and is only sent to the origin it was paid for.',
     inputSchema: {
       url: z.string().url().describe('HTTP(S) endpoint URL'),
       method: z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH']).default('GET').describe('HTTP method'),

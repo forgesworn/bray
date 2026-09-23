@@ -301,7 +301,7 @@ export function registerDispatchTools(server: McpServer, deps: ToolDeps & { disp
   server.registerTool('dispatch-capability-publish', {
     description: 'Publish your agent\'s dispatch capabilities as a NIP-89 capability card (kind 31990). Lets other agents discover you on Nostr without needing a pre-shared identities file. The card advertises what task types you support, which repos you can work on, and your availability.',
     inputSchema: {
-      name: z.string().describe('Agent name (e.g. "prometheus", "forge-worker")'),
+      name: z.string().describe('Agent name (e.g. "research-agent", "forge-worker")'),
       description: z.string().describe('What this agent does (e.g. "Full-stack TypeScript agent for TROTT ecosystem")'),
       task_types: z.array(z.string()).describe('Supported task types: "think", "build", or custom types'),
       repos: z.array(z.string()).optional().describe('Repository names this agent can work on (e.g. ["toll-booth", "nsec-tree"])'),
