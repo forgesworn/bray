@@ -250,3 +250,32 @@ describe('a grant sees only its own invoices', () => {
     client.close()
   })
 })
+
+describe('a grant reports its own balance', () => {
+  it('reports the remaining budget, never the wallet behind it', async () => {
+    const relay = fakeRelay()
+    // openWallet holds 5,000,000 msat
+    const { wallet } = openWallet()
+    const { uri } = await serve(relay, wallet, {
+      name: 'agent',
+      methods: ['get_info', 'get_balance', 'pay_invoice'],
+      budgetMsat: 3_000,
+    })
+    const client = new NwcClient(uri, { transport: relay.nwc })
+    await client.connect()
+    await expect(client.getBalance()).resolves.toEqual({ balance: 3_000 })
+    await client.payInvoice({ invoice: ONE_SAT })
+    await expect(client.getBalance()).resolves.toEqual({ balance: 2_000 })
+    client.close()
+  })
+
+  it('reports nothing to spend on a connection with no budget', async () => {
+    const relay = fakeRelay()
+    const { wallet } = openWallet()
+    const { uri } = await serve(relay, wallet, { name: 'peek', methods: ['get_info', 'get_balance'] })
+    const client = new NwcClient(uri, { transport: relay.nwc })
+    await client.connect()
+    await expect(client.getBalance()).resolves.toEqual({ balance: 0 })
+    client.close()
+  })
+})

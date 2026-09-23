@@ -464,7 +464,10 @@ export class WalletService {
       case 'get_info':
         return { alias: wallet.alias(), network: 'mainnet', methods: grant.methods, notifications: [] }
       case 'get_balance':
-        return { balance: await wallet.balanceMsat() }
+        // What this connection can spend, not what the wallet holds: the
+        // parent balance is the operator's business, and a connection with
+        // no budget can spend nothing.
+        return { balance: remainingBudgetMsat(grant) }
       case 'make_invoice': {
         const amountMsat = Number(params.amount)
         if (!Number.isSafeInteger(amountMsat) || amountMsat <= 0) {
