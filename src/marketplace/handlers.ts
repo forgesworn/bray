@@ -509,14 +509,32 @@ export interface PayResult {
   costSats?: number
 }
 
-// In-memory credential store for L402 tokens (per-session, not persisted)
-const credentialStore = new Map<string, { macaroon: string; preimage: string }>()
+// In-memory credential store for L402 tokens (per-session, not persisted).
+// Each credential is bound to the origin whose challenge was paid: a paid
+// macaroon and its preimage are a bearer token for that service, and
+// sending them anywhere else hands the payment to whoever runs that host.
+interface StoredCredential { macaroon: string; preimage: string; origin: string }
+const credentialStore = new Map<string, StoredCredential>()
 
-export function storeCredential(id: string, macaroon: string, preimage: string): void {
-  credentialStore.set(id, { macaroon, preimage })
+/** The origin a credential is bound to, normalised as `URL.origin`. */
+export function credentialOrigin(url: string): string {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new Error('The URL the L402 challenge came from is not a valid URL.')
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error('L402 credentials can only be bound to an http(s) origin.')
+  }
+  return parsed.origin
 }
 
-export function getCredential(id: string): { macaroon: string; preimage: string } | undefined {
+export function storeCredential(id: string, macaroon: string, preimage: string, url: string): void {
+  credentialStore.set(id, { macaroon, preimage, origin: credentialOrigin(url) })
+}
+
+export function getCredential(id: string): StoredCredential | undefined {
   return credentialStore.get(id)
 }
 
@@ -546,9 +564,15 @@ export async function handleMarketplaceCall(
 ): Promise<CallResult> {
   validatePublicUrl(args.url)
 
+  const credential = credentialStore.get(args.credentialId)
   const authHeader = buildL402AuthHeader(args.credentialId)
-  if (!authHeader) {
+  if (!credential || !authHeader) {
     throw new Error(`No credentials found for ID "${args.credentialId}". Use marketplace-pay first.`)
+  }
+  if (credentialOrigin(args.url) !== credential.origin) {
+    throw new Error(
+      `That credential was paid for ${credential.origin} and is only sent there; refusing to send it to ${credentialOrigin(args.url)}.`,
+    )
   }
 
   const headers: Record<string, string> = {

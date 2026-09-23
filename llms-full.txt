@@ -799,12 +799,12 @@ Send HTTP request to an endpoint. Extracts L402 challenge if 402 returned, estim
 - Input: url, method (default GET)
 
 #### marketplace-pay
-Pay an L402 invoice via NWC and store credentials. SPENDS REAL SATS. Preview first, confirm to execute.
-- Input: macaroon (base64), invoice (bolt11), confirm (default false)
-- Returns: credentialId for use with marketplace-call
+Pay an L402 invoice via NWC and store credentials. SPENDS REAL SATS. Preview first, confirm to execute; the human is asked to approve when the client supports MCP elicitation, and bray's spending caps always apply.
+- Input: url (the endpoint whose 402 challenge this is), macaroon (base64), invoice (bolt11), confirm (default false)
+- Returns: credentialId for use with marketplace-call, bound to the origin of url
 
 #### marketplace-call
-Make an authenticated API call using L402 credentials from marketplace-pay.
+Make an authenticated API call using L402 credentials from marketplace-pay. The credential is only sent to the origin it was paid for; any other URL is refused.
 - Input: url, method (default GET), credentialId, body (optional), headers (optional)
 
 #### marketplace-announce
@@ -1101,7 +1101,7 @@ Execute an action found via search-actions.
 1. marketplace-discover(topics: ["ai"])          -> find AI services
 2. marketplace-inspect(eventId: "abc...")         -> full service details
 3. marketplace-probe(url: "https://api.svc/v1")  -> check pricing, extract L402
-4. marketplace-pay(macaroon: "...", invoice: "...") -> preview cost
+4. marketplace-pay(url: "https://api.svc/v1", macaroon: "...", invoice: "...") -> preview cost
 5. marketplace-pay(..., confirm: true)           -> pay and get credentialId
 6. marketplace-call(url: "...", credentialId: "...") -> authenticated API call
 ```

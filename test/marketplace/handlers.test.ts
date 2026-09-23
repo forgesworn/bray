@@ -448,9 +448,9 @@ describe('credential store', () => {
   })
 
   it('stores and retrieves a credential', () => {
-    storeCredential('cred-1', 'macaroon-data', 'preimage-hex')
+    storeCredential('cred-1', 'macaroon-data', 'preimage-hex', 'https://api.example.com/x')
     const cred = getCredential('cred-1')
-    expect(cred).toEqual({ macaroon: 'macaroon-data', preimage: 'preimage-hex' })
+    expect(cred).toEqual({ macaroon: 'macaroon-data', preimage: 'preimage-hex', origin: 'https://api.example.com' })
   })
 
   it('returns undefined for unknown credential', () => {
@@ -458,14 +458,14 @@ describe('credential store', () => {
   })
 
   it('overwrites existing credential', () => {
-    storeCredential('cred-1', 'old-mac', 'old-pre')
-    storeCredential('cred-1', 'new-mac', 'new-pre')
-    expect(getCredential('cred-1')).toEqual({ macaroon: 'new-mac', preimage: 'new-pre' })
+    storeCredential('cred-1', 'old-mac', 'old-pre', 'https://api.example.com')
+    storeCredential('cred-1', 'new-mac', 'new-pre', 'https://api.example.com')
+    expect(getCredential('cred-1')).toEqual({ macaroon: 'new-mac', preimage: 'new-pre', origin: 'https://api.example.com' })
   })
 
   it('clears all credentials', () => {
-    storeCredential('cred-1', 'mac1', 'pre1')
-    storeCredential('cred-2', 'mac2', 'pre2')
+    storeCredential('cred-1', 'mac1', 'pre1', 'https://api.example.com')
+    storeCredential('cred-2', 'mac2', 'pre2', 'https://api.example.com')
     clearCredentials()
     expect(getCredential('cred-1')).toBeUndefined()
     expect(getCredential('cred-2')).toBeUndefined()
@@ -480,7 +480,7 @@ describe('buildL402AuthHeader', () => {
   })
 
   it('builds correct L402 authorization header', () => {
-    storeCredential('cred-1', 'AGIEbHNhdA==', 'deadbeef')
+    storeCredential('cred-1', 'AGIEbHNhdA==', 'deadbeef', 'https://api.example.com')
     const header = buildL402AuthHeader('cred-1')
     expect(header).toBe('L402 AGIEbHNhdA==:deadbeef')
   })
@@ -858,7 +858,7 @@ describe('handleMarketplaceCall', () => {
   })
 
   it('makes authenticated call with L402 header', async () => {
-    storeCredential('cred-1', 'AgEEbHNhdA==', 'deadbeef')
+    storeCredential('cred-1', 'AgEEbHNhdA==', 'deadbeef', 'https://api.example.com')
 
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       status: 200,
@@ -888,7 +888,7 @@ describe('handleMarketplaceCall', () => {
   })
 
   it('rejects private network URLs', async () => {
-    storeCredential('cred-1', 'mac', 'pre')
+    storeCredential('cred-1', 'mac', 'pre', 'https://api.example.com')
 
     await expect(
       handleMarketplaceCall({
@@ -898,8 +898,26 @@ describe('handleMarketplaceCall', () => {
     ).rejects.toThrow('private network')
   })
 
+  it('refuses to send a credential to any origin but the one it was paid for', async () => {
+    storeCredential('cred-1', 'AgEEbHNhdA==', 'deadbeef', 'https://api.example.com/challenge')
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    for (const elsewhere of [
+      'https://attacker.example/steal',
+      'https://api.example.com.attacker.example/',
+      'http://api.example.com/query',
+      'https://api.example.com:8443/query',
+    ]) {
+      await expect(
+        handleMarketplaceCall({ url: elsewhere, credentialId: 'cred-1' }),
+      ).rejects.toThrow(/only sent there/)
+    }
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('strips set-cookie headers from response', async () => {
-    storeCredential('cred-1', 'mac', 'pre')
+    storeCredential('cred-1', 'mac', 'pre', 'https://api.example.com')
 
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       status: 200,

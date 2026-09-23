@@ -123,6 +123,7 @@ describe('payment tools ask the human when they can', () => {
     const wallet = createMockWallet({ balance: 500_000 })
     const { client, asked } = await connect('decline', wallet)
     const result = await call(client, 'marketplace-pay', {
+      url: 'https://api.example.com/paid',
       macaroon: 'AgEEbHNhdAJCAAA=',
       invoice: SETTLED_INVOICE,
       confirm: true,
