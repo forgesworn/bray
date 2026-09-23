@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.5.0 (2026-09-23)
+
+### Features
+
+- bray-side payment caps, human confirmation and isolated scoped connections (#114)
+
+
+
 ## 3.4.3 (2026-09-17)
 
 ### Bug Fixes
