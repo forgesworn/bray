@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.5.1 (2026-09-23)
+
+### Bug Fixes
+
+- register onboard-verified and correct the tool count
+
+
+
 ## 3.5.0 (2026-09-23)
 
 ### Features
