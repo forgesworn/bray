@@ -404,9 +404,11 @@
     <p>
       Nostr and Lightning payments are close neighbours. A <strong>zap</strong>
       is a Bitcoin payment, usually a small one, attached to a person or a
-      post; sending one is as ordinary as reacting. Bray connects to a wallet
-      you already have through Nostr Wallet Connect, so the wallet keeps
-      custody and bray only asks it to pay.
+      post. Bray connects to a wallet you already have through Nostr Wallet
+      Connect, so the wallet keeps custody and bray only asks it to pay.
+      Today bray pays Lightning invoices and reads the zaps others send you;
+      it does not yet build a zap from someone's profile or Lightning
+      address, so to pay a person, ask them for an invoice.
     </p>
     <figure class="shot">
       <img src="../demos/gifs/18-zap-workflow.gif" alt="Recording: asking for balance, invoice and payment before a wallet is connected; bray refuses each step and names exactly what to connect" width="1200" height="600" loading="lazy">
@@ -507,8 +509,10 @@
     <div class="spec-row">
       <dt>Zaps fail</dt>
       <dd>Check the wallet connection first: ask for the balance. If that
-      answers, the wallet is fine and the recipient simply may not accept
-      zaps; not every profile carries a Lightning address.</dd>
+      answers, the wallet is fine. A payment bray refuses before sending
+      names the limit it hit: the wallet's budget on the connection, or
+      bray's own per-payment and daily caps
+      (<code>BRAY_MAX_PAYMENT_MSAT</code>, <code>BRAY_MAX_DAILY_MSAT</code>).</dd>
     </div>
     <div class="spec-row">
       <dt>Something else entirely</dt>
