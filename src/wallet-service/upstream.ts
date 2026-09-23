@@ -1,4 +1,4 @@
-import { NwcClient } from '@forgesworn/nwc-kit'
+import { NwcClient, NwcError } from '@forgesworn/nwc-kit'
 import type { NwcTransport } from '@forgesworn/nwc-kit'
 import { tryDecodeBolt11, verifyPreimage } from 'farrier-kit'
 import { PaymentNotSentError, ServiceError, type ServiceInvoice, type ServiceWallet } from './service.js'
@@ -103,8 +103,21 @@ export function upstreamWallet(options: UpstreamOptions): ServiceWallet {
         try {
           result = await client.payInvoice({ invoice })
         } catch (err) {
+          // An authenticated refusal from the wallet is definitive, exactly
+          // as zap-send treats it: nothing left, so the budget and bray's
+          // allowance are given back. Its text is not passed on - "not
+          // enough funds" tells a scoped connection about a wallet it has
+          // no business knowing about.
+          if (err instanceof NwcError && err.code === 'WALLET_ERROR') {
+            guard?.release(paymentHash)
+            throw new PaymentNotSentError('The wallet behind this service declined the payment; nothing was sent.')
+          }
+          // Anything else may have happened after the payment went out.
           guard?.markUnknown(paymentHash)
-          throw err
+          throw new ServiceError(
+            'OTHER',
+            'The wallet behind this service did not confirm the payment; it may or may not have been sent.',
+          )
         }
         if (!result.preimage || !verifyPreimage(result.preimage, paymentHash)) {
           // The wallet says it paid and cannot prove it. Not a refusal -
