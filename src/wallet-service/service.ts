@@ -2,6 +2,7 @@ import { finalizeEvent, getPublicKey, verifyEvent, nip44 } from 'nostr-tools'
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { tryDecodeBolt11 } from 'farrier-kit'
+import { feeReserveMsat } from '../zap/payment-guard.js'
 
 // A NIP-47 wallet service: the server side of Nostr Wallet Connect.
 //
@@ -94,7 +95,8 @@ export interface ServiceWallet {
   alias(): string
   balanceMsat(): Promise<number>
   makeInvoice(request: { amountMsat: number; description?: string }): Promise<ServiceInvoice>
-  payInvoice(request: { invoice: string; amountMsat: number }): Promise<{ preimage: string; feesPaidMsat: number }>
+  // feesPaidMsat is undefined when the wallet does not say what it paid.
+  payInvoice(request: { invoice: string; amountMsat: number }): Promise<{ preimage: string; feesPaidMsat?: number }>
   lookupInvoice(query: { paymentHash?: string; invoice?: string }): Promise<ServiceInvoice | null>
 }
 
@@ -506,22 +508,35 @@ export class WalletService {
         // attempt: a crash mid-payment must leave a budget that has paid for
         // it. The other order lets one connection spend its grant twice by
         // dying at the right moment.
+        // Routing fees come out of the budget too. They are unknown until
+        // the payment lands, so a margin is reserved up front and swapped
+        // for the real fee afterwards.
+        const reserveMsat = feeReserveMsat(amountMsat)
         await this.#change(grant, (held) => {
-          charge(held, amountMsat)
-          held.spentMsat += amountMsat
+          charge(held, amountMsat, reserveMsat)
+          held.spentMsat += amountMsat + reserveMsat
           held.hashes = remembered(held.hashes, paymentHash)
         })
+        let paid: { preimage: string; feesPaidMsat?: number }
         try {
-          const paid = await this.#opts.wallet.payInvoice({ invoice, amountMsat })
-          return { preimage: paid.preimage, fees_paid: paid.feesPaidMsat }
+          paid = await this.#opts.wallet.payInvoice({ invoice, amountMsat })
         } catch (err) {
           if (err instanceof PaymentNotSentError) {
             await this.#change(grant, (held) => {
-              held.spentMsat = Math.max(0, held.spentMsat - amountMsat)
+              held.spentMsat = Math.max(0, held.spentMsat - amountMsat - reserveMsat)
             })
           }
           throw err
         }
+        const fee = paid.feesPaidMsat
+        const known = fee !== undefined && Number.isSafeInteger(fee) && fee >= 0
+        // A wallet that does not report its fee keeps the whole margin charged.
+        if (known) {
+          await this.#change(grant, (held) => {
+            held.spentMsat = Math.max(0, held.spentMsat - reserveMsat + fee)
+          })
+        }
+        return { preimage: paid.preimage, ...(known ? { fees_paid: fee } : {}) }
       }
       default:
         throw new ServiceError('NOT_IMPLEMENTED', `This service cannot answer ${method}.`)
@@ -557,7 +572,7 @@ function priceOf(invoice: string, params: Record<string, unknown>): { amountMsat
 
 // Refuses before anything is attempted, and says which ceiling it hit: a
 // payer told only "no" tries again.
-function charge(grant: Grant, amountMsat: number): void {
+function charge(grant: Grant, amountMsat: number, reserveMsat: number): void {
   if (grant.budgetMsat === undefined) {
     throw new ServiceError('RESTRICTED', 'This connection has no budget to spend from.')
   }
@@ -568,10 +583,10 @@ function charge(grant: Grant, amountMsat: number): void {
     )
   }
   const remaining = remainingBudgetMsat(grant)
-  if (amountMsat > remaining) {
+  if (amountMsat + reserveMsat > remaining) {
     throw new ServiceError(
       'QUOTA_EXCEEDED',
-      `That is ${amountMsat} msat and this connection has ${remaining} msat of its budget left.`,
+      `That is ${amountMsat} msat plus up to ${reserveMsat} msat reserved for fees, and this connection has ${remaining} msat of its budget left.`,
     )
   }
 }

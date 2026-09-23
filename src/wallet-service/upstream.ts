@@ -117,7 +117,10 @@ export function upstreamWallet(options: UpstreamOptions): ServiceWallet {
           )
         }
         guard?.settle(paymentHash, result.fees_paid)
-        return { preimage: result.preimage, feesPaidMsat: Number(result.fees_paid ?? 0) }
+        return {
+          preimage: result.preimage,
+          ...(result.fees_paid === undefined ? {} : { feesPaidMsat: Number(result.fees_paid) }),
+        }
       })
     },
 

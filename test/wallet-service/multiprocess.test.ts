@@ -64,16 +64,16 @@ describe('grants shared between processes', () => {
   })
 
   it('honours a refill made by another process, and does not overwrite it', async () => {
-    const { client, paid } = await serveFromFile(1_000)
+    const { client, paid } = await serveFromFile(2_000)
     await client.payInvoice({ invoice: ONE_SAT })
-    await expect(client.payInvoice({ invoice: ONE_SAT })).rejects.toThrow(/0 msat of its budget left/)
+    await expect(client.payInvoice({ invoice: ONE_SAT })).rejects.toThrow(/1000 msat of its budget left/)
 
-    refillGrant(path, PUBKEY, 'agent', 2_000)
+    refillGrant(path, PUBKEY, 'agent', 4_000)
     await client.payInvoice({ invoice: ONE_SAT })
 
     expect(paid).toHaveLength(2)
     const stored = loadGrants(path, PUBKEY)[0]!
-    expect(stored.budgetMsat).toBe(2_000)
+    expect(stored.budgetMsat).toBe(4_000)
     expect(stored.spentMsat).toBe(1_000)
     client.close()
   })

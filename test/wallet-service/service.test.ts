@@ -62,15 +62,15 @@ describe('a grant is narrower than the URI behind it', () => {
     const { grant, uri } = await serve(relay, wallet, {
       name: 'agent',
       methods: ['get_info', 'pay_invoice'],
-      budgetMsat: 2_500,
+      budgetMsat: 3_000,
     })
     const client = new NwcClient(uri, { transport: relay.nwc })
     await client.connect()
 
     await client.payInvoice({ invoice: ONE_SAT })
     await client.payInvoice({ invoice: ONE_SAT })
-    // 500 msat left and the invoice is for 1000
-    await expect(client.payInvoice({ invoice: ONE_SAT })).rejects.toThrow(/500 msat of its budget left/)
+    // 1000 msat left, and the invoice needs 1000 plus a 1000 msat fee reserve
+    await expect(client.payInvoice({ invoice: ONE_SAT })).rejects.toThrow(/1000 msat of its budget left/)
 
     expect(paid).toHaveLength(2)
     expect(grant.spentMsat).toBe(2_000)
@@ -276,6 +276,55 @@ describe('a grant reports its own balance', () => {
     const client = new NwcClient(uri, { transport: relay.nwc })
     await client.connect()
     await expect(client.getBalance()).resolves.toEqual({ balance: 0 })
+    client.close()
+  })
+})
+
+describe('routing fees come out of the budget', () => {
+  const feeWallet = (feesPaidMsat: number | undefined) => {
+    const { wallet, paid } = openWallet()
+    return {
+      paid,
+      wallet: {
+        ...wallet,
+        payInvoice: async ({ invoice }: { invoice: string }) => {
+          paid.push(invoice)
+          return { preimage: 'cd'.repeat(32), ...(feesPaidMsat === undefined ? {} : { feesPaidMsat }) }
+        },
+      } satisfies ServiceWallet,
+    }
+  }
+
+  it('charges the fee the wallet reports', async () => {
+    const relay = fakeRelay()
+    const { wallet } = feeWallet(250)
+    const { grant, uri } = await serve(relay, wallet, { name: 'agent', methods: ['get_info', 'pay_invoice'], budgetMsat: 10_000 })
+    const client = new NwcClient(uri, { transport: relay.nwc })
+    await client.connect()
+    await expect(client.payInvoice({ invoice: ONE_SAT })).resolves.toMatchObject({ fees_paid: 250 })
+    expect(grant.spentMsat).toBe(1_250)
+    client.close()
+  })
+
+  it('keeps the fee reserve charged when the wallet does not say', async () => {
+    const relay = fakeRelay()
+    const { wallet } = feeWallet(undefined)
+    const { grant, uri } = await serve(relay, wallet, { name: 'agent', methods: ['get_info', 'pay_invoice'], budgetMsat: 10_000 })
+    const client = new NwcClient(uri, { transport: relay.nwc })
+    await client.connect()
+    await client.payInvoice({ invoice: ONE_SAT })
+    expect(grant.spentMsat).toBe(2_000)
+    client.close()
+  })
+
+  it('refuses a payment whose fee reserve would not fit in the budget', async () => {
+    const relay = fakeRelay()
+    const { wallet, paid } = feeWallet(0)
+    const { uri } = await serve(relay, wallet, { name: 'agent', methods: ['get_info', 'pay_invoice'], budgetMsat: 1_500 })
+    const client = new NwcClient(uri, { transport: relay.nwc })
+    await client.connect()
+    await expect(client.payInvoice({ invoice: ONE_SAT })).rejects.toThrow(/reserved for fees/)
+    expect(paid).toHaveLength(0)
     client.close()
   })
 })
