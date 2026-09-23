@@ -4,28 +4,11 @@ import { loadConfig } from './config.js'
 import { IdentityContext } from './context.js'
 import { RelayPool } from './relay-pool.js'
 import { Nip65Manager } from './nip65.js'
-import { registerIdentityTools } from './identity/tools.js'
-import { registerSocialTools } from './social/tools.js'
-import { registerTrustTools } from './trust/tools.js'
-import { registerRelayTools } from './relay/tools.js'
-import { registerRelayIntelligenceTools } from './relay/intelligence-tools.js'
-import { registerZapTools } from './zap/tools.js'
-import { registerWalletServiceTools } from './wallet-service/tools.js'
-import { registerSafetyTools } from './safety/tools.js'
-import { registerUtilTools } from './util/tools.js'
-import { registerWorkflowTools } from './workflow/tools.js'
-import { registerMarketplaceTools } from './marketplace/tools.js'
-import { registerPrivacyTools } from './privacy/tools.js'
-import { registerModerationTools } from './moderation/tools.js'
 import { TrustContext } from './trust-context.js'
 import type { SigningContext } from './signing-context.js'
 import type { BunkerContext } from './bunker-context.js'
-import { registerSignetTools } from './signet/tools.js'
-import { registerVaultTools } from './vault/tools.js'
-import { registerDispatchTools } from './dispatch/tools.js'
-import { registerHandlerTools } from './handler/tools.js'
-import { registerSyncTools } from './sync/tools.js'
 import { ActionCatalog, createCatalogProxy, PROMOTED_TOOLS } from './catalog.js'
+import { registerAllTools } from './tool-groups.js'
 import { configureHttpClient } from './http-client.js'
 import { BRAY_VERSION } from './version.js'
 
@@ -153,35 +136,18 @@ const server = new McpServer({ name: 'nostr-bray', version: BRAY_VERSION }, {
 const catalog = new ActionCatalog()
 const proxy = createCatalogProxy(server, catalog, PROMOTED_TOOLS)
 
-// Register all tools — the proxy routes promoted to server, rest to catalog
-registerIdentityTools(proxy, deps)
-registerSocialTools(proxy, deps)
-registerTrustTools(proxy, deps)
-registerRelayTools(proxy, deps)
-registerRelayIntelligenceTools(proxy, deps)
-registerZapTools(proxy, deps)
-registerWalletServiceTools(proxy, deps, { issuing: config.walletService })
-registerSafetyTools(proxy, deps)
-registerUtilTools(proxy, deps)
-registerWorkflowTools(proxy, {
-  ctx: deps.ctx,
-  pool: deps.pool,
-  nip65: deps.nip65,
+// Register all tools. The proxy routes promoted ones to the server and the
+// rest to the catalog.
+registerAllTools(proxy, deps, {
   veilCacheTtl: config.veilCacheTtl,
   veilCacheMax: config.veilCacheMax,
+  ...(config.dispatchIdentities ? { dispatchIdentitiesPath: config.dispatchIdentities } : {}),
+  walletService: config.walletService,
 })
-registerMarketplaceTools(proxy, deps)
-registerPrivacyTools(proxy, deps)
-registerModerationTools(proxy, deps)
-registerSignetTools(proxy, deps)
-registerVaultTools(proxy, deps)
-registerDispatchTools(proxy, { ...deps, dispatchIdentitiesPath: config.dispatchIdentities })
-registerHandlerTools(proxy, deps)
-registerSyncTools(proxy, deps)
 
 // Add search-actions and execute-action meta-tools to the real server
 catalog.registerMetaTools(server)
-console.error(`nostr-bray: ${PROMOTED_TOOLS.size} promoted tools + ${catalog.size} cataloged (${PROMOTED_TOOLS.size + catalog.size + 2} total)`)
+console.error(`nostr-bray: ${catalog.promotedCount} promoted tools + ${catalog.size} cataloged (${catalog.promotedCount + catalog.size + 2} total)`)
 
 if (config.transport === 'stdio') {
   const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js')

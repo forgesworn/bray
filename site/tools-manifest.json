@@ -1,11 +1,12 @@
 {
   "name": "nostr-bray",
   "mcpName": "dev.forgesworn/bray",
-  "version": "3.3.0",
+  "version": "3.4.3",
   "description": "Trust-aware Nostr for AI and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "homepage": "https://bray.forgesworn.dev",
-  "totalTools": 254,
-  "note": "Parameter schemas for every registered tool. Most tools live in the catalog (discoverable via search-actions + execute-action); 51 promoted tools are exposed directly on the MCP server. This manifest covers both.",
+  "totalTools": 260,
+  "promotedTools": 50,
+  "note": "Parameter schemas for every registered tool. Most tools live in the catalog (discoverable via search-actions + execute-action); 50 promoted tools and the two meta-tools are exposed directly on the MCP server. This manifest covers all of them, including wallet-grant, wallet-refill and wallet-serve, which are registered only with BRAY_WALLET_SERVICE=1, and the dispatch tools, which need DISPATCH_IDENTITIES.",
   "tools": [
     {
       "name": "article-list",
@@ -1125,6 +1126,9 @@
                 "minLength": 1
               }
             ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2,
             "description": "The two roles in the session (e.g. [\"caller\", \"agent\"])"
           },
           "myRole": {
@@ -1871,7 +1875,7 @@
         "properties": {
           "name": {
             "type": "string",
-            "description": "Agent name (e.g. \"prometheus\", \"forge-worker\")"
+            "description": "Agent name (e.g. \"research-agent\", \"forge-worker\")"
           },
           "description": {
             "type": "string",
@@ -2663,6 +2667,57 @@
         },
         "required": [
           "hex"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "execute-action",
+      "description": "Execute an action found via search-actions. Pass the exact action name and its parameters.",
+      "annotations": {
+        "openWorldHint": true
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action name from search-actions results"
+          },
+          "params": {
+            "description": "Parameters for the action (see search-actions results for expected params). Alias: parameters. Accepts a JSON object or a JSON string literal.",
+            "anyOf": [
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "parameters": {
+            "description": "Alias for params. Either field is accepted. Accepts a JSON object or a JSON string literal.",
+            "anyOf": [
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "required": [
+          "action"
         ],
         "additionalProperties": false
       }
@@ -5130,7 +5185,7 @@
     },
     {
       "name": "marketplace-call",
-      "description": "Make an authenticated API call using L402 credentials obtained from marketplace-pay. The credential ID maps to a stored macaroon + preimage — never exposed directly.",
+      "description": "Make an authenticated API call using L402 credentials obtained from marketplace-pay. The credential ID maps to a stored macaroon + preimage, never exposed directly, and is only sent to the origin it was paid for.",
       "annotations": {
         "readOnlyHint": false
       },
@@ -5321,7 +5376,7 @@
     },
     {
       "name": "marketplace-pay",
-      "description": "Pay an L402 invoice via NWC and store credentials for authenticated API calls. SPENDS REAL SATS. Decodes the invoice first — set confirm: true to execute payment. Returns an opaque credential ID for use with marketplace-call.",
+      "description": "Pay an L402 invoice via NWC and store credentials for authenticated API calls. SPENDS REAL SATS. Decodes the invoice first; set confirm: true to pay. When the MCP client supports elicitation the human is asked to approve the payment as well, and bray's spending caps always apply. Returns an opaque credential ID for use with marketplace-call.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": true
@@ -5330,6 +5385,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "The endpoint URL whose 402 challenge this is. The credential is only ever sent back to this origin"
+          },
           "macaroon": {
             "type": "string",
             "description": "Base64-encoded macaroon from L402 challenge"
@@ -5345,6 +5405,7 @@
           }
         },
         "required": [
+          "url",
           "macaroon",
           "invoice",
           "confirm"
@@ -5904,18 +5965,6 @@
           "recipientPubkeyHex",
           "plaintext"
         ],
-        "additionalProperties": false
-      }
-    },
-    {
-      "name": "onboard-verified",
-      "description": "Guided workflow to build a verified trust profile. Shows your current Signet tier, what steps remain (self-declaration, vouches, professional verification, vault setup), and lists contacts who could vouch for you.",
-      "annotations": {
-        "readOnlyHint": true
-      },
-      "inputSchema": {
-        "type": "object",
-        "properties": {},
         "additionalProperties": false
       }
     },
@@ -7094,6 +7143,27 @@
         },
         "required": [
           "personaName"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "search-actions",
+      "description": "Search 208 additional actions by describing what you want to do. Returns matching actions with names, descriptions, and parameter schemas. Use this when the promoted tools (whoami, social-post, social-reply, social-feed, dm-send, dm-read, zap-balance, identity-switch, relay-query) do not cover what you need.",
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "intent": {
+            "type": "string",
+            "description": "Describe what you want to do (e.g. \"upload a file\", \"verify an attestation\", \"encrypt a message\", \"manage contacts\", \"ring signature\")"
+          }
+        },
+        "required": [
+          "intent"
         ],
         "additionalProperties": false
       }
@@ -8700,6 +8770,9 @@
                 "minLength": 1
               }
             ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2,
             "description": "Exactly two distinct role names (e.g. [\"caller\", \"agent\"])"
           },
           "counter": {
@@ -9326,6 +9399,146 @@
       }
     },
     {
+      "name": "wallet-grant",
+      "description": "Issue a scoped NIP-47 connection over this identity's one wallet, narrower than the URI you hold. Defaults to invoice-only: no spending and no balance disclosure. A connection that can spend must carry a budget. Writes the nostr+walletconnect:// URI to a private 0600 file and returns its path; the URI itself is never returned.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "What this connection is for - it is how you revoke the right one later"
+          },
+          "methods": {
+            "description": "NIP-47 methods this connection may call. Default: get_info, make_invoice",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "get_info",
+                "get_balance",
+                "make_invoice",
+                "lookup_invoice",
+                "pay_invoice"
+              ]
+            }
+          },
+          "budgetMsat": {
+            "description": "Total it may ever spend, in msat. Required with pay_invoice",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "maxPaymentMsat": {
+            "description": "Ceiling on any single payment, in msat",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "relays": {
+            "description": "Relays to answer on. Defaults to this identity's write relays",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "wallet-grants",
+      "description": "List the NIP-47 connections issued over this identity's wallet, what each may do, and what it has spent. Secrets are never returned.",
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "wallet-refill",
+      "description": "Put a spending connection's budget back where it started, optionally at a new figure. Deliberately separate from granting: topping up is a decision, not a side effect of use.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "nameOrId": {
+            "type": "string"
+          },
+          "budgetMsat": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "nameOrId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "wallet-revoke",
+      "description": "Revoke a connection by name or id. It stops being answered immediately; nothing needs to be published anywhere.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "nameOrId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nameOrId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "wallet-serve",
+      "description": "Start or stop answering NIP-47 for the connections issued above. While it runs, holders of those URIs can call the methods their grant allows, against this identity's wallet. It answers only while this process is alive.",
+      "annotations": {
+        "readOnlyHint": false
+      },
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "action": {
+            "default": "status",
+            "type": "string",
+            "enum": [
+              "start",
+              "stop",
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "whoami",
       "description": "Returns the active identity's npub. The simplest way to check which identity is currently in use.",
       "annotations": {
@@ -9606,7 +9819,7 @@
     },
     {
       "name": "zap-send",
-      "description": "Pay a Lightning invoice via Nostr Wallet Connect (NWC). SPENDS REAL SATS. Decodes the invoice and shows amount first — set confirm: true to execute payment.",
+      "description": "Pay a BOLT-11 Lightning invoice via Nostr Wallet Connect (NWC). SPENDS REAL SATS. Decodes the invoice and shows the amount first; set confirm: true to pay. When the MCP client supports elicitation the human is asked to approve the payment as well. bray's own caps (BRAY_MAX_PAYMENT_MSAT, BRAY_MAX_DAILY_MSAT) always apply.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": true

@@ -22,26 +22,6 @@ writeFileSync(
   '| Name | Hex Pubkey |\n| --- | --- |\n| stub | ' + 'a'.repeat(64) + ' |\n',
 )
 
-const registerModules = [
-  ['identity', () => import('../dist/identity/tools.js')],
-  ['social', () => import('../dist/social/tools.js')],
-  ['trust', () => import('../dist/trust/tools.js')],
-  ['relay', () => import('../dist/relay/tools.js')],
-  ['relay-intel', () => import('../dist/relay/intelligence-tools.js')],
-  ['zap', () => import('../dist/zap/tools.js')],
-  ['safety', () => import('../dist/safety/tools.js')],
-  ['util', () => import('../dist/util/tools.js')],
-  ['workflow', () => import('../dist/workflow/tools.js')],
-  ['marketplace', () => import('../dist/marketplace/tools.js')],
-  ['privacy', () => import('../dist/privacy/tools.js')],
-  ['moderation', () => import('../dist/moderation/tools.js')],
-  ['signet', () => import('../dist/signet/tools.js')],
-  ['vault', () => import('../dist/vault/tools.js')],
-  ['dispatch', () => import('../dist/dispatch/tools.js')],
-  ['handler', () => import('../dist/handler/tools.js')],
-  ['sync', () => import('../dist/sync/tools.js')],
-]
-
 const stubDeps = {
   ctx: new Proxy({}, { get: () => () => undefined }),
   pool: new Proxy({}, { get: () => () => undefined }),
@@ -78,19 +58,25 @@ function zodFieldsToJsonSchema(fields) {
   }
 }
 
-for (const [groupName, loader] of registerModules) {
-  const mod = await loader()
-  const registerFn = Object.values(mod).find(v => typeof v === 'function' && v.name.startsWith('register'))
-  if (!registerFn) {
-    console.error(`skipping ${groupName}: no register* export`)
-    continue
-  }
-  try {
-    registerFn(captureServer, stubDeps)
-  } catch (e) {
-    console.error(`failed to capture ${groupName}:`, e.message)
-  }
+// The same registration the MCP server runs, with every optional group on:
+// dispatch identities configured and the opt-in wallet service enabled.
+const { registerAllTools } = await import('../dist/tool-groups.js')
+const { ActionCatalog, PROMOTED_TOOLS } = await import('../dist/catalog.js')
+registerAllTools(captureServer, stubDeps, {
+  veilCacheTtl: stubDeps.veilCacheTtl,
+  veilCacheMax: stubDeps.veilCacheMax,
+  dispatchIdentitiesPath: fakeIdentitiesPath,
+  walletService: true,
+})
+
+// search-actions and execute-action are tools too. Give them a catalog of
+// everything not promoted, as the server does, so their descriptions match.
+const catalog = new ActionCatalog()
+for (const tool of collected) {
+  if (!PROMOTED_TOOLS.has(tool.name)) catalog.add(tool.name, tool, async () => ({ content: [] }))
 }
+catalog.registerMetaTools(captureServer)
+const promotedCount = collected.filter(t => PROMOTED_TOOLS.has(t.name)).length
 
 rmSync(tmpDir, { recursive: true, force: true })
 
@@ -103,10 +89,13 @@ const manifest = {
   description: pkg.description,
   homepage: 'https://bray.forgesworn.dev',
   totalTools: collected.length,
+  promotedTools: promotedCount,
   note:
     'Parameter schemas for every registered tool. Most tools live in the catalog ' +
-    '(discoverable via search-actions + execute-action); 51 promoted tools are ' +
-    'exposed directly on the MCP server. This manifest covers both.',
+    `(discoverable via search-actions + execute-action); ${promotedCount} promoted tools and the two ` +
+    'meta-tools are exposed directly on the MCP server. This manifest covers all of them, including ' +
+    'wallet-grant, wallet-refill and wallet-serve, which are registered only with BRAY_WALLET_SERVICE=1, ' +
+    'and the dispatch tools, which need DISPATCH_IDENTITIES.',
   tools: collected.map(t => ({
     name: t.name,
     description: t.description,

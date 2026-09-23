@@ -1,15 +1,15 @@
 {
   "name": "nostr-bray",
   "display_name": "nostr-bray",
-  "description": "Trust-aware Nostr MCP server for AI agents and humans. 253 tools across 28 groups: identity, social, DMs, trust attestations, encrypted dispatch, Lightning payments, protocol validation, NIP-77 reconciliation, relay-scoped groups, privacy proofs, and more.",
-  "short_description": "Trust-aware Nostr MCP. 253 tools for sovereign identity, validation, reconciliation, trust scoring, dispatch, and payments.",
+  "description": "Trust-aware Nostr MCP server for AI agents and humans. 260 tools across 28 groups: identity, social, DMs, trust attestations, encrypted dispatch, Lightning payments, protocol validation, NIP-77 reconciliation, relay-scoped groups, privacy proofs, and more.",
+  "short_description": "Trust-aware Nostr MCP. 260 tools for sovereign identity, validation, reconciliation, trust scoring, dispatch, and payments.",
   "homepage": "https://bray.forgesworn.dev",
   "repository": "https://github.com/forgesworn/bray",
   "npm": "https://www.npmjs.com/package/nostr-bray",
   "package_name": "nostr-bray",
   "command": "npx nostr-bray",
   "licence": "MIT",
-  "version": "1.31.0",
+  "version": "3.4.3",
   "transport": ["stdio", "http"],
   "categories": ["communication", "identity", "social", "payments", "privacy"],
   "tags": [
@@ -35,7 +35,7 @@
     "typescript"
   ],
   "capabilities": {
-    "tools": 235,
+    "tools": 260,
     "tool_groups": [
       "identity",
       "social",

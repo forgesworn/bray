@@ -45,6 +45,8 @@ export const PROMOTED_TOOLS: ReadonlySet<string> = new Set([
  */
 export class ActionCatalog {
   private readonly entries = new Map<string, CatalogEntry>()
+  /** Promoted tools actually registered on the server, as counted by the proxy. */
+  promotedCount = 0
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   add(name: string, definition: any, handler: ToolHandler): void {
@@ -236,6 +238,7 @@ export function createCatalogProxy(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return (name: string, definition: any, handler: any) => {
           if (promoted.has(name)) {
+            catalog.promotedCount++
             return target.registerTool(name, definition, handler)
           }
           catalog.add(name, definition, handler)
