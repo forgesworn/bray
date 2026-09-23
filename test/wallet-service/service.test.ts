@@ -328,3 +328,29 @@ describe('routing fees come out of the budget', () => {
     client.close()
   })
 })
+
+describe('amountless invoices', () => {
+  const AMOUNTLESS =
+    'lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpl2pkx2ctnv5sxxmmw' +
+    'wd5kgetjypeh2ursdae8g6twvus8g6rfwvs8qun0dfjkxaq8rkx3yf5tcsyz3d73gafnh3cax9rn449d9p5uxz' +
+    '9ezhhypd0elx87sjle52x86fux2ypatgddc6k63n7erqz25le42c4u4ecky03ylcqca784w'
+
+  it('refuses one even with an amount, before charging or paying anything', async () => {
+    // The wallet behind the service is handed the invoice alone, so it
+    // would decide the amount itself. The budget would be checked against
+    // one figure and the wallet would pay another.
+    const relay = fakeRelay()
+    const { wallet, paid } = openWallet()
+    const { grant, uri } = await serve(relay, wallet, {
+      name: 'agent',
+      methods: ['get_info', 'pay_invoice'],
+      budgetMsat: 10_000,
+    })
+    const client = new NwcClient(uri, { transport: relay.nwc })
+    await client.connect()
+    await expect(client.payInvoice({ invoice: AMOUNTLESS, amount: 1_000 })).rejects.toThrow(/state no amount/)
+    expect(paid).toHaveLength(0)
+    expect(grant.spentMsat).toBe(0)
+    client.close()
+  })
+})

@@ -566,8 +566,10 @@ function priceOf(invoice: string, params: Record<string, unknown>): { amountMsat
     }
     return { amountMsat: stated, paymentHash: decoded.paymentHashHex }
   }
-  if (asked === undefined) throw new PaymentNotSentError('That invoice states no amount - say how much to send.')
-  return { amountMsat: asked, paymentHash: decoded.paymentHashHex }
+  // An amountless invoice is refused, as zap-send refuses one. The wallet
+  // behind the service is asked to pay the invoice alone, so a figure
+  // checked against the budget here would not be the figure it sent.
+  throw new PaymentNotSentError('Invoices that state no amount are not paid through this connection.')
 }
 
 // Refuses before anything is attempted, and says which ceiling it hit: a

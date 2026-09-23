@@ -86,6 +86,9 @@ export function upstreamWallet(options: UpstreamOptions): ServiceWallet {
     async payInvoice({ invoice, amountMsat }) {
       const decoded = tryDecodeBolt11(invoice)
       if (!decoded) throw new PaymentNotSentError('That is not a decodable BOLT-11 invoice.')
+      if (decoded.amountMsats === null || Number(decoded.amountMsats) !== amountMsat) {
+        throw new PaymentNotSentError('Only invoices that state the amount being charged are paid.')
+      }
       const paymentHash = decoded.paymentHashHex
       const guard = options.guard
       return withClient(options, async (client) => {
