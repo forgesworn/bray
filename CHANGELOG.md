@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.5.2 (2026-09-24)
+
+### Bug Fixes
+
+- match payment rails locally, since relays reject a #pmi filter (marketplace)
+
+
+
 ## 3.5.1 (2026-09-23)
 
 ### Bug Fixes
