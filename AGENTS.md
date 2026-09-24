@@ -1,19 +1,21 @@
-# AGENTS.md — nostr-bray
+# AGENTS.md: nostr-bray
 
 Generic AI agent instructions. For Claude Code see `CLAUDE.md`, for Cursor see `.cursorrules`.
 
 ## What this is
 
-MCP server + CLI giving AI agents sovereign Nostr identities. 261 tools across 27 groups.
+MCP server + CLI giving AI agents sovereign Nostr identities, across the tool groups listed below.
 
 ## Build & Test
 
 ```bash
 npm install
 npm run build    # TypeScript → dist/
-npm test         # ~1180 tests via vitest
+npm test         # vitest run
 npm run lint     # tsc --noEmit
 ```
+
+Work on branches, merge to main: `forgesworn/anvil` handles releases via `workflow_call` (see `.github/workflows/auto-release.yml`).
 
 ## Architecture
 
@@ -21,9 +23,9 @@ npm run lint     # tsc --noEmit
 src/
   index.ts              MCP server entry point (tool registration + HTTP/stdio transport)
   cli.ts                CLI entry point (77 subcommands + shell REPL)
-  catalog.ts            ActionCatalog — non-promoted tools, search-actions + execute-action meta-tools
-  context.ts            IdentityContext — master key, LRU cache, derive, sign, zeroise
-  trust-context.ts      TrustContext — verification (Signet) + proximity (WoT) + access (Dominion)
+  catalog.ts            ActionCatalog: non-promoted tools, search-actions + execute-action meta-tools
+  context.ts            IdentityContext: master key, LRU cache, derive, sign, zeroise
+  trust-context.ts      TrustContext: verification (Signet) + proximity (WoT) + access (Dominion)
   signing-context.ts    SigningContext interface (local key or NIP-46 bunker)
   bunker-context.ts     NIP-46 BunkerContext + Heartwood extension probe
   config.ts             Secret loading from env/files, format detection
@@ -48,8 +50,8 @@ src/
   vault/                Vault tools (Dominion epoch-based encrypted vaults)
   dispatch/             Dispatch tools (send, check, reply, ack, propose, capabilities)
   handler/              Handler tools (publish + discover NIP-90 DVMs)
-  veil/                 WoT filter engine (no tools — internal scoring + cache)
-  widgets/              Widget handlers (feed, DM thread, identity picker — no tools.ts)
+  veil/                 WoT filter engine (no tools; internal scoring + cache)
+  widgets/              Widget handlers (feed, DM thread, identity picker; no tools.ts)
 ```
 
 ## Tool groups
@@ -86,11 +88,7 @@ src/
 
 ## Promoted vs catalogued
 
-50 tools are promoted (always visible to Claude); nothing that spends is among them. The rest live in the `ActionCatalog` and are discoverable via `search-actions` + runnable via `execute-action`. The server logs the split at startup (these figures are with `DISPATCH_IDENTITIES` and `BRAY_WALLET_SERVICE=1` set; without them the dispatch and issuing wallet tools are not registered):
-
-```
-nostr-bray: 50 promoted tools + 209 cataloged (261 total)
-```
+A subset of tools is promoted (always visible to Claude); nothing that spends is among them. The rest live in the `ActionCatalog` and are discoverable via `search-actions` + runnable via `execute-action`. The server logs the current split at startup, in `src/index.ts` (these figures are with `DISPATCH_IDENTITIES` and `BRAY_WALLET_SERVICE=1` set; without them the dispatch and issuing wallet tools are not registered).
 
 Use `search-actions` when you need a less common capability. Use `execute-action` to run it by name.
 
@@ -103,29 +101,31 @@ Tests mirror at `test/<group>/handlers.test.ts`.
 
 - British English
 - ESM only, TypeScript strict
-- Commits: `type: description` — no Co-Authored-By
+- Commits: `type: description`, no Co-Authored-By
 - Security: never return private keys in tool responses, zeroise buffers in `finally` blocks
+- Validate all external input via `src/validation.ts`; use `verifyEvent()` before trusting Nostr events from relays
+- Enforce Tor policy on runtime relay additions
 - Use `ctx.activePublicKeyHex` (not `ctx.activeNpub`) in relay filter fields
 
 ## Security-critical paths
 
 Extra care when modifying:
 
-- `src/context.ts` — key material lifecycle, zeroise on eviction/destroy
-- `src/zap/handlers.ts` — NWC capability lifecycle and verified payment results
-- `src/config.ts` — secret loading and env var cleanup
-- `src/relay-pool.ts` — Tor policy enforcement
-- `src/nip65.ts` — event signature verification
-- `src/index.ts` — HTTP auth (Bearer token, timing-safe), rate limiting, body size limits
-- `src/trust-context.ts` — trust signal aggregation across verification, proximity, access
-- `src/signet/` — Signet badge fetching, credential validation, policy enforcement
-- `src/vault/` — Dominion vault key derivation, epoch rotation, access tier management
+- `src/context.ts`: key material lifecycle, zeroise on eviction/destroy
+- `src/zap/handlers.ts`: NWC capability lifecycle and verified payment results
+- `src/config.ts`: secret loading and env var cleanup
+- `src/relay-pool.ts`: Tor policy enforcement
+- `src/nip65.ts`: event signature verification
+- `src/index.ts`: HTTP auth (Bearer token, timing-safe), rate limiting, body size limits
+- `src/trust-context.ts`: trust signal aggregation across verification, proximity, access
+- `src/signet/`: Signet badge fetching, credential validation, policy enforcement
+- `src/vault/`: Dominion vault key derivation, epoch rotation, access tier management
 
 ## Trust
 
 - Check `signet-badge` before interacting with unfamiliar pubkeys
 - Use `trust-score` for the full composite view (verification + proximity + access)
-- Respect vault tiers — do not share decrypted vault content outside its intended audience
+- Respect vault tiers: do not share decrypted vault content outside its intended audience
 - In strict trust mode, content from unknown pubkeys is filtered out automatically
 
 ## Key dependencies
