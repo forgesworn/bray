@@ -172,12 +172,10 @@ export async function handleMarketplaceDiscover(
     filter.authors = args.authors
   }
 
-  // Relay-side tag filters
+  // Relay-side tag filters. Relays index single-letter tags only and reject
+  // a #pmi filter ("unindexed tag filter"), so payment rails match below.
   if (args.topics?.length) {
     (filter as Record<string, unknown>)['#t'] = args.topics
-  }
-  if (args.paymentMethod) {
-    (filter as Record<string, unknown>)['#pmi'] = [args.paymentMethod]
   }
 
   let events: NostrEvent[]
@@ -199,6 +197,11 @@ export async function handleMarketplaceDiscover(
   }
 
   let services = [...replaceableMap.values()].map(parseAnnounceEvent)
+
+  if (args.paymentMethod) {
+    const rail = args.paymentMethod.toLowerCase()
+    services = services.filter(svc => svc.paymentMethods.some(pm => pm[0]?.toLowerCase() === rail))
+  }
 
   // Client-side price filter (relays cannot filter by price range)
   if (args.maxPrice !== undefined && args.currency) {

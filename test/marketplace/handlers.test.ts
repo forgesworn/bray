@@ -585,13 +585,30 @@ describe('handleMarketplaceDiscover', () => {
     }))
   })
 
-  it('passes payment method filter to relay query', async () => {
-    const pool = mockPool([])
-    await handleMarketplaceDiscover(pool as any, 'npub1test', { paymentMethod: 'l402' })
+  it('filters by payment rail locally and never sends a #pmi relay filter', async () => {
+    const l402 = makeAnnounceEvent({
+      id: '1'.repeat(64),
+      tags: [
+        ['d', 'l402'], ['name', 'L402'], ['url', 'https://a.com'], ['about', 'A'],
+        ['pmi', 'l402', 'lightning'], ['price', 'query', '50', 'sats'],
+      ],
+    })
+    const cashu = makeAnnounceEvent({
+      id: '2'.repeat(64),
+      pubkey: 'c'.repeat(64),
+      tags: [
+        ['d', 'cashu'], ['name', 'Cashu'], ['url', 'https://b.com'], ['about', 'B'],
+        ['pmi', 'cashu'], ['price', 'query', '50', 'sats'],
+      ],
+    })
+    const pool = mockPool([l402, cashu])
 
-    expect(pool.query).toHaveBeenCalledWith('npub1test', expect.objectContaining({
-      '#pmi': ['l402'],
-    }))
+    const results = await handleMarketplaceDiscover(pool as any, 'npub1test', { paymentMethod: 'L402' })
+    const byParam = await handleMarketplaceDiscover(pool as any, 'npub1test', { paymentMethod: 'lightning' })
+
+    expect(pool.query).not.toHaveBeenCalledWith('npub1test', expect.objectContaining({ '#pmi': expect.anything() }))
+    expect(results.map(r => r.identifier)).toEqual(['l402'])
+    expect(byParam).toEqual([])
   })
 
   it('uses queryDirect when relays specified', async () => {
