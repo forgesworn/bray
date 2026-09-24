@@ -1,10 +1,10 @@
 # AGENTS.md: nostr-bray
 
-Generic AI agent instructions. For Claude Code see `CLAUDE.md`, for Cursor see `.cursorrules`.
+Instructions for any coding agent. Claude Code reads this file through `CLAUDE.md`, which imports it.
 
 ## What this is
 
-MCP server + CLI giving AI agents sovereign Nostr identities, across the tool groups listed below.
+MCP server + CLI giving AI agents sovereign Nostr identities: 261 tools, across the tool groups listed below.
 
 ## Build & Test
 
@@ -88,7 +88,11 @@ src/
 
 ## Promoted vs catalogued
 
-A subset of tools is promoted (always visible to Claude); nothing that spends is among them. The rest live in the `ActionCatalog` and are discoverable via `search-actions` + runnable via `execute-action`. The server logs the current split at startup, in `src/index.ts` (these figures are with `DISPATCH_IDENTITIES` and `BRAY_WALLET_SERVICE=1` set; without them the dispatch and issuing wallet tools are not registered).
+50 tools are promoted (always visible to Claude); nothing that spends is among them. The rest live in the `ActionCatalog` and are discoverable via `search-actions` + runnable via `execute-action`. The server logs the split at startup, in `src/index.ts` (these figures are with `DISPATCH_IDENTITIES` and `BRAY_WALLET_SERVICE=1` set; without them the dispatch and issuing wallet tools are not registered):
+
+```
+nostr-bray: 50 promoted tools + 209 cataloged (261 total)
+```
 
 Use `search-actions` when you need a less common capability. Use `execute-action` to run it by name.
 

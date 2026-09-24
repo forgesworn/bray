@@ -6,7 +6,7 @@ import { registerAllTools } from '../src/tool-groups.js'
 import { ActionCatalog, PROMOTED_TOOLS } from '../src/catalog.js'
 
 // One tool count, generated from what the server actually registers, and
-// quoted the same everywhere. When this fails after adding or removing a
+// quoted the same everywhere. CLAUDE.md imports AGENTS.md, so it is covered there. When this fails after adding or removing a
 // tool, run `npm run build` (which regenerates site/tools-manifest.json)
 // and update the figures it names.
 
@@ -64,7 +64,6 @@ describe('tool count', () => {
     'site/mcp.json',
     'site/index.html',
     'AGENTS.md',
-    'CLAUDE.md',
   ])('is quoted correctly in %s', (file) => {
     const quoted = [...read(file).matchAll(/\b(\d{3}) tools\b/g)].map((match) => Number(match[1]))
     expect(quoted.length).toBeGreaterThan(0)
