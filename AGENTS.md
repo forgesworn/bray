@@ -4,7 +4,7 @@ Instructions for any coding agent. Claude Code reads this file through `CLAUDE.m
 
 ## What this is
 
-MCP server + CLI giving AI agents sovereign Nostr identities: 261 tools, across the tool groups listed below.
+MCP server, CLI and TypeScript SDK giving AI agents sovereign Nostr identities: 261 tools, across the tool groups listed below.
 
 ## Build & Test
 
