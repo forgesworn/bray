@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.5.3 (2026-10-16)
+
+### Bug Fixes
+
+- correct the published docs against the source (#128) (docs)
+
+
+
 ## 3.5.2 (2026-09-24)
 
 ### Bug Fixes
