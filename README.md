@@ -10,6 +10,8 @@
 
 ## Quick Start
 
+Requires Node.js 24 or later.
+
 Install globally or run via npx:
 
 ```bash
@@ -40,6 +42,8 @@ Add to your MCP client config:
 }
 ```
 
+`npx nostr-bray` with no arguments starts the MCP server (stdio by default, HTTP with `TRANSPORT=http`); subcommands run the CLI.
+
 Then ask your AI to call `whoami` to verify it works.
 
 For production use, prefer [Heartwood](https://github.com/forgesworn/heartwood) or any NIP-46 bunker (your key never leaves your signing device):
@@ -68,6 +72,19 @@ For production use, prefer [Heartwood](https://github.com/forgesworn/heartwood) 
 | **ncryptsec** | NIP-49 encrypted key (`NOSTR_NCRYPTSEC`) | Key encrypted at rest, decrypted in memory at startup. |
 | **Key file** | File path (`NOSTR_SECRET_KEY_FILE`) | Key on disk, read once, env var deleted. |
 | **Env var** | Inline secret (`NOSTR_SECRET_KEY`) | Key visible in process environment. Use only for development. |
+
+## Promoted tools
+
+Of the 261 registered tools, 50 are promoted: callable directly from the MCP tool list. Everything else is catalogued, so find it with `search-actions` and run it with `execute-action` (both are always available). Nothing that spends is promoted.
+
+- **Identity and social:** `whoami`, `identity-switch`, `social-post`, `social-reply`, `social-feed`, `social-profile-get`, `dm-send`, `dm-read`, `dm-conversation`
+- **Wallet, relay and trust:** `zap-balance`, `relay-query`, `signet-badge`, `trust-score`, `verify-person`, `vault-read`
+- **Publishing:** `article-publish`, `article-read`, `article-list`, `search-notes`, `search-profiles`, `hashtag-feed`
+- **Badges, communities and calendar:** `badge-create`, `badge-award`, `badge-accept`, `badge-list`, `community-create`, `community-feed`, `community-post`, `community-approve`, `community-list`, `calendar-create`, `calendar-read`, `calendar-rsvp`
+- **Listings:** `listing-create`, `listing-read`, `listing-search`, `listing-close`
+- **Dispatch (13):** `dispatch-send`, `dispatch-check`, `dispatch-reply`, `dispatch-ack`, `dispatch-status`, `dispatch-cancel`, `dispatch-refuse`, `dispatch-failure`, `dispatch-query`, `dispatch-propose`, `dispatch-capability-publish`, `dispatch-capability-discover`, `dispatch-capability-read`
+
+The dispatch tools are registered only when `DISPATCH_IDENTITIES` points at an identities file; without it 37 tools are promoted.
 
 ## Tool Groups
 
@@ -98,7 +115,7 @@ For production use, prefer [Heartwood](https://github.com/forgesworn/heartwood) 
 | **Search** | 3 | `search-notes`, `search-profiles`, `hashtag-feed` |
 | **Scheduling** | 4 | `post-schedule`, `post-queue-list`, `post-queue-cancel`, `publish-event` |
 | **Community NIPs** | 2 | `nip-publish`, `nip-read` |
-| **Utility** | 20 | `decode`, `validate-event`, `verify-event`, `nip44-encrypt`, `tombstone` |
+| **Utility** | 23 | `decode`, `validate-event`, `verify-event`, `gift-wrap`, `gift-unwrap`, `kind-info`, `nip44-encrypt`, `tombstone` |
 | **Sync (NIP-77)** | 1 | `sync-plan` (pull/push are explicit CLI and SDK operations) |
 | **Handler** | 2 | `handler-publish`, `handler-discover` |
 | **Catalog** | 2 | `search-actions`, `execute-action` |
@@ -201,6 +218,8 @@ Create `~/.config/bray/config.json` (or `~/.nostr/bray.json`):
 
 Secrets are referenced by **file path** (`bunkerUriFile`, `secretKeyFile`, `nwcUriFile`) so they never appear in the config itself.
 
+`trustMode` is `strict` (hide content from untrusted pubkeys), `annotate` (show trust scores) or `off` (no filtering). The default is `annotate`; an unrecognised value falls back to `annotate`. The `TRUST_MODE` environment variable overrides the config file.
+
 Search order: `BRAY_CONFIG` env var > `$XDG_CONFIG_HOME/bray/config.json` > `~/.nostr/bray.json`.
 
 ### Environment variables
@@ -218,13 +237,17 @@ Search order: `BRAY_CONFIG` env var > `$XDG_CONFIG_HOME/bray/config.json` > `~/.
 | `BRAY_MAX_PAYMENT_MSAT` | bray's ceiling on any one payment, in msat (default `5000000`, 5,000 sats) |
 | `BRAY_MAX_DAILY_MSAT` | bray's ceiling on spending in any rolling 24 hours, in msat (default `20000000`, 20,000 sats) |
 | `BRAY_WALLET_SERVICE` | Set `1` to register `wallet-grant`, `wallet-refill` and `wallet-serve` |
+| `DISPATCH_IDENTITIES` | Path to the dispatch identities markdown table (name and hex pubkey). The dispatch tools are registered only when this is set; `dispatchIdentities` in the config file does the same |
 | `BRAY_HOME` | Directory for bray's state files (default `$XDG_CONFIG_HOME/bray`, else `~/.config/bray`) |
 | `NOSTR_RELAYS` | Comma-separated relay URLs |
 | `NOSTR_FORBID_PUBKEY` | Comma-separated npubs or hex this process must never sign as. See below. |
 | `TOR_PROXY` | SOCKS5h proxy for Tor |
 | `NIP04_ENABLED` | Set `1` to enable legacy NIP-04 DMs |
+| `TRUST_MODE` | `strict`, `annotate` (default) or `off`. See the config file section above |
 | `TRANSPORT` | `stdio` (default) or `http` |
 | `PORT` | HTTP port (default 3000) |
+| `BIND_ADDRESS` | HTTP bind address (default `127.0.0.1`) |
+| `BRAY_HTTP_TOKEN` | Bearer token the HTTP transport requires in the `Authorization` header. If unset, bray generates a random token and prints it once on stderr; a token you supply is never echoed |
 
 All secret env vars are deleted from `process.env` before parsing can fail.
 Raw `NWC_URI` is refused; use `NWC_URI_FILE` or `wallet connect <nwc-file>` so
@@ -365,6 +388,51 @@ npx nostr-bray persona work              # derive a work persona
 npx nostr-bray prove blind               # create a linkage proof
 npx nostr-bray --help                    # see all commands
 ```
+
+## Use as a library
+
+The package is also a TypeScript SDK (ESM only). `nostr-bray/sdk` is the factory API:
+
+```ts
+import { createBray } from "nostr-bray/sdk"
+
+const bray = await createBray({
+  sec: process.env.NOSTR_SECRET_KEY, // or bunkerUri: "bunker://..."
+  relays: ["wss://relay.damus.io", "wss://nos.lol"],
+})
+
+await bray.post("gm nostr")
+console.log(bray.npub)
+bray.destroy() // zeroise key material
+```
+
+`defaultBray()` builds the same client from the environment variables above. The handlers behind each tool group are exported as subpaths, so you can import one group without the rest:
+
+| Import | What it gives you |
+|--------|-------------------|
+| `nostr-bray` | `createBray`, `defaultBray` and the handlers of every group below, re-exported |
+| `nostr-bray/sdk` | `createBray` and `defaultBray`, the `BrayClient` factory API |
+| `nostr-bray/types` | Type-only exports of the public config and result types |
+| `nostr-bray/identity` | Key derivation, personas, linkage proofs, Shamir backup, migration, NIP-05 |
+| `nostr-bray/social` | Posts, DMs, feeds, blossom, groups, articles, badges, calendar, communities, wiki, scheduling |
+| `nostr-bray/trust` | Attestations, ring signatures and spoken tokens |
+| `nostr-bray/relay` | Relay lists, queries, counts, intelligence, outbox publishing, spells, NIP-42 auth, relay HTTP calls |
+| `nostr-bray/zap` | NWC payments, NWC file loading and the payment guard |
+| `nostr-bray/safety` | Duress personas and CANARY sessions, groups and beacons |
+| `nostr-bray/event` | Generic event building and publishing, NIP-13 proof of work, NIP-59 gift wrap and unwrap |
+| `nostr-bray/event-validation` | Semantic event validation against the kind registry |
+| `nostr-bray/util` | Decode and encode, NIP-44, ncryptsec, filters, NIP browsing |
+| `nostr-bray/workflow` | Composite flows such as trust scoring, person verification and relay health |
+| `nostr-bray/dispatch` | Dispatch protocol messages, capabilities and identities |
+| `nostr-bray/marketplace` | L402 and x402 discovery, payment, calls and listings |
+| `nostr-bray/privacy` | Commitments and zero-knowledge range, age and threshold proofs |
+| `nostr-bray/moderation` | Labels, mute lists, pin lists, follow sets, bookmarks |
+| `nostr-bray/signet` | Signet badges, credentials, policy and challenges |
+| `nostr-bray/vault` | Dominion epoch-based encrypted vaults |
+| `nostr-bray/handler` | Publish and discover MCP-capable handlers (kind 31990) |
+| `nostr-bray/musig2` | BIP-327 MuSig2 key, nonce, partial-sign and aggregate primitives |
+| `nostr-bray/sync` | NIP-77 reconciliation: plan, pull and push |
+| `nostr-bray/admin` | NIP-86 relay management API calls |
 
 ## Documentation
 
