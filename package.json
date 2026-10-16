@@ -2,7 +2,7 @@
   "name": "nostr-bray",
   "version": "3.5.2",
   "mcpName": "dev.forgesworn/bray",
-  "description": "Trust-aware Nostr for AI and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
+  "description": "Trust-aware Nostr MCP server, CLI and TypeScript SDK for AI agents and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "type": "module",
   "sideEffects": false,
   "main": "dist/exports.js",

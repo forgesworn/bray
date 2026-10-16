@@ -1,10 +1,10 @@
 # nostr-bray -- Full Documentation for AI Assistants
 
-> Trust-aware Nostr MCP server for AI agents and humans. 261 tools across 28 groups. Three dimensions of trust -- verification (Signet), proximity (web-of-trust), and access (Dominion) -- woven into every interaction. Model-agnostic: works with Claude, ChatGPT, Gemini, Cursor, or any MCP client.
+> Trust-aware Nostr MCP server, CLI and TypeScript SDK for AI agents and humans. 261 tools across 29 groups. Three dimensions of trust -- verification (Signet), proximity (web-of-trust), and access (Dominion) -- woven into every interaction. Model-agnostic: works with Claude, ChatGPT, Gemini, Cursor, or any MCP client.
 
 ## Architecture
 
-Single-process MCP server (stdio or HTTP transport) with 261 tools in 28 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction. Universal identity resolution across all tools: names, NIP-05, npubs, and hex pubkeys are accepted anywhere a pubkey is needed.
+Single-process MCP server (stdio or HTTP transport) with 261 tools in 29 groups. All tools share a central IdentityContext that manages an LRU cache of derived identities with cryptographic zeroing on eviction. Universal identity resolution across all tools: names, NIP-05, npubs, and hex pubkeys are accepted anywhere a pubkey is needed.
 
 ## Configuration
 
@@ -30,7 +30,9 @@ Single-process MCP server (stdio or HTTP transport) with 261 tools in 28 groups.
 | BIND_ADDRESS | No | HTTP bind address (default 127.0.0.1) |
 | VEIL_CACHE_TTL | No | Trust cache TTL in seconds (default 300) |
 | VEIL_CACHE_MAX | No | Trust cache max entries (default 500) |
-| DISPATCH_IDENTITIES | No | Path to dispatch identities markdown file |
+| DISPATCH_IDENTITIES | No | Path to dispatch identities markdown file. The dispatch tools are registered only when this is set |
+| BRAY_HTTP_TOKEN | No | Bearer token the HTTP transport requires. If unset, a random token is generated and printed once on stderr |
+| TRUST_MODE | No | "strict", "annotate" (default) or "off" |
 
 *Authentication tiers (use exactly one):
 1. **Bunker** (NIP-46) -- most secure, keys never leave the signer
@@ -911,23 +913,89 @@ Check storage usage across blossom servers for a pubkey.
 Read or update your preferred blossom server list (kind 10063).
 - Input: servers (optional -- omit to read, provide to publish)
 
-### Group Tools -- NIP-29 (4)
+### Group Tools -- NIP-29 (20)
+
+Every group tool is relay-scoped: `relay` is the group's host relay URL and `groupId` the group id on that relay.
 
 #### group-info
-Fetch group metadata (kind 39000) -- name, about, picture, open status.
+Fetch relay-scoped group metadata and verify it against the relay's NIP-11 self key.
+- Input: relay, groupId
+
+#### group-inspect
+Inspect verified group metadata, admins, members and relay-defined roles in one view.
+- Input: relay, groupId
+
+#### group-admins
+Read the verified relay-generated kind 39001 admin list and role labels.
+- Input: relay, groupId
+
+#### group-members
+List the relay-generated member snapshot (kind 39002). It may be absent or partial.
+- Input: relay, groupId
+
+#### group-roles
+Read relay-defined role names from verified kind 39003 state. NIP-29 does not let clients define role permissions.
 - Input: relay, groupId
 
 #### group-chat
-Fetch recent chat messages (kind 9) from a group.
-- Input: groupId, limit (default 20)
+Fetch recent kind 9 chat messages from one group relay.
+- Input: relay, groupId, limit (default 20, max 100)
 
 #### group-send
-Send a message to a group (kind 9 with h-tag).
-- Input: groupId, content
+Send a kind 9 message to exactly one group relay.
+- Input: relay, groupId, content
 
-#### group-members
-List group members (kind 39002).
-- Input: groupId
+#### group-create
+Create a relay-scoped group with kind 9007. bray generates an id if omitted; metadata is sent separately with kind 9002 after creation succeeds.
+- Input: relay, groupId (optional), name, about, picture, banner, isPrivate, isRestricted, isHidden, isOpen, supportedKinds (all optional)
+
+#### group-update
+Update group metadata with kind 9002 at exactly one host relay.
+- Input: relay, groupId, plus the optional metadata fields of group-create and parent
+
+#### group-add-user
+Add or update a member with kind 9000 and optional relay-defined role labels.
+- Input: relay, groupId, pubkeyHex, roles (optional)
+
+#### group-remove-user
+Remove a user from a group (kind 9001 admin event).
+- Input: relay, groupId, pubkeyHex
+
+#### group-invite-create
+Create an invite with kind 9009. Returns the code a user supplies to group-join.
+- Input: relay, groupId, code (optional)
+
+#### group-join
+Send a kind 9021 join request, optionally with a kind 9009 invite code.
+- Input: relay, groupId, code (optional)
+
+#### group-leave
+Leave a group with kind 9022.
+- Input: relay, groupId
+
+#### group-delete-event
+Administratively delete one event from a group with kind 9005. Requires confirm: true.
+- Input: relay, groupId, eventId, confirm
+
+#### group-delete
+Delete an entire group with kind 9008. confirmGroupId must exactly repeat groupId.
+- Input: relay, groupId, confirmGroupId
+
+#### group-forum-topics
+List verified kind 11 forum topics from one group relay.
+- Input: relay, groupId, limit (default 50, max 200)
+
+#### group-forum-topic-create
+Publish a kind 11 forum topic with the required group h tag.
+- Input: relay, groupId, title, content
+
+#### group-forum-comments
+List verified NIP-22 kind 1111 comments scoped to a forum topic.
+- Input: relay, groupId, topicId, limit (default 100, max 500)
+
+#### group-forum-comment
+Publish a schema-safe NIP-22 comment or reply under a kind 11 topic.
+- Input: relay, groupId, topicId, content, parentId (optional)
 
 ### Scheduled Posting Tools (3)
 
@@ -953,7 +1021,7 @@ Publish a community NIP (kind 30817) -- custom protocol spec on Nostr.
 Fetch community NIPs from relays.
 - Input: author (optional), identifier (optional), kind (optional)
 
-### Utility Tools (19)
+### Utility Tools (23)
 
 #### decode
 Decode any nip19 entity (npub, nsec, note, nevent, nprofile, naddr) or nostr: URI.
@@ -1007,6 +1075,52 @@ Fetch and display the full content of an official NIP by number.
 Overwrite an addressable event (kind 30000-39999) with empty content, effectively deleting it from relays.
 - Input: kind, dTag
 
+#### validate-event
+Semantically validate an event or unsigned event template against bray's pinned Registry of Kinds snapshot. Distinct from verify-event: it checks protocol content and tags, not the signature.
+- Input: event, mode (default strict-known)
+
+#### gift-wrap
+Seal and gift-wrap any event for one recipient (NIP-59). Returns a kind 1059 wrap signed by a throwaway key.
+- Input: event, recipient_pubkey
+
+#### gift-unwrap
+Unwrap a NIP-59 kind 1059 gift wrap addressed to the active identity, returning the hidden rumor and the pubkey that sealed it, and whether the sealer matches the rumor's claimed author.
+- Input: event
+
+#### kind-info
+Look up what an event kind is for and what shape it takes: description, storage class, required and repeatable tags. Pass a kind number, or a search string.
+- Input: kind (optional), search (optional), limit (optional)
+
+### Wallet Service Tools (5)
+
+`wallet-grants` and `wallet-revoke` are always registered. `wallet-grant`, `wallet-refill` and `wallet-serve` are registered only when `BRAY_WALLET_SERVICE=1`.
+
+#### wallet-grant
+Issue a scoped NIP-47 connection over this identity's one wallet. Defaults to invoice-only: no spending and no balance disclosure. A connection that can spend must carry a budget. Writes the nostr+walletconnect:// URI to a private 0600 file and returns its path; the URI itself is never returned.
+- Input: name, methods (optional), budgetMsat (optional), maxPaymentMsat (optional), relays (optional)
+
+#### wallet-grants
+List the connections issued over this identity's wallet, what each may do, and what it has spent. Secrets are never returned.
+- No inputs
+
+#### wallet-revoke
+Revoke a connection by name or id. It stops being answered immediately.
+- Input: nameOrId
+
+#### wallet-refill
+Put a spending connection's budget back where it started, optionally at a new figure.
+- Input: nameOrId, budgetMsat (optional)
+
+#### wallet-serve
+Start or stop answering NIP-47 for the issued connections. It answers only while this process is alive.
+- Input: action (default status)
+
+### Sync Tools -- NIP-77 (1)
+
+#### sync-plan
+Read-only comparison of a bounded local event set with one relay. Uses NIP-77 Negentropy when supported, otherwise reports a bounded REQ fallback. Returns IDs only; it does not transfer or publish events.
+- Input: relay, events (optional), kinds, authors, since, until (optional), maxIds (default 1000), maxRemoteEvents (default 10000), timeoutMs (default 10000), protocol (default auto)
+
 ### Workflow Tools (7)
 
 #### trust-score
@@ -1058,7 +1172,7 @@ Execute an action found via search-actions.
 - **Contact safety guards**: contacts-follow/unfollow detect >20% list shrinkage (data corruption sign) and warn.
 - **DM trust scores**: dm-read annotates each message with `senderTrustScore`.
 - **Reply trust warnings**: social-reply computes `authorTrustScore` and warns about untrusted authors.
-- **Payment preview**: zap-send decodes bolt11 and shows amount before executing.
+- **Payment preview**: zap-send decodes bolt11 and shows the amount before executing. It is catalogued (use search-actions); `confirm: true` is set by the model, so it is not human approval; clients with elicitation prompt the user; bray's caps always apply.
 - **Spending caps**: every payment is checked against BRAY_MAX_PAYMENT_MSAT and a rolling 24-hour BRAY_MAX_DAILY_MSAT before it is sent, and the human approves it via MCP elicitation where the client supports it.
 - **Universal identity resolution**: all tools accepting pubkeys also accept names, NIP-05, and npubs.
 - **NIP-65 relay chasing**: when messaging someone, bray fetches their relay list and writes to their preferred relays.

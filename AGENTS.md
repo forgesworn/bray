@@ -4,7 +4,7 @@ Instructions for any coding agent. Claude Code reads this file through `CLAUDE.m
 
 ## What this is
 
-MCP server + CLI giving AI agents sovereign Nostr identities: 261 tools, across the tool groups listed below.
+MCP server, CLI and TypeScript SDK giving AI agents sovereign Nostr identities: 261 tools, across the tool groups listed below.
 
 ## Build & Test
 
@@ -66,7 +66,7 @@ src/
 | wiki | 3 | `wiki-publish`, `wiki-read`, `wiki-list` |
 | badges | 4 | `badge-create`, `badge-award`, `badge-accept`, `badge-list` |
 | communities | 5 | `community-create`, `community-feed`, `community-post`, `community-approve`, `community-list` |
-| groups (NIP-29) | 4 | `group-info`, `group-chat`, `group-send`, `group-members` |
+| groups (NIP-29) | 20 | `group-info`, `group-chat`, `group-send`, `group-members`, `group-inspect`, `group-admins`, `group-roles`, `group-create`, `group-update`, `group-add-user`, `group-remove-user`, `group-invite-create`, `group-join`, `group-leave`, `group-delete-event`, `group-delete`, `group-forum-topics`, `group-forum-topic-create`, `group-forum-comments`, `group-forum-comment` |
 | calendar | 3 | `calendar-create`, `calendar-read`, `calendar-rsvp` |
 | search | 3 | `search-notes`, `search-profiles`, `hashtag-feed` |
 | community NIPs | 2 | `nip-publish`, `nip-read` |
@@ -74,8 +74,10 @@ src/
 | trust | 22 | `trust-attest`, `trust-verify`, `trust-ring-prove`, `trust-ring-lsag-sign`, `trust-spoken-challenge` |
 | relay | 13 | `relay-query`, `relay-list`, `relay-set`, `relay-add`, `relay-info`, `relay-count`, `relay-auth`, `relay-discover`, `relay-nip-search`, `relay-compare`, `relay-diversity`, `relay-recommend`, `cast-spell` |
 | zap | 9 | `zap-send`, `zap-balance`, `zap-make-invoice`, `zap-list-transactions`, `zap-receipts` |
+| wallet service | 5 | `wallet-grant`, `wallet-grants`, `wallet-revoke`, `wallet-refill`, `wallet-serve` (the issuing tools `wallet-grant`, `wallet-refill` and `wallet-serve` need `BRAY_WALLET_SERVICE=1`) |
+| sync (NIP-77) | 1 | `sync-plan` |
 | safety | 14 | `safety-activate`, `canary-session-create`, `canary-group-create`, `canary-beacon-create`, `canary-duress-detect` |
-| utility | 19 | `decode`, `nip44-encrypt`, `nip44-decrypt`, `verify-event`, `key-encrypt`, `key-decrypt`, `nip-list` |
+| utility | 23 | `decode`, `nip44-encrypt`, `nip44-decrypt`, `verify-event`, `validate-event`, `gift-wrap`, `gift-unwrap`, `kind-info`, `key-encrypt`, `key-decrypt`, `nip-list` |
 | workflow | 7 | `trust-score`, `verify-person`, `feed-discover`, `identity-setup`, `relay-health`, `onboard-verified` |
 | marketplace | 16 | `marketplace-discover`, `marketplace-search`, `marketplace-pay`, `listing-create`, `listing-search` |
 | privacy | 10 | `privacy-prove-range`, `privacy-verify-range`, `privacy-prove-age`, `privacy-prove-threshold` |
@@ -93,6 +95,8 @@ src/
 ```
 nostr-bray: 50 promoted tools + 209 cataloged (261 total)
 ```
+
+The total adds the two meta-tools, `search-actions` and `execute-action`, which are neither promoted nor cataloged: 50 + 209 + 2 = 261. The tool-group table above sums to the same 261 across 29 groups. The 13 dispatch tools are all promoted, so without `DISPATCH_IDENTITIES` only 37 tools are promoted.
 
 Use `search-actions` when you need a less common capability. Use `execute-action` to run it by name.
 
