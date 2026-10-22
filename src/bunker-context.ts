@@ -15,7 +15,7 @@
 
 import { BunkerSigner } from 'nostr-tools/nip46'
 import { useWebSocketImplementation, SimplePool } from 'nostr-tools/pool'
-import { generateSecretKey } from 'nostr-tools/pure'
+import { generateSecretKey, finalizeEvent } from 'nostr-tools/pure'
 import { npubEncode } from 'nostr-tools/nip19'
 import WebSocket from 'ws'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
@@ -179,7 +179,10 @@ export class BunkerContext implements SigningContext {
   static create(uri: string, stateDir?: string): BunkerContext {
     const config = parseBunkerUri(uri)
     const clientSk = resolveClientKey(config, stateDir)
+    // Sign in (NIP-42) with the client key when a relay asks, so private
+    // relays that only let a key read messages addressed to it still work.
     const pool = new SimplePool()
+    pool.automaticallyAuth = () => async (template: EventTemplate) => finalizeEvent(template, clientSk)
 
     const signer = BunkerSigner.fromBunker(
       clientSk,
