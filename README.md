@@ -461,7 +461,6 @@ bray.destroy() // zeroise key material
 - **[Examples](./examples/)** -- MCP config files and CLI workflow scripts
 - **[Contributing](./CONTRIBUTING.md)** -- setup, architecture, testing, and conventions
 - **[Privacy](./PRIVACY.md)** -- what bray sends where (it runs on your machine; no telemetry)
-- **Cursor plugin** -- [`.cursor-plugin/`](./.cursor-plugin/) installs bray as a Cursor plugin, read-only until you give it a `BUNKER_URI`
 
 ## For AI Assistants
 
