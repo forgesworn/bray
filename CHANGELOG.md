@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.5.4 (2026-10-28)
+
+### Bug Fixes
+
+- sign in to relays that ask (NIP-42) on bunker connections (#134)
+
+
+
 ## 3.5.3 (2026-10-16)
 
 ### Bug Fixes
