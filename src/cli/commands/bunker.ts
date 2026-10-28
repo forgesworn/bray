@@ -103,9 +103,12 @@ export async function dispatch(args: string[]): Promise<void> {
     if (expect !== undefined) {
       const { npubEncode, decode } = await import('nostr-tools/nip19')
       try {
-        expectedNpub = /^[0-9a-f]{64}$/i.test(expect)
-          ? npubEncode(expect.toLowerCase())
-          : decode(expect).type === 'npub' ? expect : undefined
+        if (/^[0-9a-f]{64}$/i.test(expect)) {
+          expectedNpub = npubEncode(expect.toLowerCase())
+        } else {
+          const decoded = decode(expect)
+          expectedNpub = decoded.type === 'npub' ? npubEncode(decoded.data) : undefined
+        }
       } catch { expectedNpub = undefined }
       if (!expectedNpub) {
         console.error('bunker pair: --expect must be an npub or a 64-character hex pubkey')

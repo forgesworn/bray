@@ -26,6 +26,7 @@ import type { EventTemplate } from 'nostr-tools'
 import { CLIENT_NAME, CLIENT_KEYS_FILE, REQUEST_TIMEOUT_MS, TimeoutError, withTimeout } from './bunker-context.js'
 import { readStateFile, writeStateFile } from './state.js'
 import { isOnionUrl, validateRelayScheme } from './validation.js'
+import { SafeWebSocket } from './ws-safe.js'
 
 /** Saved by `bunker connect` and `bunker pair`; read by loadConfig. */
 export const BUNKER_URI_FILE = 'bunker-uri'
@@ -35,6 +36,24 @@ const NOSTR_CONNECT_KIND = 24133
 
 /** How long to try to reach each relay before leaving it out. */
 const CONNECT_WAIT_MS = 10_000
+
+/**
+ * With TOR_PROXY set, pairing goes through the SOCKS proxy like bray's other
+ * relay traffic (socks5h, so .onion names resolve at the proxy). SimplePool
+ * accepts websocketImplementation at run time; its type omits it.
+ */
+async function poolOptions(torProxy: string | undefined): Promise<ConstructorParameters<typeof SimplePool>[0]> {
+  if (!torProxy) return {}
+  const { SocksProxyAgent } = await import('socks-proxy-agent')
+  const agent = new SocksProxyAgent(torProxy)
+  const ProxiedWebSocket = class extends SafeWebSocket {
+    constructor(...args: ConstructorParameters<typeof SafeWebSocket>) {
+      const [url, protocols, options] = args
+      super(url, protocols, { ...(typeof options === 'object' ? options : {}), agent })
+    }
+  }
+  return { websocketImplementation: ProxiedWebSocket } as ConstructorParameters<typeof SimplePool>[0]
+}
 
 function reasonText(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason)
@@ -105,12 +124,12 @@ export async function pairWithNostrConnect(options: PairOptions): Promise<PairRe
     if (!/^wss?:\/\//i.test(relay)) throw new Error(`not a relay URL: ${relay.slice(0, 128)}`)
     validateRelayScheme(relay, options.allowPrivateRelays ?? false)
   }
-  // Pairing connects directly, not through the SOCKS proxy, so with Tor
-  // configured only .onion relays are allowed unless clearnet is allowed.
+  // With Tor configured, keep to .onion relays unless clearnet is allowed,
+  // as bray's relay pool does.
   if (options.torProxy && !options.allowClearnetWithTor) {
     const clearnet = relays.filter(r => !isOnionUrl(r))
     if (clearnet.length > 0) {
-      throw new Error(`TOR_PROXY is set: pairing would reach clearnet relays directly. Use .onion relays or set ALLOW_CLEARNET_WITH_TOR=1: ${clearnet.join(', ').slice(0, 256)}`)
+      throw new Error(`TOR_PROXY is set: clearnet relays are not allowed. Use .onion relays or set ALLOW_CLEARNET_WITH_TOR=1: ${clearnet.join(', ').slice(0, 256)}`)
     }
   }
 
@@ -119,7 +138,7 @@ export async function pairWithNostrConnect(options: PairOptions): Promise<PairRe
   const secret = randomBytes(16).toString('hex')
 
   // Answer NIP-42 challenges with the client key, as BunkerContext does.
-  const pool = new SimplePool()
+  const pool = new SimplePool(await poolOptions(options.torProxy))
   pool.automaticallyAuth = () => async (template: EventTemplate) => finalizeEvent(template, clientSk)
 
   const timeoutMs = options.timeoutMs ?? PAIR_TIMEOUT_MS

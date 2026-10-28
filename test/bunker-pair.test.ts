@@ -243,6 +243,20 @@ describe('bunker pair (nostrconnect://)', () => {
     })).rejects.toThrow(/TOR_PROXY is set/)
   })
 
+  it('sends pairing traffic through the Tor proxy when one is set', async () => {
+    // The local relay is reachable directly, but not through a dead proxy.
+    const onUri = () => { throw new Error('should not be called') }
+    await expect(pairWithNostrConnect({
+      relays: [relay.url],
+      allowPrivateRelays: true,
+      torProxy: 'socks5h://127.0.0.1:1',
+      allowClearnetWithTor: true,
+      timeoutMs: 10_000,
+      stateDir,
+      onUri,
+    })).rejects.toThrow(/could not reach any relay/)
+  }, 20_000)
+
   it('a paired signer with no stored client key fails with a re-pair hint', () => {
     const uri = `bunker://${bunkerPk}?relay=${encodeURIComponent(relay.url)}`
     expect(() => BunkerContext.create(uri, stateDir, { paired: true })).toThrow(/bunker pair/)
