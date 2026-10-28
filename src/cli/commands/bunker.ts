@@ -276,9 +276,18 @@ export async function dispatch(args: string[]): Promise<void> {
     const { readFileSync } = await import('node:fs')
     const { BunkerContext } = await import('../../bunker-context.js')
 
-    const bunkerUri = process.env.BUNKER_URI
+    // --bunker / BUNKER_URI first, then the signer saved by bunker connect or
+    // bunker pair (a paired signer is not sent connect again).
+    let bunkerUri = process.env.BUNKER_URI
+    let paired = false
     if (!bunkerUri) {
-      console.error('bunker sign: missing bunker URI — use --bunker <url> or set BUNKER_URI')
+      const { readStateFile } = await import('../../state.js')
+      const saved = readStateFile<{ uri?: string; paired?: boolean }>(BUNKER_URI_FILE)
+      bunkerUri = saved.uri
+      paired = saved.paired === true
+    }
+    if (!bunkerUri) {
+      console.error('bunker sign: missing bunker URI — use --bunker <url>, set BUNKER_URI, or run `bunker pair`')
       process.exit(1)
     }
 
@@ -286,7 +295,7 @@ export async function dispatch(args: string[]): Promise<void> {
     const raw = filePath ? readFileSync(filePath, 'utf-8') : readFileSync(0, 'utf-8')
     const template = JSON.parse(raw) as Record<string, unknown>
 
-    const client = await BunkerContext.connect(bunkerUri)
+    const client = await BunkerContext.connect(bunkerUri, undefined, undefined, { paired })
     await client.resolvePublicKey()
 
     const sign = client.getSigningFunction()
