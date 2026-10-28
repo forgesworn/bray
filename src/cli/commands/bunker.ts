@@ -150,6 +150,9 @@ export async function dispatch(args: string[]): Promise<void> {
         allowPrivateRelays: process.env.BRAY_ALLOW_PRIVATE_RELAYS === '1',
         torProxy: process.env.TOR_PROXY ?? file.torProxy,
         allowClearnetWithTor: process.env.ALLOW_CLEARNET_WITH_TOR === '1' || file.allowClearnetWithTor === true,
+        onRelayUnreachable: (relay, reason) => {
+          console.error(`Leaving out ${relay}: ${reason}`)
+        },
         onUri: uri => {
           console.error('Paste or scan this into your signer app (Amber, nsec.app and others) to pair with bray.')
           console.error('It works once, for whoever answers first, so do not share it or leave it on screen:\n')

@@ -33,6 +33,13 @@ export const BUNKER_URI_FILE = 'bunker-uri'
 /** NIP-46 request and response events. */
 const NOSTR_CONNECT_KIND = 24133
 
+/** How long to try to reach each relay before leaving it out. */
+const CONNECT_WAIT_MS = 10_000
+
+function reasonText(reason: unknown): string {
+  return reason instanceof Error ? reason.message : String(reason)
+}
+
 /** Show the URI after this long even if a relay has not confirmed the subscription. */
 const LISTEN_WAIT_MS = 5_000
 
@@ -60,6 +67,8 @@ export interface PairOptions {
    * answer it, so the caller should show the npub and have the user confirm.
    */
   confirm?: (npub: string) => Promise<boolean>
+  /** Called for each relay that could not be reached; pairing goes ahead on the rest. */
+  onRelayUnreachable?: (relay: string, reason: string) => void
   /** TOR_PROXY: when set, clearnet relays are refused unless allowed. */
   torProxy?: string
   /** ALLOW_CLEARNET_WITH_TOR=1. */
@@ -108,12 +117,6 @@ export async function pairWithNostrConnect(options: PairOptions): Promise<PairRe
   const clientSk = generateSecretKey()
   const clientPk = getPublicKey(clientSk)
   const secret = randomBytes(16).toString('hex')
-  const uri = createNostrConnectURI({
-    clientPubkey: clientPk,
-    relays,
-    secret,
-    name: CLIENT_NAME,
-  })
 
   // Answer NIP-42 challenges with the client key, as BunkerContext does.
   const pool = new SimplePool()
@@ -124,6 +127,25 @@ export async function pairWithNostrConnect(options: PairOptions): Promise<PairRe
   let sub: SubCloser | undefined
   let signer: BunkerSigner | undefined
   try {
+    // Connect before showing anything, and offer the signer only the relays
+    // bray can actually listen on.
+    const attempts = await Promise.allSettled(
+      relays.map(relay => pool.ensureRelay(relay, { connectionTimeout: CONNECT_WAIT_MS })),
+    )
+    const reachable = relays.filter((_relay, i) => attempts[i].status === 'fulfilled')
+    attempts.forEach((attempt, i) => {
+      if (attempt.status === 'rejected') options.onRelayUnreachable?.(relays[i], reasonText(attempt.reason))
+    })
+    if (reachable.length === 0) {
+      throw new Error(`could not reach any relay: ${relays.join(', ').slice(0, 256)}`)
+    }
+    const uri = createNostrConnectURI({
+      clientPubkey: clientPk,
+      relays: reachable,
+      secret,
+      name: CLIENT_NAME,
+    })
+
     // Listen for the signer's answer ourselves, rather than through
     // BunkerSigner.fromURI, so the URI is shown only once the relays have
     // confirmed the subscription (EOSE). The filter asks only for new events,
@@ -132,7 +154,7 @@ export async function pairWithNostrConnect(options: PairOptions): Promise<PairRe
     let listening!: () => void
     const ready = new Promise<void>(resolve => { listening = resolve })
     const answered = new Promise<string>((resolve, reject) => {
-      sub = pool.subscribe(relays, { kinds: [NOSTR_CONNECT_KIND], '#p': [clientPk], limit: 0 }, {
+      sub = pool.subscribe(reachable, { kinds: [NOSTR_CONNECT_KIND], '#p': [clientPk], limit: 0 }, {
         // Fire oneose even if a relay never sends EOSE.
         maxWait: LISTEN_WAIT_MS,
         oneose: () => listening(),
@@ -144,7 +166,7 @@ export async function pairWithNostrConnect(options: PairOptions): Promise<PairRe
             if (typeof reply.result === 'string' && sameSecret(reply.result, secret)) resolve(event.pubkey)
           } catch { /* not for us */ }
         },
-        onclose: reasons => reject(new Error(reasons.join('; ') || 'subscription closed')),
+        onclose: reasons => reject(new Error(reasons.map(r => `${r.url}: ${r.reason}`).join('; ') || 'subscription closed')),
       })
     })
     answered.catch(() => { /* reported by the races below */ })
@@ -167,7 +189,7 @@ export async function pairWithNostrConnect(options: PairOptions): Promise<PairRe
     sub = undefined
 
     // The signer has approved this client key; talk to it as a paired bunker.
-    signer = BunkerSigner.fromBunker(clientSk, { pubkey: signerPubkey, relays, secret: null }, { pool })
+    signer = BunkerSigner.fromBunker(clientSk, { pubkey: signerPubkey, relays: reachable, secret: null }, { pool })
     const account = await withTimeout(signer.getPublicKey(), REQUEST_TIMEOUT_MS, 'bunker get_public_key')
     const npub = npubEncode(account)
     if (options.confirm && !(await options.confirm(npub))) {
@@ -180,10 +202,10 @@ export async function pairWithNostrConnect(options: PairOptions): Promise<PairRe
     keys[signerPubkey] = Buffer.from(clientSk).toString('hex')
     writeStateFile(CLIENT_KEYS_FILE, keys, options.stateDir)
 
-    const bunkerUri = toBunkerURL({ pubkey: signerPubkey, relays, secret: null })
+    const bunkerUri = toBunkerURL({ pubkey: signerPubkey, relays: reachable, secret: null })
     writeStateFile(BUNKER_URI_FILE, { uri: bunkerUri, paired: true }, options.stateDir)
 
-    return { npub, signerPubkey, relays, bunkerUri }
+    return { npub, signerPubkey, relays: reachable, bunkerUri }
   } finally {
     clearTimeout(timer)
     sub?.close()

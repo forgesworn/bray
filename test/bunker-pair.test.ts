@@ -205,15 +205,36 @@ describe('bunker pair (nostrconnect://)', () => {
     expect(Date.now() - started).toBeLessThan(3_000)
   })
 
-  it('reports unreachable relays rather than a timeout', async () => {
+  it('reports unreachable relays rather than a timeout, without showing a URI', async () => {
+    const onUri = () => { throw new Error('should not be called') }
     await expect(pairWithNostrConnect({
       relays: ['ws://127.0.0.1:1'],
       allowPrivateRelays: true,
       timeoutMs: 10_000,
       stateDir,
-      onUri: () => {},
-    })).rejects.toThrow(/could not listen on the relays/)
+      onUri,
+    })).rejects.toThrow(/could not reach any relay/)
   }, 15_000)
+
+  it('leaves out an unreachable relay and pairs over the rest', async () => {
+    const dropped: string[] = []
+    let offered: string[] = []
+    const result = await pairWithNostrConnect({
+      relays: ['ws://127.0.0.1:1', relay.url],
+      allowPrivateRelays: true,
+      timeoutMs: 10_000,
+      stateDir,
+      onRelayUnreachable: r => { dropped.push(r) },
+      onUri: uri => {
+        offered = new URL(uri).searchParams.getAll('relay')
+        void answer(uri)
+      },
+    })
+    expect(dropped).toEqual(['ws://127.0.0.1:1'])
+    expect(offered).toEqual([relay.url])
+    expect(result.relays).toEqual([relay.url])
+    expect(parseBunkerUri(readState<{ uri: string }>('bunker-uri').uri).relays).toEqual([relay.url])
+  }, 30_000)
 
   it('refuses clearnet relays when Tor is configured', async () => {
     const onUri = () => { throw new Error('should not be called') }
