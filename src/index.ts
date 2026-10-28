@@ -104,7 +104,7 @@ if (config.readOnly) {
   const { BunkerContext } = await import('./bunker-context.js')
   // Bring the context up synchronously (no network) and connect in the
   // background so a flaky signer cannot wedge startup. See above.
-  const base = BunkerContext.create(config.bunkerUri)
+  const base = BunkerContext.create(config.bunkerUri, undefined, { paired: config.bunkerPaired })
   ctx = base
   void establishBunkerInBackground(base)
 } else {
@@ -146,7 +146,7 @@ export const deps = {
 // NIP-65 relay list is loaded via loadIdentityRelays(): immediately for a local
 // key, or after the bunker pubkey resolves (see establishBunkerInBackground).
 
-const READ_ONLY_INSTRUCTIONS = 'bray is running read-only: it has no key or bunker, so it cannot post, sign, send DMs, decrypt or pay, and only lookup tools are available. If the user wants to act on Nostr, tell them to configure a NIP-46 signer with BUNKER_URI. Use signet-badge and trust-score to judge unfamiliar pubkeys. For less common lookups, use search-actions to discover them, then execute-action to run them.'
+const READ_ONLY_INSTRUCTIONS = 'bray is running read-only: it has no key or bunker, so it cannot post, sign, send DMs, decrypt or pay, and only lookup tools are available. If the user wants to act on Nostr, tell them to pair a signer app by running `npx nostr-bray bunker pair --relay <wss://…>` in a terminal, or to set BUNKER_URI to a NIP-46 signer, and then restart bray. Use signet-badge and trust-score to judge unfamiliar pubkeys. For less common lookups, use search-actions to discover them, then execute-action to run them.'
 
 const server = new McpServer({ name: 'nostr-bray', version: BRAY_VERSION }, {
   instructions: config.readOnly ? READ_ONLY_INSTRUCTIONS : 'Always check whoami before posting or signing. Use signet-badge to check trust before interacting with unfamiliar pubkeys. Use trust-score for the full three-dimensional view (verification + proximity + access). Use social-feed or social-notifications to get event IDs and author pubkeys before calling social-reply or social-react. DMs default to NIP-17 gift wrap (most private); only use NIP-04 if the recipient requires it. Respect vault tiers -- do not share decrypted content outside its intended audience. For less common actions, use search-actions to discover them, then execute-action to run them.',

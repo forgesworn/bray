@@ -63,6 +63,16 @@ For production use, prefer [Heartwood](https://github.com/forgesworn/heartwood) 
 }
 ```
 
+### Pair with a signer app (nostrconnect://)
+
+If your signer is an app such as Amber or nsec.app, let bray start the pairing instead of copying a `bunker://` URI out of it:
+
+```bash
+npx nostr-bray bunker pair --relay wss://relay.nsec.app
+```
+
+bray prints a `nostrconnect://` URI. Paste or scan it into the signer app and approve. bray then saves the signer, and the MCP server and CLI sign through it with no `BUNKER_URI` or key in your config. Pick a relay your signer app can reach; `--relay` can be repeated; without it bray uses `NOSTR_RELAYS`, then the relays in your config file. bray waits five minutes for the signer, or `--timeout <seconds>`. The pairing secret is single-use and is not saved. A `BUNKER_URI` or key you configure still takes precedence over the saved signer, and `bunker connect <bunker://…>` replaces it.
+
 ### Read-only (no key)
 
 Start the MCP server with no key or bunker and it runs read-only: it holds no signer and loads no wallet, so it cannot post, sign, send or read DMs, decrypt or pay. Only lookup tools are offered (feeds, profiles, search, relay and trust checks), and asking for anything else returns an error saying bray is read-only. Set `NOSTR_PUBKEY` to an npub to read from that account's perspective, for example its notifications. Set `BRAY_READ_ONLY=1` to force this mode even when a key or bunker is configured; a key file is then never opened. The CLI and SDK still require a signer.
@@ -87,7 +97,7 @@ Start the MCP server with no key or bunker and it runs read-only: it holds no si
 | Tier | Method | Key exposure |
 |------|--------|-------------|
 | **Heartwood** | Dedicated signing appliance (`BUNKER_URI`) | Key never leaves the signing device. Supports nsec-tree derivation, per-client permissions, and device-backed attestations. |
-| **Software bunker** | Any NIP-46 bunker (`BUNKER_URI`) | Key held by a separate process. Never seen by bray. |
+| **Software bunker** | Any NIP-46 bunker (`BUNKER_URI`, or `bunker pair` for signer apps) | Key held by a separate process. Never seen by bray. |
 | **ncryptsec** | NIP-49 encrypted key (`NOSTR_NCRYPTSEC`) | Key encrypted at rest, decrypted in memory at startup. |
 | **Key file** | File path (`NOSTR_SECRET_KEY_FILE`) | Key on disk, read once, env var deleted. |
 | **Env var** | Inline secret (`NOSTR_SECRET_KEY`) | Key visible in process environment. Use only for development. |

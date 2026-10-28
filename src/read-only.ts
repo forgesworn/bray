@@ -6,7 +6,7 @@ import type { PublicIdentity, SignFn } from './types.js'
 /** The one message every refused operation returns, so agents learn a single fix. */
 export const READ_ONLY_MESSAGE =
   'bray is read-only: no key or bunker is configured, so it cannot sign, encrypt, decrypt or pay. ' +
-  'Set BUNKER_URI (a NIP-46 signer) to enable signing.'
+  'Set BUNKER_URI (a NIP-46 signer), or run `npx nostr-bray bunker pair` to pair with a signer app, to enable signing.'
 
 const NO_PUBKEY_MESSAGE =
   'bray is read-only and has no identity: set NOSTR_PUBKEY (an npub) to read from that account\'s perspective.'

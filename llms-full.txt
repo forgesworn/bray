@@ -38,6 +38,7 @@ Single-process MCP server (stdio or HTTP transport) with 261 tools in 29 groups.
 
 *Authentication tiers (use exactly one):
 1. **Bunker** (NIP-46) -- most secure, keys never leave the signer
+   For a signer app (Amber, nsec.app), `npx nostr-bray bunker pair --relay <wss://…>` prints a nostrconnect:// URI to paste or scan into the app. Once the app answers, bray saves the signer (a secret-free bunker:// URI marked paired, plus the client key the app approved) in its state directory, and the MCP server and CLI sign through it with no BUNKER_URI. Options: `--relay` (repeatable; defaults to NOSTR_RELAYS, then the config file relays), `--timeout <seconds>` (default 300). An explicit BUNKER_URI or key takes precedence; `bunker connect` replaces the saved signer. A paired signer is checked with get_public_key on start, not sent connect again.
 2. **ncryptsec** (NIP-49) -- password-encrypted key, decrypted at startup
 3. **File** -- secret read from disk, deleted from process.env after parsing
 4. **Env var** -- quickest start, lowest security

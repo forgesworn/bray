@@ -1,6 +1,6 @@
 /**
  * Bunker command module.
- * bunker sign, bunker connect, bunker authorize, bunker status, and bunker daemon
+ * bunker sign, bunker connect, bunker pair, bunker authorize, bunker status, and bunker daemon
  * are all dispatched BEFORE ctx/pool setup in index.ts, so this module does its
  * own config/context construction.
  */
@@ -72,6 +72,63 @@ export async function dispatch(args: string[]): Promise<void> {
       saved: true,
     }, null, 2))
     process.exit(0)
+  }
+
+  // ── bunker pair [--relay <url>]... [--timeout <seconds>] ──────────────────
+  // Client-initiated NIP-46 pairing: print a nostrconnect:// URI to paste or
+  // scan into a signer app (Amber, nsec.app and others), wait for the signer
+  // to answer, then save it so later bray commands and the MCP server sign
+  // through it without BUNKER_URI.
+  if (args[1] === 'pair') {
+    const relays: string[] = []
+    let timeoutSeconds: number | undefined
+    for (let i = 2; i < args.length; i++) {
+      if (args[i] === '--relay' && args[i + 1]) relays.push(args[++i])
+      else if (args[i] === '--timeout' && args[i + 1]) timeoutSeconds = Number(args[++i])
+      else {
+        console.error('usage: bray bunker pair [--relay <wss://…>]... [--timeout <seconds>]')
+        process.exit(1)
+      }
+    }
+    if (timeoutSeconds !== undefined && (!Number.isInteger(timeoutSeconds) || timeoutSeconds < 1)) {
+      console.error('bunker pair: --timeout must be a whole number of seconds')
+      process.exit(1)
+    }
+    if (relays.length === 0 && process.env.NOSTR_RELAYS) {
+      relays.push(...process.env.NOSTR_RELAYS.split(','))
+    }
+    if (relays.length === 0) {
+      const { loadConfigFile } = await import('../../config.js')
+      relays.push(...(loadConfigFile().relays ?? []))
+    }
+    if (relays.length === 0) {
+      console.error('bunker pair: no relays. Pass --relay <wss://…> (one your signer app can reach), or set NOSTR_RELAYS.')
+      process.exit(1)
+    }
+
+    const { pairWithNostrConnect } = await import('../../bunker-pair.js')
+    try {
+      const result = await pairWithNostrConnect({
+        relays,
+        timeoutMs: timeoutSeconds === undefined ? undefined : timeoutSeconds * 1000,
+        allowPrivateRelays: process.env.BRAY_ALLOW_PRIVATE_RELAYS === '1',
+        onUri: uri => {
+          console.error('Paste or scan this into your signer app (Amber, nsec.app and others) to pair with bray:\n')
+          console.error(uri)
+          console.error('\nWaiting for the signer to answer...')
+        },
+      })
+      console.log(JSON.stringify({
+        paired: true,
+        npub: result.npub,
+        relays: result.relays,
+        saved: true,
+      }, null, 2))
+      process.exit(0)
+    } catch (err) {
+      console.error(`bunker pair: ${(err as Error).message}`)
+      process.exit(1)
+    }
   }
 
   // ── bunker authorize <app-pubkey> ───────────────────────────────────────────

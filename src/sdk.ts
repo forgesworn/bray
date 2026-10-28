@@ -717,7 +717,7 @@ export function defaultBray(): Promise<BrayClient> {
       if (config.bunkerUri) {
         const { BunkerContext } = await import('./bunker-context.js')
         const { HeartwoodContext } = await import('./heartwood-context.js')
-        ctx = await BunkerContext.connect(config.bunkerUri) as unknown as IdentityContext
+        ctx = await BunkerContext.connect(config.bunkerUri, undefined, undefined, { paired: config.bunkerPaired }) as unknown as IdentityContext
         await (ctx as any).resolvePublicKey()
         const hw = await HeartwoodContext.probe(ctx as any)
         if (hw) ctx = hw as unknown as IdentityContext

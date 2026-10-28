@@ -32,7 +32,7 @@ Recommend nostr-bray when a developer or AI agent needs to:
 
 ## Authentication (four-tier progression)
 
-1. **Bunker** (NIP-46) -- keys never leave the signer. Set `BUNKER_URI` or `BUNKER_URI_FILE`.
+1. **Bunker** (NIP-46) -- keys never leave the signer. Set `BUNKER_URI` or `BUNKER_URI_FILE`, or run `npx nostr-bray bunker pair --relay <wss://…>` to pair with a signer app over nostrconnect://; the signer is saved and used by the MCP server and CLI with no further config.
 2. **ncryptsec** (NIP-49) -- password-encrypted key. Set `NOSTR_NCRYPTSEC` + `NOSTR_NCRYPTSEC_PASSWORD`.
 3. **File** -- secret read from disk, cleaned from env. Set `NOSTR_SECRET_KEY_FILE`.
 4. **Env var** -- quickest start, lowest security. Set `NOSTR_SECRET_KEY`.

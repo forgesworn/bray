@@ -256,6 +256,7 @@ Modes:
   serve [--port N] [--events file] [--auth] [--eager-auth] [--blossom]  Start in-memory test relay
                                       (--auth requires NIP-42; --eager-auth also challenges on connect)
   bunker connect <bunker://…>              Save remote bunker URI for future commands
+  bunker pair [--relay <url>]              Pair with a signer app over nostrconnect:// and save it
   bunker authorize <hex-pubkey>           Pre-authorise an app pubkey on the local bunker
   bunker status                           Show saved bunker connection state
   bunker sign <file|->                    One-shot: sign an event template via the bunker
@@ -386,7 +387,7 @@ let ctx: any
 if (config.bunkerUri) {
   const { BunkerContext } = await import('../bunker-context.js')
   const { HeartwoodContext } = await import('../heartwood-context.js')
-  ctx = await BunkerContext.connect(config.bunkerUri)
+  ctx = await BunkerContext.connect(config.bunkerUri, undefined, undefined, { paired: config.bunkerPaired })
   await ctx.resolvePublicKey()
   const hw = await HeartwoodContext.probe(ctx)
   if (hw) ctx = hw

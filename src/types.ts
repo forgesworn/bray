@@ -54,6 +54,9 @@ export interface BrayConfig {
   readonly secretFormat: 'nsec' | 'hex' | 'mnemonic'
   readonly relays: string[]
   readonly bunkerUri?: string
+  /** The bunker URI came from `bunker pair` (nostrconnect://): the signer has
+   *  already approved this client, so no `connect` is sent on start. */
+  readonly bunkerPaired?: boolean
   readonly nwcUri?: string
   readonly walletsFile: string
   /** Whether the spending-authority wallet-service tools are registered (BRAY_WALLET_SERVICE=1). */

@@ -119,7 +119,7 @@ export function buildConnectParams(config: BunkerConfig): string[] {
   return [config.pubkey, config.connectSecret ?? '', '', JSON.stringify({ name: CLIENT_NAME })]
 }
 
-const CLIENT_KEYS_FILE = 'client-keys.json'
+export const CLIENT_KEYS_FILE = 'client-keys.json'
 
 /**
  * Resolve the client secret key for a given bunker.
@@ -149,23 +149,37 @@ export function resolveClientKey(
   return sk
 }
 
+export interface BunkerContextOptions {
+  /**
+   * The signer was paired over nostrconnect:// (`bunker pair`) and has
+   * already approved this client key. A paired signer is not sent `connect`
+   * again: the pairing secret was single-use, and NIP-46 does not require a
+   * paired client to reconnect. {@link BunkerContext.establish} checks it is
+   * reachable with `get_public_key` instead.
+   */
+  paired?: boolean
+}
+
 export class BunkerContext implements SigningContext {
   protected signer: BunkerSigner
   protected pool: SimplePool
   protected pubkeyHex: string | undefined
   private clientSk: Uint8Array
   private config: ReturnType<typeof parseBunkerUri>
+  private paired: boolean
 
   protected constructor(
     signer: BunkerSigner,
     pool: SimplePool,
     clientSk: Uint8Array,
     config: ReturnType<typeof parseBunkerUri>,
+    paired = false,
   ) {
     this.signer = signer
     this.pool = pool
     this.clientSk = clientSk
     this.config = config
+    this.paired = paired
   }
 
   /**
@@ -176,7 +190,7 @@ export class BunkerContext implements SigningContext {
    * "failed to connect" servers, a wedged startup turns a flaky signer into
    * a respawn loop that floods the bunker with `connect` requests.
    */
-  static create(uri: string, stateDir?: string): BunkerContext {
+  static create(uri: string, stateDir?: string, options: BunkerContextOptions = {}): BunkerContext {
     const config = parseBunkerUri(uri)
     const clientSk = resolveClientKey(config, stateDir)
     // Sign in (NIP-42) with the client key when a relay asks, so private
@@ -203,7 +217,7 @@ export class BunkerContext implements SigningContext {
     // identity pubkey is resolved lazily via resolvePublicKey().
     // The parsed config is retained so establish() can send the connect
     // handshake with its client-name metadata.
-    return new BunkerContext(signer, pool, clientSk, config)
+    return new BunkerContext(signer, pool, clientSk, config, options.paired === true)
   }
 
   /**
@@ -216,6 +230,12 @@ export class BunkerContext implements SigningContext {
    * signer is alive) and getPublicKey is deferred to first access.
    */
   async establish(timeoutMs = CONNECT_TIMEOUT_MS): Promise<void> {
+    if (this.paired) {
+      // Paired over nostrconnect://: no `connect`, just prove the signer
+      // answers this client, and cache the account it signs as.
+      this.pubkeyHex = await withTimeout(this.signer.getPublicKey(), timeoutMs, 'bunker get_public_key')
+      return
+    }
     // Sent via sendRequest (not signer.connect()) so params[3] can carry the
     // client-name metadata that signer approval screens display. nostr-tools'
     // connect() is literally sendRequest('connect', [pubkey, secret]);
@@ -232,8 +252,9 @@ export class BunkerContext implements SigningContext {
     uri: string,
     timeoutMs = CONNECT_TIMEOUT_MS,
     stateDir?: string,
+    options: BunkerContextOptions = {},
   ): Promise<BunkerContext> {
-    const ctx = BunkerContext.create(uri, stateDir)
+    const ctx = BunkerContext.create(uri, stateDir, options)
     try {
       await ctx.establish(timeoutMs)
     } catch (e) {

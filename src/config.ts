@@ -224,6 +224,7 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<BrayC
   )
 
   let bunkerUri: string | undefined
+  let bunkerPaired = false
   if (secretEnvironment.bunkerUriFile) {
     bunkerUri = readSecretFile(secretEnvironment.bunkerUriFile)
   } else if (secretEnvironment.bunkerUri) {
@@ -234,8 +235,11 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<BrayC
     // Fall back to the URI saved by `bunker connect` only when the caller has
     // not selected local signing for this invocation.
     const { readStateFile } = await import('./state.js')
-    const saved = readStateFile<{ uri?: string }>('bunker-uri')
-    if (saved.uri) bunkerUri = saved.uri
+    const saved = readStateFile<{ uri?: string; paired?: boolean }>('bunker-uri')
+    if (saved.uri) {
+      bunkerUri = saved.uri
+      bunkerPaired = saved.paired === true
+    }
   }
 
   // --- NIP-49 ncryptsec (password-encrypted key) ---
@@ -462,6 +466,7 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<BrayC
     secretFormat,
     relays,
     bunkerUri: bunkerUri ?? undefined,
+    bunkerPaired: bunkerUri ? bunkerPaired : undefined,
     nwcUri,
     walletsFile,
     torProxy,
