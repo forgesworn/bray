@@ -14,16 +14,15 @@
  */
 
 import { BunkerSigner } from 'nostr-tools/nip46'
-import { useWebSocketImplementation, SimplePool } from 'nostr-tools/pool'
+import { SimplePool } from 'nostr-tools/pool'
 import { generateSecretKey, finalizeEvent } from 'nostr-tools/pure'
 import { npubEncode } from 'nostr-tools/nip19'
-import { SafeWebSocket, webSocketFor } from './ws-safe.js'
+import { webSocketFor } from './ws-safe.js'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 import type { PublicIdentity, SignFn } from './types.js'
 import type { SigningContext } from './signing-context.js'
 import { readStateFile, writeStateFile } from './state.js'
 
-useWebSocketImplementation(SafeWebSocket)
 
 /** Bound the NIP-46 connect handshake. nostr-tools' BunkerSigner has no
  *  per-request timeout, so an offline signer or unreachable relays make the
