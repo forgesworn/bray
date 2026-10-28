@@ -71,7 +71,9 @@ If your signer is an app such as Amber or nsec.app, let bray start the pairing i
 npx nostr-bray bunker pair --relay wss://relay.nsec.app
 ```
 
-bray prints a `nostrconnect://` URI. Paste or scan it into the signer app and approve. bray then saves the signer, and the MCP server and CLI sign through it with no `BUNKER_URI` or key in your config. Pick a relay your signer app can reach; `--relay` can be repeated; without it bray uses `NOSTR_RELAYS`, then the relays in your config file. bray waits five minutes for the signer, or `--timeout <seconds>`. The pairing secret is single-use and is not saved. A `BUNKER_URI` or key you configure still takes precedence over the saved signer, and `bunker connect <bunker://…>` replaces it.
+bray prints a `nostrconnect://` URI. Paste or scan it into the signer app and approve. bray shows the account the signer will sign as and asks you to confirm it, then saves the signer, and the MCP server, CLI and SDK (`defaultBray()`) sign through it with no `BUNKER_URI` or key in your config.
+
+Treat the URI as a one-time credential: whoever answers it first becomes the signer bray uses, so do not paste it into a chat or leave it on a shared screen. Outside a terminal, pass `--expect <npub>` (the account you mean to sign as) or `--yes`. `bunker status` shows whether the saved signer was paired. If the app later forgets bray, run `bunker pair` again. With `TOR_PROXY` set, pairing accepts only `.onion` relays unless `ALLOW_CLEARNET_WITH_TOR=1`. Pick a relay your signer app can reach; `--relay` can be repeated; without it bray uses `NOSTR_RELAYS`, then the relays in your config file. bray waits five minutes for the signer, or `--timeout <seconds>`. The pairing secret is single-use and is not saved. A `BUNKER_URI` or key you configure still takes precedence over the saved signer, and `bunker connect <bunker://…>` replaces it.
 
 ### Read-only (no key)
 

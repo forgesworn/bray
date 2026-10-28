@@ -113,7 +113,7 @@ export interface RelayPoolConfig {
 /** Initialise WebSocket and create a real SimplePool — lazy-loaded to avoid side effects at import */
 async function createRealPool(torProxy?: string): Promise<PoolLike> {
   const { useWebSocketImplementation, SimplePool } = await import('nostr-tools/pool')
-  const WS = (await import('ws')).default
+  const { SafeWebSocket: WS } = await import('./ws-safe.js')
 
   if (torProxy) {
     // Route all WebSocket connections through the SOCKS5h proxy for Tor

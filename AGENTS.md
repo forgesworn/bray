@@ -30,6 +30,7 @@ src/
   read-only.ts          ReadOnlyContext (no signer) + the tool filter for read-only mode
   bunker-context.ts     NIP-46 BunkerContext + Heartwood extension probe
   bunker-pair.ts        nostrconnect:// pairing (`bunker pair`): saves the signer and its approved client key
+  ws-safe.ts            SafeWebSocket: `ws` that cannot crash the process when nostr-tools closes a connecting socket
   config.ts             Secret loading from env/files, format detection
   relay-pool.ts         Relay connections, SOCKS5h proxy, Tor policy, write queue
   nip65.ts              NIP-65 relay list (signature-verified, TTL cache)

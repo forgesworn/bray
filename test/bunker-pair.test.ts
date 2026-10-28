@@ -20,12 +20,14 @@ import { startRelay } from '../src/serve.js'
 import { startBunker } from '../src/bunker.js'
 import { IdentityContext } from '../src/context.js'
 import { BunkerContext, parseBunkerUri } from '../src/bunker-context.js'
-import { pairWithNostrConnect } from '../src/bunker-pair.js'
+import { pairWithNostrConnect, PairingDeclinedError } from '../src/bunker-pair.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
 const PORT = 19651
+const PORT_2 = 19652
 
 let relay: ReturnType<typeof startRelay>
+let relay2: ReturnType<typeof startRelay>
 let bunkerServer: ReturnType<typeof startBunker>
 let ctx: IdentityContext
 const bunkerSk = generateSecretKey()
@@ -56,7 +58,8 @@ function readState<T>(name: string): T {
 describe('bunker pair (nostrconnect://)', () => {
   beforeAll(async () => {
     relay = startRelay({ port: PORT, quiet: true })
-    await relay.ready
+    relay2 = startRelay({ port: PORT_2, quiet: true })
+    await Promise.all([relay.ready, relay2.ready])
     ctx = new IdentityContext(TEST_NSEC, 'nsec')
     bunkerServer = startBunker({
       ctx,
@@ -73,6 +76,7 @@ describe('bunker pair (nostrconnect://)', () => {
     bunkerServer.close()
     ctx.destroy()
     relay.close()
+    relay2.close()
   })
 
   beforeEach(() => {
@@ -173,6 +177,57 @@ describe('bunker pair (nostrconnect://)', () => {
       next.destroy()
     }
   }, 20_000)
+
+  it('saves nothing when the user declines the account', async () => {
+    let offered = ''
+    await expect(pairWithNostrConnect({
+      relays: [relay.url],
+      allowPrivateRelays: true,
+      timeoutMs: 10_000,
+      stateDir,
+      onUri: uri => { void answer(uri) },
+      confirm: async npub => { offered = npub; return false },
+    })).rejects.toBeInstanceOf(PairingDeclinedError)
+    expect(offered).toBe(ctx.activeNpub)
+    expect(() => readState('bunker-uri')).toThrow()
+    expect(() => readState('client-keys.json')).toThrow()
+  }, 20_000)
+
+  it('times out on time with several relays', async () => {
+    const started = Date.now()
+    await expect(pairWithNostrConnect({
+      relays: [relay.url, relay2.url],
+      allowPrivateRelays: true,
+      timeoutMs: 500,
+      stateDir,
+      onUri: () => {},
+    })).rejects.toThrow(/no signer answered within/)
+    expect(Date.now() - started).toBeLessThan(3_000)
+  })
+
+  it('reports unreachable relays rather than a timeout', async () => {
+    await expect(pairWithNostrConnect({
+      relays: ['ws://127.0.0.1:1'],
+      allowPrivateRelays: true,
+      timeoutMs: 10_000,
+      stateDir,
+      onUri: () => {},
+    })).rejects.toThrow(/could not listen on the relays/)
+  }, 15_000)
+
+  it('refuses clearnet relays when Tor is configured', async () => {
+    const onUri = () => { throw new Error('should not be called') }
+    await expect(pairWithNostrConnect({
+      relays: ['wss://relay.example.com'], torProxy: 'socks5h://127.0.0.1:9050', stateDir, onUri,
+    })).rejects.toThrow(/TOR_PROXY is set/)
+  })
+
+  it('a paired signer with no stored client key fails with a re-pair hint', () => {
+    const uri = `bunker://${bunkerPk}?relay=${encodeURIComponent(relay.url)}`
+    expect(() => BunkerContext.create(uri, stateDir, { paired: true })).toThrow(/bunker pair/)
+    // Not paired: a key is generated as before.
+    BunkerContext.create(uri, stateDir).destroy()
+  })
 
   it('rejects bad relay lists before showing a URI', async () => {
     const onUri = () => { throw new Error('should not be called') }

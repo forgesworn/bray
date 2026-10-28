@@ -104,7 +104,14 @@ if (config.readOnly) {
   const { BunkerContext } = await import('./bunker-context.js')
   // Bring the context up synchronously (no network) and connect in the
   // background so a flaky signer cannot wedge startup. See above.
-  const base = BunkerContext.create(config.bunkerUri, undefined, { paired: config.bunkerPaired })
+  let base: BunkerContext
+  try {
+    base = BunkerContext.create(config.bunkerUri, undefined, { paired: config.bunkerPaired })
+  } catch (e) {
+    // No network has happened yet, so exiting cannot flood the signer.
+    console.error((e as Error).message)
+    process.exit(1)
+  }
   ctx = base
   void establishBunkerInBackground(base)
 } else {

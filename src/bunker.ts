@@ -14,12 +14,12 @@ import { getConversationKey, encrypt, decrypt } from 'nostr-tools/nip44'
 import { finalizeEvent, getPublicKey, generateSecretKey } from 'nostr-tools/pure'
 import { npubEncode } from 'nostr-tools/nip19'
 import { useWebSocketImplementation, SimplePool } from 'nostr-tools/pool'
-import WebSocket from 'ws'
+import { SafeWebSocket } from './ws-safe.js'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 import type { IdentityContext } from './context.js'
 import { readStateFile, writeStateFile } from './state.js'
 
-useWebSocketImplementation(WebSocket)
+useWebSocketImplementation(SafeWebSocket)
 
 export interface BunkerOptions {
   ctx: IdentityContext
