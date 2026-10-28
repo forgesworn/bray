@@ -59,7 +59,10 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
     ...bunkerApprovals,
   ])
 
+  // Sign in (NIP-42) with the bunker key when a relay asks, so a private
+  // relay lets the bunker read requests addressed to it.
   const pool = new SimplePool()
+  pool.automaticallyAuth = () => async (template: EventTemplate) => finalizeEvent(template, bunkerSk)
 
   // Subscribe to kind 24133 events addressed to us
   const sub = pool.subscribeMany(
