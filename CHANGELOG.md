@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.6.0 (2026-10-28)
+
+### Features
+
+- start read-only when no signer is configured (#139)
+
+
+
 ## 3.5.4 (2026-10-28)
 
 ### Bug Fixes
