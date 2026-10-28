@@ -387,7 +387,7 @@ let ctx: any
 if (config.bunkerUri) {
   const { BunkerContext } = await import('../bunker-context.js')
   const { HeartwoodContext } = await import('../heartwood-context.js')
-  ctx = await BunkerContext.connect(config.bunkerUri, undefined, undefined, { paired: config.bunkerPaired })
+  ctx = await BunkerContext.connect(config.bunkerUri, undefined, undefined, { paired: config.bunkerPaired, torProxy: config.torProxy })
   await ctx.resolvePublicKey()
   const hw = await HeartwoodContext.probe(ctx)
   if (hw) ctx = hw

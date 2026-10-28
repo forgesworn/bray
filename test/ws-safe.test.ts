@@ -20,3 +20,22 @@ describe('SafeWebSocket', () => {
     expect(error).toBeDefined()
   })
 })
+
+describe('webSocketFor', () => {
+  it('is plain SafeWebSocket with no proxy and no options', async () => {
+    const { webSocketFor } = await import('../src/ws-safe.js')
+    expect(webSocketFor(undefined)).toBe(SafeWebSocket)
+  })
+
+  it('cannot connect through a dead proxy, so traffic really goes through it', async () => {
+    const { webSocketFor } = await import('../src/ws-safe.js')
+    const Proxied = webSocketFor('socks5h://127.0.0.1:1')
+    const ws = new Proxied('ws://127.0.0.1:19651')
+    const outcome = await new Promise<string>(resolve => {
+      ws.onopen = () => resolve('open')
+      ws.onerror = () => resolve('error')
+    })
+    expect(outcome).toBe('error')
+    expect(ws).toBeInstanceOf(SafeWebSocket)
+  })
+})

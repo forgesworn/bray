@@ -14,7 +14,7 @@ import { getConversationKey, encrypt, decrypt } from 'nostr-tools/nip44'
 import { finalizeEvent, getPublicKey, generateSecretKey } from 'nostr-tools/pure'
 import { npubEncode } from 'nostr-tools/nip19'
 import { useWebSocketImplementation, SimplePool } from 'nostr-tools/pool'
-import { SafeWebSocket } from './ws-safe.js'
+import { SafeWebSocket, webSocketFor } from './ws-safe.js'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 import type { IdentityContext } from './context.js'
 import { readStateFile, writeStateFile } from './state.js'
@@ -29,6 +29,7 @@ export interface BunkerOptions {
   quiet?: boolean
   heartwoodExtensions?: boolean
   stateDir?: string          // override state directory (for tests)
+  torProxy?: string          // TOR_PROXY: route relay traffic through this SOCKS proxy
 }
 
 export interface BunkerInstance {
@@ -61,7 +62,7 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
 
   // Sign in (NIP-42) with the bunker key when a relay asks, so a private
   // relay lets the bunker read requests addressed to it.
-  const pool = new SimplePool()
+  const pool = new SimplePool({ websocketImplementation: webSocketFor(opts.torProxy) } as ConstructorParameters<typeof SimplePool>[0])
   pool.automaticallyAuth = () => async (template: EventTemplate) => finalizeEvent(template, bunkerSk)
 
   // Subscribe to kind 24133 events addressed to us

@@ -274,7 +274,7 @@ Search order: `BRAY_CONFIG` env var > `$XDG_CONFIG_HOME/bray/config.json` > `~/.
 | `NOSTR_PUBKEY` | Read-only mode only: npub or hex to read as. A secret key here is rejected |
 | `BRAY_READ_ONLY` | Set `1` to run the MCP server with no signer even when a key or bunker is configured |
 | `NOSTR_FORBID_PUBKEY` | Comma-separated npubs or hex this process must never sign as. See below. |
-| `TOR_PROXY` | SOCKS5h proxy for Tor |
+| `TOR_PROXY` | SOCKS5h proxy for Tor; covers relay traffic, NIP-46 signer traffic and the bunker daemon |
 | `NIP04_ENABLED` | Set `1` to enable legacy NIP-04 DMs |
 | `TRUST_MODE` | `strict`, `annotate` (default) or `off`. See the config file section above |
 | `TRANSPORT` | `stdio` (default) or `http` |

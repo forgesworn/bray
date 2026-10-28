@@ -257,6 +257,16 @@ describe('bunker pair (nostrconnect://)', () => {
     })).rejects.toThrow(/could not reach any relay/)
   }, 20_000)
 
+  it('sends bunker signer traffic through the Tor proxy when one is set', async () => {
+    // Reachable directly (as the connect test shows), but not through a dead proxy.
+    const viaTor = BunkerContext.create(bunkerServer.url, stateDir, { torProxy: 'socks5h://127.0.0.1:1' })
+    try {
+      await expect(viaTor.establish(2_000)).rejects.toThrow(/timed out/)
+    } finally {
+      viaTor.destroy()
+    }
+  }, 10_000)
+
   it('a paired signer with no stored client key fails with a re-pair hint', () => {
     const uri = `bunker://${bunkerPk}?relay=${encodeURIComponent(relay.url)}`
     expect(() => BunkerContext.create(uri, stateDir, { paired: true })).toThrow(/bunker pair/)

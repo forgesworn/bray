@@ -106,7 +106,7 @@ if (config.readOnly) {
   // background so a flaky signer cannot wedge startup. See above.
   let base: BunkerContext
   try {
-    base = BunkerContext.create(config.bunkerUri, undefined, { paired: config.bunkerPaired })
+    base = BunkerContext.create(config.bunkerUri, undefined, { paired: config.bunkerPaired, torProxy: config.torProxy })
   } catch (e) {
     // No network has happened yet, so exiting cannot flood the signer.
     console.error((e as Error).message)

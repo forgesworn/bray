@@ -48,7 +48,10 @@ export async function dispatch(args: string[]): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let client: any
     try {
-      client = await BunkerContext.connect(uri)
+      const { loadConfigFile } = await import('../../config.js')
+      client = await BunkerContext.connect(uri, undefined, undefined, {
+        torProxy: process.env.TOR_PROXY ?? loadConfigFile().torProxy,
+      })
       await client.resolvePublicKey()
     } catch (err) {
       console.error(`bunker connect: failed to connect — ${(err as Error).message}`)
@@ -295,7 +298,11 @@ export async function dispatch(args: string[]): Promise<void> {
     const raw = filePath ? readFileSync(filePath, 'utf-8') : readFileSync(0, 'utf-8')
     const template = JSON.parse(raw) as Record<string, unknown>
 
-    const client = await BunkerContext.connect(bunkerUri, undefined, undefined, { paired })
+    const { loadConfigFile } = await import('../../config.js')
+    const client = await BunkerContext.connect(bunkerUri, undefined, undefined, {
+      paired,
+      torProxy: process.env.TOR_PROXY ?? loadConfigFile().torProxy,
+    })
     await client.resolvePublicKey()
 
     const sign = client.getSigningFunction()
@@ -355,6 +362,7 @@ export async function dispatch(args: string[]): Promise<void> {
     authorizedKeys,
     bunkerKeyHex,
     quiet: args.includes('--quiet'),
+    torProxy: config.torProxy,
   })
   console.error(`nostr-bray bunker running`)
   console.error(`URI: ${bunker.url}`)
