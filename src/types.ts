@@ -45,6 +45,11 @@ export interface PublishResult {
 
 /** Parsed configuration */
 export interface BrayConfig {
+  /** True when no signer is configured (or BRAY_READ_ONLY=1): no key, no
+   *  bunker, no wallet. Only the MCP server accepts this; see loadConfig. */
+  readonly readOnly: boolean
+  /** Read-only perspective from NOSTR_PUBKEY, as hex. Never a secret. */
+  readonly readOnlyPubkey?: string
   readonly secretKey: string
   readonly secretFormat: 'nsec' | 'hex' | 'mnemonic'
   readonly relays: string[]

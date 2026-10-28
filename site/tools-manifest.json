@@ -1,8 +1,8 @@
 {
   "name": "nostr-bray",
   "mcpName": "dev.forgesworn/bray",
-  "version": "3.5.0",
-  "description": "Trust-aware Nostr for AI and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
+  "version": "3.5.3",
+  "description": "Trust-aware Nostr MCP server, CLI and TypeScript SDK for AI agents and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "homepage": "https://bray.forgesworn.dev",
   "totalTools": 261,
   "promotedTools": 50,

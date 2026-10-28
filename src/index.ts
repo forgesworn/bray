@@ -11,8 +11,9 @@ import { ActionCatalog, createCatalogProxy, PROMOTED_TOOLS } from './catalog.js'
 import { registerAllTools } from './tool-groups.js'
 import { configureHttpClient } from './http-client.js'
 import { BRAY_VERSION } from './version.js'
+import { ReadOnlyContext, createReadOnlyFilter, READ_ONLY_MESSAGE } from './read-only.js'
 
-const config = await loadConfig()
+const config = await loadConfig({ allowReadOnly: true })
 // Route every fetch() in this process through the SOCKS proxy when Tor is
 // configured, before any HTTP-using code runs. Structural protection
 // against DNS/IP leaks; no callsite needs to opt in.
@@ -85,7 +86,21 @@ async function establishBunkerInBackground(base: BunkerContext): Promise<void> {
 }
 
 let ctx: SigningContext
-if (config.bunkerUri) {
+if (config.readOnly) {
+  // No signer of any kind. ReadOnlyContext refuses every sign, encrypt and
+  // decrypt, so a tool that slips past the filter below still cannot act.
+  ctx = new ReadOnlyContext(config.readOnlyPubkey)
+  console.error(
+    ctx.activeNpub
+      ? `Read-only mode: reading as ${ctx.activeNpub}. No key or bunker configured, so bray cannot sign or pay.`
+      : 'Read-only mode: no key or bunker configured, so bray cannot sign or pay. Set NOSTR_PUBKEY to read as an account.',
+  )
+  if (config.relays.length === 0) {
+    console.error('Read-only mode: NOSTR_RELAYS is empty, so lookups have no relays to query.')
+  }
+  if (ctx.activeNpub) loadIdentityRelays(ctx.activeNpub)
+} else if (config.bunkerUri) {
+  if (process.env.NOSTR_PUBKEY) console.error('NOSTR_PUBKEY is ignored: it applies only in read-only mode, and a signer is configured.')
   const { BunkerContext } = await import('./bunker-context.js')
   // Bring the context up synchronously (no network) and connect in the
   // background so a flaky signer cannot wedge startup. See above.
@@ -93,6 +108,7 @@ if (config.bunkerUri) {
   ctx = base
   void establishBunkerInBackground(base)
 } else {
+  if (process.env.NOSTR_PUBKEY) console.error('NOSTR_PUBKEY is ignored: it applies only in read-only mode, and a signer is configured.')
   ctx = new IdentityContext(config.secretKey, config.secretFormat, { forbidPubkeys: config.forbidPubkeys })
   // Said out loud, on stderr, every start. The alternative is asking the
   // agent which identity it holds, and an agent whose key is wrong will
@@ -105,7 +121,10 @@ if (config.bunkerUri) {
 
 // NIP-42: hand the pool a signer so it can answer AUTH challenges. Only takes
 // effect when authMode is not 'off' -- the pool checks the mode per operation.
-pool.setAuthSigner(async evt => ctx.getSigningFunction()(evt) as any)
+// Read-only mode has no signer, and loadConfig has already set authMode off.
+if (!config.readOnly) {
+  pool.setAuthSigner(async evt => ctx.getSigningFunction()(evt) as any)
+}
 
 const trust = new TrustContext(ctx, pool, {
   cacheTtl: config.trustCacheTtl,
@@ -127,14 +146,22 @@ export const deps = {
 // NIP-65 relay list is loaded via loadIdentityRelays(): immediately for a local
 // key, or after the bunker pubkey resolves (see establishBunkerInBackground).
 
+const READ_ONLY_INSTRUCTIONS = 'bray is running read-only: it has no key or bunker, so it cannot post, sign, send DMs, decrypt or pay, and only lookup tools are available. If the user wants to act on Nostr, tell them to configure a NIP-46 signer with BUNKER_URI. Use signet-badge and trust-score to judge unfamiliar pubkeys. For less common lookups, use search-actions to discover them, then execute-action to run them.'
+
 const server = new McpServer({ name: 'nostr-bray', version: BRAY_VERSION }, {
-  instructions: 'Always check whoami before posting or signing. Use signet-badge to check trust before interacting with unfamiliar pubkeys. Use trust-score for the full three-dimensional view (verification + proximity + access). Use social-feed or social-notifications to get event IDs and author pubkeys before calling social-reply or social-react. DMs default to NIP-17 gift wrap (most private); only use NIP-04 if the recipient requires it. Respect vault tiers -- do not share decrypted content outside its intended audience. For less common actions, use search-actions to discover them, then execute-action to run them.',
+  instructions: config.readOnly ? READ_ONLY_INSTRUCTIONS : 'Always check whoami before posting or signing. Use signet-badge to check trust before interacting with unfamiliar pubkeys. Use trust-score for the full three-dimensional view (verification + proximity + access). Use social-feed or social-notifications to get event IDs and author pubkeys before calling social-reply or social-react. DMs default to NIP-17 gift wrap (most private); only use NIP-04 if the recipient requires it. Respect vault tiers -- do not share decrypted content outside its intended audience. For less common actions, use search-actions to discover them, then execute-action to run them.',
 })
 
 // Promoted tools are registered directly with the server (always visible to Claude).
 // Everything else goes to the catalog, discoverable via search-actions + execute-action.
 const catalog = new ActionCatalog()
-const proxy = createCatalogProxy(server, catalog, PROMOTED_TOOLS)
+const catalogProxy = createCatalogProxy(server, catalog, PROMOTED_TOOLS)
+// In read-only mode, filter before the catalog proxy so promoted tools and the
+// execute-action catalog both see only read-only tools.
+const readOnlyDropped: string[] = []
+const proxy = config.readOnly
+  ? createReadOnlyFilter(catalogProxy, readOnlyDropped, { hasIdentity: config.readOnlyPubkey !== undefined })
+  : catalogProxy
 
 // Register all tools. The proxy routes promoted ones to the server and the
 // rest to the catalog.
@@ -146,8 +173,12 @@ registerAllTools(proxy, deps, {
 })
 
 // Add search-actions and execute-action meta-tools to the real server
-catalog.registerMetaTools(server)
+catalog.registerMetaTools(server, { readOnly: config.readOnly })
 console.error(`nostr-bray: ${catalog.promotedCount} promoted tools + ${catalog.size} cataloged (${catalog.promotedCount + catalog.size + 2} total)`)
+if (config.readOnly) {
+  catalog.markUnavailable(readOnlyDropped, READ_ONLY_MESSAGE)
+  console.error(`nostr-bray: read-only, ${readOnlyDropped.length} signing, decrypting, wallet and other non-read-only tools left out`)
+}
 
 if (config.transport === 'stdio') {
   const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js')

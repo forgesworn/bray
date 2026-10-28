@@ -6,22 +6,43 @@
     "url": "https://github.com/forgesworn/bray",
     "source": "github"
   },
-  "version": "3.4.3",
+  "version": "3.5.3",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "nostr-bray",
-      "version": "3.4.3",
+      "version": "3.5.3",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
-          "description": "Nostr secret key (nsec, hex, or BIP-39 mnemonic)",
-          "isRequired": true,
+          "description": "NIP-46 bunker URI (bunker://...). The safest way to sign: the key stays in the signer",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true,
+          "name": "BUNKER_URI"
+        },
+        {
+          "description": "Nostr secret key (nsec, hex, or BIP-39 mnemonic). Optional: prefer BUNKER_URI. With no key or bunker, bray runs read-only",
+          "isRequired": false,
           "format": "string",
           "isSecret": true,
           "name": "NOSTR_SECRET_KEY"
+        },
+        {
+          "description": "Read-only mode: npub or hex public key to read as. Never a secret key",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "NOSTR_PUBKEY"
+        },
+        {
+          "description": "Set to 1 to run with no signer and no wallet, offering lookup tools only, even when a key or bunker is configured",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "BRAY_READ_ONLY"
         },
         {
           "description": "Comma-separated list of Nostr relay WebSocket URLs",

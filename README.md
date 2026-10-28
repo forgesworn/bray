@@ -63,6 +63,25 @@ For production use, prefer [Heartwood](https://github.com/forgesworn/heartwood) 
 }
 ```
 
+### Read-only (no key)
+
+Start the MCP server with no key or bunker and it runs read-only: it holds no signer and loads no wallet, so it cannot post, sign, send or read DMs, decrypt or pay. Only lookup tools are offered (feeds, profiles, search, relay and trust checks), and asking for anything else returns an error saying bray is read-only. Set `NOSTR_PUBKEY` to an npub to read from that account's perspective, for example its notifications. Set `BRAY_READ_ONLY=1` to force this mode even when a key or bunker is configured; a key file is then never opened. The CLI and SDK still require a signer.
+
+```json
+{
+  "mcpServers": {
+    "nostr": {
+      "command": "npx",
+      "args": ["nostr-bray"],
+      "env": {
+        "NOSTR_PUBKEY": "npub1...",
+        "NOSTR_RELAYS": "wss://relay.damus.io,wss://nos.lol"
+      }
+    }
+  }
+}
+```
+
 ### Auth tiers (best to worst)
 
 | Tier | Method | Key exposure |
@@ -240,6 +259,8 @@ Search order: `BRAY_CONFIG` env var > `$XDG_CONFIG_HOME/bray/config.json` > `~/.
 | `DISPATCH_IDENTITIES` | Path to the dispatch identities markdown table (name and hex pubkey). The dispatch tools are registered only when this is set; `dispatchIdentities` in the config file does the same |
 | `BRAY_HOME` | Directory for bray's state files (default `$XDG_CONFIG_HOME/bray`, else `~/.config/bray`) |
 | `NOSTR_RELAYS` | Comma-separated relay URLs |
+| `NOSTR_PUBKEY` | Read-only mode only: npub or hex to read as. A secret key here is rejected |
+| `BRAY_READ_ONLY` | Set `1` to run the MCP server with no signer even when a key or bunker is configured |
 | `NOSTR_FORBID_PUBKEY` | Comma-separated npubs or hex this process must never sign as. See below. |
 | `TOR_PROXY` | SOCKS5h proxy for Tor |
 | `NIP04_ENABLED` | Set `1` to enable legacy NIP-04 DMs |
@@ -439,6 +460,8 @@ bray.destroy() // zeroise key material
 - **[Usage Guide](./docs/guide.md)** -- walkthroughs for identity, DMs, attestations, payments, and duress
 - **[Examples](./examples/)** -- MCP config files and CLI workflow scripts
 - **[Contributing](./CONTRIBUTING.md)** -- setup, architecture, testing, and conventions
+- **[Privacy](./PRIVACY.md)** -- what bray sends where (it runs on your machine; no telemetry)
+- **Cursor plugin** -- [`.cursor-plugin/`](./.cursor-plugin/) installs bray as a Cursor plugin, read-only until you give it a `BUNKER_URI`
 
 ## For AI Assistants
 
