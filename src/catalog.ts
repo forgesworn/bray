@@ -47,6 +47,12 @@ export class ActionCatalog {
   private readonly entries = new Map<string, CatalogEntry>()
   /** Promoted tools actually registered on the server, as counted by the proxy. */
   promotedCount = 0
+  /** Names left out of this server (read-only mode) and the reason given if one is called. */
+  private unavailable: { names: ReadonlySet<string>; reason: string } | undefined
+
+  markUnavailable(names: Iterable<string>, reason: string): void {
+    this.unavailable = { names: new Set(names), reason }
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   add(name: string, definition: any, handler: ToolHandler): void {
@@ -89,6 +95,14 @@ export class ActionCatalog {
     params: Record<string, unknown>,
   ): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
     const entry = this.entries.get(name)
+    if (!entry && this.unavailable?.names.has(name)) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({ error: this.unavailable.reason, action: name }),
+        }],
+      }
+    }
     if (!entry) {
       return {
         content: [{
@@ -133,16 +147,19 @@ export class ActionCatalog {
     return entry.handler(result.data)
   }
 
-  registerMetaTools(server: McpServer): void {
+  registerMetaTools(server: McpServer, options: { readOnly?: boolean } = {}): void {
     const catalog = this
 
     server.registerTool('search-actions', {
       description:
         `Search ${catalog.size} additional actions by describing what you want to do. ` +
         'Returns matching actions with names, descriptions, and parameter schemas. ' +
-        'Use this when the promoted tools (whoami, social-post, social-reply, social-feed, ' +
-        'dm-send, dm-read, zap-balance, identity-switch, relay-query) ' +
-        'do not cover what you need.',
+        (options.readOnly
+          ? 'bray is read-only, so only lookup actions are listed. Use this when the promoted tools ' +
+            '(whoami, social-feed, relay-query, search-notes, search-profiles, trust-score) do not cover what you need.'
+          : 'Use this when the promoted tools (whoami, social-post, social-reply, social-feed, ' +
+            'dm-send, dm-read, zap-balance, identity-switch, relay-query) ' +
+            'do not cover what you need.'),
       inputSchema: {
         intent: z.string().describe(
           'Describe what you want to do (e.g. "upload a file", "verify an attestation", ' +

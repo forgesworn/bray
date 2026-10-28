@@ -27,6 +27,7 @@ src/
   context.ts            IdentityContext: master key, LRU cache, derive, sign, zeroise
   trust-context.ts      TrustContext: verification (Signet) + proximity (WoT) + access (Dominion)
   signing-context.ts    SigningContext interface (local key or NIP-46 bunker)
+  read-only.ts          ReadOnlyContext (no signer) + the tool filter for read-only mode
   bunker-context.ts     NIP-46 BunkerContext + Heartwood extension probe
   config.ts             Secret loading from env/files, format detection
   relay-pool.ts         Relay connections, SOCKS5h proxy, Tor policy, write queue
@@ -121,7 +122,8 @@ Extra care when modifying:
 
 - `src/context.ts`: key material lifecycle, zeroise on eviction/destroy
 - `src/zap/handlers.ts`: NWC capability lifecycle and verified payment results
-- `src/config.ts`: secret loading and env var cleanup
+- `src/config.ts`: secret loading and env var cleanup; read-only mode is decided before any secret is read
+- `src/read-only.ts`: read-only mode. The context refusing to sign is the guarantee; the tool filter only keeps the list honest. A new tool marked `readOnlyHint: true` that needs a key, a wallet or keyed-server state belongs in `READ_ONLY_EXCLUDED`
 - `src/relay-pool.ts`: Tor policy enforcement
 - `src/nip65.ts`: event signature verification
 - `src/index.ts`: HTTP auth (Bearer token, timing-safe), rate limiting, body size limits

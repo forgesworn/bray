@@ -5,6 +5,7 @@ import type { BrayConfig } from './types.js'
 import type { AuthMode } from './relay-pool.js'
 import { readNwcUriFile } from './zap/nwc-file.js'
 import { paymentLimitsFromEnv } from './zap/payment-guard.js'
+import { decode as decodeNip19 } from 'nostr-tools/nip19'
 
 const NSEC_RE = /^nsec1[a-z0-9]{58}$/
 const HEX_RE = /^[0-9a-f]{64}$/
@@ -119,12 +120,62 @@ export function loadConfigFile(): ConfigFile {
   return {}
 }
 
+/**
+ * Parse BRAY_READ_ONLY. Strict on purpose: someone who writes
+ * BRAY_READ_ONLY=yes expects bray not to sign, so an unrecognised value is a
+ * startup error rather than a silent "off".
+ */
+export function parseReadOnlyFlag(raw: string | undefined): boolean {
+  if (raw == null || raw.trim() === '') return false
+  const v = raw.trim().toLowerCase()
+  if (['1', 'true', 'on', 'yes'].includes(v)) return true
+  if (['0', 'false', 'off', 'no'].includes(v)) return false
+  throw new Error('Invalid BRAY_READ_ONLY value. Expected 1 or 0.')
+}
+
+/**
+ * Parse NOSTR_PUBKEY (npub or 64 hex) for read-only mode. The value is never
+ * echoed in an error, because a pasted secret would land in logs.
+ */
+export function parseReadOnlyPubkey(raw: string | undefined): string | undefined {
+  if (raw == null || raw.trim() === '') return undefined
+  const v = raw.trim()
+  if (/^[0-9a-fA-F]{64}$/.test(v)) return v.toLowerCase()
+  const lower = v.toLowerCase()
+  if (lower.startsWith('nsec1') || lower.startsWith('ncryptsec1')) {
+    throw new Error('NOSTR_PUBKEY wants a public key (npub), but holds a secret key. Treat that key as exposed.')
+  }
+  if (lower.startsWith('npub1')) {
+    try {
+      const decoded = decodeNip19(v)
+      if (decoded.type === 'npub') return decoded.data as string
+    } catch { /* fall through to the generic error */ }
+  }
+  throw new Error('NOSTR_PUBKEY must be an npub or 64 hex characters.')
+}
+
+export interface LoadConfigOptions {
+  /**
+   * Start read-only when no key or bunker is configured, instead of failing.
+   * Only the MCP server sets this: the CLI and SDK keep the hard error, and
+   * BRAY_READ_ONLY=1 is refused there rather than ignored.
+   */
+  allowReadOnly?: boolean
+}
+
 /** Load configuration from config file, environment variables, and secret files.
  *  Priority: env vars > config file > defaults */
-export async function loadConfig(): Promise<BrayConfig> {
+export async function loadConfig(options: LoadConfigOptions = {}): Promise<BrayConfig> {
+  // Decided before any secret is read: BRAY_READ_ONLY=1 must never open a key
+  // file, decrypt an ncryptsec, read a saved bunker URI or load a wallet.
+  const forcedReadOnly = parseReadOnlyFlag(process.env.BRAY_READ_ONLY)
+  if (forcedReadOnly && !options.allowReadOnly) {
+    throw new Error('BRAY_READ_ONLY is supported by the MCP server only; the CLI and SDK need a signer.')
+  }
+
   // Capture then remove bearer credentials before any parsing or validation can
   // throw. This keeps failure paths from leaving secrets in process.env.
-  const secretEnvironment = {
+  const capturedSecrets = {
     secretKey: process.env.NOSTR_SECRET_KEY,
     secretKeyFile: process.env.NOSTR_SECRET_KEY_FILE,
     bunkerUri: process.env.BUNKER_URI,
@@ -149,8 +200,14 @@ export async function loadConfig(): Promise<BrayConfig> {
 
   const file = loadConfigFile()
 
+  // In forced read-only mode the secret sources are blanked here, so every
+  // branch below finds nothing to read. The env vars were deleted above.
+  const secretEnvironment: Partial<typeof capturedSecrets> = forcedReadOnly ? {} : capturedSecrets
+  const secretFile: Pick<ConfigFile, 'secretKeyFile' | 'bunkerUriFile' | 'nwcUriFile' | 'ncryptsecFile' | 'ncryptsecPassword' | 'ncryptsecPasswordFile'> =
+    forcedReadOnly ? {} : file
+
   // --- Secret key ---
-  const keyFilePath = secretEnvironment.secretKeyFile ?? file.secretKeyFile
+  const keyFilePath = secretEnvironment.secretKeyFile ?? secretFile.secretKeyFile
   const keyEnvVar = secretEnvironment.secretKey
   let secretKey: string
 
@@ -163,7 +220,7 @@ export async function loadConfig(): Promise<BrayConfig> {
     || keyEnvVar
     || secretEnvironment.ncryptsecFile
     || secretEnvironment.ncryptsec
-    || file.ncryptsecFile
+    || secretFile.ncryptsecFile
   )
 
   let bunkerUri: string | undefined
@@ -171,9 +228,9 @@ export async function loadConfig(): Promise<BrayConfig> {
     bunkerUri = readSecretFile(secretEnvironment.bunkerUriFile)
   } else if (secretEnvironment.bunkerUri) {
     bunkerUri = secretEnvironment.bunkerUri
-  } else if (file.bunkerUriFile) {
-    bunkerUri = readSecretFile(file.bunkerUriFile)
-  } else if (!hasLocalKeySource) {
+  } else if (secretFile.bunkerUriFile) {
+    bunkerUri = readSecretFile(secretFile.bunkerUriFile)
+  } else if (!hasLocalKeySource && !forcedReadOnly) {
     // Fall back to the URI saved by `bunker connect` only when the caller has
     // not selected local signing for this invocation.
     const { readStateFile } = await import('./state.js')
@@ -186,14 +243,14 @@ export async function loadConfig(): Promise<BrayConfig> {
     ? readSecretFile(secretEnvironment.ncryptsecFile)
     : secretEnvironment.ncryptsec
       ? secretEnvironment.ncryptsec
-      : file.ncryptsecFile
-        ? readSecretFile(file.ncryptsecFile)
+      : secretFile.ncryptsecFile
+        ? readSecretFile(secretFile.ncryptsecFile)
         : undefined
   // Password source precedence: env-var > env-file > config-file > inline-config.
   // Prefer file-based sources so the password can be delivered via systemd
   // credentials, docker secrets, or similar secure channels and never appears
   // in the process environment or config JSON.
-  const ncryptsecPasswordFile = secretEnvironment.ncryptsecPasswordFile ?? file.ncryptsecPasswordFile
+  const ncryptsecPasswordFile = secretEnvironment.ncryptsecPasswordFile ?? secretFile.ncryptsecPasswordFile
   let ncryptsecPasswordBuf: Buffer | null = null
   let ncryptsecPassword: string | undefined
   if (secretEnvironment.ncryptsecPassword) {
@@ -207,8 +264,8 @@ export async function loadConfig(): Promise<BrayConfig> {
     if (len > 0 && ncryptsecPasswordBuf[len - 1] === 0x0a) len -= 1
     if (len > 0 && ncryptsecPasswordBuf[len - 1] === 0x0d) len -= 1
     ncryptsecPassword = ncryptsecPasswordBuf.subarray(0, len).toString('utf-8')
-  } else if (file.ncryptsecPassword) {
-    ncryptsecPassword = file.ncryptsecPassword
+  } else if (secretFile.ncryptsecPassword) {
+    ncryptsecPassword = secretFile.ncryptsecPassword
   }
 
   if (ncryptsec) {
@@ -242,20 +299,35 @@ export async function loadConfig(): Promise<BrayConfig> {
   } else if (bunkerUri) {
     // Bunker mode — no local secret needed
     secretKey = ''
+  } else if (options.allowReadOnly) {
+    // No signer at all: the MCP server starts read-only rather than failing.
+    secretKey = ''
   } else {
     throw new Error('No secret key provided: set NOSTR_SECRET_KEY, NOSTR_SECRET_KEY_FILE, NOSTR_NCRYPTSEC, BUNKER_URI, or use a config file (~/.config/bray/config.json)')
   }
+
+  // Read-only means no signer of any kind, whether forced or because nothing
+  // was configured. Everything that can spend or sign is switched off below.
+  const readOnly = forcedReadOnly || (!secretKey && !bunkerUri)
+  // A signer that was configured but came back empty (an empty key or bunker
+  // file) is a mistake to report, not a request for read-only mode.
+  const configuredSigner = hasLocalKeySource
+    || secretEnvironment.bunkerUriFile || secretEnvironment.bunkerUri || secretFile.bunkerUriFile
+  if (readOnly && !forcedReadOnly && configuredSigner) {
+    throw new Error('A key or bunker source is configured but empty. Fix it, or set BRAY_READ_ONLY=1 to run without a signer.')
+  }
+  const readOnlyPubkey = readOnly ? parseReadOnlyPubkey(process.env.NOSTR_PUBKEY) : undefined
 
   const secretFormat = secretKey ? detectKeyFormat(secretKey) : 'nsec' as const
 
   // --- NWC URI ---
   const rawNwcUri = secretEnvironment.nwcUri
-  const nwcFilePath = secretEnvironment.nwcUriFile ?? file.nwcUriFile
+  const nwcFilePath = secretEnvironment.nwcUriFile ?? secretFile.nwcUriFile
   if (rawNwcUri) {
     throw new Error('NWC_URI is disabled because bearer wallet credentials must not be stored in environment variables; use NWC_URI_FILE')
   }
   let nwcUri: string | undefined
-  if (nwcFilePath) {
+  if (nwcFilePath && !readOnly) {
     nwcUri = readNwcUriFile(nwcFilePath)
   }
   // A mistyped spending ceiling is a startup error, not a silent default.
@@ -353,7 +425,39 @@ export async function loadConfig(): Promise<BrayConfig> {
     ?? file.walletsFile
     ?? (process.env.HOME ? `${process.env.HOME}/.nostr/bray-wallets.json` : '')
 
+  if (readOnly) {
+    return {
+      readOnly: true,
+      ...(readOnlyPubkey ? { readOnlyPubkey } : {}),
+      secretKey: '',
+      secretFormat,
+      relays,
+      bunkerUri: undefined,
+      nwcUri: undefined,
+      walletsFile: '',
+      torProxy,
+      allowClearnetWithTor,
+      allowPrivateRelays,
+      // No signer to answer NIP-42 challenges with.
+      authMode: 'off',
+      nip04Enabled,
+      veilCacheTtl,
+      veilCacheMax,
+      trustCacheTtl,
+      trustCacheMax,
+      trustMode,
+      vaultEpochLength,
+      transport,
+      port,
+      bindAddress,
+      dispatchIdentities: undefined,
+      forbidPubkeys,
+      walletService: false,
+    }
+  }
+
   return {
+    readOnly: false,
     secretKey,
     secretFormat,
     relays,

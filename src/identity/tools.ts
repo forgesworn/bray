@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isReadOnlyContext } from '../read-only.js'
 import { toolResponse } from '../tool-response.js'
 import * as fmt from '../format.js'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -42,6 +43,13 @@ export function registerIdentityTools(server: McpServer, deps: ToolDeps): void {
     description: 'Returns the active identity\'s npub. The simplest way to check which identity is currently in use.',
     annotations: { readOnlyHint: true },
   }, async () => {
+    // Read-only mode has no signer; say so rather than let an npub imply one.
+    if (isReadOnlyContext(deps.ctx)) {
+      const text = deps.ctx.hasIdentity
+        ? `${deps.ctx.activeNpub} (read-only: reading as this npub, cannot sign)`
+        : 'read-only: no identity and no signer configured'
+      return { content: [{ type: 'text' as const, text }] }
+    }
     return {
       content: [{ type: 'text' as const, text: deps.ctx.activeNpub }],
     }

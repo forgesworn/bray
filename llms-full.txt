@@ -18,6 +18,8 @@ Single-process MCP server (stdio or HTTP transport) with 261 tools in 29 groups.
 | NOSTR_SECRET_KEY_FILE | Tier 3* | Path to file containing the secret key |
 | NOSTR_SECRET_KEY | Tier 4* | nsec bech32, 64-char hex, or BIP-39 mnemonic |
 | NOSTR_RELAYS | Yes | Comma-separated relay WebSocket URLs |
+| NOSTR_PUBKEY | No | Read-only mode only: npub or hex to read as |
+| BRAY_READ_ONLY | No | Set to "1" to run the MCP server with no signer even when a key or bunker is configured |
 | NWC_URI_FILE | No | Path to a private 0600 file containing the NWC URI. The wallet must support NIP-44 v2; give the connection a budget in the wallet, which is the hard spending limit |
 | BRAY_MAX_PAYMENT_MSAT | No | bray's ceiling on one payment in msat (default 5000000) |
 | BRAY_MAX_DAILY_MSAT | No | bray's ceiling on spending in any rolling 24 hours in msat (default 20000000) |
@@ -39,6 +41,8 @@ Single-process MCP server (stdio or HTTP transport) with 261 tools in 29 groups.
 2. **ncryptsec** (NIP-49) -- password-encrypted key, decrypted at startup
 3. **File** -- secret read from disk, deleted from process.env after parsing
 4. **Env var** -- quickest start, lowest security
+
+With none of them, the MCP server starts read-only: no signer and no wallet are loaded, only lookup tools are offered, and any other action returns a read-only error. The CLI and SDK still require one tier.
 
 Secret env vars are deleted from process.env after parsing.
 
