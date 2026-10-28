@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.6.1 (2026-10-28)
+
+### Bug Fixes
+
+- pin nostr-tools to 2.24.1 so a slow relay cannot crash bray (#141)
+
+
+
 ## 3.6.0 (2026-10-28)
 
 ### Features
