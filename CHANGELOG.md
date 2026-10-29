@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.7.1 (2026-10-29)
+
+### Bug Fixes
+
+- update @hono/node-server to 2.1.5 for GHSA-rmxm-3fg6-px4f (#144)
+
+
+
 ## 3.7.0 (2026-10-29)
 
 ### Features
