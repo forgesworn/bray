@@ -136,7 +136,7 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
     // An unreadable file is left alone rather than replaced by this one key.
     const current = readStateFileStrict<Record<string, string[]>>(APPROVALS_FILE, opts.stateDir)
     if (current === null) {
-      log(`approved-clients.json is unreadable, so this approval is not saved and the client is refused until the file is fixed: ${clientPk.slice(0, 12)}...`)
+      log(`approved-clients.json is unreadable, so this approval is not saved; once the file is fixed this client needs a fresh link: ${clientPk.slice(0, 12)}...`)
       return
     }
     const onDisk = Array.isArray(current[bunkerPk]) ? current[bunkerPk] : []
