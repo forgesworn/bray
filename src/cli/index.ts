@@ -258,6 +258,7 @@ Modes:
   bunker connect <bunker://…>              Save remote bunker URI for future commands
   bunker pair [--relay <url>] [--expect <npub>]  Pair with a signer app over nostrconnect:// and save it
   bunker authorize <hex-pubkey>           Pre-authorise an app pubkey on the local bunker
+  bunker revoke <hex-pubkey|npub>         Withdraw an app's approval, even from a running daemon
   bunker status                           Show saved bunker connection state
   bunker sign <file|->                    One-shot: sign an event template via the bunker (or the saved signer)
   bunker daemon [--profile N] [--persona N] [--authorized-keys pk,pk] [--open]  Start NIP-46 remote signer daemon

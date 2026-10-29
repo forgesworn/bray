@@ -18,7 +18,7 @@ import { SimplePool } from 'nostr-tools/pool'
 import { webSocketFor } from './ws-safe.js'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 import type { IdentityContext } from './context.js'
-import { readStateFile, writeStateFile } from './state.js'
+import { readStateFile, readStateFileStrict, writeStateFile } from './state.js'
 
 
 export interface BunkerOptions {
@@ -39,10 +39,28 @@ export interface BunkerOptions {
   onUrlChange?: (url: string) => void
 }
 
+/**
+ * Remove a client pubkey from every bunker key's approvals in
+ * approved-clients.json. A running daemon notices on the client's next
+ * request. Returns how many bunker keys had approved it.
+ */
+export function revokeClient(clientPk: string, stateDir?: string): number {
+  const file = readStateFileStrict<Record<string, unknown>>('approved-clients.json', stateDir)
+  if (file === null) throw new Error('approved-clients.json in the bray state directory is unreadable; fix it or move it aside, then retry')
+  let removed = 0
+  for (const [bunker, list] of Object.entries(file)) {
+    if (!Array.isArray(list) || !list.includes(clientPk)) continue
+    file[bunker] = list.filter(pk => pk !== clientPk)
+    removed++
+  }
+  if (removed > 0) writeStateFile('approved-clients.json', file, stateDir)
+  return removed
+}
+
 export interface BunkerInstance {
   /** bunker:// URI for clients. Carries the current connect secret, so it changes once used. */
   readonly url: string
-  /** Client pubkeys approved in earlier runs (from approved-clients.json), at start. */
+  /** Client pubkeys approved for this bunker key (approved-clients.json). A revoked key leaves this list at that client's next request. */
   approvedClients: readonly string[]
   /** Whether a new client needs the connect secret (false with authorizedKeys or open). */
   requiresSecret: boolean
@@ -77,6 +95,9 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
   // unless the daemon runs open. Clients approved earlier never need it.
   const allowList = cliAuthorizedKeys.size > 0
   const requireSecret = !allowList && opts.open !== true
+  // Open: any client is served and nothing is saved, so a stranger who found
+  // the link is not approved for a later daemon run without --open.
+  const openMode = !allowList && !requireSecret
   // The unused secret is kept per bunker key, so a link handed out before a
   // restart still works. Only for a persistent bunker key: an ephemeral one
   // gets a new link every run anyway.
@@ -106,13 +127,20 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
   }
 
   function approve(clientPk: string): void {
+    if (openMode) return
     authorizedKeys.add(clientPk)
     if (bunkerApprovals.includes(clientPk)) return
     bunkerApprovals.push(clientPk)
-    // Merge with the file, so a key added meanwhile by `bunker authorize` stays.
-    const current = readStateFile<Record<string, string[]>>(APPROVALS_FILE, opts.stateDir)
+    // Add just this key to the file, so a key added meanwhile by `bunker
+    // authorize` stays and a key removed by `bunker revoke` stays removed.
+    // An unreadable file is left alone rather than replaced by this one key.
+    const current = readStateFileStrict<Record<string, string[]>>(APPROVALS_FILE, opts.stateDir)
+    if (current === null) {
+      log(`approved-clients.json is unreadable, so this approval is not saved; once the file is fixed this client needs a fresh link: ${clientPk.slice(0, 12)}...`)
+      return
+    }
     const onDisk = Array.isArray(current[bunkerPk]) ? current[bunkerPk] : []
-    current[bunkerPk] = [...new Set([...onDisk, ...bunkerApprovals])]
+    current[bunkerPk] = [...new Set([...onDisk, clientPk])]
     writeStateFile(APPROVALS_FILE, current, opts.stateDir)
     log(`Approved and persisted client: ${clientPk.slice(0, 12)}...`)
   }
@@ -137,8 +165,32 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
     },
   )
 
+  // `bunker revoke` edits the approvals file while the daemon runs, so a
+  // client approved in memory is checked against the file before each request.
+  function stillApproved(clientPk: string): boolean {
+    if (cliAuthorizedKeys.has(clientPk)) return true
+    const current = readStateFileStrict<Record<string, string[]>>(APPROVALS_FILE, opts.stateDir)
+    if (current === null) {
+      // Fail closed, but keep the in-memory approval for when the file is fixed.
+      log(`approved-clients.json is unreadable, so refused: ${clientPk.slice(0, 12)}...`)
+      return false
+    }
+    const onDisk = Array.isArray(current[bunkerPk]) ? current[bunkerPk] : []
+    if (onDisk.includes(clientPk)) return true
+    authorizedKeys.delete(clientPk)
+    const i = bunkerApprovals.indexOf(clientPk)
+    if (i >= 0) bunkerApprovals.splice(i, 1)
+    log(`Client no longer in approved-clients.json, so refused: ${clientPk.slice(0, 12)}...`)
+    return false
+  }
+
   async function handleRequest(event: NostrEvent): Promise<void> {
     const clientPk = event.pubkey
+    if (!openMode && authorizedKeys.has(clientPk) && !stillApproved(clientPk)) {
+      // A revoked client has left authorizedKeys and meets the gates below as
+      // a stranger. One still there could not be checked (unreadable file).
+      if (authorizedKeys.has(clientPk)) return
+    }
 
     // With --authorized-keys, drop anyone else unanswered, as before.
     if (allowList && !authorizedKeys.has(clientPk)) {
@@ -346,7 +398,7 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
 
   return {
     get url() { return buildUrl() },
-    approvedClients: [...bunkerApprovals],
+    get approvedClients() { return [...bunkerApprovals] },
     requiresSecret: requireSecret,
     pubkey: bunkerPk,
     npub: bunkerNpub,

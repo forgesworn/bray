@@ -1,6 +1,6 @@
 /**
  * Bunker command module.
- * bunker sign, bunker connect, bunker pair, bunker authorize, bunker status, and bunker daemon
+ * bunker sign, bunker connect, bunker pair, bunker authorize, bunker revoke, bunker status, and bunker daemon
  * are all dispatched BEFORE ctx/pool setup in index.ts, so this module does its
  * own config/context construction.
  */
@@ -247,6 +247,49 @@ export async function dispatch(args: string[]): Promise<void> {
     process.exit(0)
   }
 
+  // ── bunker revoke <app-pubkey|npub> ─────────────────────────────────────────
+  // Withdraw a client's approval, the reverse of `bunker authorize` and of a
+  // client connecting with the secret. Removes it for every bunker key; a
+  // running daemon refuses the client from its next request.
+  if (args[1] === 'revoke') {
+    const usage = 'usage: bray bunker revoke <64-char-hex-pubkey|npub>'
+    const given = args[2]
+    if (!given || args.length > 3) {
+      console.error(usage)
+      process.exit(1)
+    }
+    let clientPk: string | undefined
+    if (/^[0-9a-f]{64}$/i.test(given)) {
+      clientPk = given.toLowerCase()
+    } else {
+      const { decode } = await import('nostr-tools/nip19')
+      try {
+        const decoded = decode(given)
+        if (decoded.type === 'npub') clientPk = decoded.data
+      } catch { clientPk = undefined }
+    }
+    if (!clientPk) {
+      console.error(usage)
+      process.exit(1)
+    }
+
+    const { revokeClient } = await import('../../bunker.js')
+    let removed: number
+    try {
+      removed = revokeClient(clientPk)
+    } catch (err) {
+      console.error(`bunker revoke: ${(err as Error).message}`)
+      process.exit(1)
+    }
+    if (removed === 0) {
+      console.error(`bunker revoke: ${clientPk} is not an approved client (keys passed with --authorized-keys are set when the daemon starts; restart it without them)`)
+      process.exit(1)
+    }
+    console.error('A running bunker daemon refuses this client from its next request. A daemon started with --open serves any client, revoked or not; one started with --authorized-keys keeps the keys it was given.')
+    console.log(JSON.stringify({ revoked: clientPk, bunkers: removed }, null, 2))
+    process.exit(0)
+  }
+
   // ── bunker status ───────────────────────────────────────────────────────────
   // Report the saved bunker URI and its parsed details.  Does NOT attempt a
   // live connection (use `bunker connect` to verify reachability).
@@ -382,7 +425,7 @@ export async function dispatch(args: string[]): Promise<void> {
     console.error('The link carries a one-time secret for one new client. Treat it like a password.')
     console.error('It survives restarts until used; each new client needs the next link the daemon prints.')
     if (bunker.approvedClients.length > 0) {
-      console.error(`Clients approved earlier (they need no secret; remove any you do not recognise from approved-clients.json in bray's state directory):`)
+      console.error(`Clients approved earlier (they need no secret; remove any you do not recognise with "bray bunker revoke <pubkey>"):`)
       for (const pk of bunker.approvedClients) console.error(`  ${pk}`)
     }
   }

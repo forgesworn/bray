@@ -15,6 +15,25 @@ const DEFAULT_STATE_DIR = join(
   'bray',
 )
 
+/**
+ * Read a JSON state file that holds an object. Returns `{}` if the file is
+ * missing, and null if it exists but cannot be read or is not a JSON object,
+ * so a caller can refuse to overwrite it.
+ */
+export function readStateFileStrict<T extends object = Record<string, unknown>>(
+  name: string,
+  stateDir = DEFAULT_STATE_DIR,
+): T | null {
+  const path = join(stateDir, name)
+  if (!existsSync(path)) return {} as T
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(path, 'utf-8'))
+    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed as T : null
+  } catch {
+    return null
+  }
+}
+
 /** Read and parse a JSON state file. Returns `{}` if missing or corrupt. */
 export function readStateFile<T = Record<string, unknown>>(
   name: string,
