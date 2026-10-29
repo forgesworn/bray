@@ -8,7 +8,9 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { mkdtempSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools/pure'
+import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools/pure'
+import { getConversationKey, encrypt, decrypt } from 'nostr-tools/nip44'
+import { SimplePool } from 'nostr-tools/pool'
 import { startRelay } from '../src/serve.js'
 import { startBunker } from '../src/bunker.js'
 import { IdentityContext } from '../src/context.js'
@@ -32,6 +34,45 @@ const withoutSecret = (uri: string) => {
   url.searchParams.delete('secret')
   return url.toString()
 }
+
+/**
+ * Send one raw NIP-46 request from `clientSk` and wait up to `waitMs` for the
+ * reply. Resolves with the decrypted reply, or null if none came.
+ */
+async function rawRequest(clientSk: Uint8Array, bunkerPk: string, method: string, params: unknown[], waitMs = 1_500): Promise<{ result: string; error?: string } | null> {
+  const clientPk = getPublicKey(clientSk)
+  const key = getConversationKey(clientSk, bunkerPk)
+  const id = Math.random().toString(36).slice(2)
+  const pool = new SimplePool()
+  try {
+    return await new Promise(resolve => {
+      const timer = setTimeout(() => { sub.close(); resolve(null) }, waitMs)
+      const sub = pool.subscribeMany([relay.url], { kinds: [24133], '#p': [clientPk] } as any, {
+        onevent: event => {
+          if (event.pubkey !== bunkerPk) return
+          const reply = JSON.parse(decrypt(event.content, key))
+          if (reply.id !== id) return
+          clearTimeout(timer)
+          sub.close()
+          resolve(reply)
+        },
+        oneose: () => {
+          const request = finalizeEvent({
+            kind: 24133,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [['p', bunkerPk]],
+            content: encrypt(JSON.stringify({ id, method, params }), key),
+          }, clientSk)
+          void Promise.any(pool.publish([relay.url], request))
+        },
+      })
+    })
+  } finally {
+    pool.destroy()
+  }
+}
+
+const bunkerPkOf = (uri: string) => new URL(uri).hostname
 
 async function signWith(client: BunkerContext): Promise<void> {
   const event = await client.getSigningFunction()({
@@ -98,18 +139,44 @@ describe('bunker daemon connect secret', () => {
     client.destroy()
   }, 30_000)
 
-  it('does not answer other requests from a client that has not connected', async () => {
-    // A client that skips connect, with a key the daemon has never approved.
-    const dir = clientDir()
-    const bunkerPk = new URL(bunker.url).hostname
-    writeStateFile('client-keys.json', { [bunkerPk]: Buffer.from(generateSecretKey()).toString('hex') }, dir)
-    const client = BunkerContext.create(withoutSecret(bunker.url), dir, { paired: true })
-    try {
-      await expect(client.establish(2_000)).rejects.toThrow(/timed out/)
-    } finally {
-      client.destroy()
+  it('answers no signing or decrypt request from a client that has not connected', async () => {
+    const bunkerPk = bunkerPkOf(bunker.url)
+    const stranger = generateSecretKey()
+    const template = JSON.stringify({ kind: 1, created_at: 1, tags: [], content: 'x' })
+    const thirdParty = getPublicKey(generateSecretKey())
+    for (const [method, params] of [
+      ['sign_event', [template]],
+      ['nip44_decrypt', [thirdParty, 'AAAA']],
+      ['nip04_decrypt', [thirdParty, 'AAAA?iv=AAAA']],
+      ['get_public_key', []],
+    ] as const) {
+      expect(await rawRequest(stranger, bunkerPk, method, [...params])).toBeNull()
     }
-  }, 10_000)
+
+    // Control: the same daemon answers the same request from an approved client.
+    const approved = generateSecretKey()
+    const ack = await rawRequest(approved, bunkerPk, 'connect', [bunkerPk, secretOf(bunker.url)], 5_000)
+    expect(ack?.result).toBe('ack')
+    const signed = await rawRequest(approved, bunkerPk, 'sign_event', [template], 5_000)
+    expect(verifyEvent(JSON.parse(signed!.result))).toBe(true)
+  }, 30_000)
+
+  it('refuses a wrong secret of the right length, and still ignores that client', async () => {
+    const bunkerPk = bunkerPkOf(bunker.url)
+    const stranger = generateSecretKey()
+    const reply = await rawRequest(stranger, bunkerPk, 'connect', [bunkerPk, 'f'.repeat(32)], 5_000)
+    expect(reply?.error).toMatch(/connect refused/)
+    expect(await rawRequest(stranger, bunkerPk, 'get_public_key', [])).toBeNull()
+  }, 20_000)
+
+  it('lets exactly one of two clients racing with the same secret in', async () => {
+    const bunkerPk = bunkerPkOf(bunker.url)
+    const secret = secretOf(bunker.url)
+    const replies = await Promise.all([generateSecretKey(), generateSecretKey()].map(sk =>
+      rawRequest(sk, bunkerPk, 'connect', [bunkerPk, secret], 5_000)))
+    expect(replies.filter(r => r?.result === 'ack')).toHaveLength(1)
+    expect(replies.filter(r => /connect refused/.test(r?.error ?? ''))).toHaveLength(1)
+  }, 20_000)
 
   it('lets an approved client reconnect with its old link', async () => {
     const dir = clientDir()
@@ -154,6 +221,23 @@ describe('bunker daemon connect secret', () => {
     }
   }, 30_000)
 
+  it('keeps an unused secret across a restart', async () => {
+    const key = Buffer.from(generateSecretKey()).toString('hex')
+    const state = mkdtempSync(join(tmpdir(), 'bray-secret-keep-'))
+    const before = startBunker({ ctx, relays: [relay.url], quiet: true, bunkerKeyHex: key, stateDir: state })
+    const link = before.url
+    before.close()
+    const after = startBunker({ ctx, relays: [relay.url], quiet: true, bunkerKeyHex: key, stateDir: state })
+    try {
+      expect(after.url).toBe(link)
+      const client = await BunkerContext.connect(link, 10_000, clientDir())
+      client.destroy()
+      expect(after.url).not.toBe(link)
+    } finally {
+      after.close()
+    }
+  }, 20_000)
+
   it('open: no secret in the link, and any client is approved', async () => {
     const open = startBunker({ ctx, relays: [relay.url], quiet: true, open: true, stateDir: mkdtempSync(join(tmpdir(), 'bray-secret-open-')) })
     try {
@@ -179,9 +263,47 @@ describe('bunker daemon connect secret', () => {
     })
     try {
       expect(secretOf(listed.url)).toBeNull()
+      expect(listed.requiresSecret).toBe(false)
       await expect(BunkerContext.connect(listed.url, 2_000, clientDir())).rejects.toThrow(/timed out/)
     } finally {
       listed.close()
     }
   }, 10_000)
+
+  it('authorized keys: a listed client connects with no secret, and open is ignored', async () => {
+    const clientSk = generateSecretKey()
+    const listed = startBunker({
+      ctx,
+      relays: [relay.url],
+      quiet: true,
+      open: true,
+      authorizedKeys: [getPublicKey(clientSk)],
+      stateDir: mkdtempSync(join(tmpdir(), 'bray-secret-listed2-')),
+    })
+    try {
+      expect(secretOf(listed.url)).toBeNull()
+      expect(listed.requiresSecret).toBe(false)
+      const ack = await rawRequest(clientSk, listed.pubkey, 'connect', [listed.pubkey, ''], 5_000)
+      expect(ack?.result).toBe('ack')
+      // open is ignored: an unlisted client still gets nothing.
+      expect(await rawRequest(generateSecretKey(), listed.pubkey, 'connect', [listed.pubkey, ''])).toBeNull()
+    } finally {
+      listed.close()
+    }
+  }, 20_000)
+
+  it('reports clients approved in earlier runs', () => {
+    const key = Buffer.from(generateSecretKey()).toString('hex')
+    const state = mkdtempSync(join(tmpdir(), 'bray-secret-list-'))
+    const pk = getPublicKey(Buffer.from(key, 'hex'))
+    const known = getPublicKey(generateSecretKey())
+    writeStateFile('approved-clients.json', { [pk]: [known] }, state)
+    const b = startBunker({ ctx, relays: [relay.url], quiet: true, bunkerKeyHex: key, stateDir: state })
+    try {
+      expect(b.approvedClients).toEqual([known])
+      expect(b.requiresSecret).toBe(true)
+    } finally {
+      b.close()
+    }
+  })
 })

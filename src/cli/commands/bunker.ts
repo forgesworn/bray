@@ -365,18 +365,26 @@ export async function dispatch(args: string[]): Promise<void> {
     torProxy: config.torProxy,
     open: args.includes('--open'),
     onUrlChange: url => {
-      console.error('A new client connected with the secret, so that link no longer works.')
-      console.error(`Next link: ${url}`)
+      console.error('A new client connected, so that secret is used up. Give the next new client this link:')
+      console.error(url)
     },
   })
+  if (authorizedKeys && args.includes('--open')) {
+    console.error('--open is ignored with --authorized-keys: only the listed clients are accepted.')
+  }
   console.error(`nostr-bray bunker running`)
   console.error(`URI: ${bunker.url}`)
   if (authorizedKeys) {
     console.error('Only the --authorized-keys clients (and clients approved earlier) are accepted.')
-  } else if (args.includes('--open')) {
+  } else if (!bunker.requiresSecret) {
     console.error('Running open: any client that connects is approved. Anyone with the link can sign as you.')
   } else {
-    console.error('The link carries a one-time secret for a new client. Treat it like a password.')
+    console.error('The link carries a one-time secret for one new client. Treat it like a password.')
+    console.error('It survives restarts until used; each new client needs the next link the daemon prints.')
+    if (bunker.approvedClients.length > 0) {
+      console.error(`Clients approved earlier (they need no secret; remove any you do not recognise from approved-clients.json in bray's state directory):`)
+      for (const pk of bunker.approvedClients) console.error(`  ${pk}`)
+    }
   }
   console.error(`Signing as: ${bCtx.activeNpub}`)
   console.error('Press Ctrl+C to stop')

@@ -42,6 +42,10 @@ export interface BunkerOptions {
 export interface BunkerInstance {
   /** bunker:// URI for clients. Carries the current connect secret, so it changes once used. */
   readonly url: string
+  /** Client pubkeys approved in earlier runs (from approved-clients.json), at start. */
+  approvedClients: readonly string[]
+  /** Whether a new client needs the connect secret (false with authorizedKeys or open). */
+  requiresSecret: boolean
   pubkey: string     // bunker's pubkey (hex)
   npub: string       // bunker's npub
   close: () => void
@@ -73,8 +77,26 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
   // unless the daemon runs open. Clients approved earlier never need it.
   const allowList = cliAuthorizedKeys.size > 0
   const requireSecret = !allowList && opts.open !== true
-  const newSecret = () => randomBytes(16).toString('hex')
-  let connectSecret = requireSecret ? newSecret() : undefined
+  // The unused secret is kept per bunker key, so a link handed out before a
+  // restart still works. Only for a persistent bunker key: an ephemeral one
+  // gets a new link every run anyway.
+  const SECRETS_FILE = 'bunker-secrets.json'
+  const persistSecret = requireSecret && opts.bunkerKeyHex !== undefined
+  const newSecret = (): string => {
+    const secret = randomBytes(16).toString('hex')
+    if (persistSecret) {
+      const current = readStateFile<Record<string, string>>(SECRETS_FILE, opts.stateDir)
+      current[bunkerPk] = secret
+      writeStateFile(SECRETS_FILE, current, opts.stateDir)
+    }
+    return secret
+  }
+  const savedSecret = persistSecret
+    ? readStateFile<Record<string, string>>(SECRETS_FILE, opts.stateDir)[bunkerPk]
+    : undefined
+  let connectSecret = requireSecret
+    ? (typeof savedSecret === 'string' && /^[0-9a-f]{32}$/.test(savedSecret) ? savedSecret : newSecret())
+    : undefined
 
   function secretMatches(given: unknown): boolean {
     if (connectSecret === undefined || typeof given !== 'string') return false
@@ -87,8 +109,10 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
     authorizedKeys.add(clientPk)
     if (bunkerApprovals.includes(clientPk)) return
     bunkerApprovals.push(clientPk)
+    // Merge with the file, so a key added meanwhile by `bunker authorize` stays.
     const current = readStateFile<Record<string, string[]>>(APPROVALS_FILE, opts.stateDir)
-    current[bunkerPk] = bunkerApprovals
+    const onDisk = Array.isArray(current[bunkerPk]) ? current[bunkerPk] : []
+    current[bunkerPk] = [...new Set([...onDisk, ...bunkerApprovals])]
     writeStateFile(APPROVALS_FILE, current, opts.stateDir)
     log(`Approved and persisted client: ${clientPk.slice(0, 12)}...`)
   }
@@ -137,6 +161,8 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
 
     // A client not yet approved gets in only with the connect secret, which
     // then works once: the daemon moves to a new one and reports the new link.
+    // Check, rotate and approve must stay free of `await`: two clients racing
+    // with the same secret then cannot both get in.
     if (requireSecret && !authorizedKeys.has(clientPk)) {
       if (request.method !== 'connect') {
         log(`Ignored ${request.method} from unapproved client: ${clientPk.slice(0, 12)}...`)
@@ -147,9 +173,9 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
         await respond(clientPk, conversationKey, request.id, '', 'connect refused: use the current bunker:// link from the daemon, which carries a one-time secret')
         return
       }
-      approve(clientPk)
       connectSecret = newSecret()
-      log(`Connect secret used. Next link: ${buildUrl()}`)
+      approve(clientPk)
+      log('Connect secret used; moved to a new one')
       opts.onUrlChange?.(buildUrl())
     }
 
@@ -307,7 +333,8 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
     : `bunker://${bunkerPk}?${relayParams}&secret=${connectSecret}`
 
   log(`Bunker started: ${bunkerNpub}`)
-  log(`URI: ${buildUrl()}`)
+  // The secret stays out of the log; the caller shows the link (bunker.url).
+  log(`URI: bunker://${bunkerPk}?${relayParams}${connectSecret === undefined ? '' : ' (plus a connect secret)'}`)
   log(`Signing as: ${ctx.activeNpub}`)
   if (allowList) {
     log(`Authorized keys: ${authorizedKeys.size} (${cliAuthorizedKeys.size} CLI + ${bunkerApprovals.length} persisted)`)
@@ -319,6 +346,8 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
 
   return {
     get url() { return buildUrl() },
+    approvedClients: [...bunkerApprovals],
+    requiresSecret: requireSecret,
     pubkey: bunkerPk,
     npub: bunkerNpub,
     close: () => {
