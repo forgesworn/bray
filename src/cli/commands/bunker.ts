@@ -218,12 +218,12 @@ export async function dispatch(args: string[]): Promise<void> {
   // ── bunker authorize <app-pubkey|npub> [which daemon] ──────────────────────
   // Pre-approve an app's pubkey on the local bunker daemon, so it connects
   // without the one-time secret. The approval is keyed by the daemon's own
-  // bunker key, found the way the daemon finds it: --bunker-key-file, or the
-  // key bray keeps for --persona, --profile or the default identity. --bunker
-  // names the daemon's pubkey directly. A running daemon picks it up from the
+  // bunker key, found the way the daemon finds it: --bunker-key-file,
+  // --bunker-key, or the key bray keeps for --persona, --profile or the
+  // default identity. --daemon-pubkey names the daemon's pubkey directly. A running daemon picks it up from the
   // app's next request. No network connection is made.
   if (args[1] === 'authorize') {
-    const usage = 'usage: bray bunker authorize <64-char-hex-pubkey|npub> [--persona <name> | --profile <name> | --bunker-key-file <file> | --daemon-pubkey <hex|npub>]'
+    const usage = 'usage: bray bunker authorize <64-char-hex-pubkey|npub> [--persona <name> | --profile <name> | --bunker-key-file <file> | --bunker-key <hex> | --daemon-pubkey <hex|npub>]'
     const clientPk = await parsePubkeyArg(args[2])
     const opt = (name: string): string | undefined => {
       const i = args.indexOf(name)
@@ -256,12 +256,23 @@ export async function dispatch(args: string[]): Promise<void> {
       }
       bunkerPk = getPublicKey(Buffer.from(hex, 'hex'))
       which = 'the key in --bunker-key-file'
+    } else if (args.includes('--bunker-key')) {
+      const hex = opt('--bunker-key') ?? ''
+      if (!/^[0-9a-f]{64}$/i.test(hex)) {
+        console.error('bunker authorize: --bunker-key must be a 64-character hex key')
+        process.exit(1)
+      }
+      bunkerPk = getPublicKey(Buffer.from(hex, 'hex'))
+      which = 'the --bunker-key daemon'
     } else {
-      const label = opt('--persona') ?? opt('--profile') ?? 'default'
+      const persona = opt('--persona')
+      const profile = opt('--profile')
+      const label = persona ?? profile ?? 'default'
+      const startHint = persona ? ` --persona ${persona}` : profile ? ` --profile ${profile}` : ''
       const keys = readStateFile<Record<string, string>>('bunker-keys.json')
       const hex = keys[label]
       if (typeof hex !== 'string' || !/^[0-9a-f]{64}$/i.test(hex)) {
-        console.error(`bunker authorize: no bunker daemon key for "${label}" yet. Start the daemon once (bray bunker${label === 'default' ? '' : ` --persona ${label}`}), or pass --daemon-pubkey <the daemon's pubkey>.`)
+        console.error(`bunker authorize: no bunker daemon key for "${label}" yet. Start the daemon once (bray bunker${startHint}), or pass --daemon-pubkey <the daemon's pubkey>.`)
         process.exit(1)
       }
       bunkerPk = getPublicKey(Buffer.from(hex, 'hex'))

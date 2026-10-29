@@ -1029,6 +1029,14 @@ describe('bunker status / authorize — state file', { timeout: 15_000 }, () => 
     const approvals = JSON.parse(readFileSync(join(tmpStateDir, 'bray', 'approved-clients.json'), 'utf-8'))
     expect(approvals[targetPk]).toEqual([clientPk])
     expect(cliExpectFail(env, 'bunker', 'authorize', clientPk, '--persona', 'nobody')).toContain('no bunker daemon key for "nobody"')
+    expect(cliExpectFail(env, 'bunker', 'authorize', clientPk, '--profile', 'work')).toContain('bray bunker --profile work')
+
+    // --bunker-key, as the daemon takes it
+    const { getPublicKey } = await import('nostr-tools/pure')
+    const key = '3a'.repeat(32)
+    cli(env, 'bunker', 'authorize', clientPk, '--bunker-key', key)
+    const after = JSON.parse(readFileSync(join(tmpStateDir, 'bray', 'approved-clients.json'), 'utf-8'))
+    expect(after[getPublicKey(Buffer.from(key, 'hex'))]).toEqual([clientPk])
   })
 
   it('bunker authorize is idempotent for duplicate pubkeys', () => {

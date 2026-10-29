@@ -257,7 +257,7 @@ Modes:
                                       (--auth requires NIP-42; --eager-auth also challenges on connect)
   bunker connect <bunker://…>              Save remote bunker URI for future commands
   bunker pair [--relay <url>] [--expect <npub>]  Pair with a signer app over nostrconnect:// and save it
-  bunker authorize <hex-pubkey|npub> [--persona N]  Pre-approve an app on the local bunker daemon, even while it runs
+  bunker authorize <hex-pubkey|npub> [--persona N | --profile N | --bunker-key-file F | --daemon-pubkey P]  Pre-approve an app on the local daemon, even while it runs
   bunker revoke <hex-pubkey|npub>         Withdraw an app's approval, even from a running daemon
   bunker status                           Show saved bunker connection state
   bunker sign <file|->                    One-shot: sign an event template via the bunker (or the saved signer)
