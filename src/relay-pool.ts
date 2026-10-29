@@ -113,29 +113,14 @@ export interface RelayPoolConfig {
 /** Initialise WebSocket and create a real SimplePool — lazy-loaded to avoid side effects at import */
 async function createRealPool(torProxy?: string): Promise<PoolLike> {
   const { useWebSocketImplementation, SimplePool } = await import('nostr-tools/pool')
-  const WS = (await import('ws')).default
+  const { webSocketFor } = await import('./ws-safe.js')
+  // With torProxy, every connection goes through the SOCKS5h proxy, so DNS
+  // happens at the proxy. The pool gets its class directly, so a later
+  // useWebSocketImplementation call elsewhere cannot change it.
+  const WebSocketImpl = webSocketFor(torProxy, { maxPayload: WS_MAX_PAYLOAD })
+  useWebSocketImplementation(WebSocketImpl)
 
-  if (torProxy) {
-    // Route all WebSocket connections through the SOCKS5h proxy for Tor
-    // hostname is passed unresolved (socks5h) so DNS happens at the proxy
-    const { SocksProxyAgent } = await import('socks-proxy-agent')
-    const agent = new SocksProxyAgent(torProxy)
-    const ProxiedWebSocket = class extends WS {
-      constructor(url: string | URL, protocols?: any, options?: any) {
-        super(url, protocols, { ...options, agent, maxPayload: WS_MAX_PAYLOAD })
-      }
-    }
-    useWebSocketImplementation(ProxiedWebSocket)
-  } else {
-    const CappedWebSocket = class extends WS {
-      constructor(url: string | URL, protocols?: any, options?: any) {
-        super(url, protocols, { ...options, maxPayload: WS_MAX_PAYLOAD })
-      }
-    }
-    useWebSocketImplementation(CappedWebSocket)
-  }
-
-  const pool = new SimplePool()
+  const pool = new SimplePool({ websocketImplementation: WebSocketImpl } as ConstructorParameters<typeof SimplePool>[0])
   return {
     // `onauth` is spread straight through to the subscription params by
     // querySync/subscribeEose, so it works despite not being in querySync's

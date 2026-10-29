@@ -14,16 +14,15 @@
  */
 
 import { BunkerSigner } from 'nostr-tools/nip46'
-import { useWebSocketImplementation, SimplePool } from 'nostr-tools/pool'
+import { SimplePool } from 'nostr-tools/pool'
 import { generateSecretKey, finalizeEvent } from 'nostr-tools/pure'
 import { npubEncode } from 'nostr-tools/nip19'
-import WebSocket from 'ws'
+import { webSocketFor } from './ws-safe.js'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 import type { PublicIdentity, SignFn } from './types.js'
 import type { SigningContext } from './signing-context.js'
 import { readStateFile, writeStateFile } from './state.js'
 
-useWebSocketImplementation(WebSocket)
 
 /** Bound the NIP-46 connect handshake. nostr-tools' BunkerSigner has no
  *  per-request timeout, so an offline signer or unreachable relays make the
@@ -119,7 +118,11 @@ export function buildConnectParams(config: BunkerConfig): string[] {
   return [config.pubkey, config.connectSecret ?? '', '', JSON.stringify({ name: CLIENT_NAME })]
 }
 
-const CLIENT_KEYS_FILE = 'client-keys.json'
+export const CLIENT_KEYS_FILE = 'client-keys.json'
+
+/** Shown when a paired signer cannot be used: the fix is to pair again. */
+export const PAIRED_REPAIR_HINT =
+  'the client key this signer app approved is missing or no longer accepted. Run `npx nostr-bray bunker pair` again.'
 
 /**
  * Resolve the client secret key for a given bunker.
@@ -137,10 +140,17 @@ const CLIENT_KEYS_FILE = 'client-keys.json'
 export function resolveClientKey(
   config: BunkerConfig,
   stateDir?: string,
+  options: { paired?: boolean } = {},
 ): Uint8Array {
   const cache = readStateFile<Record<string, string>>(CLIENT_KEYS_FILE, stateDir)
   if (cache[config.pubkey]) {
     return Buffer.from(cache[config.pubkey], 'hex')
+  }
+  // A paired signer approved one specific client key and is never sent
+  // `connect`, so a new key would never be approved: every request would
+  // time out. Say so instead.
+  if (options.paired) {
+    throw new Error(`Paired signer unusable: ${PAIRED_REPAIR_HINT}`)
   }
 
   const sk = generateSecretKey()
@@ -149,23 +159,39 @@ export function resolveClientKey(
   return sk
 }
 
+export interface BunkerContextOptions {
+  /**
+   * The signer was paired over nostrconnect:// (`bunker pair`) and has
+   * already approved this client key. A paired signer is not sent `connect`
+   * again: the pairing secret was single-use, and NIP-46 does not require a
+   * paired client to reconnect. {@link BunkerContext.establish} checks it is
+   * reachable with `get_public_key` instead.
+   */
+  paired?: boolean
+  /** TOR_PROXY: route the signer traffic through this SOCKS proxy. */
+  torProxy?: string
+}
+
 export class BunkerContext implements SigningContext {
   protected signer: BunkerSigner
   protected pool: SimplePool
   protected pubkeyHex: string | undefined
   private clientSk: Uint8Array
   private config: ReturnType<typeof parseBunkerUri>
+  private paired: boolean
 
   protected constructor(
     signer: BunkerSigner,
     pool: SimplePool,
     clientSk: Uint8Array,
     config: ReturnType<typeof parseBunkerUri>,
+    paired = false,
   ) {
     this.signer = signer
     this.pool = pool
     this.clientSk = clientSk
     this.config = config
+    this.paired = paired
   }
 
   /**
@@ -176,12 +202,13 @@ export class BunkerContext implements SigningContext {
    * "failed to connect" servers, a wedged startup turns a flaky signer into
    * a respawn loop that floods the bunker with `connect` requests.
    */
-  static create(uri: string, stateDir?: string): BunkerContext {
+  static create(uri: string, stateDir?: string, options: BunkerContextOptions = {}): BunkerContext {
     const config = parseBunkerUri(uri)
-    const clientSk = resolveClientKey(config, stateDir)
+    const clientSk = resolveClientKey(config, stateDir, { paired: options.paired })
     // Sign in (NIP-42) with the client key when a relay asks, so private
     // relays that only let a key read messages addressed to it still work.
-    const pool = new SimplePool()
+    // Its own WebSocket class, so TOR_PROXY applies to signer traffic too.
+    const pool = new SimplePool({ websocketImplementation: webSocketFor(options.torProxy) } as ConstructorParameters<typeof SimplePool>[0])
     pool.automaticallyAuth = () => async (template: EventTemplate) => finalizeEvent(template, clientSk)
 
     const signer = BunkerSigner.fromBunker(
@@ -203,7 +230,7 @@ export class BunkerContext implements SigningContext {
     // identity pubkey is resolved lazily via resolvePublicKey().
     // The parsed config is retained so establish() can send the connect
     // handshake with its client-name metadata.
-    return new BunkerContext(signer, pool, clientSk, config)
+    return new BunkerContext(signer, pool, clientSk, config, options.paired === true)
   }
 
   /**
@@ -216,6 +243,17 @@ export class BunkerContext implements SigningContext {
    * signer is alive) and getPublicKey is deferred to first access.
    */
   async establish(timeoutMs = CONNECT_TIMEOUT_MS): Promise<void> {
+    if (this.paired) {
+      // Paired over nostrconnect://: no `connect`, just prove the signer
+      // answers this client, and cache the account it signs as.
+      try {
+        this.pubkeyHex = await withTimeout(this.signer.getPublicKey(), timeoutMs, 'bunker get_public_key')
+      } catch (e) {
+        // Most likely the app has been revoked or reinstalled: say how to fix it.
+        throw new Error(`${(e as Error).message}. If the signer app no longer lists bray, ${PAIRED_REPAIR_HINT}`)
+      }
+      return
+    }
     // Sent via sendRequest (not signer.connect()) so params[3] can carry the
     // client-name metadata that signer approval screens display. nostr-tools'
     // connect() is literally sendRequest('connect', [pubkey, secret]);
@@ -232,8 +270,9 @@ export class BunkerContext implements SigningContext {
     uri: string,
     timeoutMs = CONNECT_TIMEOUT_MS,
     stateDir?: string,
+    options: BunkerContextOptions = {},
   ): Promise<BunkerContext> {
-    const ctx = BunkerContext.create(uri, stateDir)
+    const ctx = BunkerContext.create(uri, stateDir, options)
     try {
       await ctx.establish(timeoutMs)
     } catch (e) {

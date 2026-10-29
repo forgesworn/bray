@@ -674,7 +674,7 @@ export async function createBray(config: BrayClientConfig): Promise<BrayClient> 
   let ctx: IdentityContext
   if (config.bunkerUri) {
     const { BunkerContext } = await import('./bunker-context.js')
-    ctx = await BunkerContext.connect(config.bunkerUri) as unknown as IdentityContext
+    ctx = await BunkerContext.connect(config.bunkerUri, undefined, undefined, { torProxy: config.torProxy }) as unknown as IdentityContext
     await (ctx as any).resolvePublicKey()
   } else {
     if (!config.sec) throw new Error('createBray: provide sec (nsec/hex/mnemonic) or bunkerUri')
@@ -717,7 +717,7 @@ export function defaultBray(): Promise<BrayClient> {
       if (config.bunkerUri) {
         const { BunkerContext } = await import('./bunker-context.js')
         const { HeartwoodContext } = await import('./heartwood-context.js')
-        ctx = await BunkerContext.connect(config.bunkerUri) as unknown as IdentityContext
+        ctx = await BunkerContext.connect(config.bunkerUri, undefined, undefined, { paired: config.bunkerPaired, torProxy: config.torProxy }) as unknown as IdentityContext
         await (ctx as any).resolvePublicKey()
         const hw = await HeartwoodContext.probe(ctx as any)
         if (hw) ctx = hw as unknown as IdentityContext

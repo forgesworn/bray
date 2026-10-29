@@ -13,9 +13,9 @@ const SAVED_BUNKER_PATH = join(ISOLATED_CONFIG_HOME, 'bray', 'bunker-uri')
 const SAVED_BUNKER_URI = `bunker://${'ab'.repeat(32)}?relay=wss%3A%2F%2Frelay.saved.example.com`
 const EXPLICIT_BUNKER_URI = `bunker://${'cd'.repeat(32)}?relay=wss%3A%2F%2Frelay.explicit.example.com`
 
-function saveBunkerUri(uri = SAVED_BUNKER_URI): void {
+function saveBunkerUri(uri = SAVED_BUNKER_URI, extra: Record<string, unknown> = {}): void {
   mkdirSync(join(ISOLATED_CONFIG_HOME, 'bray'), { recursive: true })
-  writeFileSync(SAVED_BUNKER_PATH, JSON.stringify({ uri }))
+  writeFileSync(SAVED_BUNKER_PATH, JSON.stringify({ uri, ...extra }))
 }
 
 afterAll(() => {
@@ -92,6 +92,66 @@ describe('loadConfig', () => {
 
     expect(config.bunkerUri).toBe(SAVED_BUNKER_URI)
     expect(config.secretKey).toBe('')
+    expect(config.bunkerPaired).toBe(false)
+  })
+
+  it('marks a URI saved by bunker pair as paired', async () => {
+    const { loadConfig } = await import('../src/config.js')
+    saveBunkerUri(SAVED_BUNKER_URI, { paired: true })
+    process.env.NOSTR_RELAYS = 'wss://relay.example.com'
+
+    const config = await loadConfig()
+
+    expect(config.bunkerUri).toBe(SAVED_BUNKER_URI)
+    expect(config.bunkerPaired).toBe(true)
+  })
+
+  it('does not treat an explicit BUNKER_URI as paired, even with a paired URI saved', async () => {
+    const { loadConfig } = await import('../src/config.js')
+    saveBunkerUri(SAVED_BUNKER_URI, { paired: true })
+    process.env.BUNKER_URI = EXPLICIT_BUNKER_URI
+    process.env.NOSTR_RELAYS = 'wss://relay.example.com'
+
+    const config = await loadConfig()
+
+    expect(config.bunkerUri).toBe(EXPLICIT_BUNKER_URI)
+    expect(config.bunkerPaired).toBe(false)
+  })
+
+  it('does not treat BUNKER_URI_FILE as paired, even with a paired URI saved', async () => {
+    const { loadConfig } = await import('../src/config.js')
+    saveBunkerUri(SAVED_BUNKER_URI, { paired: true })
+    const dir = mkdtempSync(join(tmpdir(), 'bray-paired-file-'))
+    const file = join(dir, 'bunker')
+    writeFileSync(file, EXPLICIT_BUNKER_URI)
+    process.env.BUNKER_URI_FILE = file
+    process.env.NOSTR_RELAYS = 'wss://relay.example.com'
+
+    const config = await loadConfig()
+
+    expect(config.bunkerUri).toBe(EXPLICIT_BUNKER_URI)
+    expect(config.bunkerPaired).toBe(false)
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('does not let a paired saved URI override NOSTR_SECRET_KEY', async () => {
+    const { loadConfig } = await import('../src/config.js')
+    saveBunkerUri(SAVED_BUNKER_URI, { paired: true })
+    process.env.NOSTR_SECRET_KEY = TEST_NSEC
+    process.env.NOSTR_RELAYS = 'wss://relay.example.com'
+
+    const config = await loadConfig()
+
+    expect(config.bunkerUri).toBeUndefined()
+    expect(config.bunkerPaired).toBeUndefined()
+  })
+
+  it('ignores a paired flag that is not literally true', async () => {
+    const { loadConfig } = await import('../src/config.js')
+    saveBunkerUri(SAVED_BUNKER_URI, { paired: 'yes' })
+    process.env.NOSTR_RELAYS = 'wss://relay.example.com'
+
+    expect((await loadConfig()).bunkerPaired).toBe(false)
   })
 
   it('does not let the saved bunker URI override NOSTR_SECRET_KEY', async () => {

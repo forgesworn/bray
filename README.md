@@ -63,6 +63,18 @@ For production use, prefer [Heartwood](https://github.com/forgesworn/heartwood) 
 }
 ```
 
+### Pair with a signer app (nostrconnect://)
+
+If your signer is an app such as Amber or nsec.app, let bray start the pairing instead of copying a `bunker://` URI out of it:
+
+```bash
+npx nostr-bray bunker pair --relay wss://relay.nsec.app
+```
+
+bray prints a `nostrconnect://` URI. Paste or scan it into the signer app and approve. bray shows the account the signer will sign as and asks you to confirm it, then saves the signer, and the MCP server, CLI and SDK (`defaultBray()`) sign through it with no `BUNKER_URI` or key in your config.
+
+Treat the URI as a one-time credential: whoever answers it first becomes the signer bray uses, so do not paste it into a chat or leave it on a shared screen. Outside a terminal, pass `--expect <npub>` (the account you mean to sign as) or `--yes`. `bunker status` shows whether the saved signer was paired. If the app later forgets bray, run `bunker pair` again. With `TOR_PROXY` set, pairing goes through the proxy and accepts only `.onion` relays unless `ALLOW_CLEARNET_WITH_TOR=1`. Pick a relay your signer app can reach; `--relay` can be repeated; without it bray uses `NOSTR_RELAYS`, then the relays in your config file. bray waits up to five minutes for the signer to answer, or `--timeout <seconds>`. The pairing secret is single-use and is not saved. A `BUNKER_URI` or key you configure still takes precedence over the saved signer, and `bunker connect <bunker://…>` replaces it.
+
 ### Read-only (no key)
 
 Start the MCP server with no key or bunker and it runs read-only: it holds no signer and loads no wallet, so it cannot post, sign, send or read DMs, decrypt or pay. Only lookup tools are offered (feeds, profiles, search, relay and trust checks), and asking for anything else returns an error saying bray is read-only. Set `NOSTR_PUBKEY` to an npub to read from that account's perspective, for example its notifications. Set `BRAY_READ_ONLY=1` to force this mode even when a key or bunker is configured; a key file is then never opened. The CLI and SDK still require a signer.
@@ -87,7 +99,7 @@ Start the MCP server with no key or bunker and it runs read-only: it holds no si
 | Tier | Method | Key exposure |
 |------|--------|-------------|
 | **Heartwood** | Dedicated signing appliance (`BUNKER_URI`) | Key never leaves the signing device. Supports nsec-tree derivation, per-client permissions, and device-backed attestations. |
-| **Software bunker** | Any NIP-46 bunker (`BUNKER_URI`) | Key held by a separate process. Never seen by bray. |
+| **Software bunker** | Any NIP-46 bunker (`BUNKER_URI`, or `bunker pair` for signer apps) | Key held by a separate process. Never seen by bray. |
 | **ncryptsec** | NIP-49 encrypted key (`NOSTR_NCRYPTSEC`) | Key encrypted at rest, decrypted in memory at startup. |
 | **Key file** | File path (`NOSTR_SECRET_KEY_FILE`) | Key on disk, read once, env var deleted. |
 | **Env var** | Inline secret (`NOSTR_SECRET_KEY`) | Key visible in process environment. Use only for development. |
@@ -262,7 +274,7 @@ Search order: `BRAY_CONFIG` env var > `$XDG_CONFIG_HOME/bray/config.json` > `~/.
 | `NOSTR_PUBKEY` | Read-only mode only: npub or hex to read as. A secret key here is rejected |
 | `BRAY_READ_ONLY` | Set `1` to run the MCP server with no signer even when a key or bunker is configured |
 | `NOSTR_FORBID_PUBKEY` | Comma-separated npubs or hex this process must never sign as. See below. |
-| `TOR_PROXY` | SOCKS5h proxy for Tor |
+| `TOR_PROXY` | SOCKS5h proxy for Tor; covers relay traffic, NIP-46 signer traffic and the bunker daemon |
 | `NIP04_ENABLED` | Set `1` to enable legacy NIP-04 DMs |
 | `TRUST_MODE` | `strict`, `annotate` (default) or `off`. See the config file section above |
 | `TRANSPORT` | `stdio` (default) or `http` |
