@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.9.0 (2026-10-29)
+
+### Features
+
+- bunker revoke withdraws a client's approval, even from a running daemon (#146)
+
+
+
 ## 3.8.0 (2026-10-29)
 
 ### Features
