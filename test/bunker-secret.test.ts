@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools/pure'
@@ -349,4 +349,29 @@ describe('bunker daemon connect secret', () => {
     expect(readStateFile('approved-clients.json', state)).toEqual({ a: [kept], b: [], c: [kept] })
     expect(revokeClient(gone, state)).toBe(0)
   })
+
+  it('an unreadable approvals file is never overwritten, and approved clients are refused until it is fixed', async () => {
+    const key = Buffer.from(generateSecretKey()).toString('hex')
+    const state = mkdtempSync(join(tmpdir(), 'bray-secret-corrupt-'))
+    const b = startBunker({ ctx, relays: [relay.url], quiet: true, bunkerKeyHex: key, stateDir: state })
+    const file = join(state, 'approved-clients.json')
+    try {
+      const first = generateSecretKey()
+      expect((await rawRequest(first, b.pubkey, 'connect', [b.pubkey, secretOf(b.url)], 5_000))?.result).toBe('ack')
+      const good = readFileSync(file, 'utf-8')
+
+      writeFileSync(file, '{ not json')
+      expect(await rawRequest(first, b.pubkey, 'get_public_key', [])).toBeNull()
+      // A new client still gets in with the secret, but the file is left as it is.
+      const second = generateSecretKey()
+      expect((await rawRequest(second, b.pubkey, 'connect', [b.pubkey, secretOf(b.url)], 5_000))?.result).toBe('ack')
+      expect(readFileSync(file, 'utf-8')).toBe('{ not json')
+      expect(() => revokeClient(getPublicKey(first), state)).toThrow(/unreadable/)
+
+      writeFileSync(file, good)
+      expect((await rawRequest(first, b.pubkey, 'get_public_key', [], 5_000))?.result).toBe(ctx.activePublicKeyHex)
+    } finally {
+      b.close()
+    }
+  }, 30_000)
 })

@@ -18,7 +18,7 @@ import { SimplePool } from 'nostr-tools/pool'
 import { webSocketFor } from './ws-safe.js'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 import type { IdentityContext } from './context.js'
-import { readStateFile, writeStateFile } from './state.js'
+import { readStateFile, readStateFileStrict, writeStateFile } from './state.js'
 
 
 export interface BunkerOptions {
@@ -45,7 +45,8 @@ export interface BunkerOptions {
  * request. Returns how many bunker keys had approved it.
  */
 export function revokeClient(clientPk: string, stateDir?: string): number {
-  const file = readStateFile<Record<string, unknown>>('approved-clients.json', stateDir)
+  const file = readStateFileStrict<Record<string, unknown>>('approved-clients.json', stateDir)
+  if (file === null) throw new Error('approved-clients.json in the bray state directory is unreadable; fix it or move it aside, then retry')
   let removed = 0
   for (const [bunker, list] of Object.entries(file)) {
     if (!Array.isArray(list) || !list.includes(clientPk)) continue
@@ -132,7 +133,12 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
     bunkerApprovals.push(clientPk)
     // Add just this key to the file, so a key added meanwhile by `bunker
     // authorize` stays and a key removed by `bunker revoke` stays removed.
-    const current = readStateFile<Record<string, string[]>>(APPROVALS_FILE, opts.stateDir)
+    // An unreadable file is left alone rather than replaced by this one key.
+    const current = readStateFileStrict<Record<string, string[]>>(APPROVALS_FILE, opts.stateDir)
+    if (current === null) {
+      log(`approved-clients.json is unreadable, so this approval is not saved and the client is refused until the file is fixed: ${clientPk.slice(0, 12)}...`)
+      return
+    }
     const onDisk = Array.isArray(current[bunkerPk]) ? current[bunkerPk] : []
     current[bunkerPk] = [...new Set([...onDisk, clientPk])]
     writeStateFile(APPROVALS_FILE, current, opts.stateDir)
@@ -163,7 +169,12 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
   // client approved in memory is checked against the file before each request.
   function stillApproved(clientPk: string): boolean {
     if (cliAuthorizedKeys.has(clientPk)) return true
-    const current = readStateFile<Record<string, string[]>>(APPROVALS_FILE, opts.stateDir)
+    const current = readStateFileStrict<Record<string, string[]>>(APPROVALS_FILE, opts.stateDir)
+    if (current === null) {
+      // Fail closed, but keep the in-memory approval for when the file is fixed.
+      log(`approved-clients.json is unreadable, so refused: ${clientPk.slice(0, 12)}...`)
+      return false
+    }
     const onDisk = Array.isArray(current[bunkerPk]) ? current[bunkerPk] : []
     if (onDisk.includes(clientPk)) return true
     authorizedKeys.delete(clientPk)
@@ -175,7 +186,11 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
 
   async function handleRequest(event: NostrEvent): Promise<void> {
     const clientPk = event.pubkey
-    if (!openMode && authorizedKeys.has(clientPk)) stillApproved(clientPk)
+    if (!openMode && authorizedKeys.has(clientPk) && !stillApproved(clientPk)) {
+      // A revoked client has left authorizedKeys and meets the gates below as
+      // a stranger. One still there could not be checked (unreadable file).
+      if (authorizedKeys.has(clientPk)) return
+    }
 
     // With --authorized-keys, drop anyone else unanswered, as before.
     if (allowList && !authorizedKeys.has(clientPk)) {

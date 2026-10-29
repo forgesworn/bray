@@ -274,7 +274,13 @@ export async function dispatch(args: string[]): Promise<void> {
     }
 
     const { revokeClient } = await import('../../bunker.js')
-    const removed = revokeClient(clientPk)
+    let removed: number
+    try {
+      removed = revokeClient(clientPk)
+    } catch (err) {
+      console.error(`bunker revoke: ${(err as Error).message}`)
+      process.exit(1)
+    }
     if (removed === 0) {
       console.error(`bunker revoke: ${clientPk} is not an approved client (keys passed with --authorized-keys are set when the daemon starts; restart it without them)`)
       process.exit(1)
