@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.10.0 (2026-10-29)
+
+### Features
+
+- bunker authorize targets the local daemon and takes effect while it runs (#147)
+
+
+
 ## 3.9.0 (2026-10-29)
 
 ### Features
