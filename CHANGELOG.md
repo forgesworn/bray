@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.7.0 (2026-10-29)
+
+### Features
+
+- pair with a signer app over nostrconnect:// (#142)
+
+
+
 ## 3.6.1 (2026-10-28)
 
 ### Bug Fixes
