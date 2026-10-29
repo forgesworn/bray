@@ -59,7 +59,7 @@ export function revokeClient(clientPk: string, stateDir?: string): number {
 export interface BunkerInstance {
   /** bunker:// URI for clients. Carries the current connect secret, so it changes once used. */
   readonly url: string
-  /** Client pubkeys approved for this bunker key (approved-clients.json), less any revoked since start. */
+  /** Client pubkeys approved for this bunker key (approved-clients.json). A revoked key leaves this list at that client's next request. */
   approvedClients: readonly string[]
   /** Whether a new client needs the connect secret (false with authorizedKeys or open). */
   requiresSecret: boolean

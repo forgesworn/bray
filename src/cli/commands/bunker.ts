@@ -279,7 +279,7 @@ export async function dispatch(args: string[]): Promise<void> {
       console.error(`bunker revoke: ${clientPk} is not an approved client`)
       process.exit(1)
     }
-    console.error('A running bunker daemon refuses this client from its next request. A daemon started with --open approves it again if it reconnects; one started with --authorized-keys keeps the keys it was given.')
+    console.error('A running bunker daemon refuses this client from its next request. A daemon started with --open ignores revocations, since it serves any client; one started with --authorized-keys keeps the keys it was given.')
     console.log(JSON.stringify({ revoked: clientPk, bunkers: removed }, null, 2))
     process.exit(0)
   }
