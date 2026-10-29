@@ -363,9 +363,21 @@ export async function dispatch(args: string[]): Promise<void> {
     bunkerKeyHex,
     quiet: args.includes('--quiet'),
     torProxy: config.torProxy,
+    open: args.includes('--open'),
+    onUrlChange: url => {
+      console.error('A new client connected with the secret, so that link no longer works.')
+      console.error(`Next link: ${url}`)
+    },
   })
   console.error(`nostr-bray bunker running`)
   console.error(`URI: ${bunker.url}`)
+  if (authorizedKeys) {
+    console.error('Only the --authorized-keys clients (and clients approved earlier) are accepted.')
+  } else if (args.includes('--open')) {
+    console.error('Running open: any client that connects is approved. Anyone with the link can sign as you.')
+  } else {
+    console.error('The link carries a one-time secret for a new client. Treat it like a password.')
+  }
   console.error(`Signing as: ${bCtx.activeNpub}`)
   console.error('Press Ctrl+C to stop')
   process.on('SIGINT', () => { bunker.close(); bCtx.destroy(); process.exit(0) })

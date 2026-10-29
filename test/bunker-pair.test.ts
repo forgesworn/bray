@@ -3,7 +3,8 @@
  *
  * The test plays the signer app: it reads the URI bray prints and answers it
  * from a bunker key on the in-memory relay. bray's own bunker daemon then
- * serves the later requests. That daemon approves any client, so this proves
+ * serves the later requests. It runs open (any client approved), standing in
+ * for an app that approved the client when it answered, so this proves
  * bray's half only: that it pairs, saves the right state and signs through the
  * saved signer without sending `connect`. Whether a given signer app accepts
  * the reconnect has to be checked against that app.
@@ -66,6 +67,7 @@ describe('bunker pair (nostrconnect://)', () => {
       relays: [relay.url],
       bunkerKeyHex: Buffer.from(bunkerSk).toString('hex'),
       quiet: true,
+      open: true,
       stateDir: mkdtempSync(join(tmpdir(), 'bray-pair-bunker-')),
     })
     answerPool = new SimplePool()

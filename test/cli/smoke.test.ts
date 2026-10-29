@@ -918,9 +918,11 @@ describe('bunker connect — async spawn (live relay)', { timeout: 30_000 }, () 
 
   it('saves the URI and reports the npub', async () => {
     const tmpStateDir = mkdtempSync(join(tmpdir(), 'bray-connect-'))
+    // The daemon moves to a new secret once this link is used, so keep it.
+    const link = bunkerInstance2.url
     try {
       const out = await new Promise<any>((resolve, reject) => {
-        const proc = spawn('node', [CLI, 'bunker', 'connect', bunkerInstance2.url], {
+        const proc = spawn('node', [CLI, 'bunker', 'connect', link], {
           env: { PATH: process.env.PATH!, XDG_CONFIG_HOME: tmpStateDir },
           stdio: ['pipe', 'pipe', 'pipe'],
         })
@@ -939,7 +941,7 @@ describe('bunker connect — async spawn (live relay)', { timeout: 30_000 }, () 
       expect(out.saved).toBe(true)
 
       const saved = JSON.parse(readFileSync(join(tmpStateDir, 'bray', 'bunker-uri'), 'utf-8'))
-      expect(saved.uri).toBe(bunkerInstance2.url)
+      expect(saved.uri).toBe(link)
     } finally {
       rmSync(tmpStateDir, { recursive: true })
     }
