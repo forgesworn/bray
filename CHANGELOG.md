@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.8.0 (2026-10-29)
+
+### Features
+
+- bunker daemon requires a one-time connect secret for new clients (#145)
+
+
+
 ## 3.7.1 (2026-10-29)
 
 ### Bug Fixes
