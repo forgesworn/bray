@@ -374,4 +374,22 @@ describe('bunker daemon connect secret', () => {
       b.close()
     }
   }, 30_000)
+
+  it('a client authorised on disk while the daemon runs connects without the secret', async () => {
+    const key = Buffer.from(generateSecretKey()).toString('hex')
+    const state = mkdtempSync(join(tmpdir(), 'bray-secret-authorize-'))
+    const b = startBunker({ ctx, relays: [relay.url], quiet: true, bunkerKeyHex: key, stateDir: state })
+    try {
+      const app = generateSecretKey()
+      expect((await rawRequest(app, b.pubkey, 'connect', [b.pubkey, ''], 5_000))?.error).toMatch(/connect refused/)
+      writeStateFile('approved-clients.json', { [b.pubkey]: [getPublicKey(app)] }, state)
+      expect((await rawRequest(app, b.pubkey, 'connect', [b.pubkey, ''], 5_000))?.result).toBe('ack')
+      expect((await rawRequest(app, b.pubkey, 'get_public_key', [], 5_000))?.result).toBe(ctx.activePublicKeyHex)
+      expect(b.approvedClients).toEqual([getPublicKey(app)])
+      // The secret was not used, so the link has not moved on.
+      expect(secretOf(b.url)).not.toBeNull()
+    } finally {
+      b.close()
+    }
+  }, 30_000)
 })
