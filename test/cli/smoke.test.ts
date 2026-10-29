@@ -1018,4 +1018,17 @@ describe('bunker status / authorize — state file', { timeout: 15_000 }, () => 
     // cliExpectFail would fail; instead confirm cli exits 0
     cli({ PATH: process.env.PATH!, XDG_CONFIG_HOME: tmpStateDir }, 'bunker', 'authorize', fakePk)
   })
+
+  it('bunker revoke removes an authorised pubkey, and fails when it is not there', () => {
+    const fakePk = 'd'.repeat(64)
+    const env = { PATH: process.env.PATH!, XDG_CONFIG_HOME: tmpStateDir }
+    cli(env, 'bunker', 'authorize', fakePk)
+    cli(env, 'bunker', 'revoke', fakePk.toUpperCase())
+    const approvals = JSON.parse(
+      readFileSync(join(tmpStateDir, 'bray', 'approved-clients.json'), 'utf-8'),
+    )
+    expect(Object.values(approvals).flat()).not.toContain(fakePk)
+    expect(cliExpectFail(env, 'bunker', 'revoke', fakePk)).toContain('not an approved client')
+    expect(cliExpectFail(env, 'bunker', 'revoke', 'not-a-pubkey')).toContain('usage')
+  })
 })

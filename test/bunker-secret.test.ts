@@ -12,10 +12,10 @@ import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nos
 import { getConversationKey, encrypt, decrypt } from 'nostr-tools/nip44'
 import { SimplePool } from 'nostr-tools/pool'
 import { startRelay } from '../src/serve.js'
-import { startBunker } from '../src/bunker.js'
+import { startBunker, revokeClient } from '../src/bunker.js'
 import { IdentityContext } from '../src/context.js'
 import { BunkerContext } from '../src/bunker-context.js'
-import { writeStateFile } from '../src/state.js'
+import { readStateFile, writeStateFile } from '../src/state.js'
 
 const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364r8'
 const PORT = 19653
@@ -305,5 +305,42 @@ describe('bunker daemon connect secret', () => {
     } finally {
       b.close()
     }
+  })
+  it('revoking a client cuts it off from a running daemon, and later approvals do not bring it back', async () => {
+    const key = Buffer.from(generateSecretKey()).toString('hex')
+    const state = mkdtempSync(join(tmpdir(), 'bray-secret-revoke-'))
+    const b = startBunker({ ctx, relays: [relay.url], quiet: true, bunkerKeyHex: key, stateDir: state })
+    try {
+      const first = generateSecretKey()
+      const ack = await rawRequest(first, b.pubkey, 'connect', [b.pubkey, secretOf(b.url)], 5_000)
+      expect(ack?.result).toBe('ack')
+      expect((await rawRequest(first, b.pubkey, 'get_public_key', [], 5_000))?.result).toBe(ctx.activePublicKeyHex)
+
+      expect(revokeClient(getPublicKey(first), state)).toBe(1)
+      expect(await rawRequest(first, b.pubkey, 'get_public_key', [])).toBeNull()
+      expect(b.approvedClients).toEqual([])
+
+      // Approving another client must not write the revoked key back.
+      const second = generateSecretKey()
+      expect((await rawRequest(second, b.pubkey, 'connect', [b.pubkey, secretOf(b.url)], 5_000))?.result).toBe('ack')
+      const onDisk = readStateFile<Record<string, string[]>>('approved-clients.json', state)[b.pubkey]
+      expect(onDisk).toEqual([getPublicKey(second)])
+
+      // The revoked client cannot get back in with its old link either.
+      const refused = await rawRequest(first, b.pubkey, 'connect', [b.pubkey, ''], 5_000)
+      expect(refused?.error).toMatch(/connect refused/)
+    } finally {
+      b.close()
+    }
+  }, 30_000)
+
+  it('revokeClient removes the key under every bunker and reports none when absent', () => {
+    const state = mkdtempSync(join(tmpdir(), 'bray-secret-revoke2-'))
+    const gone = getPublicKey(generateSecretKey())
+    const kept = getPublicKey(generateSecretKey())
+    writeStateFile('approved-clients.json', { a: [gone, kept], b: [gone], c: [kept] }, state)
+    expect(revokeClient(gone, state)).toBe(2)
+    expect(readStateFile('approved-clients.json', state)).toEqual({ a: [kept], b: [], c: [kept] })
+    expect(revokeClient(gone, state)).toBe(0)
   })
 })
