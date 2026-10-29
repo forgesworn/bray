@@ -79,7 +79,7 @@ describe('VeilScoring', () => {
       const scoring = new VeilScoring(pool as any, cache, TEST_NPUB)
       const result = await scoring.scorePubkey(TEST_PUBKEY)
 
-      expect(mockVerifyProof).toHaveBeenCalledWith(ringEvent)
+      expect(mockVerifyProof).toHaveBeenCalledWith(ringEvent, { expectedKind: 30382 })
       expect(result.flags).toContain('ring proof verified')
       expect(result.ringEndorsements).toBe(2)
     })
@@ -102,6 +102,22 @@ describe('VeilScoring', () => {
       const result = await scoring.scorePubkey(TEST_PUBKEY)
 
       expect(result.flags).toContain('ring proof invalid')
+    })
+
+    it('ignores events about another subject or of another kind, even with a valid ring proof', async () => {
+      const otherSubject = mockAssertionEvent({ subject: 'd'.padEnd(64, 'd'), ringEndorsement: true })
+      otherSubject.tags.push(['veil-sig', '{}', 'keyimage-other'])
+      const wrongKind = { ...mockAssertionEvent({ subject: TEST_PUBKEY, ringEndorsement: true }), kind: 30383 }
+      wrongKind.tags.push(['veil-sig', '{}', 'keyimage-kind'])
+      mockVerifyProof.mockReturnValue({ valid: true, circleSize: 3, threshold: 2, distinctSigners: 3, errors: [] })
+
+      const scoring = new VeilScoring(mockPool([otherSubject, wrongKind]) as any, cache, TEST_NPUB)
+      const result = await scoring.scorePubkey(TEST_PUBKEY)
+
+      expect(mockVerifyProof).not.toHaveBeenCalled()
+      expect(result.endorsements).toBe(0)
+      expect(result.ringEndorsements).toBe(0)
+      expect(result.score).toBe(0)
     })
   })
 

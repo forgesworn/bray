@@ -26,6 +26,19 @@ export async function applyBunkerPersona(
   return undefined
 }
 
+/** A pubkey given as 64-character hex or npub, as lowercase hex; undefined if neither. */
+async function parsePubkeyArg(given: string | undefined): Promise<string | undefined> {
+  if (!given) return undefined
+  if (/^[0-9a-f]{64}$/i.test(given)) return given.toLowerCase()
+  const { decode } = await import('nostr-tools/nip19')
+  try {
+    const decoded = decode(given)
+    return decoded.type === 'npub' ? decoded.data : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export async function dispatch(args: string[]): Promise<void> {
   // Accept `bunker daemon` as alias for `bunker` (start daemon)
   if (args[1] === 'daemon') args.splice(1, 1)
@@ -202,48 +215,76 @@ export async function dispatch(args: string[]): Promise<void> {
     }
   }
 
-  // ── bunker authorize <app-pubkey> ───────────────────────────────────────────
-  // Pre-authorise an app's hex pubkey so it can use the bunker daemon without
-  // going through the interactive connect flow.  Reads the saved bunker URI for
-  // the bunker transport pubkey (used as the key in approved-clients.json) then
-  // writes the new entry — no network connection required.
+  // ── bunker authorize <app-pubkey|npub> [which daemon] ──────────────────────
+  // Pre-approve an app's pubkey on the local bunker daemon, so it connects
+  // without the one-time secret. The approval is keyed by the daemon's own
+  // bunker key, found the way the daemon finds it: --bunker-key-file, or the
+  // key bray keeps for --persona, --profile or the default identity. --bunker
+  // names the daemon's pubkey directly. A running daemon picks it up from the
+  // app's next request. No network connection is made.
   if (args[1] === 'authorize') {
-    const appPubkey = args[2]
-    if (!appPubkey || !/^[0-9a-f]{64}$/i.test(appPubkey)) {
-      console.error('usage: bray bunker authorize <64-char-hex-pubkey>')
+    const usage = 'usage: bray bunker authorize <64-char-hex-pubkey|npub> [--persona <name> | --profile <name> | --bunker-key-file <file> | --daemon-pubkey <hex|npub>]'
+    const clientPk = await parsePubkeyArg(args[2])
+    const opt = (name: string): string | undefined => {
+      const i = args.indexOf(name)
+      return i >= 0 && args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : undefined
+    }
+    if (!clientPk) {
+      console.error(usage)
       process.exit(1)
     }
 
-    const { readStateFile, writeStateFile } = await import('../../state.js')
-    const { parseBunkerUri } = await import('../../bunker-context.js')
-
-    // The bunker transport pubkey keys the approvals file.  It is the pubkey
-    // encoded in the saved bunker URI (bunker://<pubkey>?…), OR falls back to
-    // the BUNKER_URI env var so the command also works without a saved URI.
-    const saved = readStateFile<{ uri?: string }>(BUNKER_URI_FILE)
-    const bunkerUriStr = saved.uri ?? process.env.BUNKER_URI
-    if (!bunkerUriStr) {
-      console.error('bunker authorize: no saved bunker URI — run `bunker connect` or `bunker pair` first, or set BUNKER_URI')
-      process.exit(1)
+    const { getPublicKey } = await import('nostr-tools/pure')
+    const { readStateFile, readStateFileStrict, writeStateFile } = await import('../../state.js')
+    let bunkerPk: string | undefined
+    let which: string
+    if (args.includes('--daemon-pubkey')) {
+      bunkerPk = await parsePubkeyArg(opt('--daemon-pubkey'))
+      which = 'the --daemon-pubkey daemon'
+      if (!bunkerPk) {
+        console.error(usage)
+        process.exit(1)
+      }
+    } else if (args.includes('--bunker-key-file')) {
+      const file = opt('--bunker-key-file')
+      const { readFileSync } = await import('node:fs')
+      let hex = ''
+      try { hex = file ? readFileSync(file, 'utf-8').trim() : '' } catch { hex = '' }
+      if (!/^[0-9a-f]{64}$/i.test(hex)) {
+        console.error('bunker authorize: --bunker-key-file must name a file holding a 64-character hex key')
+        process.exit(1)
+      }
+      bunkerPk = getPublicKey(Buffer.from(hex, 'hex'))
+      which = 'the key in --bunker-key-file'
+    } else {
+      const label = opt('--persona') ?? opt('--profile') ?? 'default'
+      const keys = readStateFile<Record<string, string>>('bunker-keys.json')
+      const hex = keys[label]
+      if (typeof hex !== 'string' || !/^[0-9a-f]{64}$/i.test(hex)) {
+        console.error(`bunker authorize: no bunker daemon key for "${label}" yet. Start the daemon once (bray bunker${label === 'default' ? '' : ` --persona ${label}`}), or pass --daemon-pubkey <the daemon's pubkey>.`)
+        process.exit(1)
+      }
+      bunkerPk = getPublicKey(Buffer.from(hex, 'hex'))
+      which = label === 'default' ? 'the default daemon' : `the daemon for "${label}"`
     }
-
-    const { pubkey: bunkerPk } = parseBunkerUri(bunkerUriStr)
 
     const APPROVALS_FILE = 'approved-clients.json'
-    const current = readStateFile<Record<string, string[]>>(APPROVALS_FILE)
-    const entries = current[bunkerPk] ?? []
-    const normalised = appPubkey.toLowerCase()
-
-    if (entries.includes(normalised)) {
-      console.error(`bunker authorize: ${normalised} is already authorised`)
+    const current = readStateFileStrict<Record<string, string[]>>(APPROVALS_FILE)
+    if (current === null) {
+      console.error('bunker authorize: approved-clients.json in the bray state directory is unreadable; fix it or move it aside, then retry')
+      process.exit(1)
+    }
+    const entries = Array.isArray(current[bunkerPk]) ? current[bunkerPk] : []
+    const { npubEncode } = await import('nostr-tools/nip19')
+    if (entries.includes(clientPk)) {
+      console.error(`bunker authorize: ${clientPk} is already authorised for ${which}`)
       process.exit(0)
     }
-
-    entries.push(normalised)
-    current[bunkerPk] = entries
+    current[bunkerPk] = [...entries, clientPk]
     writeStateFile(APPROVALS_FILE, current)
 
-    console.log(JSON.stringify({ authorised: normalised, total: entries.length }, null, 2))
+    console.error(`Authorised for ${which}. A running daemon accepts this app from its next request.`)
+    console.log(JSON.stringify({ authorised: clientPk, bunker: npubEncode(bunkerPk), total: current[bunkerPk].length }, null, 2))
     process.exit(0)
   }
 
@@ -258,16 +299,7 @@ export async function dispatch(args: string[]): Promise<void> {
       console.error(usage)
       process.exit(1)
     }
-    let clientPk: string | undefined
-    if (/^[0-9a-f]{64}$/i.test(given)) {
-      clientPk = given.toLowerCase()
-    } else {
-      const { decode } = await import('nostr-tools/nip19')
-      try {
-        const decoded = decode(given)
-        if (decoded.type === 'npub') clientPk = decoded.data
-      } catch { clientPk = undefined }
-    }
+    const clientPk = await parsePubkeyArg(given)
     if (!clientPk) {
       console.error(usage)
       process.exit(1)

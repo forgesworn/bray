@@ -184,8 +184,20 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
     return false
   }
 
+  // `bunker authorize` adds to the approvals file while the daemon runs, so a
+  // client not yet approved in memory is looked up there before the gates.
+  function approvedOnDisk(clientPk: string): boolean {
+    const current = readStateFileStrict<Record<string, string[]>>(APPROVALS_FILE, opts.stateDir)
+    return current !== null && Array.isArray(current[bunkerPk]) && current[bunkerPk].includes(clientPk)
+  }
+
   async function handleRequest(event: NostrEvent): Promise<void> {
     const clientPk = event.pubkey
+    if (!openMode && !authorizedKeys.has(clientPk) && approvedOnDisk(clientPk)) {
+      authorizedKeys.add(clientPk)
+      if (!bunkerApprovals.includes(clientPk)) bunkerApprovals.push(clientPk)
+      log(`Client found in approved-clients.json (bunker authorize): ${clientPk.slice(0, 12)}...`)
+    }
     if (!openMode && authorizedKeys.has(clientPk) && !stillApproved(clientPk)) {
       // A revoked client has left authorizedKeys and meets the gates below as
       // a stranger. One still there could not be checked (unreadable file).

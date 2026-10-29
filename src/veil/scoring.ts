@@ -53,15 +53,17 @@ export class VeilScoring {
 
     // 4. Parse assertions and count endorsements
     for (const event of events) {
+      // The relay may return anything; count only kind 30382 assertions about
+      // this pubkey, so a valid proof about someone else adds nothing.
+      if (event.kind !== 30382) continue
       const parsed = parseAssertion(event)
-      if (parsed.subject === pubkey) {
-        endorsements++
-      }
+      if (parsed.subject !== pubkey) continue
+      endorsements++
 
       // 5. Check for veil-sig tags and verify ring proofs
       const hasVeilSig = event.tags.some((t: string[]) => t[0] === 'veil-sig')
       if (hasVeilSig) {
-        const verification = verifyProof(event)
+        const verification = verifyProof(event, { expectedKind: 30382 })
         if (verification.valid) {
           ringEndorsements += verification.distinctSigners
           if (!flags.includes('ring proof verified')) {

@@ -957,6 +957,7 @@ describe('bunker status / authorize — state file', { timeout: 15_000 }, () => 
   // These commands read/write the state file directly — no live relay needed.
   // We pre-populate the state file with a realistic bunker URI.
   const FAKE_BUNKER_URI = 'bunker://aabbcc1122334455aabbcc1122334455aabbcc1122334455aabbcc1122334455?relay=ws://localhost:19748'
+  const DAEMON_KEY = '7f'.repeat(32)
   let tmpStateDir: string
 
   beforeAll(() => {
@@ -965,6 +966,12 @@ describe('bunker status / authorize — state file', { timeout: 15_000 }, () => 
     writeFileSync(
       join(tmpStateDir, 'bray', 'bunker-uri'),
       JSON.stringify({ uri: FAKE_BUNKER_URI }),
+      { mode: 0o600 },
+    )
+    // The local daemon's own key, as `bray bunker` would have saved it
+    writeFileSync(
+      join(tmpStateDir, 'bray', 'bunker-keys.json'),
+      JSON.stringify({ default: DAEMON_KEY }),
       { mode: 0o600 },
     )
   })
@@ -1000,14 +1007,28 @@ describe('bunker status / authorize — state file', { timeout: 15_000 }, () => 
     expect(err).toContain('usage')
   })
 
-  it('bunker authorize saves a valid pubkey to approved-clients.json', () => {
+  it('bunker authorize saves the pubkey under the local daemon key, not the saved remote signer', async () => {
+    const { getPublicKey } = await import('nostr-tools/pure')
+    const daemonPk = getPublicKey(Buffer.from(DAEMON_KEY, 'hex'))
     const fakePk = 'b'.repeat(64)
-    cli({ PATH: process.env.PATH!, XDG_CONFIG_HOME: tmpStateDir }, 'bunker', 'authorize', fakePk)
+    const out = JSON.parse(cli({ PATH: process.env.PATH!, XDG_CONFIG_HOME: tmpStateDir }, 'bunker', 'authorize', fakePk))
+    expect(out.authorised).toBe(fakePk)
     const approvals = JSON.parse(
       readFileSync(join(tmpStateDir, 'bray', 'approved-clients.json'), 'utf-8'),
     )
-    const entries = Object.values(approvals).flat() as string[]
-    expect(entries).toContain(fakePk)
+    expect(approvals[daemonPk]).toContain(fakePk)
+    expect(approvals['aabbcc1122334455aabbcc1122334455aabbcc1122334455aabbcc1122334455']).toBeUndefined()
+  })
+
+  it('bunker authorize accepts an npub and --daemon-pubkey, and says when a persona has no daemon key', async () => {
+    const { npubEncode } = await import('nostr-tools/nip19')
+    const env = { PATH: process.env.PATH!, XDG_CONFIG_HOME: tmpStateDir }
+    const clientPk = 'e'.repeat(64)
+    const targetPk = 'f'.repeat(63) + '0'
+    cli(env, 'bunker', 'authorize', npubEncode(clientPk), '--daemon-pubkey', npubEncode(targetPk))
+    const approvals = JSON.parse(readFileSync(join(tmpStateDir, 'bray', 'approved-clients.json'), 'utf-8'))
+    expect(approvals[targetPk]).toEqual([clientPk])
+    expect(cliExpectFail(env, 'bunker', 'authorize', clientPk, '--persona', 'nobody')).toContain('no bunker daemon key for "nobody"')
   })
 
   it('bunker authorize is idempotent for duplicate pubkeys', () => {
