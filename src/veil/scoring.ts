@@ -49,7 +49,11 @@ export class VeilScoring {
 
     const flags: string[] = []
     // One endorsement per author, and one ring endorsement per key image: the
-    // same assertion or ring proof published several times counts once.
+    // same assertion or ring proof published several times counts once. This
+    // stops replays, not Sybils: a key image is per circle scope and subject,
+    // so one key that joins several circles (rings need no consent) still
+    // counts once per circle. Weighting rings by trusted circles would need an
+    // allowlist of circles or publishers.
     const endorsers = new Set<string>()
     const ringKeyImages = new Set<string>()
 
