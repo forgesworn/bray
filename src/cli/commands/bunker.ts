@@ -276,10 +276,10 @@ export async function dispatch(args: string[]): Promise<void> {
     const { revokeClient } = await import('../../bunker.js')
     const removed = revokeClient(clientPk)
     if (removed === 0) {
-      console.error(`bunker revoke: ${clientPk} is not an approved client`)
+      console.error(`bunker revoke: ${clientPk} is not an approved client (keys passed with --authorized-keys are set when the daemon starts; restart it without them)`)
       process.exit(1)
     }
-    console.error('A running bunker daemon refuses this client from its next request. A daemon started with --open ignores revocations, since it serves any client; one started with --authorized-keys keeps the keys it was given.')
+    console.error('A running bunker daemon refuses this client from its next request. A daemon started with --open serves any client, revoked or not; one started with --authorized-keys keeps the keys it was given.')
     console.log(JSON.stringify({ revoked: clientPk, bunkers: removed }, null, 2))
     process.exit(0)
   }

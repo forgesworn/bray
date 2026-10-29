@@ -94,6 +94,9 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
   // unless the daemon runs open. Clients approved earlier never need it.
   const allowList = cliAuthorizedKeys.size > 0
   const requireSecret = !allowList && opts.open !== true
+  // Open: any client is served and nothing is saved, so a stranger who found
+  // the link is not approved for a later daemon run without --open.
+  const openMode = !allowList && !requireSecret
   // The unused secret is kept per bunker key, so a link handed out before a
   // restart still works. Only for a persistent bunker key: an ephemeral one
   // gets a new link every run anyway.
@@ -123,6 +126,7 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
   }
 
   function approve(clientPk: string): void {
+    if (openMode) return
     authorizedKeys.add(clientPk)
     if (bunkerApprovals.includes(clientPk)) return
     bunkerApprovals.push(clientPk)
@@ -165,13 +169,13 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
     authorizedKeys.delete(clientPk)
     const i = bunkerApprovals.indexOf(clientPk)
     if (i >= 0) bunkerApprovals.splice(i, 1)
-    log(`Client approval revoked: ${clientPk.slice(0, 12)}...`)
+    log(`Client no longer in approved-clients.json, so refused: ${clientPk.slice(0, 12)}...`)
     return false
   }
 
   async function handleRequest(event: NostrEvent): Promise<void> {
     const clientPk = event.pubkey
-    if (authorizedKeys.has(clientPk)) stillApproved(clientPk)
+    if (!openMode && authorizedKeys.has(clientPk)) stillApproved(clientPk)
 
     // With --authorized-keys, drop anyone else unanswered, as before.
     if (allowList && !authorizedKeys.has(clientPk)) {

@@ -239,7 +239,8 @@ describe('bunker daemon connect secret', () => {
   }, 20_000)
 
   it('open: no secret in the link, and any client is approved', async () => {
-    const open = startBunker({ ctx, relays: [relay.url], quiet: true, open: true, stateDir: mkdtempSync(join(tmpdir(), 'bray-secret-open-')) })
+    const openDir = mkdtempSync(join(tmpdir(), 'bray-secret-open-'))
+    const open = startBunker({ ctx, relays: [relay.url], quiet: true, open: true, stateDir: openDir })
     try {
       expect(secretOf(open.url)).toBeNull()
       const client = await BunkerContext.connect(open.url, 10_000, clientDir())
@@ -248,6 +249,10 @@ describe('bunker daemon connect secret', () => {
       } finally {
         client.destroy()
       }
+      // Nothing is saved while open, so a later daemon without --open still
+      // asks this client for the secret, and a revocation stays put.
+      expect(readStateFile('approved-clients.json', openDir)).toEqual({})
+      expect(open.approvedClients).toEqual([])
     } finally {
       open.close()
     }
@@ -312,7 +317,8 @@ describe('bunker daemon connect secret', () => {
     const b = startBunker({ ctx, relays: [relay.url], quiet: true, bunkerKeyHex: key, stateDir: state })
     try {
       const first = generateSecretKey()
-      const ack = await rawRequest(first, b.pubkey, 'connect', [b.pubkey, secretOf(b.url)], 5_000)
+      const firstSecret = secretOf(b.url)
+      const ack = await rawRequest(first, b.pubkey, 'connect', [b.pubkey, firstSecret], 5_000)
       expect(ack?.result).toBe('ack')
       expect((await rawRequest(first, b.pubkey, 'get_public_key', [], 5_000))?.result).toBe(ctx.activePublicKeyHex)
 
@@ -327,7 +333,7 @@ describe('bunker daemon connect secret', () => {
       expect(onDisk).toEqual([getPublicKey(second)])
 
       // The revoked client cannot get back in with its old link either.
-      const refused = await rawRequest(first, b.pubkey, 'connect', [b.pubkey, ''], 5_000)
+      const refused = await rawRequest(first, b.pubkey, 'connect', [b.pubkey, firstSecret], 5_000)
       expect(refused?.error).toMatch(/connect refused/)
     } finally {
       b.close()
