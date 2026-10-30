@@ -3,7 +3,7 @@ import type { Event as NostrEvent } from 'nostr-tools'
 import { TrustCache } from '../../src/veil/cache.js'
 import { VeilScoring } from '../../src/veil/scoring.js'
 import { handleFeed, handleNotifications } from '../../src/social/notifications.js'
-import { mockAssertionEvent } from '../helpers/mock-veil.js'
+import { mockAssertionEvent, mockFollowEvent, mockVeilPool } from '../helpers/mock-veil.js'
 
 // Must be a string literal -- vi.mock factories are hoisted before variable declarations
 const ACTIVE_HEX = 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
@@ -15,7 +15,8 @@ vi.mock('nostr-veil/nip85', () => ({
   }),
 }))
 
-vi.mock('nostr-veil/proof', () => ({
+vi.mock('nostr-veil/proof', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('nostr-veil/proof')>()),
   verifyProof: vi.fn(),
 }))
 
@@ -39,18 +40,16 @@ function makeEvent(id: string, pubkey: string, kind = 1): NostrEvent {
   }
 }
 
-function mockPool(feedEvents: NostrEvent[], assertionEvents: NostrEvent[] = []) {
-  return {
-    query: vi.fn().mockImplementation((_npub: string, filter: { kinds: number[] }) => {
-      // Return assertion events for NIP-85 queries (kind 30382)
-      if (filter.kinds?.includes(30382)) {
-        return Promise.resolve(assertionEvents)
-      }
-      return Promise.resolve(feedEvents)
-    }),
-    publish: vi.fn().mockResolvedValue({ success: true, allAccepted: true, accepted: [], rejected: [], errors: [] }),
-    getRelays: vi.fn().mockReturnValue({ read: ['wss://relay.test'], write: ['wss://relay.test'] }),
-  }
+// The caller (ACTIVE_HEX) follows ENDORSER, so ENDORSER's assertions count.
+const ENDORSER = '1'.padEnd(64, '1')
+const FOLLOWED_AUTHOR = '2'.padEnd(64, '2')
+
+function mockPool(feedEvents: NostrEvent[], assertionEvents: NostrEvent[] = [], follows: string[] = [ENDORSER]) {
+  return mockVeilPool({
+    assertions: assertionEvents,
+    follows: [mockFollowEvent(ACTIVE_HEX, follows)],
+    other: feedEvents,
+  })
 }
 
 function mockCtx(npub = TEST_NPUB) {
@@ -74,10 +73,10 @@ describe('handleFeed trust scoring integration', () => {
       makeEvent('2', UNTRUSTED_PUBKEY),
     ]
 
-    const assertionForTrusted = mockAssertionEvent({ subject: TRUSTED_PUBKEY })
+    const assertionForTrusted = mockAssertionEvent({ provider: ENDORSER, subject: TRUSTED_PUBKEY })
     const pool = mockPool(feedEvents, [assertionForTrusted])
 
-    const scoring = new VeilScoring(pool as any, cache, TEST_NPUB)
+    const scoring = new VeilScoring(pool as any, cache, mockCtx() as any)
     const ctx = mockCtx()
 
     const feed = await handleFeed(ctx as any, pool as any, {
@@ -96,10 +95,10 @@ describe('handleFeed trust scoring integration', () => {
       makeEvent('2', UNTRUSTED_PUBKEY),
     ]
 
-    const assertionForTrusted = mockAssertionEvent({ subject: TRUSTED_PUBKEY })
+    const assertionForTrusted = mockAssertionEvent({ provider: ENDORSER, subject: TRUSTED_PUBKEY })
     const pool = mockPool(feedEvents, [assertionForTrusted])
 
-    const scoring = new VeilScoring(pool as any, cache, TEST_NPUB)
+    const scoring = new VeilScoring(pool as any, cache, mockCtx() as any)
     const ctx = mockCtx()
 
     const feed = await handleFeed(ctx as any, pool as any, {
@@ -121,7 +120,7 @@ describe('handleFeed trust scoring integration', () => {
     ]
 
     const pool = mockPool(feedEvents)
-    const scoring = new VeilScoring(pool as any, cache, TEST_NPUB)
+    const scoring = new VeilScoring(pool as any, cache, mockCtx() as any)
     const ctx = mockCtx()
 
     const feed = await handleFeed(ctx as any, pool as any, {
@@ -167,10 +166,10 @@ describe('handleNotifications trust scoring integration', () => {
       { ...makeEvent('4', UNTRUSTED_PUBKEY), tags: [['p', ACTIVE_HEX]] },
     ]
 
-    const assertionForTrusted = mockAssertionEvent({ subject: TRUSTED_PUBKEY })
+    const assertionForTrusted = mockAssertionEvent({ provider: ENDORSER, subject: TRUSTED_PUBKEY })
     const pool = mockPool(notifEvents, [assertionForTrusted])
 
-    const scoring = new VeilScoring(pool as any, cache, TEST_NPUB)
+    const scoring = new VeilScoring(pool as any, cache, mockCtx() as any)
     const ctx = {
       activeNpub: TEST_NPUB,
       activePublicKeyHex: ACTIVE_HEX,
@@ -192,10 +191,10 @@ describe('handleNotifications trust scoring integration', () => {
       { ...makeEvent('6', UNTRUSTED_PUBKEY), tags: [['p', ACTIVE_HEX]] },
     ]
 
-    const assertionForTrusted = mockAssertionEvent({ subject: TRUSTED_PUBKEY })
+    const assertionForTrusted = mockAssertionEvent({ provider: ENDORSER, subject: TRUSTED_PUBKEY })
     const pool = mockPool(notifEvents, [assertionForTrusted])
 
-    const scoring = new VeilScoring(pool as any, cache, TEST_NPUB)
+    const scoring = new VeilScoring(pool as any, cache, mockCtx() as any)
     const ctx = {
       activeNpub: TEST_NPUB,
       activePublicKeyHex: ACTIVE_HEX,
@@ -211,5 +210,55 @@ describe('handleNotifications trust scoring integration', () => {
     const untrusted = notifications.find(n => n.from === UNTRUSTED_PUBKEY)!
     expect(trusted.trustScore).toBe(1)
     expect(untrusted.trustScore).toBe(0)
+  })
+})
+
+describe('strict mode follows pass', () => {
+  let cache: TrustCache
+
+  beforeEach(() => {
+    cache = new TrustCache({ ttl: 60_000, maxEntries: 100 })
+    vi.clearAllMocks()
+  })
+
+  it('keeps a followed author with no endorsements in the feed and hides a stranger', async () => {
+    const feedEvents = [
+      makeEvent('7', FOLLOWED_AUTHOR),
+      makeEvent('8', UNTRUSTED_PUBKEY),
+    ]
+    const pool = mockPool(feedEvents, [], [FOLLOWED_AUTHOR])
+    const scoring = new VeilScoring(pool as any, cache, mockCtx() as any)
+
+    const feed = await handleFeed(mockCtx() as any, pool as any, { trust: 'strict', _scoring: scoring })
+
+    expect(feed.map(f => f.pubkey)).toEqual([FOLLOWED_AUTHOR])
+    expect(feed[0].trustScore).toBe(0)
+  })
+
+  it('keeps notifications from a followed author in strict mode', async () => {
+    const notifEvents: NostrEvent[] = [
+      { ...makeEvent('9', FOLLOWED_AUTHOR), tags: [['p', ACTIVE_HEX]] },
+      { ...makeEvent('a', UNTRUSTED_PUBKEY), tags: [['p', ACTIVE_HEX]] },
+    ]
+    const pool = mockPool(notifEvents, [], [FOLLOWED_AUTHOR])
+    const scoring = new VeilScoring(pool as any, cache, mockCtx() as any)
+
+    const notifications = await handleNotifications(mockCtx() as any, pool as any, {
+      trust: 'strict',
+      _scoring: scoring,
+    })
+
+    expect(notifications.map(n => n.from)).toEqual([FOLLOWED_AUTHOR])
+  })
+
+  it('does not let a stranger endorsement pass strict mode', async () => {
+    const feedEvents = [makeEvent('b', TRUSTED_PUBKEY)]
+    const stranger = mockAssertionEvent({ provider: UNTRUSTED_PUBKEY, subject: TRUSTED_PUBKEY })
+    const pool = mockPool(feedEvents, [stranger])
+    const scoring = new VeilScoring(pool as any, cache, mockCtx() as any)
+
+    const feed = await handleFeed(mockCtx() as any, pool as any, { trust: 'strict', _scoring: scoring })
+
+    expect(feed).toHaveLength(0)
   })
 })

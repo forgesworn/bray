@@ -19,6 +19,10 @@ export interface TrustContextOptions {
   cacheTtl: number
   cacheMax: number
   trustMode: TrustMode
+  /** Hex circle IDs whose ring proofs count towards the Veil score. */
+  veilTrustedCircles?: string[]
+  /** Hex pubkeys whose assertions and ring proofs count towards the Veil score. */
+  veilTrustedPublishers?: string[]
 }
 
 export interface ProximityInfo {
@@ -26,6 +30,9 @@ export interface ProximityInfo {
   wotScore: number
   endorsements: number
   ringEndorsements: number
+  /** Endorsements from outside the trusted set: reported, not scored. */
+  untrustedEndorsements: number
+  untrustedRingEndorsements: number
   mutualFollows: boolean
 }
 
@@ -186,7 +193,11 @@ export class TrustContext {
     this.signet = new SignetAssessor(pool, { ttl: opts.cacheTtl, maxEntries: opts.cacheMax })
     this.vault = new VaultResolver(pool, { ttl: opts.cacheTtl, maxEntries: opts.cacheMax })
     this.veilCache = new TrustCache({ ttl: opts.cacheTtl, maxEntries: opts.cacheMax })
-    this.veil = new VeilScoring(pool, this.veilCache, () => ctx.activeNpub)
+    this.veil = new VeilScoring(pool, this.veilCache, ctx, {
+      trustedCircles: opts.veilTrustedCircles,
+      trustedPublishers: opts.veilTrustedPublishers,
+      followsTtl: opts.cacheTtl,
+    })
   }
 
   /** Assess trust for a target pubkey across all three dimensions in parallel. */
@@ -211,6 +222,8 @@ export class TrustContext {
       wotScore: veilResult.score,
       endorsements: veilResult.endorsements,
       ringEndorsements: veilResult.ringEndorsements,
+      untrustedEndorsements: veilResult.untrustedEndorsements,
+      untrustedRingEndorsements: veilResult.untrustedRingEndorsements,
       mutualFollows: mutual,
     }
 
@@ -245,7 +258,7 @@ export class TrustContext {
       pubkey,
       npub: npubEncode(pubkey),
       verification: { tier: null, score: 0, credentials: 0, expired: false },
-      proximity: { distance: -1, wotScore: 0, endorsements: 0, ringEndorsements: 0, mutualFollows: false },
+      proximity: { distance: -1, wotScore: 0, endorsements: 0, ringEndorsements: 0, untrustedEndorsements: 0, untrustedRingEndorsements: 0, mutualFollows: false },
       access: { vaultTiers: [], theirVaultTiers: [], canDecrypt: false, currentEpoch: '', revoked: false },
       composite: { level: 'unknown', summary: 'Trust assessment disabled', flags: [] },
     }

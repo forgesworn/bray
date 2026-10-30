@@ -35,6 +35,10 @@ export interface ToolDeps {
   nip04Enabled?: boolean
   veilCacheTtl?: number
   veilCacheMax?: number
+  /** Hex circle IDs whose ring proofs count towards Veil scores. */
+  veilTrustedCircles?: string[]
+  /** Hex pubkeys whose assertions and ring proofs count towards Veil scores. */
+  veilTrustedPublishers?: string[]
   trust?: TrustContext
 }
 

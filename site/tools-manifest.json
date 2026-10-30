@@ -1,7 +1,7 @@
 {
   "name": "nostr-bray",
   "mcpName": "dev.forgesworn/bray",
-  "version": "3.5.3",
+  "version": "3.10.1",
   "description": "Trust-aware Nostr MCP server, CLI and TypeScript SDK for AI agents and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "homepage": "https://bray.forgesworn.dev",
   "totalTools": 261,
@@ -7581,8 +7581,7 @@
             "maximum": 100
           },
           "trust": {
-            "default": "strict",
-            "description": "Trust filter mode: strict (hide untrusted), annotate (show scores), off (no filtering)",
+            "description": "Trust filter mode: strict (hide authors with no endorsement from you, your follows or a trusted publisher), annotate (show scores), off (no filtering). Defaults to the configured trustMode, which is annotate unless set.",
             "type": "string",
             "enum": [
               "strict",
@@ -7602,7 +7601,6 @@
         },
         "required": [
           "limit",
-          "trust",
           "output"
         ],
         "additionalProperties": false
@@ -7630,8 +7628,7 @@
             "maximum": 200
           },
           "trust": {
-            "default": "strict",
-            "description": "Trust filter mode: strict (hide untrusted), annotate (show scores), off (no filtering)",
+            "description": "Trust filter mode: strict (hide authors with no endorsement from you, your follows or a trusted publisher), annotate (show scores), off (no filtering). Defaults to the configured trustMode, which is annotate unless set.",
             "type": "string",
             "enum": [
               "strict",
@@ -7651,7 +7648,6 @@
         },
         "required": [
           "limit",
-          "trust",
           "output"
         ],
         "additionalProperties": false

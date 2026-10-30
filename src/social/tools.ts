@@ -77,6 +77,14 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     ttl: deps.veilCacheTtl ?? 300_000,
     maxEntries: deps.veilCacheMax ?? 500,
   })
+  const veilScoringOptions = {
+    trustedCircles: deps.veilTrustedCircles,
+    trustedPublishers: deps.veilTrustedPublishers,
+    followsTtl: deps.veilCacheTtl ?? 300_000,
+  }
+  // One instance per registration, so the follow list is fetched once per TTL
+  // rather than on every tool call. It reads the identity lazily.
+  const scoring = new VeilScoring(deps.pool, trustCache, deps.ctx, veilScoringOptions)
 
   server.registerTool('social-post', {
     description: 'Post a text note (kind 1) signed by the active identity and publish to relays. Returns { id, pubkey, publish: { success, allAccepted, accepted, rejected } } where success is the majority-quorum signal (true when at least one relay accepted and at least half of attempted relays accepted) and allAccepted is true only when every attempted relay accepted. The most common social action.',
@@ -105,7 +113,6 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: false, destructiveHint: true },
   }, async ({ content, replyTo, replyToPubkey, relay }) => {
-    const scoring = new VeilScoring(deps.pool, trustCache, deps.ctx.activeNpub)
     const result = await handleSocialReply(deps.ctx, deps.pool, { content, replyTo, replyToPubkey, relay, _scoring: scoring })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({
@@ -367,14 +374,13 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
     inputSchema: {
       since: z.number().optional().describe('Unix timestamp — only fetch notifications after this time'),
       limit: z.number().int().min(1).max(200).default(50).describe('Max notifications to return'),
-      trust: z.enum(['strict', 'annotate', 'off']).default('strict')
-        .describe('Trust filter mode: strict (hide untrusted), annotate (show scores), off (no filtering)'),
+      trust: z.enum(['strict', 'annotate', 'off']).optional()
+        .describe('Trust filter mode: strict (hide authors with no endorsement from you, your follows or a trusted publisher), annotate (show scores), off (no filtering). Defaults to the configured trustMode, which is annotate unless set.'),
       output: z.enum(['json', 'human']).default('human').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ since, limit, trust, output }) => {
-    const scoring = new VeilScoring(deps.pool, trustCache, deps.ctx.activeNpub)
-    const notifications = await handleNotifications(deps.ctx, deps.pool, { since, limit, trust, _scoring: scoring })
+    const notifications = await handleNotifications(deps.ctx, deps.pool, { since, limit, trust: trust ?? deps.trust?.mode ?? 'annotate', _scoring: scoring })
     return toolResponse(notifications, output, fmt.formatNotifications)
   })
 
@@ -384,14 +390,13 @@ export function registerSocialTools(server: McpServer, deps: ToolDeps): void {
       authors: z.array(hexId).optional().describe('Hex pubkeys to filter by'),
       since: z.number().optional().describe('Unix timestamp — only fetch posts after this time'),
       limit: z.number().int().min(1).max(100).default(20).describe('Max posts to return'),
-      trust: z.enum(['strict', 'annotate', 'off']).default('strict')
-        .describe('Trust filter mode: strict (hide untrusted), annotate (show scores), off (no filtering)'),
+      trust: z.enum(['strict', 'annotate', 'off']).optional()
+        .describe('Trust filter mode: strict (hide authors with no endorsement from you, your follows or a trusted publisher), annotate (show scores), off (no filtering). Defaults to the configured trustMode, which is annotate unless set.'),
       output: z.enum(['json', 'human']).default('human').describe('Response format'),
     },
     annotations: { readOnlyHint: true },
   }, async ({ authors, since, limit, trust, output }) => {
-    const scoring = new VeilScoring(deps.pool, trustCache, deps.ctx.activeNpub)
-    const feed = await handleFeed(deps.ctx, deps.pool, { authors, since, limit, trust, _scoring: scoring })
+    const feed = await handleFeed(deps.ctx, deps.pool, { authors, since, limit, trust: trust ?? deps.trust?.mode ?? 'annotate', _scoring: scoring })
     return toolResponse(feed, output, fmt.formatFeed)
   })
 

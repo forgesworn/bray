@@ -28,11 +28,56 @@ bray models trust across three independent dimensions. `trust-score` returns all
 
 Tools that surface content (`social-feed`, `social-notifications`, `dm-read`) honour a `trustMode`:
 
-- `strict` (default) — `unknown`/`stranger` content is hidden
-- `annotate` — content is shown with a `trust` annotation
-- `off` — no filtering, no annotations
+- `strict`: content from authors with no trusted endorsement is hidden (see the follow pass below)
+- `annotate` (default): content is shown with a `trust` annotation
+- `off`: no filtering, no annotations
 
-Per-call overrides are supported where it makes sense (e.g. `social-feed({ trust: "annotate" })`).
+`social-feed` and `social-notifications` use the configured `trustMode` (`annotate` unless set). A per-call `trust` argument overrides it, e.g. `social-feed({ trust: "strict" })`.
+
+## Endorsement anchoring
+
+The Veil score counts endorsements from NIP-85 assertions (kind 30382) and ring proofs about a subject. Counting every assertion from every key would let anyone mint a score with throwaway keys, so only endorsements anchored to a party you trust are scored. Three sets define who is trusted:
+
+- **follows**: the pubkeys in your own latest kind 3 contact list, plus your own pubkey. Cached for the Veil cache TTL, per identity, so an identity switch reads its own list.
+- **trusted publishers**: `veilTrustedPublishers` (hex or npub).
+- **trusted circles**: `veilTrustedCircles` (64 lowercase hex circle IDs, the `computeCircleId` hash of an exact member set).
+
+Plain assertions:
+
+- An assertion whose author is its own subject is ignored and flagged `self-endorsement ignored`.
+- An assertion from a follow or a trusted publisher is a trusted endorsement, one per author.
+- Any other author's assertion is an untrusted endorsement: reported in `untrustedEndorsements`, never scored.
+- An assertion carrying `veil-sig` tags is only ever treated as a ring proof. A follow's proof in an untrusted ring, or an invalid proof, does not count as that follow's plain endorsement.
+- If no kind 3 follow list is found for the caller, only the caller is trusted and results carry the flag `follow list not found`.
+
+Ring proofs (valid `veil-sig` proofs) are trusted by any one of three routes:
+
+1. The proof's circle ID is in `veilTrustedCircles`. This is the strongest route: the ID is a hash of the exact member set, so someone who adds themselves to a ring produces a different ID.
+2. The proof was published by a trusted publisher, which trusts that publisher's curation of circles.
+3. Every member of the ring is one of your follows (or you).
+
+A fraction or majority of trusted members is not enough. Rings need no consent from their members, and an attacker who places one of their own keys in a ring of otherwise trusted members can sign, while the proof cannot say which member signed. The publisher of a proof is otherwise irrelevant: anyone may republish aggregated proofs.
+
+Key images are grouped by scope (the `electionId` inside each signature) and a replayed key image counts once. Proofs that are valid but not trusted are counted in `untrustedRingEndorsements`, never scored, and flagged `ring proof untrusted`.
+
+Subject in the ring: the ring signature hides which member signed, so when the subject is a member of a trusted ring, one signature per scope may be the subject's own. Key images stop a member signing twice per scope, so at most one per scope can be theirs. bray therefore deducts one key image from each scope whose trusted proofs include the subject as a member (never below zero) and flags `subject is a ring member`. A threshold-1 proof whose ring contains the subject scores nothing.
+
+The score is `endorsements + 3 * ringEndorsements`, trusted counts only. `untrustedEndorsements` and `untrustedRingEndorsements` appear beside them in `trust-score` proximity output so you can see what was set aside.
+
+### Strict mode follow pass
+
+In `strict` mode an author passes when their score meets the threshold (default 1) or they are in your follows or `veilTrustedPublishers`. People you follow therefore stay in strict feeds and notifications even when nobody has endorsed them, while strangers still need an endorsement from someone you trust.
+
+### Configuration
+
+```json
+{
+  "veilTrustedCircles": ["<64 lowercase hex circle ID>"],
+  "veilTrustedPublishers": ["npub1... or 64 hex"]
+}
+```
+
+`VEIL_TRUSTED_CIRCLES` and `VEIL_TRUSTED_PUBLISHERS` take comma-separated lists and are merged with the file lists. An entry that is not valid stops startup with a message naming it, rather than being dropped.
 
 ## What it does not do
 

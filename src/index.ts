@@ -137,6 +137,8 @@ const trust = new TrustContext(ctx, pool, {
   cacheTtl: config.trustCacheTtl,
   cacheMax: config.trustCacheMax,
   trustMode: config.trustMode,
+  veilTrustedCircles: config.veilTrustedCircles,
+  veilTrustedPublishers: config.veilTrustedPublishers,
 })
 
 export const deps = {
@@ -144,6 +146,8 @@ export const deps = {
   nwcUri: config.nwcUri,
   walletsFile: config.walletsFile,
   nip04Enabled: config.nip04Enabled,
+  veilTrustedCircles: config.veilTrustedCircles,
+  veilTrustedPublishers: config.veilTrustedPublishers,
 }
 
 ;(config as any).secretKey = ''

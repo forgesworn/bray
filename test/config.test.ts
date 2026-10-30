@@ -381,6 +381,101 @@ describe('loadConfig', () => {
     const config = await loadConfig()
     expect(config.allowClearnetWithTor).toBe(true)
   })
+
+  describe('Veil trust anchors', () => {
+    const CIRCLE_A = 'a1'.repeat(32)
+    const CIRCLE_B = 'b2'.repeat(32)
+    const CIRCLE_C = 'c3'.repeat(32)
+    const PUBLISHER_HEX = 'd4'.repeat(32)
+    const PUBLISHER_FILE_HEX = 'e5'.repeat(32)
+
+    function writeConfig(body: Record<string, unknown>): string {
+      const dir = mkdtempSync(join(tmpdir(), 'bray-veil-anchors-'))
+      const configPath = join(dir, 'config.json')
+      writeFileSync(configPath, JSON.stringify(body))
+      process.env.BRAY_CONFIG = configPath
+      return configPath
+    }
+
+    it('defaults both lists to empty', async () => {
+      const { loadConfig } = await import('../src/config.js')
+      process.env.NOSTR_SECRET_KEY = TEST_NSEC
+      const config = await loadConfig()
+      expect(config.veilTrustedCircles).toEqual([])
+      expect(config.veilTrustedPublishers).toEqual([])
+    })
+
+    it('reads both lists from the config file', async () => {
+      const { loadConfig } = await import('../src/config.js')
+      process.env.NOSTR_SECRET_KEY = TEST_NSEC
+      writeConfig({ veilTrustedCircles: [CIRCLE_A], veilTrustedPublishers: [PUBLISHER_FILE_HEX] })
+      const config = await loadConfig()
+      expect(config.veilTrustedCircles).toEqual([CIRCLE_A])
+      expect(config.veilTrustedPublishers).toEqual([PUBLISHER_FILE_HEX])
+    })
+
+    it('merges the environment lists with the file lists', async () => {
+      const { loadConfig } = await import('../src/config.js')
+      process.env.NOSTR_SECRET_KEY = TEST_NSEC
+      writeConfig({ veilTrustedCircles: [CIRCLE_A], veilTrustedPublishers: [PUBLISHER_FILE_HEX] })
+      process.env.VEIL_TRUSTED_CIRCLES = `${CIRCLE_B}, ${CIRCLE_C},${CIRCLE_A}`
+      process.env.VEIL_TRUSTED_PUBLISHERS = ` ${PUBLISHER_HEX} `
+      const config = await loadConfig()
+      expect(config.veilTrustedCircles).toEqual([CIRCLE_B, CIRCLE_C, CIRCLE_A])
+      expect(config.veilTrustedPublishers).toEqual([PUBLISHER_HEX, PUBLISHER_FILE_HEX])
+    })
+
+    it('resolves an npub publisher to hex', async () => {
+      const { loadConfig } = await import('../src/config.js')
+      const { npubEncode } = await import('nostr-tools/nip19')
+      process.env.NOSTR_SECRET_KEY = TEST_NSEC
+      process.env.VEIL_TRUSTED_PUBLISHERS = npubEncode(PUBLISHER_HEX)
+      const config = await loadConfig()
+      expect(config.veilTrustedPublishers).toEqual([PUBLISHER_HEX])
+    })
+
+    it('rejects a circle ID that is not 64 lowercase hex, naming the entry', async () => {
+      const { loadConfig } = await import('../src/config.js')
+      process.env.NOSTR_SECRET_KEY = TEST_NSEC
+      process.env.VEIL_TRUSTED_CIRCLES = `${CIRCLE_A},not-a-circle`
+      await expect(loadConfig()).rejects.toThrow(/veilTrustedCircles entry "not-a-circle".*64 lowercase hex/)
+    })
+
+    it('rejects an uppercase circle ID', async () => {
+      const { loadConfig } = await import('../src/config.js')
+      process.env.NOSTR_SECRET_KEY = TEST_NSEC
+      writeConfig({ veilTrustedCircles: [CIRCLE_A.toUpperCase()] })
+      await expect(loadConfig()).rejects.toThrow(/veilTrustedCircles entry/)
+    })
+
+    it('rejects a publisher that is neither hex nor an npub', async () => {
+      const { loadConfig } = await import('../src/config.js')
+      process.env.NOSTR_SECRET_KEY = TEST_NSEC
+      process.env.VEIL_TRUSTED_PUBLISHERS = 'alice'
+      await expect(loadConfig()).rejects.toThrow(/veilTrustedPublishers entry "alice" is neither an npub nor 64 hex/)
+    })
+
+    it('rejects an nsec as a publisher without echoing it', async () => {
+      const { loadConfig } = await import('../src/config.js')
+      process.env.NOSTR_SECRET_KEY = TEST_NSEC
+      process.env.VEIL_TRUSTED_PUBLISHERS = TEST_NSEC
+      const err = await loadConfig().catch((e: Error) => e)
+      expect(err).toBeInstanceOf(Error)
+      expect((err as Error).message).toMatch(/PUBLIC key/)
+      expect((err as Error).message).not.toContain(TEST_NSEC)
+    })
+
+    it('carries both lists in read-only mode', async () => {
+      const { loadConfig } = await import('../src/config.js')
+      process.env.BRAY_READ_ONLY = '1'
+      process.env.VEIL_TRUSTED_CIRCLES = CIRCLE_A
+      process.env.VEIL_TRUSTED_PUBLISHERS = PUBLISHER_HEX
+      const config = await loadConfig({ allowReadOnly: true })
+      expect(config.readOnly).toBe(true)
+      expect(config.veilTrustedCircles).toEqual([CIRCLE_A])
+      expect(config.veilTrustedPublishers).toEqual([PUBLISHER_HEX])
+    })
+  })
 })
 
 describe('loadConfigFile', () => {

@@ -2,6 +2,10 @@ export interface TrustCacheEntry {
   score: number
   endorsements: number
   ringEndorsements: number
+  /** Plain assertions from authors outside the caller's trusted set: reported, not scored. */
+  untrustedEndorsements: number
+  /** Ring key images from proofs outside the trusted set: reported, not scored. */
+  untrustedRingEndorsements: number
 }
 
 interface CacheItem {

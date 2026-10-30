@@ -59,6 +59,49 @@ function validateTorRelays(relays: string[], torProxy: string | undefined, allow
   }
 }
 
+/**
+ * Merge a comma-separated environment list with a config file list. An entry
+ * that fails validation is a startup error: a misconfigured trust allowlist
+ * must not quietly fail open or closed.
+ */
+function mergeList(envValue: string | undefined, fileValue: string[] | undefined): string[] {
+  return [...(envValue ?? '').split(','), ...(fileValue ?? [])]
+    .map(s => String(s).trim())
+    .filter(Boolean)
+}
+
+/** Circle IDs are the 64-char lowercase hex SHA-256 from computeCircleId. */
+function parseTrustedCircles(raw: string[]): string[] {
+  for (const id of raw) {
+    if (!HEX_RE.test(id)) {
+      throw new Error(`veilTrustedCircles entry "${id}" is not a circle ID: expected 64 lowercase hex characters`)
+    }
+  }
+  return [...new Set(raw)]
+}
+
+/** Trusted publishers may be hex or npub; both resolve to lowercase hex. */
+function parseTrustedPublishers(raw: string[]): string[] {
+  const out = new Set<string>()
+  for (const entry of raw) {
+    if (/^[0-9a-fA-F]{64}$/.test(entry)) {
+      out.add(entry.toLowerCase())
+      continue
+    }
+    if (entry.toLowerCase().startsWith('nsec1')) {
+      throw new Error('veilTrustedPublishers wants a PUBLIC key; that is an nsec. Treat it as exposed.')
+    }
+    let hex: string | undefined
+    try {
+      const decoded = decodeNip19(entry)
+      if (decoded.type === 'npub') hex = decoded.data as string
+    } catch { /* reported below */ }
+    if (!hex) throw new Error(`veilTrustedPublishers entry "${entry}" is neither an npub nor 64 hex characters`)
+    out.add(hex)
+  }
+  return [...out]
+}
+
 /** Supported config file fields (subset of BrayConfig + secret paths) */
 interface ConfigFile {
   secretKeyFile?: string
@@ -86,6 +129,10 @@ interface ConfigFile {
   dispatchIdentities?: string
   /** Public keys this process must never sign as. See ContextOptions. */
   forbidPubkeys?: string[]
+  /** Circle IDs (64 lowercase hex) whose Veil ring proofs count towards trust scores. */
+  veilTrustedCircles?: string[]
+  /** Pubkeys (hex or npub) whose Veil assertions and ring proofs count towards trust scores. */
+  veilTrustedPublishers?: string[]
   /** Register the tools that mint spending connections (wallet-grant, wallet-refill, wallet-serve). */
   walletService?: boolean
 }
@@ -418,6 +465,14 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<BrayC
     .map((s) => s.trim())
     .filter(Boolean)
 
+  // --- Veil trust anchors ---
+  const veilTrustedCircles = parseTrustedCircles(
+    mergeList(process.env.VEIL_TRUSTED_CIRCLES, file.veilTrustedCircles),
+  )
+  const veilTrustedPublishers = parseTrustedPublishers(
+    mergeList(process.env.VEIL_TRUSTED_PUBLISHERS, file.veilTrustedPublishers),
+  )
+
   // --- Wallet service ---
   // Off unless asked for: wallet-grant, wallet-refill and wallet-serve hand
   // out spending authority over the operator's wallet, which is not
@@ -456,6 +511,8 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<BrayC
       bindAddress,
       dispatchIdentities: undefined,
       forbidPubkeys,
+      veilTrustedCircles,
+      veilTrustedPublishers,
       walletService: false,
     }
   }
@@ -485,6 +542,8 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<BrayC
     bindAddress,
     dispatchIdentities,
     forbidPubkeys,
+    veilTrustedCircles,
+    veilTrustedPublishers,
     walletService,
   }
 }

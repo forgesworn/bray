@@ -44,3 +44,27 @@ describe('filterByTrust', () => {
     expect(result).toHaveLength(2)
   })
 })
+
+describe('filterByTrust with trusted authors', () => {
+  const events = [
+    scored('followed', 0),
+    scored('endorsed', 3),
+    scored('stranger', 0),
+  ]
+  const trustedAuthors = new Set(['followed'])
+
+  it('strict mode passes a trusted author with score 0', () => {
+    const result = filterByTrust(events, { mode: 'strict', threshold: 1, trustedAuthors })
+    expect(result.map((e: ScoredEvent) => e.pubkey)).toEqual(['followed', 'endorsed'])
+  })
+
+  it('strict mode still hides strangers when no trusted authors are given', () => {
+    const result = filterByTrust(events, { mode: 'strict', threshold: 1 })
+    expect(result.map((e: ScoredEvent) => e.pubkey)).toEqual(['endorsed'])
+  })
+
+  it('annotate and off modes are unchanged', () => {
+    expect(filterByTrust(events, { mode: 'annotate', trustedAuthors })).toHaveLength(3)
+    expect(filterByTrust(events, { mode: 'off', trustedAuthors })).toHaveLength(3)
+  })
+})
