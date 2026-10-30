@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.10.1 (2026-10-30)
+
+### Bug Fixes
+
+- count each endorser and ring signer once, and keep an unreadable bunker key file (#148)
+
+
+
 ## 3.10.0 (2026-10-29)
 
 ### Features
