@@ -23,7 +23,7 @@ import { verifyProof } from 'nostr-veil/proof'
 
 const mockVerifyProof = vi.mocked(verifyProof)
 
-const VALID_PROOF = { valid: true, circleSize: 3, threshold: 1, distinctSigners: 1, errors: [] as string[] }
+const VALID_PROOF = { valid: true, circleSize: 3, threshold: 1, distinctSigners: 1, subjectInRing: false, independentSigners: 1, errors: [] as string[] }
 
 const hex = (c: string) => c.repeat(64)
 const CALLER = hex('9')
