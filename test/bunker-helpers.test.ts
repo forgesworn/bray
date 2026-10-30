@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { readNsecTreeProfileMnemonic, getOrCreateBunkerKey } from '../src/bunker-helpers.js'
@@ -35,6 +35,12 @@ describe('getOrCreateBunkerKey', () => {
 
   it('creates a 64-char hex key for a label', () => {
     expect(getOrCreateBunkerKey('magazine', dir)).toMatch(/^[0-9a-f]{64}$/)
+  })
+
+  it('refuses to replace an unreadable key file, which would change every bunker:// link', () => {
+    writeFileSync(join(dir, 'bunker-keys.json'), '{ not json')
+    expect(() => getOrCreateBunkerKey('magazine', dir)).toThrow(/unreadable/)
+    expect(readFileSync(join(dir, 'bunker-keys.json'), 'utf-8')).toBe('{ not json')
   })
 
   it('returns the SAME key on subsequent calls (stable bunker:// across restarts)', () => {

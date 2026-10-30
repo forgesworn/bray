@@ -3,7 +3,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { generateSecretKey } from 'nostr-tools/pure'
 import { bytesToHex } from 'nostr-tools/utils'
-import { readStateFile, writeStateFile } from './state.js'
+import { readStateFileStrict, writeStateFile } from './state.js'
 
 const NSEC_TREE_PROFILES_DIR = join(homedir(), '.nsec-tree', 'profiles')
 const BUNKER_KEYS_FILE = 'bunker-keys.json'
@@ -28,7 +28,12 @@ export function readNsecTreeProfileMnemonic(name: string, baseDir = NSEC_TREE_PR
  * operator managing key files. Stored in bray's state dir.
  */
 export function getOrCreateBunkerKey(label: string, stateDir?: string): string {
-  const keys = readStateFile<Record<string, string>>(BUNKER_KEYS_FILE, stateDir)
+  // An unreadable file is not replaced: a new key would change the bunker://
+  // link and orphan every client approved under the old one.
+  const keys = readStateFileStrict<Record<string, string>>(BUNKER_KEYS_FILE, stateDir)
+  if (keys === null) {
+    throw new Error(`${BUNKER_KEYS_FILE} in the bray state directory is unreadable; fix it or move it aside (a new key means a new bunker:// link and re-approving every client)`)
+  }
   const existing = keys[label]
   if (typeof existing === 'string' && /^[0-9a-f]{64}$/i.test(existing)) return existing
   const hex = bytesToHex(generateSecretKey())

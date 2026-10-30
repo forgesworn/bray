@@ -235,7 +235,7 @@ export async function dispatch(args: string[]): Promise<void> {
     }
 
     const { getPublicKey } = await import('nostr-tools/pure')
-    const { readStateFile, readStateFileStrict, writeStateFile } = await import('../../state.js')
+    const { readStateFileStrict, writeStateFile } = await import('../../state.js')
     let bunkerPk: string | undefined
     let which: string
     if (args.includes('--daemon-pubkey')) {
@@ -269,7 +269,11 @@ export async function dispatch(args: string[]): Promise<void> {
       const profile = opt('--profile')
       const label = persona ?? profile ?? 'default'
       const startHint = persona ? ` --persona ${persona}` : profile ? ` --profile ${profile}` : ''
-      const keys = readStateFile<Record<string, string>>('bunker-keys.json')
+      const keys = readStateFileStrict<Record<string, string>>('bunker-keys.json')
+      if (keys === null) {
+        console.error('bunker authorize: bunker-keys.json in the bray state directory is unreadable; fix it or move it aside, then retry')
+        process.exit(1)
+      }
       const hex = keys[label]
       if (typeof hex !== 'string' || !/^[0-9a-f]{64}$/i.test(hex)) {
         console.error(`bunker authorize: no bunker daemon key for "${label}" yet. Start the daemon once (bray bunker${startHint}), or pass --daemon-pubkey <the daemon's pubkey>.`)
@@ -435,7 +439,12 @@ export async function dispatch(args: string[]): Promise<void> {
   } else {
     // No explicit key: persist a STABLE one per identity so the bunker:// URI
     // survives restarts without the operator managing key files.
-    bunkerKeyHex = getOrCreateBunkerKey(persona ?? profileName ?? 'default')
+    try {
+      bunkerKeyHex = getOrCreateBunkerKey(persona ?? profileName ?? 'default')
+    } catch (err) {
+      console.error(`bunker: ${(err as Error).message}`)
+      process.exit(1)
+    }
   }
 
   const relays = config.relays.length > 0

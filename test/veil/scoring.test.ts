@@ -64,7 +64,7 @@ describe('VeilScoring', () => {
 
     it('returns ring-endorsement flag when event has veil-sig tags and proof is valid', async () => {
       const ringEvent = mockAssertionEvent({ subject: TEST_PUBKEY, ringEndorsement: true })
-      ringEvent.tags.push(['veil-sig', '{}', 'keyimage123'])
+      ringEvent.tags.push(['veil-sig', '{}', 'keyimage123'], ['veil-sig', '{}', 'keyimage456'])
 
       const pool = mockPool([ringEvent])
 
@@ -102,6 +102,22 @@ describe('VeilScoring', () => {
       const result = await scoring.scorePubkey(TEST_PUBKEY)
 
       expect(result.flags).toContain('ring proof invalid')
+    })
+
+    it('counts one endorsement per author and one ring endorsement per key image', async () => {
+      const first = mockAssertionEvent({ subject: TEST_PUBKEY, ringEndorsement: true })
+      first.tags.push(['veil-sig', '{}', 'keyimage-a'], ['veil-sig', '{}', 'keyimage-b'])
+      // The same proof republished by the same author, and once more by another
+      const again = { ...first, id: 'f'.repeat(64), tags: first.tags.map(t => [...t]) }
+      const other = { ...first, id: 'e'.repeat(64), pubkey: 'e'.repeat(64), tags: first.tags.map(t => [...t]) }
+      mockVerifyProof.mockReturnValue({ valid: true, circleSize: 3, threshold: 2, distinctSigners: 2, errors: [] })
+
+      const scoring = new VeilScoring(mockPool([first, again, other]) as any, cache, TEST_NPUB)
+      const result = await scoring.scorePubkey(TEST_PUBKEY)
+
+      expect(result.endorsements).toBe(2)
+      expect(result.ringEndorsements).toBe(2)
+      expect(result.score).toBe(2 + 2 * 3)
     })
 
     it('ignores events about another subject or of another kind, even with a valid ring proof', async () => {

@@ -48,8 +48,14 @@ export class VeilScoring {
     }
 
     const flags: string[] = []
-    let endorsements = 0
-    let ringEndorsements = 0
+    // One endorsement per author, and one ring endorsement per key image: the
+    // same assertion or ring proof published several times counts once. This
+    // stops replays, not Sybils: a key image is per circle scope and subject,
+    // so one key that joins several circles (rings need no consent) still
+    // counts once per circle. Weighting rings by trusted circles would need an
+    // allowlist of circles or publishers.
+    const endorsers = new Set<string>()
+    const ringKeyImages = new Set<string>()
 
     // 4. Parse assertions and count endorsements
     for (const event of events) {
@@ -58,14 +64,16 @@ export class VeilScoring {
       if (event.kind !== 30382) continue
       const parsed = parseAssertion(event)
       if (parsed.subject !== pubkey) continue
-      endorsements++
+      endorsers.add(event.pubkey)
 
       // 5. Check for veil-sig tags and verify ring proofs
       const hasVeilSig = event.tags.some((t: string[]) => t[0] === 'veil-sig')
       if (hasVeilSig) {
         const verification = verifyProof(event, { expectedKind: 30382 })
         if (verification.valid) {
-          ringEndorsements += verification.distinctSigners
+          for (const tag of event.tags) {
+            if (tag[0] === 'veil-sig' && typeof tag[2] === 'string') ringKeyImages.add(tag[2])
+          }
           if (!flags.includes('ring proof verified')) {
             flags.push('ring proof verified')
           }
@@ -76,6 +84,9 @@ export class VeilScoring {
         }
       }
     }
+
+    const endorsements = endorsers.size
+    const ringEndorsements = ringKeyImages.size
 
     // 6. Compute score: endorsements + ring endorsements weighted higher
     const score = endorsements + (ringEndorsements * 3)
