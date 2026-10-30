@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.11.0 (2026-10-30)
+
+### Features
+
+- anchor Veil endorsement scoring to trusted parties (#149)
+
+
+
 ## 3.10.1 (2026-10-30)
 
 ### Bug Fixes
