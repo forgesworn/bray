@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import type { Event as NostrEvent } from 'nostr-tools'
 
 /**
@@ -44,5 +45,82 @@ export function mockAssertionEvent(opts: MockAssertionOptions = {}): NostrEvent 
     tags,
     content: '',
     sig: 'f'.padEnd(128, 'f'),
+  }
+}
+
+/**
+ * Build a kind 3 follow list owned by `owner`.
+ */
+export function mockFollowEvent(owner: string, follows: string[], createdAt = Math.floor(Date.now() / 1000)): NostrEvent {
+  return {
+    id: nextId(),
+    pubkey: owner,
+    created_at: createdAt,
+    kind: 3,
+    tags: follows.map(f => ['p', f]),
+    content: '',
+    sig: 'f'.padEnd(128, 'f'),
+  }
+}
+
+export interface MockRingProofOptions {
+  /** Who published the aggregated proof */
+  publisher: string
+  subject: string
+  /** Sorted ring members (hex pubkeys) */
+  members: string[]
+  /** One veil-sig tag per key image */
+  keyImages: string[]
+  /** electionId inside each signature JSON (default: one shared scope) */
+  electionId?: string
+  threshold?: number
+}
+
+/**
+ * Build a kind 30382 ring proof with real-looking tags. The signatures are
+ * placeholders: tests mock verifyProof, so only the tag shapes matter.
+ */
+export function mockRingProofEvent(opts: MockRingProofOptions): NostrEvent {
+  const electionId = opts.electionId ?? 'scope-default'
+  return {
+    id: nextId(),
+    pubkey: opts.publisher,
+    created_at: Math.floor(Date.now() / 1000),
+    kind: 30382,
+    tags: [
+      ['d', opts.subject],
+      ['veil-ring', ...opts.members],
+      ['veil-threshold', String(opts.threshold ?? 1), String(opts.members.length)],
+      ...opts.keyImages.map(image => ['veil-sig', JSON.stringify({ electionId }), image]),
+    ],
+    content: '',
+    sig: 'f'.padEnd(128, 'f'),
+  }
+}
+
+export interface MockVeilPoolOptions {
+  /** Answers kind 30382 queries */
+  assertions?: NostrEvent[]
+  /** Answers kind 3 queries */
+  follows?: NostrEvent[]
+  /** Answers any other query (feed or notification events) */
+  other?: NostrEvent[]
+}
+
+/**
+ * A relay pool that answers by filter: kind 3 returns the follow events,
+ * kind 30382 returns the assertions, anything else returns `other`.
+ */
+export function mockVeilPool(opts: MockVeilPoolOptions = {}) {
+  return {
+    query: vi.fn().mockImplementation((_npub: string, filter: { kinds?: number[]; authors?: string[] }) => {
+      if (filter.kinds?.includes(3)) {
+        return Promise.resolve((opts.follows ?? []).filter(e => !filter.authors || filter.authors.includes(e.pubkey)))
+      }
+      if (filter.kinds?.includes(30382)) return Promise.resolve(opts.assertions ?? [])
+      return Promise.resolve(opts.other ?? [])
+    }),
+    publish: vi.fn().mockResolvedValue({ success: true, allAccepted: true, accepted: [], rejected: [], errors: [] }),
+    getRelays: vi.fn().mockReturnValue({ read: ['wss://relay.test'], write: ['wss://relay.test'] }),
   }
 }

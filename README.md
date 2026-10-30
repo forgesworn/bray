@@ -243,13 +243,17 @@ Create `~/.config/bray/config.json` (or `~/.nostr/bray.json`):
 {
   "bunkerUriFile": "/Users/you/.nostr/bunker-uri",
   "relays": ["wss://relay.damus.io", "wss://nos.lol"],
-  "trustMode": "annotate"
+  "trustMode": "annotate",
+  "veilTrustedCircles": ["<64 lowercase hex circle ID>"],
+  "veilTrustedPublishers": ["npub1... or 64 hex"]
 }
 ```
 
 Secrets are referenced by **file path** (`bunkerUriFile`, `secretKeyFile`, `nwcUriFile`) so they never appear in the config itself.
 
 `trustMode` is `strict` (hide content from untrusted pubkeys), `annotate` (show trust scores) or `off` (no filtering). The default is `annotate`; an unrecognised value falls back to `annotate`. The `TRUST_MODE` environment variable overrides the config file.
+
+`veilTrustedCircles` lists circle IDs (64 lowercase hex, from `computeCircleId`) whose ring proofs count towards Veil trust scores. `veilTrustedPublishers` lists pubkeys (hex or npub) whose assertions and ring proofs count, as if you followed them. Your own follows always count. `VEIL_TRUSTED_CIRCLES` and `VEIL_TRUSTED_PUBLISHERS` take comma-separated lists, merged with the file; an invalid entry stops startup. See [docs/trust-scoring.md](docs/trust-scoring.md).
 
 Search order: `BRAY_CONFIG` env var > `$XDG_CONFIG_HOME/bray/config.json` > `~/.nostr/bray.json`.
 
@@ -277,6 +281,8 @@ Search order: `BRAY_CONFIG` env var > `$XDG_CONFIG_HOME/bray/config.json` > `~/.
 | `TOR_PROXY` | SOCKS5h proxy for Tor; covers relay traffic, NIP-46 signer traffic and the bunker daemon |
 | `NIP04_ENABLED` | Set `1` to enable legacy NIP-04 DMs |
 | `TRUST_MODE` | `strict`, `annotate` (default) or `off`. See the config file section above |
+| `VEIL_TRUSTED_CIRCLES` | Comma-separated circle IDs (64 lowercase hex) whose Veil ring proofs count. Merged with `veilTrustedCircles` |
+| `VEIL_TRUSTED_PUBLISHERS` | Comma-separated npubs or hex whose Veil assertions and ring proofs count. Merged with `veilTrustedPublishers` |
 | `TRANSPORT` | `stdio` (default) or `http` |
 | `PORT` | HTTP port (default 3000) |
 | `BIND_ADDRESS` | HTTP bind address (default `127.0.0.1`) |

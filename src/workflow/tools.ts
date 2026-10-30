@@ -25,12 +25,21 @@ export interface WorkflowDeps {
   nip65: Nip65Manager
   veilCacheTtl: number
   veilCacheMax: number
+  veilTrustedCircles?: string[]
+  veilTrustedPublishers?: string[]
   trust?: TrustContext
 }
 
 export function registerWorkflowTools(server: McpServer, deps: WorkflowDeps): void {
   // Shared trust cache — persists across calls within a session
   const trustCache = new TrustCache({ ttl: deps.veilCacheTtl, maxEntries: deps.veilCacheMax })
+  const veilScoringOptions = {
+    trustedCircles: deps.veilTrustedCircles,
+    trustedPublishers: deps.veilTrustedPublishers,
+    followsTtl: deps.veilCacheTtl,
+  }
+  // One instance per registration, so the follow list is fetched once per TTL.
+  const scoring = new VeilScoring(deps.pool, trustCache, deps.ctx, veilScoringOptions)
 
   server.registerTool('trust-score', {
     description: 'Compute a trust score for a Nostr identity using the web-of-trust graph and kind 31000 attestations. Accepts any identifier: name, NIP-05, npub, or hex pubkey.',
@@ -41,7 +50,6 @@ export function registerWorkflowTools(server: McpServer, deps: WorkflowDeps): vo
     annotations: { readOnlyHint: true },
   }, async ({ pubkey, depth }) => {
     const resolved = await resolveRecipient(pubkey)
-    const scoring = new VeilScoring(deps.pool, trustCache, deps.ctx.activeNpub)
     const result = await handleTrustScore(deps.ctx, deps.pool, scoring, { pubkey: resolved.pubkeyHex, depth }, deps.trust)
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
@@ -55,7 +63,6 @@ export function registerWorkflowTools(server: McpServer, deps: WorkflowDeps): vo
     },
     annotations: { readOnlyHint: true },
   }, async ({ strategy, limit, query }) => {
-    const scoring = new VeilScoring(deps.pool, trustCache, deps.ctx.activeNpub)
     const result = await handleFeedDiscover(deps.ctx, deps.pool, scoring, { strategy, limit, query }, deps.trust)
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })
@@ -69,7 +76,6 @@ export function registerWorkflowTools(server: McpServer, deps: WorkflowDeps): vo
     annotations: { readOnlyHint: true },
   }, async ({ pubkey, method }) => {
     const resolved = await resolveRecipient(pubkey)
-    const scoring = new VeilScoring(deps.pool, trustCache, deps.ctx.activeNpub)
     const result = await handleVerifyPerson(deps.ctx, deps.pool, scoring, { pubkey: resolved.pubkeyHex, method }, deps.trust)
     return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
   })

@@ -82,6 +82,10 @@ export interface BrayConfig {
    *  and approve its own requests. Enforced in IdentityContext, at the
    *  moment an identity is activated. */
   readonly forbidPubkeys?: string[]
+  /** Hex circle IDs (computeCircleId of the exact member set) whose Veil ring proofs count towards trust scores. */
+  readonly veilTrustedCircles?: string[]
+  /** Hex pubkeys whose Veil assertions and ring proofs count towards trust scores. */
+  readonly veilTrustedPublishers?: string[]
 }
 
 export type { SigningContext, ExtendedSigningContext } from './signing-context.js'

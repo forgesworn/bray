@@ -35,6 +35,8 @@ Single-process MCP server (stdio or HTTP transport) with 261 tools in 29 groups.
 | DISPATCH_IDENTITIES | No | Path to dispatch identities markdown file. The dispatch tools are registered only when this is set |
 | BRAY_HTTP_TOKEN | No | Bearer token the HTTP transport requires. If unset, a random token is generated and printed once on stderr |
 | TRUST_MODE | No | "strict", "annotate" (default) or "off" |
+| VEIL_TRUSTED_CIRCLES | No | Comma-separated circle IDs (64 lowercase hex) whose Veil ring proofs count towards trust scores |
+| VEIL_TRUSTED_PUBLISHERS | No | Comma-separated npubs or hex whose Veil assertions and ring proofs count towards trust scores |
 
 *Authentication tiers (use exactly one):
 1. **Bunker** (NIP-46) -- most secure, keys never leave the signer
@@ -171,13 +173,13 @@ Look up a contact's full profile by name -- no pubkey needed.
 
 #### social-notifications
 Fetch notifications -- mentions, replies, reactions, zap receipts.
-- Input: since (optional timestamp), limit (default 50), trust ("strict" | "annotate" | "off", default "strict"), output
-- Smart default: trust: "strict" hides notifications from untrusted authors
+- Input: since (optional timestamp), limit (default 50), trust ("strict" | "annotate" | "off", default: the configured trustMode, "annotate" unless set), output
+- Smart default: trust: "strict" hides notifications from authors with no trusted endorsement (follows and trusted publishers pass)
 
 #### social-feed
 Fetch kind 1 text note feed.
-- Input: authors (optional hex pubkeys), since (optional), limit (default 20), trust ("strict" | "annotate" | "off", default "strict"), output
-- Smart default: trust: "strict" hides posts from untrusted authors
+- Input: authors (optional hex pubkeys), since (optional), limit (default 20), trust ("strict" | "annotate" | "off", default: the configured trustMode, "annotate" unless set), output
+- Smart default: trust: "strict" hides posts from authors with no trusted endorsement (follows and trusted publishers pass)
 
 #### feed-by-name
 Fetch recent posts by a contact, searching by name instead of pubkey.
@@ -1174,7 +1176,7 @@ Execute an action found via search-actions.
 
 ## Smart Defaults
 
-- **Trust-filtered feeds**: social-feed and social-notifications default to `trust: "strict"`, hiding content from untrusted authors. Set to "annotate" for scores, "off" to disable.
+- **Trust-filtered feeds**: social-feed and social-notifications follow the configured `trustMode` (default "annotate"). Set `trust: "strict"` to hide content from authors with no trusted endorsement, "off" to disable.
 - **Contact safety guards**: contacts-follow/unfollow detect >20% list shrinkage (data corruption sign) and warn.
 - **DM trust scores**: dm-read annotates each message with `senderTrustScore`.
 - **Reply trust warnings**: social-reply computes `authorTrustScore` and warns about untrusted authors.

@@ -38,7 +38,7 @@ export interface FeedEntry {
  *
  * @param opts.since - Optional Unix timestamp; only return events newer than this.
  * @param opts.limit - Maximum number of events to fetch (default 50).
- * @param opts.trust - Trust filter mode (`'strict'`, `'permissive'`, or `'off'`). Has no effect without `_scoring`.
+ * @param opts.trust - Trust filter mode (`'strict'`, `'annotate'`, or `'off'`). Has no effect without `_scoring`.
  * @param opts._scoring - Optional Veil scoring engine; scores and filters events by trust when supplied.
  * @returns Classified notifications sorted newest first, each typed as `reply`, `reaction`, `mention`, `zap`, or `other`.
  * @example
@@ -67,7 +67,7 @@ export async function handleNotifications(
 
   if (opts?._scoring && opts.trust !== 'off') {
     const scored = await opts._scoring.scoreEvents(filtered)
-    const trustFiltered = filterByTrust(scored, { mode: opts.trust ?? 'strict' })
+    const trustFiltered = filterByTrust(scored, { mode: opts.trust ?? 'strict', trustedAuthors: await opts._scoring.trustedAuthors() })
     return trustFiltered
       .map(event => ({ ...classifyNotification(event, ctx.activeNpub), trustScore: event._trustScore }))
       .sort((a, b) => b.createdAt - a.createdAt)
@@ -150,7 +150,7 @@ function parseZapReceipt(event: NostrEvent, base: Omit<Notification, 'type'>): N
  * @param opts.authors - Optional list of pubkeys (hex) to restrict the feed to.
  * @param opts.since - Optional Unix timestamp; only return events newer than this.
  * @param opts.limit - Maximum number of events to return (default 20).
- * @param opts.trust - Trust filter mode (`'strict'`, `'permissive'`, or `'off'`). Has no effect without `_scoring`.
+ * @param opts.trust - Trust filter mode (`'strict'`, `'annotate'`, or `'off'`). Has no effect without `_scoring`.
  * @param opts._scoring - Optional Veil scoring engine; scores and filters events by trust when supplied.
  * @param opts._trustCtx - Optional trust context; populates `_trust` annotation on each entry.
  * @returns Feed entries sorted by trust then time, each containing `id`, `pubkey`, `content`, `createdAt`, `tags`, and optional trust data.
@@ -184,7 +184,7 @@ export async function handleFeed(
 
   if (opts._scoring && opts.trust !== 'off') {
     const scored = await opts._scoring.scoreEvents(events)
-    const filtered = filterByTrust(scored, { mode: opts.trust ?? 'strict' })
+    const filtered = filterByTrust(scored, { mode: opts.trust ?? 'strict', trustedAuthors: await opts._scoring.trustedAuthors() })
     results = filtered.map(e => ({
       id: e.id,
       pubkey: e.pubkey,
