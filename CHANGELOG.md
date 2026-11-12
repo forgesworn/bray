@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.14.0 (2026-11-12)
+
+### Features
+
+- keep each relay connection to one identity, and run relay-auth on the pool's own connection (#165)
+
+
+
 ## 3.13.0 (2026-11-12)
 
 ### Features
