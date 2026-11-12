@@ -13,15 +13,17 @@ export const ONE_SAT =
 
 export const fakeRelay = () => {
   const stored: NostrEvent[] = []
-  const live: Array<{ filter: Filter; onEvent: (event: NostrEvent) => void }> = []
+  type Ended = (reasons: Array<{ url: string; reason: string }>) => void
+  const live: Array<{ filter: Filter; onEvent: (event: NostrEvent) => void; onclose?: Ended; side: 'service' | 'nwc' }> = []
+  let refuseSubscriptions = 0
   const deliver = (event: NostrEvent) => {
     stored.push(event)
     for (const subscription of [...live]) {
       if (matchFilter(subscription.filter, event)) subscription.onEvent(event)
     }
   }
-  const subscribe = (filter: Filter, onEvent: (event: NostrEvent) => void) => {
-    const entry = { filter, onEvent }
+  const subscribe = (filter: Filter, onEvent: (event: NostrEvent) => void, side: 'service' | 'nwc' = 'nwc', onclose?: Ended) => {
+    const entry = { filter, onEvent, onclose, side }
     live.push(entry)
     for (const event of [...stored]) if (matchFilter(filter, event)) onEvent(event)
     return () => {
@@ -30,7 +32,13 @@ export const fakeRelay = () => {
     }
   }
   const service: ServiceTransport = {
-    subscribe: async (_relays, filter, onEvent) => subscribe(filter, onEvent),
+    subscribe: async (_relays, filter, onEvent, onclose) => {
+      if (refuseSubscriptions > 0) {
+        refuseSubscriptions--
+        throw new Error('relay unavailable')
+      }
+      return subscribe(filter, onEvent, 'service', onclose)
+    },
     publish: async (_relays, event) => {
       deliver(event)
     },
@@ -47,7 +55,16 @@ export const fakeRelay = () => {
     },
     close: () => {},
   }
-  return { service, nwc, stored, deliver }
+  // As a relay going away does: every service subscription ends, with a reason.
+  const drop = (reason = 'relay connection closed') => {
+    for (const entry of live.filter(e => e.side === 'service')) {
+      live.splice(live.indexOf(entry), 1)
+      entry.onclose?.([{ url: RELAY, reason }])
+    }
+  }
+  const serviceSubscriptions = () => live.filter(e => e.side === 'service').length
+  const refuseNextSubscriptions = (n: number) => { refuseSubscriptions = n }
+  return { service, nwc, stored, deliver, drop, serviceSubscriptions, refuseNextSubscriptions }
 }
 
 // A wallet with no opinions at all: it pays whatever it is handed. Every
