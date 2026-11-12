@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.14.1 (2026-11-12)
+
+### Bug Fixes
+
+- have the wallet service subscribe again when a relay ends its subscription (#166)
+
+
+
 ## 3.14.0 (2026-11-12)
 
 ### Features
