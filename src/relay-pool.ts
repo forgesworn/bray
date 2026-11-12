@@ -121,6 +121,9 @@ async function createRealPool(torProxy?: string): Promise<PoolLike> {
   useWebSocketImplementation(WebSocketImpl)
 
   const pool = new SimplePool({ websocketImplementation: WebSocketImpl } as ConstructorParameters<typeof SimplePool>[0])
+  // The pool's relay map is protected in nostr-tools' types; the eager guard
+  // needs the relay that `automaticallyAuth` is being asked about.
+  const relayMap = (pool as unknown as { relays: Map<string, AbstractRelay> }).relays
   return {
     // `onauth` is spread straight through to the subscription params by
     // querySync/subscribeEose, so it works despite not being in querySync's
@@ -129,9 +132,45 @@ async function createRealPool(torProxy?: string): Promise<PoolLike> {
     querySync: (relays, filter, params) => pool.querySync(relays, filter, params as any),
     subscribeMany: (relays, filters, handlers) => pool.subscribeMany(relays, filters, handlers as any),
     ensureRelay: (url, params) => pool.ensureRelay(url, params),
-    setAutomaticAuth: signer => { (pool as any).automaticallyAuth = signer },
+    setAutomaticAuth: signerFor => {
+      // nostr-tools calls this from ensureRelay, before the relay connects, so
+      // the guard is in place before any challenge can arrive.
+      ;(pool as any).automaticallyAuth = signerFor && ((url: string) => {
+        const sign = signerFor(url)
+        const relay = sign ? relayMap.get(url) : undefined
+        if (relay) guardAutomaticAuth(relay)
+        return sign
+      })
+    },
     destroy: () => pool.destroy(),
   } satisfies PoolLike
+}
+
+const guardedRelays = new WeakSet<AbstractRelay>()
+
+/**
+ * Keep a refused eager AUTH from ending the process.
+ *
+ * nostr-tools answers a relay's challenge with `this.auth(this.onauth)` and
+ * rethrows any refusal from that promise's `.catch`, where nothing can handle
+ * it, so Node exits on the unhandled rejection. In eager mode a relay that
+ * refuses the AUTH (a members-only relay, a key it does not know, an AUTH that
+ * names another URL) therefore crashed the CLI and the MCP server alike, even
+ * when the relay would have served the operation without it.
+ *
+ * Only the automatic answer is quietened: it is the one call made with the
+ * relay's own `onauth`. `auth()` keeps its first attempt, so an operation that
+ * then needs auth (the on-demand retry) still receives the relay's refusal and
+ * reports it.
+ */
+function guardAutomaticAuth(relay: AbstractRelay): void {
+  if (guardedRelays.has(relay)) return
+  guardedRelays.add(relay)
+  const auth = relay.auth.bind(relay)
+  relay.auth = signer => {
+    const attempt = auth(signer)
+    return signer === relay.onauth ? attempt.catch(() => '') : attempt
+  }
 }
 
 export class RelayPool {
@@ -273,8 +312,15 @@ export class RelayPool {
       pool.setAutomaticAuth(undefined)
       return
     }
-    pool.setAutomaticAuth(() => this.#signAuth)
+    pool.setAutomaticAuth(() => this.#eagerSignAuth)
   }
+
+  /**
+   * The eager responder's signer. It signs exactly as {@link #signAuth} does,
+   * but is a separate function so the pool can tell nostr-tools' automatic
+   * answer to a challenge apart from an operation's own on-demand AUTH.
+   */
+  #eagerSignAuth = (evt: EventTemplate): Promise<NostrEvent> => this.#signAuth(evt)
 
   /**
    * Bound signer handed to nostr-tools. Records which relays were authenticated
