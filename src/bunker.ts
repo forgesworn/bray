@@ -16,6 +16,7 @@ import { finalizeEvent, getPublicKey, generateSecretKey } from 'nostr-tools/pure
 import { npubEncode } from 'nostr-tools/nip19'
 import { SimplePool } from 'nostr-tools/pool'
 import { webSocketFor } from './ws-safe.js'
+import { isConnectionFailure, setAutomaticAuth } from './nostr-tools-guards.js'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 import type { IdentityContext } from './context.js'
 import { readStateFile, readStateFileStrict, writeStateFile } from './state.js'
@@ -148,7 +149,8 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
   // Sign in (NIP-42) with the bunker key when a relay asks, so a private
   // relay lets the bunker read requests addressed to it.
   const pool = new SimplePool({ websocketImplementation: webSocketFor(opts.torProxy) } as ConstructorParameters<typeof SimplePool>[0])
-  pool.automaticallyAuth = () => async (template: EventTemplate) => finalizeEvent(template, bunkerSk)
+  const answerChallenge = async (template: EventTemplate) => finalizeEvent(template, bunkerSk)
+  setAutomaticAuth(pool, () => answerChallenge)
 
   // Subscribe to kind 24133 events addressed to us
   const sub = pool.subscribeMany(
@@ -386,7 +388,19 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
       content: encrypted,
     }, bunkerSk) as unknown as NostrEvent
 
-    await Promise.any(pool.publish(relays, responseEvent))
+    // nostr-tools resolves a publish to a relay it cannot reach with
+    // "connection failure: ...", which is not delivery.
+    const deliveries = pool.publish(relays, responseEvent).map(p => p.then(reason => {
+      if (isConnectionFailure(reason)) throw new Error(reason)
+      return reason
+    }))
+    try {
+      await Promise.any(deliveries)
+    } catch (e) {
+      const reasons = e instanceof AggregateError ? e.errors.map(err => err instanceof Error ? err.message : String(err)) : [String(e)]
+      log(`Response ${id} not delivered: ${reasons.join('; ')}`)
+      return
+    }
     log(`Response ${id}: ${error ?? 'ok'}`)
   }
 

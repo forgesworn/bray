@@ -27,6 +27,7 @@ import { CLIENT_NAME, CLIENT_KEYS_FILE, REQUEST_TIMEOUT_MS, TimeoutError, withTi
 import { readStateFile, writeStateFile } from './state.js'
 import { isOnionUrl, validateRelayScheme } from './validation.js'
 import { webSocketFor } from './ws-safe.js'
+import { setAutomaticAuth } from './nostr-tools-guards.js'
 
 /** Saved by `bunker connect` and `bunker pair`; read by loadConfig. */
 export const BUNKER_URI_FILE = 'bunker-uri'
@@ -122,7 +123,8 @@ export async function pairWithNostrConnect(options: PairOptions): Promise<PairRe
   // Answer NIP-42 challenges with the client key, as BunkerContext does.
   // With TOR_PROXY set, pairing goes through the proxy like bray's other relay traffic.
   const pool = new SimplePool({ websocketImplementation: webSocketFor(options.torProxy) } as ConstructorParameters<typeof SimplePool>[0])
-  pool.automaticallyAuth = () => async (template: EventTemplate) => finalizeEvent(template, clientSk)
+  const answerChallenge = async (template: EventTemplate) => finalizeEvent(template, clientSk)
+  setAutomaticAuth(pool, () => answerChallenge)
 
   const timeoutMs = options.timeoutMs ?? PAIR_TIMEOUT_MS
   let timer: ReturnType<typeof setTimeout> | undefined
