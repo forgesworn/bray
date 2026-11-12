@@ -77,6 +77,15 @@ export class Nip77UnavailableError extends Error {
 }
 
 /**
+ * Whether a resolved per-relay publish result is nostr-tools' report that it
+ * could not connect ("connection failure: ..."), which it resolves with instead
+ * of rejecting. Any other resolved value is the relay's OK message.
+ */
+function isConnectionFailure(value: unknown): boolean {
+  return typeof value === 'string' && value.startsWith('connection failure: ')
+}
+
+/**
  * Summarise a publish attempt into the two boolean flags on {@link PublishResult}.
  *
  * `success` is true when the event reached the network as a majority: at least
@@ -446,7 +455,12 @@ export class RelayPool {
     for (let i = 0; i < results.length; i++) {
       const result = results[i]
       const url = relayUrls[i] ?? `relay-${i}`
-      if (result.status === 'fulfilled') {
+      if (result.status === 'fulfilled' && isConnectionFailure(result.value)) {
+        // nostr-tools resolves, rather than rejects, a publish whose relay it
+        // could not connect to: the event never left this machine.
+        rejected.push(url)
+        errors.push(`${url}: ${result.value}`)
+      } else if (result.status === 'fulfilled') {
         accepted.push(url)
       } else {
         rejected.push(url)
