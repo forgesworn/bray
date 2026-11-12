@@ -1,6 +1,6 @@
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
 import type { SigningContext } from '../signing-context.js'
-import type { RelayPool } from '../relay-pool.js'
+import type { RelayPool, SubscriptionClose } from '../relay-pool.js'
 import type { RelaySet, PublishResult } from '../types.js'
 import { validatePublicUrl } from '../validation.js'
 
@@ -197,6 +197,12 @@ export interface RelayQueryArgs {
   paginateIntervalMs?: number
   /** Safety valve on the number of REQs issued when paginating. Defaults to 20. */
   maxPages?: number
+  /**
+   * Called after each REQ with every relay's reason for ending it (see
+   * isNormalRequestEnd). Without it, a relay that refuses the REQ looks the
+   * same as one with no matching events.
+   */
+  onRelayClose?: (reasons: SubscriptionClose[]) => void
 }
 
 /**
@@ -251,11 +257,17 @@ export async function handleRelayQuery(
   }
 
   if (args.relays?.length) {
-    for (const url of args.relays) validateRelayUrl(url)
+    // Follow the pool's private-relay rule (BRAY_ALLOW_PRIVATE_RELAYS=1); a pool
+    // double without the method stays strict.
+    const allowPrivate = pool.allowsPrivateRelays?.() === true
+    for (const url of args.relays) validateRelayUrl(url, { allowPrivate })
   }
 
-  const runQuery = (f: Filter): Promise<NostrEvent[]> =>
-    args.relays?.length ? pool.queryDirect(args.relays, f) : pool.query(npub, f)
+  const onclose = args.onRelayClose
+  const runQuery = (f: Filter): Promise<NostrEvent[]> => {
+    if (args.relays?.length) return onclose ? pool.queryDirect(args.relays, f, { onclose }) : pool.queryDirect(args.relays, f)
+    return onclose ? pool.query(npub, f, { onclose }) : pool.query(npub, f)
+  }
 
   if (!args.paginate) return runQuery(filter)
 
@@ -330,6 +342,8 @@ export async function paginateQuery(
  * Validate a relay URL — must be wss:// or ws://, no private networks.
  *
  * @param url - The relay WebSocket URL to validate.
+ * @param opts - `allowPrivate` skips the private-network check, as the relay pool does when
+ *   BRAY_ALLOW_PRIVATE_RELAYS=1 (local development). Off by default.
  * @returns `void` if the URL is acceptable.
  * @throws {Error} If the scheme is not `wss://` or `ws://`, or if the host resolves to a private
  *   or loopback address (localhost, 127.x, 10.x, 172.16–31.x, 192.168.x, 169.254.169.254, ::1).
@@ -338,7 +352,7 @@ export async function paginateQuery(
  * validateRelayUrl('wss://localhost')            // throws — private address
  * validateRelayUrl('http://relay.damus.io')      // throws — wrong scheme
  */
-export function validateRelayUrl(url: string): void {
+export function validateRelayUrl(url: string, opts: { allowPrivate?: boolean } = {}): void {
   if (typeof url !== 'string') {
     throw new Error('Relay URL must be a string')
   }
@@ -348,7 +362,7 @@ export function validateRelayUrl(url: string): void {
   if (!/^wss?:\/\//i.test(url)) {
     throw new Error('Relay URL must use wss:// or ws:// scheme')
   }
-  validatePublicUrl(url)
+  if (!opts.allowPrivate) validatePublicUrl(url)
 }
 
 /**
@@ -356,6 +370,8 @@ export function validateRelayUrl(url: string): void {
  *
  * @param url - WebSocket URL of the relay (`wss://` or `ws://`). The URL is validated before
  *   the HTTP request is made.
+ * @param opts - `allowPrivateRelays` accepts a private-network URL, as the relay pool does when
+ *   BRAY_ALLOW_PRIVATE_RELAYS=1. Off by default.
  * @returns Parsed JSON object from the relay's NIP-11 information document. Shape varies per relay
  *   but typically includes `name`, `description`, `pubkey`, `supported_nips`, and `software`.
  * @throws {Error} If the URL is invalid, the HTTP response is not OK, the document exceeds 1 MiB,
@@ -366,8 +382,9 @@ export function validateRelayUrl(url: string): void {
  */
 export async function handleRelayInfo(
   url: string,
+  opts: { allowPrivateRelays?: boolean } = {},
 ): Promise<Record<string, unknown>> {
-  validateRelayUrl(url)
+  validateRelayUrl(url, { allowPrivate: opts.allowPrivateRelays })
 
   const httpUrl = url.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://')
   const response = await fetch(httpUrl, {
@@ -415,6 +432,8 @@ export interface SubscribeResult {
  * @param filter - Nostr filter object.
  * @param onEvent - Callback invoked for each matching event.
  * @param relayOverrides - Optional explicit relay URLs.
+ * @param opts - `onclose` is called once every relay has ended the subscription,
+ *   with each relay's reason. Stopping it yourself also ends it ("closed by caller").
  * @returns Async cleanup function.
  * @example
  * const stop = await handleSubscribe(pool, npub, { kinds: [1] }, ev => console.log(ev))
@@ -427,6 +446,7 @@ export async function handleSubscribe(
   filter: Filter,
   onEvent: (event: NostrEvent) => void,
   relayOverrides?: string[],
+  opts: { onclose?: (reasons: SubscriptionClose[]) => void } = {},
 ): Promise<() => void> {
   const relays = relayOverrides?.length
     ? relayOverrides
@@ -436,5 +456,5 @@ export async function handleSubscribe(
     throw new Error('No relays available. Set NOSTR_RELAYS or pass --relay <url>.')
   }
 
-  return pool.subscribe(relays, filter, onEvent)
+  return pool.subscribe(relays, filter, onEvent, opts)
 }

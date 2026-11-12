@@ -138,7 +138,7 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
     },
     annotations: { readOnlyHint: true },
   }, async ({ url }) => {
-    const info = await handleRelayInfo(url)
+    const info = await handleRelayInfo(url, { allowPrivateRelays: deps.pool.allowsPrivateRelays?.() === true })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(info, null, 2) }],
     }

@@ -37,6 +37,21 @@ export interface Subscription {
   close(): void
 }
 
+/** Why one relay ended a subscription: its CLOSED reason, or the connection's fate. */
+export interface SubscriptionClose {
+  url: string
+  reason: string
+}
+
+/**
+ * Whether a relay ended a REQ in the ordinary way: at EOSE (nostr-tools closes
+ * a one-shot query itself then) or because the caller closed it. Anything else
+ * is the relay's CLOSED reason or a connection failure.
+ */
+export function isNormalRequestEnd(reason: string): boolean {
+  return reason === 'closed automatically on eose' || reason === 'closed by caller'
+}
+
 /** Params threaded through to nostr-tools: deadlines plus NIP-42 auth retry. */
 export interface PoolParams {
   maxWait?: number
@@ -48,7 +63,9 @@ export interface PoolParams {
 export interface PoolLike {
   publish(relays: string[], event: NostrEvent, params?: PoolParams): Promise<string>[]
   querySync(relays: string[], filter: Filter, params?: PoolParams): Promise<NostrEvent[]>
-  subscribeMany?(relays: string[], filter: Filter, handlers: { onevent(event: NostrEvent): void; oneose?(): void } & Pick<PoolParams, 'onauth'>): Subscription
+  subscribeMany?(relays: string[], filter: Filter, handlers: { onevent(event: NostrEvent): void; oneose?(): void; onclose?(reasons: SubscriptionClose[]): void } & Pick<PoolParams, 'onauth'>): Subscription
+  /** A REQ that closes itself at EOSE, reporting each relay's reason. Absent on injected test doubles. */
+  subscribeEose?(relays: string[], filter: Filter, handlers: { onevent(event: NostrEvent): void; onclose(reasons: SubscriptionClose[]): void } & PoolParams): Subscription
   ensureRelay?(url: string, params?: { connectionTimeout?: number; abort?: AbortSignal }): Promise<AbstractRelay>
   /** Install the eager AUTH-challenge responder. Absent on injected test doubles. */
   setAutomaticAuth?(signer: ((relayUrl: string) => AuthSigner | null) | undefined): void
@@ -68,6 +85,15 @@ export class Nip77UnavailableError extends Error {
     super(message)
     this.name = 'Nip77UnavailableError'
   }
+}
+
+/**
+ * Whether a resolved per-relay publish result is nostr-tools' report that it
+ * could not connect ("connection failure: ..."), which it resolves with instead
+ * of rejecting. Any other resolved value is the relay's OK message.
+ */
+function isConnectionFailure(value: unknown): boolean {
+  return typeof value === 'string' && value.startsWith('connection failure: ')
 }
 
 /**
@@ -121,6 +147,9 @@ async function createRealPool(torProxy?: string): Promise<PoolLike> {
   useWebSocketImplementation(WebSocketImpl)
 
   const pool = new SimplePool({ websocketImplementation: WebSocketImpl } as ConstructorParameters<typeof SimplePool>[0])
+  // The pool's relay map is protected in nostr-tools' types; the eager guard
+  // needs the relay that `automaticallyAuth` is being asked about.
+  const relayMap = (pool as unknown as { relays: Map<string, AbstractRelay> }).relays
   return {
     // `onauth` is spread straight through to the subscription params by
     // querySync/subscribeEose, so it works despite not being in querySync's
@@ -128,10 +157,48 @@ async function createRealPool(torProxy?: string): Promise<PoolLike> {
     publish: (relays, event, params) => pool.publish(relays, event, params as any),
     querySync: (relays, filter, params) => pool.querySync(relays, filter, params as any),
     subscribeMany: (relays, filters, handlers) => pool.subscribeMany(relays, filters, handlers as any),
+    subscribeEose: (relays, filter, handlers) => pool.subscribeEose(relays, filter, handlers as any),
     ensureRelay: (url, params) => pool.ensureRelay(url, params),
-    setAutomaticAuth: signer => { (pool as any).automaticallyAuth = signer },
+    setAutomaticAuth: signerFor => {
+      // nostr-tools calls this from ensureRelay, before the relay connects, so
+      // the guard is in place before any challenge can arrive.
+      ;(pool as any).automaticallyAuth = signerFor && ((url: string) => {
+        const sign = signerFor(url)
+        const relay = sign ? relayMap.get(url) : undefined
+        if (relay) guardAutomaticAuth(relay)
+        return sign
+      })
+    },
     destroy: () => pool.destroy(),
   } satisfies PoolLike
+}
+
+const guardedRelays = new WeakSet<AbstractRelay>()
+
+/**
+ * Keep a refused eager AUTH from ending the process.
+ *
+ * nostr-tools answers a relay's challenge with `this.auth(this.onauth)` and
+ * rethrows any refusal from that promise's `.catch`, where nothing can handle
+ * it, so Node exits on the unhandled rejection. In eager mode a relay that
+ * refuses the AUTH (a members-only relay, a key it does not know, an AUTH that
+ * names another URL) therefore crashed the CLI, even when the relay would have
+ * served the operation without it. The MCP server uses the same pool and
+ * installs no unhandledRejection handler, so it is exposed in the same way.
+ *
+ * Only the automatic answer is quietened: it is the one call made with the
+ * relay's own `onauth`. `auth()` keeps its first attempt, so an operation that
+ * then needs auth (the on-demand retry) still receives the relay's refusal and
+ * reports it.
+ */
+function guardAutomaticAuth(relay: AbstractRelay): void {
+  if (guardedRelays.has(relay)) return
+  guardedRelays.add(relay)
+  const auth = relay.auth.bind(relay)
+  relay.auth = signer => {
+    const attempt = auth(signer)
+    return signer === relay.onauth ? attempt.catch(() => '') : attempt
+  }
 }
 
 export class RelayPool {
@@ -228,6 +295,14 @@ export class RelayPool {
     void this.flushQueue(npub)
   }
 
+  /**
+   * Whether private-network relay URLs are accepted (BRAY_ALLOW_PRIVATE_RELAYS=1),
+   * so handlers that validate a URL before reaching the pool apply the same rule.
+   */
+  allowsPrivateRelays(): boolean {
+    return this.allowPrivateRelays
+  }
+
   /** Get relay set for an identity, falling back to defaults */
   getRelays(npub: string): RelaySet {
     return this.relaySets.get(npub) ?? this.defaults
@@ -273,8 +348,15 @@ export class RelayPool {
       pool.setAutomaticAuth(undefined)
       return
     }
-    pool.setAutomaticAuth(() => this.#signAuth)
+    pool.setAutomaticAuth(() => this.#eagerSignAuth)
   }
+
+  /**
+   * The eager responder's signer. It signs exactly as {@link #signAuth} does,
+   * but is a separate function so the pool can tell nostr-tools' automatic
+   * answer to a challenge apart from an operation's own on-demand AUTH.
+   */
+  #eagerSignAuth = (evt: EventTemplate): Promise<NostrEvent> => this.#signAuth(evt)
 
   /**
    * Bound signer handed to nostr-tools. Records which relays were authenticated
@@ -385,7 +467,12 @@ export class RelayPool {
     for (let i = 0; i < results.length; i++) {
       const result = results[i]
       const url = relayUrls[i] ?? `relay-${i}`
-      if (result.status === 'fulfilled') {
+      if (result.status === 'fulfilled' && isConnectionFailure(result.value)) {
+        // nostr-tools resolves, rather than rejects, a publish whose relay it
+        // could not connect to: the event never left this machine.
+        rejected.push(url)
+        errors.push(`${url}: ${result.value}`)
+      } else if (result.status === 'fulfilled') {
         accepted.push(url)
       } else {
         rejected.push(url)
@@ -401,39 +488,94 @@ export class RelayPool {
     }
   }
 
-  /** Live subscription — calls onEvent for each matching event until the returned function is called. */
+  /**
+   * Live subscription — calls onEvent for each matching event until the returned function is called.
+   *
+   * `onclose` is called once every relay has ended the subscription, with each
+   * relay's reason (auth failures explained as for a publish). Closing it with
+   * the returned function also ends it, with the reason "closed by caller".
+   */
   async subscribe(
     relays: string[],
     filter: Filter,
     onEvent: (event: NostrEvent) => void,
+    opts: { onclose?: (reasons: SubscriptionClose[]) => void } = {},
   ): Promise<() => void> {
     this.#validateDirectRelays(relays)
     const pool = await this.poolReady
     if (!pool.subscribeMany) {
       throw new Error('The underlying pool does not support subscriptions. Ensure nostr-tools/pool is available.')
     }
-    const sub = pool.subscribeMany(relays, filter, { onevent: onEvent, ...this.#authParams() })
+    const { onclose } = opts
+    const sub = pool.subscribeMany(relays, filter, {
+      onevent: onEvent,
+      ...(onclose ? {
+        onclose: (reasons: SubscriptionClose[]) => onclose(reasons.map(({ url, reason }) => ({ url, reason: this.#annotateAuthError(reason) }))),
+      } : {}),
+      ...this.#authParams(),
+    })
     return () => sub.close()
   }
 
-  /** One-shot query from read relays for the given identity */
-  async query(npub: string, filter: Filter): Promise<NostrEvent[]> {
+  /**
+   * One-shot query from read relays for the given identity.
+   *
+   * `onclose`, if given, receives each relay's reason for ending the REQ; see
+   * {@link isNormalRequestEnd}. Without it a relay's refusal looks like no events.
+   */
+  async query(
+    npub: string,
+    filter: Filter,
+    opts: { onclose?: (reasons: SubscriptionClose[]) => void } = {},
+  ): Promise<NostrEvent[]> {
     const pool = await this.poolReady
     const relays = this.getRelays(npub)
-    return pool.querySync(relays.read, filter, this.#authParams())
+    return this.#query(pool, relays.read, filter, this.#authParams(), opts.onclose)
   }
 
-  /** One-shot query against explicit relay URLs (not identity-bound) */
+  /** One-shot query against explicit relay URLs (not identity-bound). `onclose` as for {@link query}. */
   async queryDirect(
     relays: string[],
     filter: Filter,
-    opts: { timeoutMs?: number; signal?: AbortSignal } = {},
+    opts: { timeoutMs?: number; signal?: AbortSignal; onclose?: (reasons: SubscriptionClose[]) => void } = {},
   ): Promise<NostrEvent[]> {
     this.#validateDirectRelays(relays)
     const pool = await this.poolReady
-    return opts.timeoutMs || opts.signal
-      ? pool.querySync(relays, filter, { maxWait: opts.timeoutMs, abort: opts.signal, ...this.#authParams() })
-      : pool.querySync(relays, filter, this.#authParams())
+    const params = opts.timeoutMs || opts.signal
+      ? { maxWait: opts.timeoutMs, abort: opts.signal, ...this.#authParams() }
+      : this.#authParams()
+    return this.#query(pool, relays, filter, params, opts.onclose)
+  }
+
+  /**
+   * querySync, except that it settles at once for no relays (querySync never
+   * does, so a query with nothing to ask hung) and, given `onclose`, reports
+   * each relay's reason for ending the REQ, which querySync drops.
+   */
+  #query(
+    pool: PoolLike,
+    relays: string[],
+    filter: Filter,
+    params: PoolParams,
+    onclose?: (reasons: SubscriptionClose[]) => void,
+  ): Promise<NostrEvent[]> {
+    if (relays.length === 0) {
+      onclose?.([])
+      return Promise.resolve([])
+    }
+    const subscribeEose = pool.subscribeEose
+    if (!onclose || !subscribeEose) return pool.querySync(relays, filter, params)
+    return new Promise(resolve => {
+      const events: NostrEvent[] = []
+      subscribeEose(relays, filter, {
+        ...params,
+        onevent: event => { events.push(event) },
+        onclose: reasons => {
+          onclose(reasons.map(({ url, reason }) => ({ url, reason: this.#annotateAuthError(reason) })))
+          resolve(events)
+        },
+      })
+    })
   }
 
   /** Reconcile local event IDs with one relay using NIP-77 Negentropy. */

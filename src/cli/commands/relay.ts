@@ -3,6 +3,7 @@ import { TrustContext } from '../../trust-context.js'
 import type { TrustLevel } from '../../trust-context.js'
 import * as fmt from '../../format.js'
 import type { Helpers } from '../dispatch.js'
+import { isNormalRequestEnd } from '../../relay-pool.js'
 
 const TRUST_ORDER: TrustLevel[] = ['unknown', 'stranger', 'verified-stranger', 'known', 'trusted']
 
@@ -42,7 +43,7 @@ export async function dispatch(
       break
 
     case 'relay-info':
-      out(await handleRelayInfo(req(1, 'relay-info <wss://url>')))
+      out(await handleRelayInfo(req(1, 'relay-info <wss://url>'), { allowPrivateRelays: pool.allowsPrivateRelays() }))
       break
 
     case 'req': {
@@ -158,7 +159,16 @@ export async function dispatch(
         ...(maxPages !== undefined ? { maxPages } : {}),
       }
 
-      let events = await handleRelayQuery(pool, ctx.activeNpub, queryArgs as any)
+      if (!relayOverrides.length && pool.getRelays(ctx.activeNpub).read.length === 0) {
+        throw new Error('No relays available. Set NOSTR_RELAYS or pass --relay <url>.')
+      }
+      // Keep each relay's reason for ending a REQ, so a refusal is not
+      // mistaken for no matching events.
+      const ends: Array<Array<{ url: string; reason: string }>> = []
+      let events = await handleRelayQuery(pool, ctx.activeNpub, {
+        ...queryArgs,
+        onRelayClose: (reasons: Array<{ url: string; reason: string }>) => { ends.push(reasons) },
+      } as any)
 
       const minTrust = flag('min-trust') as TrustLevel | undefined
       if (minTrust) {
@@ -187,6 +197,16 @@ export async function dispatch(
       } else {
         out(events)
       }
+
+      // Relays that refused the REQ or could not be reached, once each, on
+      // stderr. With no events and every relay refusing, the query failed.
+      const refused = new Set<string>()
+      for (const page of ends) {
+        for (const { url, reason } of page) if (!isNormalRequestEnd(reason)) refused.add(`${url}: ${reason}`)
+      }
+      for (const line of refused) console.error(line)
+      const allRefused = ends.some(page => page.length > 0 && page.every(({ reason }) => !isNormalRequestEnd(reason)))
+      if (events.length === 0 && allRefused) process.exitCode = 1
       break
     }
 
@@ -223,18 +243,29 @@ export async function dispatch(
         ...(limit !== undefined ? { limit } : {}),
       }
 
+      // Run until SIGINT, or until every relay has ended the subscription.
+      // Stopping on SIGINT closes it too ("closed by caller"); that is not news.
+      let stopping = false
+      let ended!: (reasons: Array<{ url: string; reason: string }>) => void
+      const closedByRelays = new Promise<Array<{ url: string; reason: string }>>(resolve => { ended = resolve })
       const unsubscribe = await handleSubscribe(
         pool,
         ctx.activeNpub,
         filter,
         (event: any) => process.stdout.write(JSON.stringify(event) + '\n'),
         relayOverrides.length ? relayOverrides : undefined,
+        { onclose: reasons => { if (!stopping) ended(reasons) } },
       )
 
-      // Run until SIGINT
-      await new Promise<void>(resolve => {
-        process.once('SIGINT', () => { unsubscribe(); resolve() })
+      const reasons = await new Promise<Array<{ url: string; reason: string }> | undefined>(resolve => {
+        process.once('SIGINT', () => { stopping = true; unsubscribe(); resolve(undefined) })
+        void closedByRelays.then(resolve)
       })
+      if (reasons) {
+        for (const { url, reason } of reasons) console.error(`${url}: ${reason}`)
+        console.error('subscription ended: every relay closed it')
+        process.exitCode = 1
+      }
       break
     }
 

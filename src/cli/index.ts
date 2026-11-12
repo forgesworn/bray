@@ -19,6 +19,7 @@ import * as musig2 from './commands/musig2.js'
 import * as sync from './commands/sync.js'
 import * as admin from './commands/admin.js'
 import * as wallet from './commands/wallet.js'
+import { parseAuthFlags } from './auth-flags.js'
 
 const args = process.argv.slice(2)
 
@@ -35,12 +36,12 @@ for (const flag of ['--bunker', '--key']) {
 // Boolean global flags, recognised only in the leading position (`--auth req ...`)
 // so they can be stripped before command detection. Anything after the command
 // belongs to that command: `relay curl <url> --auth` means NIP-98, not NIP-42.
-let authFlagPresent = false
-let eagerAuthFlagPresent = false
-while (args[0] === '--auth' || args[0] === '--eager-auth') {
-  if (args[0] === '--eager-auth') eagerAuthFlagPresent = true
-  else authFlagPresent = true
-  args.shift()
+const authFlags = parseAuthFlags(args)
+args.splice(0, args.length, ...authFlags.rest)
+const authFlagPresent = authFlags.mode === 'on-demand'
+const eagerAuthFlagPresent = authFlags.mode === 'eager'
+if (authFlags.misplaced) {
+  console.error(`warning: ${authFlags.misplaced} only takes effect before the command (nostr-bray ${authFlags.misplaced} ${args[0]} ...); ignored here`)
 }
 
 const command = args[0]
@@ -223,7 +224,7 @@ Utility:
                                       -k takes a kind number or a registry name, e.g. -k "short text note"
   validate-event [event-json|--file path] [--validation strict-known|off]  Semantic protocol validation (no signature check)
   publish-raw [--file path] [--report] [--timeout ms] [--quorum n] [--validation strict-known|off]  Validate, sign+broadcast event
-  subscribe [--kinds N,N] [--authors hex] [--relay url]  Live-tail events to stdout (JSONL) until SIGINT
+  subscribe [--kinds N,N] [--authors hex] [--relay url]  Live-tail events to stdout (JSONL) until SIGINT; exits 1 if every relay ends it
   decode <nip19>                      Decode npub/nsec/note/nevent/nprofile/naddr
   encode npub <hex>                   Encode hex pubkey as npub
   encode note <hex>                   Encode hex event ID as note
@@ -288,6 +289,7 @@ Flags:
   --key <nsec|hex|mnemonic>           Use this secret key (overrides env/config)
   --auth                              Answer NIP-42 AUTH after an auth-required rejection
   --eager-auth                        Answer the NIP-42 AUTH challenge as soon as it arrives
+                                      (both go before the command: nostr-bray --auth req ...)
   --json                              Output raw JSON (for piping/scripts)
   --human                             Force human-readable output
   --jsonl | --csv | --tsv             Structured list output (line-, comma- or tab-delimited)

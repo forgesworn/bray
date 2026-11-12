@@ -10,6 +10,8 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { execFileSync, spawn } from 'node:child_process'
+import type { ChildProcess } from 'node:child_process'
+import { pathToFileURL } from 'node:url'
 import { mkdtempSync, rmSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -27,7 +29,7 @@ const TEST_NSEC = 'nsec1cxymst7yntfnvt4vkztk54q9muks6n77dn7qyhjpcvlxtkc6hy2s0364
 // Smallest valid secp256k1 scalar (for encode-nsec test)
 const MIN_VALID_PRIVKEY_HEX = '0000000000000000000000000000000000000000000000000000000000000001'
 
-let relayServer: ReturnType<typeof startRelay>
+let relayProcess: ChildProcess | undefined
 let localRelay: string
 
 // ---------------------------------------------------------------------------
@@ -105,13 +107,31 @@ function online(): Record<string, string> {
 // Relay lifecycle
 // ---------------------------------------------------------------------------
 
-beforeAll(() => {
-  relayServer = startRelay({ port: 0, quiet: true })
-  localRelay = relayServer.url
+// The relay runs in its own process, from the built dist/serve.js. In this
+// process it could not answer: execFileSync, which most tests here use, blocks
+// the event loop for as long as the CLI runs. And it is read once it is bound,
+// since with port 0 its URL has no port until then.
+beforeAll(async () => {
+  const serve = pathToFileURL(join(process.cwd(), 'dist', 'serve.js')).href
+  const script = `import { startRelay } from ${JSON.stringify(serve)}
+const relay = startRelay({ port: 0, quiet: true })
+await relay.ready
+console.log(relay.url)`
+  const child = spawn('node', ['--input-type=module', '-e', script], { stdio: ['ignore', 'pipe', 'inherit'] })
+  relayProcess = child
+  localRelay = await new Promise<string>((resolve, reject) => {
+    let out = ''
+    child.stdout!.on('data', chunk => {
+      out += chunk
+      const line = out.split('\n')[0]
+      if (out.includes('\n')) resolve(line.trim())
+    })
+    child.once('exit', code => reject(new Error(`test relay exited early (${code})`)))
+  })
 })
 
 afterAll(() => {
-  relayServer?.close()
+  relayProcess?.kill()
   rmSync(TEST_CONFIG_HOME, { recursive: true, force: true })
 })
 
@@ -541,11 +561,12 @@ describe('relay commands — local relay', { timeout: 20_000 }, () => {
     expect(all.some((r: string) => r === localRelay)).toBe(true)
   })
 
-  it('relay-info rejects private-network URLs (security guard)', () => {
-    // relay-info blocks localhost/127.x by design — this verifies the verb is wired
-    // and the guard fires. Public relay testing happens manually / in integration CI.
-    const err = cliExpectFail(online(), 'relay-info', localRelay)
-    expect(err).toContain('private network')
+  it('relay-info reads the local relay\'s NIP-11 document under BRAY_ALLOW_PRIVATE_RELAYS=1', () => {
+    // The dev flag lifts the private-network guard here as it does for the
+    // relay pool, so the verb can be exercised against the local relay. The
+    // guard without the flag is covered in test/relay/handlers.test.ts.
+    const info = cliJson(online(), 'relay-info', localRelay) as any
+    expect(info.supported_nips).toContain(11)
   })
 
   it('count returns numeric count', () => {
