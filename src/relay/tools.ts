@@ -201,11 +201,8 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
       }
     }
 
-    const poolQuery = async (urls: string[], f: Record<string, unknown>) => {
-      return deps.pool.queryDirect(urls, f as any)
-    }
-
-    const result = await handleRelayCount(relays, filter, poolQuery)
+    // Through the pool: TOR_PROXY, the relay URL rules and NIP-42 AUTH apply.
+    const result = await handleRelayCount(relays, filter, deps.pool)
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }

@@ -53,6 +53,27 @@ export function isNormalRequestEnd(reason: string): boolean {
   return reason === 'closed automatically on eose' || reason === 'closed by caller'
 }
 
+/** One relay's answer to a NIP-45 COUNT: its count, or why there is none. */
+export interface RelayCount {
+  url: string
+  count?: number
+  /** The relay marked its count approximate. */
+  approximate?: boolean
+  /** The relay's CLOSED reason (auth failures explained), a timeout, or a connection failure. */
+  error?: string
+}
+
+const reasonOf = (err: unknown): string => (err instanceof Error ? err.message : String(err))
+
+/** Settle with `p`, or reject with `message` after `ms`. */
+function within<T>(ms: number, p: Promise<T>, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  return Promise.race([
+    p.finally(() => clearTimeout(timer)),
+    new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(message)), ms) }),
+  ])
+}
+
 /** Params threaded through to nostr-tools: deadlines plus NIP-42 auth retry. */
 export interface PoolParams {
   maxWait?: number
@@ -528,6 +549,48 @@ export class RelayPool {
         },
       })
     })
+  }
+
+  /**
+   * NIP-45 COUNT against explicit relays, on the pool's own connections, so
+   * the Tor proxy, the relay URL rules and NIP-42 AUTH apply as for a query.
+   * A relay that answers auth-required: is authenticated and asked again when
+   * auth is on. nostr-tools sets no deadline on a COUNT, so `timeoutMs`
+   * (default 5 s) bounds each relay's connection and each COUNT.
+   */
+  async countDirect(relays: string[], filter: Filter, opts: { timeoutMs?: number } = {}): Promise<RelayCount[]> {
+    this.#validateDirectRelays(relays)
+    const pool = await this.poolReady
+    const timeoutMs = opts.timeoutMs ?? 5_000
+    return Promise.all(relays.map(url => this.#countOne(pool, url, filter, timeoutMs)))
+  }
+
+  async #countOne(pool: PoolLike, url: string, filter: Filter, timeoutMs: number): Promise<RelayCount> {
+    if (!pool.ensureRelay) return { url, error: 'the underlying relay pool cannot send COUNT' }
+    let relay: AbstractRelay
+    try {
+      relay = await pool.ensureRelay(url, { connectionTimeout: timeoutMs })
+    } catch (err) {
+      return { url, error: `connection failure: ${reasonOf(err)}` }
+    }
+    const count = async (): Promise<RelayCount> => {
+      // countWithHLL resolves with the relay's whole COUNT payload, approximate included.
+      const reply = await within(timeoutMs, relay.countWithHLL([filter], {}) as Promise<{ count: number; approximate?: boolean }>, 'COUNT timed out')
+      return { url, count: reply.count, ...(reply.approximate ? { approximate: true } : {}) }
+    }
+    try {
+      return await count()
+    } catch (err) {
+      const reason = reasonOf(err)
+      const { onauth } = this.#authParams()
+      if (!reason.startsWith('auth-required: ') || !onauth) return { url, error: this.#annotateAuthError(reason) }
+      try {
+        await relay.auth(onauth as Parameters<AbstractRelay['auth']>[0])
+        return await count()
+      } catch (authErr) {
+        return { url, error: this.#annotateAuthError(reasonOf(authErr)) }
+      }
+    }
   }
 
   /** Reconcile local event IDs with one relay using NIP-77 Negentropy. */

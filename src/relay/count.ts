@@ -1,3 +1,5 @@
+import type { Filter } from 'nostr-tools'
+import type { RelayPool } from '../relay-pool.js'
 import { validateRelayUrl } from './handlers.js'
 
 export interface CountResult {
@@ -13,15 +15,28 @@ export interface RelayCountResult {
   total: number
 }
 
+type PoolQuery = (relays: string[], filter: Record<string, unknown>) => Promise<unknown[]>
+
 /**
- * Send a COUNT request to relays using the lower-level WebSocket protocol.
- * Falls back to fetch-and-count if the relay does not support NIP-45.
+ * Send a NIP-45 COUNT to each relay, falling back to fetch-and-count (capped at
+ * 1000) when a relay does not support NIP-45.
+ *
+ * Pass the `RelayPool` as the third argument: the COUNT then goes over the
+ * pool's own connections, so TOR_PROXY, BRAY_ALLOW_PRIVATE_RELAYS and NIP-42
+ * AUTH apply as for any query, and a relay that refuses (auth-required:,
+ * restricted:) or cannot be reached is reported, not counted by fallback.
+ *
+ * The older form, with a query function or nothing as the third argument,
+ * still works but opens its own WebSocket to each relay: it ignores TOR_PROXY
+ * and does not authenticate.
  */
 export async function handleRelayCount(
   relays: string[],
   filter: Record<string, unknown>,
-  poolQuery?: (relays: string[], filter: Record<string, unknown>) => Promise<unknown[]>,
+  through?: RelayPool | PoolQuery,
 ): Promise<RelayCountResult> {
+  if (through && typeof through !== 'function') return countThroughPool(through, relays, filter)
+  const poolQuery = through
   for (const url of relays) validateRelayUrl(url)
 
   const results = await Promise.all(
@@ -31,6 +46,36 @@ export async function handleRelayCount(
   return {
     counts: results,
     total: results.reduce((sum, r) => sum + (r.error ? 0 : r.count), 0),
+  }
+}
+
+/** A refusal or an unreachable relay: a REQ would fare no better, so no fallback. */
+const noFallback = (error: string): boolean => /^(auth-required|restricted):|^connection failure/.test(error)
+
+async function countThroughPool(
+  pool: RelayPool,
+  relays: string[],
+  filter: Record<string, unknown>,
+): Promise<RelayCountResult> {
+  const allowPrivate = pool.allowsPrivateRelays?.() === true
+  for (const url of relays) validateRelayUrl(url, { allowPrivate })
+  const answers = await pool.countDirect(relays, filter as Filter)
+  const counts = await Promise.all(answers.map(async (answer): Promise<CountResult> => {
+    if (answer.error === undefined) {
+      return { relay: answer.url, count: answer.count ?? 0, ...(answer.approximate ? { estimated: true } : {}) }
+    }
+    if (noFallback(answer.error)) return { relay: answer.url, count: 0, error: answer.error }
+    // No NIP-45 (or no answer in time): count a capped REQ instead.
+    try {
+      const events = await pool.queryDirect([answer.url], { ...filter, limit: 1000 } as Filter)
+      return { relay: answer.url, count: events.length, fallback: true, estimated: events.length >= 1000 }
+    } catch (err) {
+      return { relay: answer.url, count: 0, error: `COUNT failed (${answer.error}) and the fallback failed: ${(err as Error).message}` }
+    }
+  }))
+  return {
+    counts,
+    total: counts.reduce((sum, r) => sum + (r.error ? 0 : r.count), 0),
   }
 }
 
