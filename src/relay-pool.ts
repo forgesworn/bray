@@ -91,6 +91,14 @@ export interface PoolLike {
   ensureRelay?(url: string, params?: { connectionTimeout?: number; abort?: AbortSignal }): Promise<AbstractRelay>
   /** Install the eager AUTH-challenge responder. Absent on injected test doubles. */
   setAutomaticAuth?(signer: ((relayUrl: string) => AuthSigner | null) | undefined): void
+  /**
+   * Consulted before each use of a relay connection, with nostr-tools'
+   * normalised URL and whether a connection is open: true closes the open one
+   * so the use starts on a fresh connection. Absent on injected test doubles.
+   */
+  setReuseCheck?(check: ((url: string, open: boolean) => boolean) | undefined): void
+  /** Close and forget one relay's connection. Absent on injected test doubles. */
+  forget?(url: string): void
   destroy(): void
 }
 
@@ -160,6 +168,17 @@ async function createRealPool(torProxy?: string): Promise<PoolLike> {
   useWebSocketImplementation(WebSocketImpl)
 
   const pool = new SimplePool({ websocketImplementation: WebSocketImpl } as ConstructorParameters<typeof SimplePool>[0])
+  const { normalizeURL } = await import('nostr-tools/utils')
+  // nostr-tools reaches every relay through ensureRelay, so this is where a
+  // connection can be refused reuse. The relay map is protected in its types.
+  const relayMap = (pool as unknown as { relays: Map<string, AbstractRelay> }).relays
+  const ensureRelay = pool.ensureRelay.bind(pool)
+  let reuseCheck: ((url: string, open: boolean) => boolean) | undefined
+  pool.ensureRelay = ((url: string, params?: Parameters<typeof ensureRelay>[1]) => {
+    const key = normalizeURL(url)
+    if (reuseCheck?.(key, relayMap.has(key))) pool.close([key])
+    return ensureRelay(url, params)
+  }) as typeof pool.ensureRelay
   return {
     // `onauth` is spread straight through to the subscription params by
     // querySync/subscribeEose, so it works despite not being in querySync's
@@ -170,6 +189,8 @@ async function createRealPool(torProxy?: string): Promise<PoolLike> {
     subscribeEose: (relays, filter, handlers) => pool.subscribeEose(relays, filter, handlers as any),
     ensureRelay: (url, params) => pool.ensureRelay(url, params),
     setAutomaticAuth: signerFor => setAutomaticAuth(pool, signerFor as ((url: string) => ChallengeSigner | null) | undefined),
+    setReuseCheck: check => { reuseCheck = check },
+    forget: url => pool.close([normalizeURL(url)]),
     destroy: () => pool.destroy(),
   } satisfies PoolLike
 }
@@ -189,6 +210,14 @@ export class RelayPool {
   private authSigner: AuthSigner | undefined
   /** Relays we have signed an AUTH event for, for diagnostics. */
   private authedRelays = new Set<string>()
+  /** The active identity's pubkey (hex), from the signing context. */
+  #currentPubkey: (() => string) | undefined
+  /**
+   * For each relay connection (nostr-tools' normalised URL): the identity that
+   * last used it, and the one whose AUTH event it has seen (accepted or not, the
+   * relay has seen the key). See #reuse.
+   */
+  #connectionOwners = new Map<string, { usedBy?: string; authedBy?: string }>()
 
   constructor(config: RelayPoolConfig, injectedPool?: PoolLike) {
     this.torProxy = config.torProxy
@@ -232,6 +261,45 @@ export class RelayPool {
     } else {
       this.poolReady = createRealPool(config.torProxy).then(p => { this.pool = p; return p })
     }
+    // Registered before any caller can await poolReady, so no use goes unchecked.
+    void this.poolReady.then(p => p.setReuseCheck?.((url, open) => this.#reuse(url, open)))
+  }
+
+  /** The active identity's pubkey, or undefined when it is not known (yet). */
+  #activePubkey(): string | undefined {
+    try {
+      return this.#currentPubkey?.()
+    } catch {
+      // A bunker context throws until its key is resolved.
+      return undefined
+    }
+  }
+
+  /**
+   * Whether the open connection to `url` must be replaced before the active
+   * identity uses it, so one connection never carries two identities.
+   *
+   * A NIP-42 AUTH ties a connection to a key, so a relay that has seen one
+   * identity's AUTH on a connection could link it to the next identity's
+   * traffic there. That connection is replaced in every auth mode. With AUTH on
+   * (on-demand or eager), any connection another identity used is replaced
+   * too, since the next AUTH on it would link the two. With AUTH off and no AUTH
+   * sent, a connection is kept across a switch. The same IP and timing remain
+   * either way: this removes the AUTH link only.
+   */
+  #reuse(url: string, open: boolean): boolean {
+    const current = this.#activePubkey()
+    if (current === undefined) return false
+    const owner = open ? this.#connectionOwners.get(url) : undefined
+    const sawOtherAuth = owner?.authedBy !== undefined && owner.authedBy !== current
+    const usedByOther = this.authMode !== 'off' && owner?.usedBy !== undefined && owner.usedBy !== current
+    if (sawOtherAuth || usedByOther) {
+      console.error(`[bray] new connection to ${url} for the active identity: the open one ${sawOtherAuth ? 'authenticated as' : 'was used by'} another identity`)
+      this.#connectionOwners.set(url, { usedBy: current })
+      return true
+    }
+    this.#connectionOwners.set(url, { ...owner, usedBy: current })
+    return false
   }
 
   /** Store relay set for an identity and flush any queued writes */
@@ -287,9 +355,15 @@ export class RelayPool {
    * Called once the identity context exists, which is after the pool is
    * constructed. Passing `undefined` disables authentication again (used when
    * switching identity, so a challenge is never answered with a stale key).
+   *
+   * `currentPubkey` returns the active identity's pubkey (hex). With it, a
+   * relay connection is not reused across an identity switch when that could
+   * tie the two identities together (see #reuse); without it, connections are
+   * reused as before.
    */
-  setAuthSigner(signer: AuthSigner | undefined): void {
+  setAuthSigner(signer: AuthSigner | undefined, currentPubkey?: () => string): void {
     this.authSigner = signer
+    this.#currentPubkey = currentPubkey
     this.authedRelays.clear()
     void this.#applyEagerAuth()
   }
@@ -339,7 +413,11 @@ export class RelayPool {
     if (!this.authSigner) throw new Error('NIP-42 AUTH requested but no signer is configured')
     const relayTag = evt.tags.find(t => t[0] === 'relay')?.[1]
     const signed = await this.authSigner(evt)
-    if (relayTag) this.authedRelays.add(relayTag)
+    if (relayTag) {
+      this.authedRelays.add(relayTag)
+      // nostr-tools names the relay by the same normalised URL as its map.
+      this.#connectionOwners.set(relayTag, { ...this.#connectionOwners.get(relayTag), authedBy: signed.pubkey })
+    }
     return signed
   }
 
@@ -590,6 +668,56 @@ export class RelayPool {
       } catch (authErr) {
         return { url, error: this.#annotateAuthError(reasonOf(authErr)) }
       }
+    }
+  }
+
+  /**
+   * NIP-42: authenticate the pool's own connection to `url` as the active
+   * identity, so later queries and publishes to that relay on it are served.
+   *
+   * An explicit request, so it works in every auth mode. It waits for the
+   * relay's challenge, prompting one with an empty REQ if the relay sends it
+   * only after refusing a request (bray's serve --auth does). A connection
+   * that carried another identity's traffic is replaced first; after a refusal
+   * the connection is dropped, since nostr-tools keeps its first attempt and a
+   * second try on it would only repeat the refusal.
+   */
+  async authenticate(url: string, opts: { timeoutMs?: number } = {}): Promise<{ authenticated: boolean; relay: string; pubkey?: string; error?: string }> {
+    this.#validateDirectRelays([url])
+    if (!this.authSigner) return { authenticated: false, relay: url, error: 'NIP-42 AUTH requested but no signer is configured' }
+    const pool = await this.poolReady
+    if (!pool.ensureRelay) return { authenticated: false, relay: url, error: 'the underlying relay pool cannot authenticate' }
+    const timeoutMs = opts.timeoutMs ?? 5_000
+    const { normalizeURL } = await import('nostr-tools/utils')
+    const current = this.#activePubkey()
+    const owner = this.#connectionOwners.get(normalizeURL(url))
+    if (current !== undefined && owner?.usedBy !== undefined && owner.usedBy !== current) pool.forget?.(url)
+
+    let relay: AbstractRelay
+    try {
+      relay = await pool.ensureRelay(url, { connectionTimeout: timeoutMs })
+    } catch (err) {
+      return { authenticated: false, relay: url, error: `connection failure: ${reasonOf(err)}` }
+    }
+    // nostr-tools keeps the latest challenge on the relay; it is private in its types.
+    const challenge = () => (relay as unknown as { challenge?: string }).challenge
+    const deadline = Date.now() + timeoutMs
+    const probeAt = Date.now() + Math.min(500, timeoutMs / 2)
+    let probed = false
+    while (!challenge()) {
+      if (Date.now() >= deadline) return { authenticated: false, relay: url, error: 'AUTH handshake timed out (no challenge received)' }
+      if (!probed && Date.now() >= probeAt) {
+        probed = true
+        const probe = relay.subscribe([{ limit: 0 }], { onevent: () => {}, oneose: () => probe.close(), onclose: () => {} })
+      }
+      await new Promise(resolve => setTimeout(resolve, 25))
+    }
+    try {
+      await within(timeoutMs, relay.auth(this.#signAuth as Parameters<AbstractRelay['auth']>[0]), 'AUTH timed out')
+      return { authenticated: true, relay: url, pubkey: this.#connectionOwners.get(relay.url)?.authedBy ?? current }
+    } catch (err) {
+      pool.forget?.(url)
+      return { authenticated: false, relay: url, error: `AUTH rejected: ${reasonOf(err)}` }
     }
   }
 

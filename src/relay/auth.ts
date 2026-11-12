@@ -1,5 +1,6 @@
 import { validateRelayUrl } from './handlers.js'
 import type { SigningContext } from '../signing-context.js'
+import type { RelayPool } from '../relay-pool.js'
 
 export interface RelayAuthResult {
   authenticated: boolean
@@ -11,6 +12,15 @@ export interface RelayAuthResult {
 /**
  * Authenticate to a relay that requires NIP-42 AUTH.
  *
+ * Pass the `RelayPool` as the third argument: the pool's own connection to the
+ * relay is then authenticated as the active identity, through TOR_PROXY and the
+ * relay URL rules, so later queries and publishes to that relay on it are
+ * served (see RelayPool.authenticate).
+ *
+ * The older two-argument form still works but opens a separate WebSocket,
+ * ignores TOR_PROXY, and closes that connection once authenticated, so the
+ * AUTH applies to nothing else. It only shows that the relay accepts the key.
+ *
  * Flow:
  * 1. Connect via WebSocket
  * 2. Wait for ["AUTH", challenge] message
@@ -21,7 +31,12 @@ export interface RelayAuthResult {
 export async function handleRelayAuth(
   ctx: SigningContext,
   relay: string,
+  pool?: RelayPool,
 ): Promise<RelayAuthResult> {
+  if (pool) {
+    validateRelayUrl(relay, { allowPrivate: pool.allowsPrivateRelays?.() === true })
+    return pool.authenticate(relay)
+  }
   validateRelayUrl(relay) // throws on private IPs -- intentionally not caught
 
   return new Promise((resolve) => {

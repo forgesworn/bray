@@ -225,13 +225,14 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('relay-auth', {
-    description: 'Authenticate to a relay that requires NIP-42 AUTH. Connects to the relay, waits for an AUTH challenge, signs a kind 22242 event, and sends it back. Returns { authenticated: true/false }. Use this when a relay-query fails due to AUTH requirements, then retry the query.',
+    description: 'Authenticate (NIP-42) bray\'s own connection to a relay as the active identity, so later queries and publishes to that relay on it are served. Waits for the relay\'s AUTH challenge, signs a kind 22242 event and sends it back. Returns { authenticated: true/false }. Use this when a relay-query fails due to AUTH requirements, then retry the query. Switching identity drops a connection that authenticated as another identity, so authenticate again after a switch.',
     inputSchema: {
       relay: relayUrl.describe('Relay WebSocket URL to authenticate with'),
     },
     annotations: { readOnlyHint: false },
   }, async ({ relay }) => {
-    const result = await handleRelayAuth(deps.ctx, relay)
+    // On the pool's own connection, so the retried query is authenticated.
+    const result = await handleRelayAuth(deps.ctx, relay, deps.pool)
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }
