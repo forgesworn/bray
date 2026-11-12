@@ -197,6 +197,12 @@ export interface RelayQueryArgs {
   paginateIntervalMs?: number
   /** Safety valve on the number of REQs issued when paginating. Defaults to 20. */
   maxPages?: number
+  /**
+   * Called after each REQ with every relay's reason for ending it (see
+   * isNormalRequestEnd). Without it, a relay that refuses the REQ looks the
+   * same as one with no matching events.
+   */
+  onRelayClose?: (reasons: SubscriptionClose[]) => void
 }
 
 /**
@@ -257,8 +263,11 @@ export async function handleRelayQuery(
     for (const url of args.relays) validateRelayUrl(url, { allowPrivate })
   }
 
-  const runQuery = (f: Filter): Promise<NostrEvent[]> =>
-    args.relays?.length ? pool.queryDirect(args.relays, f) : pool.query(npub, f)
+  const onclose = args.onRelayClose
+  const runQuery = (f: Filter): Promise<NostrEvent[]> => {
+    if (args.relays?.length) return onclose ? pool.queryDirect(args.relays, f, { onclose }) : pool.queryDirect(args.relays, f)
+    return onclose ? pool.query(npub, f, { onclose }) : pool.query(npub, f)
+  }
 
   if (!args.paginate) return runQuery(filter)
 

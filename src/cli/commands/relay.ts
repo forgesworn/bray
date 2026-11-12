@@ -3,6 +3,7 @@ import { TrustContext } from '../../trust-context.js'
 import type { TrustLevel } from '../../trust-context.js'
 import * as fmt from '../../format.js'
 import type { Helpers } from '../dispatch.js'
+import { isNormalRequestEnd } from '../../relay-pool.js'
 
 const TRUST_ORDER: TrustLevel[] = ['unknown', 'stranger', 'verified-stranger', 'known', 'trusted']
 
@@ -158,7 +159,16 @@ export async function dispatch(
         ...(maxPages !== undefined ? { maxPages } : {}),
       }
 
-      let events = await handleRelayQuery(pool, ctx.activeNpub, queryArgs as any)
+      if (!relayOverrides.length && pool.getRelays(ctx.activeNpub).read.length === 0) {
+        throw new Error('No relays available. Set NOSTR_RELAYS or pass --relay <url>.')
+      }
+      // Keep each relay's reason for ending a REQ, so a refusal is not
+      // mistaken for no matching events.
+      const ends: Array<Array<{ url: string; reason: string }>> = []
+      let events = await handleRelayQuery(pool, ctx.activeNpub, {
+        ...queryArgs,
+        onRelayClose: (reasons: Array<{ url: string; reason: string }>) => { ends.push(reasons) },
+      } as any)
 
       const minTrust = flag('min-trust') as TrustLevel | undefined
       if (minTrust) {
@@ -187,6 +197,16 @@ export async function dispatch(
       } else {
         out(events)
       }
+
+      // Relays that refused the REQ or could not be reached, once each, on
+      // stderr. With no events and every relay refusing, the query failed.
+      const refused = new Set<string>()
+      for (const page of ends) {
+        for (const { url, reason } of page) if (!isNormalRequestEnd(reason)) refused.add(`${url}: ${reason}`)
+      }
+      for (const line of refused) console.error(line)
+      const allRefused = ends.some(page => page.length > 0 && page.every(({ reason }) => !isNormalRequestEnd(reason)))
+      if (events.length === 0 && allRefused) process.exitCode = 1
       break
     }
 

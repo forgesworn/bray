@@ -43,6 +43,15 @@ export interface SubscriptionClose {
   reason: string
 }
 
+/**
+ * Whether a relay ended a REQ in the ordinary way: at EOSE (nostr-tools closes
+ * a one-shot query itself then) or because the caller closed it. Anything else
+ * is the relay's CLOSED reason or a connection failure.
+ */
+export function isNormalRequestEnd(reason: string): boolean {
+  return reason === 'closed automatically on eose' || reason === 'closed by caller'
+}
+
 /** Params threaded through to nostr-tools: deadlines plus NIP-42 auth retry. */
 export interface PoolParams {
   maxWait?: number
@@ -55,6 +64,8 @@ export interface PoolLike {
   publish(relays: string[], event: NostrEvent, params?: PoolParams): Promise<string>[]
   querySync(relays: string[], filter: Filter, params?: PoolParams): Promise<NostrEvent[]>
   subscribeMany?(relays: string[], filter: Filter, handlers: { onevent(event: NostrEvent): void; oneose?(): void; onclose?(reasons: SubscriptionClose[]): void } & Pick<PoolParams, 'onauth'>): Subscription
+  /** A REQ that closes itself at EOSE, reporting each relay's reason. Absent on injected test doubles. */
+  subscribeEose?(relays: string[], filter: Filter, handlers: { onevent(event: NostrEvent): void; onclose(reasons: SubscriptionClose[]): void } & PoolParams): Subscription
   ensureRelay?(url: string, params?: { connectionTimeout?: number; abort?: AbortSignal }): Promise<AbstractRelay>
   /** Install the eager AUTH-challenge responder. Absent on injected test doubles. */
   setAutomaticAuth?(signer: ((relayUrl: string) => AuthSigner | null) | undefined): void
@@ -146,6 +157,7 @@ async function createRealPool(torProxy?: string): Promise<PoolLike> {
     publish: (relays, event, params) => pool.publish(relays, event, params as any),
     querySync: (relays, filter, params) => pool.querySync(relays, filter, params as any),
     subscribeMany: (relays, filters, handlers) => pool.subscribeMany(relays, filters, handlers as any),
+    subscribeEose: (relays, filter, handlers) => pool.subscribeEose(relays, filter, handlers as any),
     ensureRelay: (url, params) => pool.ensureRelay(url, params),
     setAutomaticAuth: signerFor => {
       // nostr-tools calls this from ensureRelay, before the relay connects, so
@@ -505,24 +517,65 @@ export class RelayPool {
     return () => sub.close()
   }
 
-  /** One-shot query from read relays for the given identity */
-  async query(npub: string, filter: Filter): Promise<NostrEvent[]> {
+  /**
+   * One-shot query from read relays for the given identity.
+   *
+   * `onclose`, if given, receives each relay's reason for ending the REQ; see
+   * {@link isNormalRequestEnd}. Without it a relay's refusal looks like no events.
+   */
+  async query(
+    npub: string,
+    filter: Filter,
+    opts: { onclose?: (reasons: SubscriptionClose[]) => void } = {},
+  ): Promise<NostrEvent[]> {
     const pool = await this.poolReady
     const relays = this.getRelays(npub)
-    return pool.querySync(relays.read, filter, this.#authParams())
+    return this.#query(pool, relays.read, filter, this.#authParams(), opts.onclose)
   }
 
-  /** One-shot query against explicit relay URLs (not identity-bound) */
+  /** One-shot query against explicit relay URLs (not identity-bound). `onclose` as for {@link query}. */
   async queryDirect(
     relays: string[],
     filter: Filter,
-    opts: { timeoutMs?: number; signal?: AbortSignal } = {},
+    opts: { timeoutMs?: number; signal?: AbortSignal; onclose?: (reasons: SubscriptionClose[]) => void } = {},
   ): Promise<NostrEvent[]> {
     this.#validateDirectRelays(relays)
     const pool = await this.poolReady
-    return opts.timeoutMs || opts.signal
-      ? pool.querySync(relays, filter, { maxWait: opts.timeoutMs, abort: opts.signal, ...this.#authParams() })
-      : pool.querySync(relays, filter, this.#authParams())
+    const params = opts.timeoutMs || opts.signal
+      ? { maxWait: opts.timeoutMs, abort: opts.signal, ...this.#authParams() }
+      : this.#authParams()
+    return this.#query(pool, relays, filter, params, opts.onclose)
+  }
+
+  /**
+   * querySync, except that it settles at once for no relays (querySync never
+   * does, so a query with nothing to ask hung) and, given `onclose`, reports
+   * each relay's reason for ending the REQ, which querySync drops.
+   */
+  #query(
+    pool: PoolLike,
+    relays: string[],
+    filter: Filter,
+    params: PoolParams,
+    onclose?: (reasons: SubscriptionClose[]) => void,
+  ): Promise<NostrEvent[]> {
+    if (relays.length === 0) {
+      onclose?.([])
+      return Promise.resolve([])
+    }
+    const subscribeEose = pool.subscribeEose
+    if (!onclose || !subscribeEose) return pool.querySync(relays, filter, params)
+    return new Promise(resolve => {
+      const events: NostrEvent[] = []
+      subscribeEose(relays, filter, {
+        ...params,
+        onevent: event => { events.push(event) },
+        onclose: reasons => {
+          onclose(reasons.map(({ url, reason }) => ({ url, reason: this.#annotateAuthError(reason) })))
+          resolve(events)
+        },
+      })
+    })
   }
 
   /** Reconcile local event IDs with one relay using NIP-77 Negentropy. */
