@@ -108,7 +108,8 @@ describe('subscribe when the relay ends it', { timeout: 15_000 }, () => {
     const run = subscribe(r.url)
     const code = await run.exited
     expect(code).toBe(1)
-    expect(run.stderr()).toContain('relay connection closed')
+    // nostr-tools reports a socket that goes away as closed, or as failed if it errors first
+    expect(run.stderr()).toMatch(/relay connection (closed|failed)/)
     expect(run.stderr()).not.toContain('unsettled top-level await')
   })
 

@@ -224,7 +224,7 @@ Utility:
                                       -k takes a kind number or a registry name, e.g. -k "short text note"
   validate-event [event-json|--file path] [--validation strict-known|off]  Semantic protocol validation (no signature check)
   publish-raw [--file path] [--report] [--timeout ms] [--quorum n] [--validation strict-known|off]  Validate, sign+broadcast event
-  subscribe [--kinds N,N] [--authors hex] [--relay url]  Live-tail events to stdout (JSONL) until SIGINT
+  subscribe [--kinds N,N] [--authors hex] [--relay url]  Live-tail events to stdout (JSONL) until SIGINT; exits 1 if every relay ends it
   decode <nip19>                      Decode npub/nsec/note/nevent/nprofile/naddr
   encode npub <hex>                   Encode hex pubkey as npub
   encode note <hex>                   Encode hex event ID as note

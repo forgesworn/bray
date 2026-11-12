@@ -161,8 +161,9 @@ const guardedRelays = new WeakSet<AbstractRelay>()
  * rethrows any refusal from that promise's `.catch`, where nothing can handle
  * it, so Node exits on the unhandled rejection. In eager mode a relay that
  * refuses the AUTH (a members-only relay, a key it does not know, an AUTH that
- * names another URL) therefore crashed the CLI and the MCP server alike, even
- * when the relay would have served the operation without it.
+ * names another URL) therefore crashed the CLI, even when the relay would have
+ * served the operation without it. The MCP server uses the same pool and
+ * installs no unhandledRejection handler, so it is exposed in the same way.
  *
  * Only the automatic answer is quietened: it is the one call made with the
  * relay's own `onauth`. `auth()` keeps its first attempt, so an operation that
