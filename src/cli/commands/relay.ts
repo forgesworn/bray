@@ -42,7 +42,7 @@ export async function dispatch(
       break
 
     case 'relay-info':
-      out(await handleRelayInfo(req(1, 'relay-info <wss://url>')))
+      out(await handleRelayInfo(req(1, 'relay-info <wss://url>'), { allowPrivateRelays: pool.allowsPrivateRelays() }))
       break
 
     case 'req': {

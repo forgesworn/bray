@@ -273,6 +273,14 @@ export class RelayPool {
     void this.flushQueue(npub)
   }
 
+  /**
+   * Whether private-network relay URLs are accepted (BRAY_ALLOW_PRIVATE_RELAYS=1),
+   * so handlers that validate a URL before reaching the pool apply the same rule.
+   */
+  allowsPrivateRelays(): boolean {
+    return this.allowPrivateRelays
+  }
+
   /** Get relay set for an identity, falling back to defaults */
   getRelays(npub: string): RelaySet {
     return this.relaySets.get(npub) ?? this.defaults

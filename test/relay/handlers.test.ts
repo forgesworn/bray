@@ -200,6 +200,23 @@ describe('relay handlers', () => {
       })).rejects.toThrow(/private/)
     })
 
+    it('accepts a loopback relay when the pool allows private relays (BRAY_ALLOW_PRIVATE_RELAYS=1)', async () => {
+      const pool = { ...mockPool(), allowsPrivateRelays: () => true }
+      await handleRelayQuery(pool as any, ctx.activeNpub, {
+        kinds: [1],
+        relays: ['ws://127.0.0.1:7777'],
+      })
+      expect(pool.queryDirect).toHaveBeenCalledWith(['ws://127.0.0.1:7777'], expect.objectContaining({ kinds: [1] }))
+    })
+
+    it('still rejects a loopback relay when the pool does not allow private relays', async () => {
+      const pool = { ...mockPool(), allowsPrivateRelays: () => false }
+      await expect(handleRelayQuery(pool as any, ctx.activeNpub, {
+        kinds: [1],
+        relays: ['ws://127.0.0.1:7777'],
+      })).rejects.toThrow(/private/)
+    })
+
     it('adds NIP-50 search parameter to filter', async () => {
       const pool = mockPool()
       await handleRelayQuery(pool as any, ctx.activeNpub, {
@@ -270,6 +287,19 @@ describe('relay handlers', () => {
     it('rejects private network addresses', async () => {
       await expect(handleRelayInfo('wss://127.0.0.1')).rejects.toThrow(/private/)
       await expect(handleRelayInfo('wss://169.254.169.254')).rejects.toThrow(/private/)
+    })
+
+    it('fetches from a loopback relay when private relays are allowed', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/nostr+json' }),
+        text: () => Promise.resolve(JSON.stringify({ name: 'Local Relay' })),
+      })
+      vi.stubGlobal('fetch', mockFetch)
+      const result = await handleRelayInfo('ws://127.0.0.1:7777', { allowPrivateRelays: true })
+      expect(result.name).toBe('Local Relay')
+      expect(mockFetch).toHaveBeenCalledWith('http://127.0.0.1:7777', expect.anything())
+      vi.unstubAllGlobals()
     })
   })
 })

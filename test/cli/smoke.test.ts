@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { execFileSync, spawn } from 'node:child_process'
+import { execFile, execFileSync, spawn } from 'node:child_process'
 import { mkdtempSync, rmSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -541,11 +541,20 @@ describe('relay commands — local relay', { timeout: 20_000 }, () => {
     expect(all.some((r: string) => r === localRelay)).toBe(true)
   })
 
-  it('relay-info rejects private-network URLs (security guard)', () => {
-    // relay-info blocks localhost/127.x by design — this verifies the verb is wired
-    // and the guard fires. Public relay testing happens manually / in integration CI.
-    const err = cliExpectFail(online(), 'relay-info', localRelay)
-    expect(err).toContain('private network')
+  it('relay-info reads the local relay\'s NIP-11 document under BRAY_ALLOW_PRIVATE_RELAYS=1', async () => {
+    // The dev flag lifts the private-network guard here as it does for the
+    // relay pool, so the verb can be exercised against the local relay. The
+    // guard without the flag is covered in test/relay/handlers.test.ts.
+    // Wait for the relay to listen: localRelay is read before it has a port.
+    // The relay runs in this process, so the CLI must run without blocking it
+    // (execFileSync would leave the NIP-11 request unanswered until it timed out).
+    await relayServer.ready
+    const url = relayServer.url
+    const stdout = await new Promise<string>((resolve, reject) => {
+      execFile('node', [CLI, 'relay-info', url, '--json'], { env: { ...OFF, NOSTR_RELAYS: url }, encoding: 'utf-8', timeout: 15_000 },
+        (error, out) => (error ? reject(error) : resolve(out)))
+    })
+    expect(JSON.parse(stdout).supported_nips).toContain(11)
   })
 
   it('count returns numeric count', () => {

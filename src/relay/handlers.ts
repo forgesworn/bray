@@ -251,7 +251,10 @@ export async function handleRelayQuery(
   }
 
   if (args.relays?.length) {
-    for (const url of args.relays) validateRelayUrl(url)
+    // Follow the pool's private-relay rule (BRAY_ALLOW_PRIVATE_RELAYS=1); a pool
+    // double without the method stays strict.
+    const allowPrivate = pool.allowsPrivateRelays?.() === true
+    for (const url of args.relays) validateRelayUrl(url, { allowPrivate })
   }
 
   const runQuery = (f: Filter): Promise<NostrEvent[]> =>
@@ -330,6 +333,8 @@ export async function paginateQuery(
  * Validate a relay URL — must be wss:// or ws://, no private networks.
  *
  * @param url - The relay WebSocket URL to validate.
+ * @param opts - `allowPrivate` skips the private-network check, as the relay pool does when
+ *   BRAY_ALLOW_PRIVATE_RELAYS=1 (local development). Off by default.
  * @returns `void` if the URL is acceptable.
  * @throws {Error} If the scheme is not `wss://` or `ws://`, or if the host resolves to a private
  *   or loopback address (localhost, 127.x, 10.x, 172.16–31.x, 192.168.x, 169.254.169.254, ::1).
@@ -338,7 +343,7 @@ export async function paginateQuery(
  * validateRelayUrl('wss://localhost')            // throws — private address
  * validateRelayUrl('http://relay.damus.io')      // throws — wrong scheme
  */
-export function validateRelayUrl(url: string): void {
+export function validateRelayUrl(url: string, opts: { allowPrivate?: boolean } = {}): void {
   if (typeof url !== 'string') {
     throw new Error('Relay URL must be a string')
   }
@@ -348,7 +353,7 @@ export function validateRelayUrl(url: string): void {
   if (!/^wss?:\/\//i.test(url)) {
     throw new Error('Relay URL must use wss:// or ws:// scheme')
   }
-  validatePublicUrl(url)
+  if (!opts.allowPrivate) validatePublicUrl(url)
 }
 
 /**
@@ -356,6 +361,8 @@ export function validateRelayUrl(url: string): void {
  *
  * @param url - WebSocket URL of the relay (`wss://` or `ws://`). The URL is validated before
  *   the HTTP request is made.
+ * @param opts - `allowPrivateRelays` accepts a private-network URL, as the relay pool does when
+ *   BRAY_ALLOW_PRIVATE_RELAYS=1. Off by default.
  * @returns Parsed JSON object from the relay's NIP-11 information document. Shape varies per relay
  *   but typically includes `name`, `description`, `pubkey`, `supported_nips`, and `software`.
  * @throws {Error} If the URL is invalid, the HTTP response is not OK, the document exceeds 1 MiB,
@@ -366,8 +373,9 @@ export function validateRelayUrl(url: string): void {
  */
 export async function handleRelayInfo(
   url: string,
+  opts: { allowPrivateRelays?: boolean } = {},
 ): Promise<Record<string, unknown>> {
-  validateRelayUrl(url)
+  validateRelayUrl(url, { allowPrivate: opts.allowPrivateRelays })
 
   const httpUrl = url.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://')
   const response = await fetch(httpUrl, {
