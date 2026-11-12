@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.12.2 (2026-11-12)
+
+### Bug Fixes
+
+- list the relays that refuse a relay-query REQ, and keep nostr-tools off 2.26.0 (#163)
+
+
+
 ## 3.12.1 (2026-11-12)
 
 ### Bug Fixes
