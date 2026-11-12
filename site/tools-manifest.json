@@ -1,7 +1,7 @@
 {
   "name": "nostr-bray",
   "mcpName": "dev.forgesworn/bray",
-  "version": "3.10.1",
+  "version": "3.12.1",
   "description": "Trust-aware Nostr MCP server, CLI and TypeScript SDK for AI agents and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "homepage": "https://bray.forgesworn.dev",
   "totalTools": 261,
@@ -6888,7 +6888,7 @@
     },
     {
       "name": "relay-query",
-      "description": "Query events from Nostr relays by kind, author, ids, tags, or time range. Useful for discovering events, scanning for specific kinds, or investigating unknown event schemas. Uses explicit relays if provided, otherwise the active identity's read relays. Filter fields may be supplied either as top-level arguments or wrapped in a single \"filter\" object (both shapes are accepted).",
+      "description": "Query events from Nostr relays by kind, author, ids, tags, or time range. Useful for discovering events, scanning for specific kinds, or investigating unknown event schemas. Uses explicit relays if provided, otherwise the active identity's read relays. Filter fields may be supplied either as top-level arguments or wrapped in a single \"filter\" object (both shapes are accepted). Relays that refuse the REQ (for example \"auth-required:\" or \"restricted:\") or cannot be reached are listed under \"refused\", with their reasons.",
       "annotations": {
         "readOnlyHint": true
       },

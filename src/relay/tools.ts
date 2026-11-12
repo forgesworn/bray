@@ -9,6 +9,7 @@ import { handleRelayCount } from './count.js'
 import { handleRelayAuth } from './auth.js'
 import { handleCastSpell } from './spell.js'
 import { flatOrWrapped, mergeFlatAndWrapped } from '../util/schema.js'
+import { isNormalRequestEnd } from '../relay-pool.js'
 
 export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
   server.registerTool('relay-list', {
@@ -58,7 +59,7 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('relay-query', {
-    description: 'Query events from Nostr relays by kind, author, ids, tags, or time range. Useful for discovering events, scanning for specific kinds, or investigating unknown event schemas. Uses explicit relays if provided, otherwise the active identity\'s read relays. Filter fields may be supplied either as top-level arguments or wrapped in a single "filter" object (both shapes are accepted).',
+    description: 'Query events from Nostr relays by kind, author, ids, tags, or time range. Useful for discovering events, scanning for specific kinds, or investigating unknown event schemas. Uses explicit relays if provided, otherwise the active identity\'s read relays. Filter fields may be supplied either as top-level arguments or wrapped in a single "filter" object (both shapes are accepted). Relays that refuse the REQ (for example "auth-required:" or "restricted:") or cannot be reached are listed under "refused", with their reasons.',
     inputSchema: {
       ids: z.array(z.string()).optional().describe('Event IDs (hex) to fetch directly'),
       kinds: z.array(z.number().int()).optional().describe('Event kinds to filter by (e.g. [30301, 31000])'),
@@ -93,6 +94,9 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
     // "filter" key and the handler receives an empty object, yielding a firehose response.
     const f = args.filter ?? {}
     const mergedLimit = args.limit ?? f.limit ?? 50
+    // Relays that refused the REQ or could not be reached, once each. Without
+    // them a refusal reads as "no matching events".
+    const refused = new Map<string, { relay: string; reason: string }>()
     const events = await handleRelayQuery(deps.pool, deps.ctx.activeNpub, {
       ids: args.ids ?? f.ids,
       kinds: args.kinds ?? f.kinds,
@@ -105,6 +109,11 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
       search: args.search ?? f.search,
       paginate: args.paginate,
       maxPages: args.max_pages,
+      onRelayClose: reasons => {
+        for (const { url, reason } of reasons) {
+          if (!isNormalRequestEnd(reason)) refused.set(`${url}\n${reason}`, { relay: url, reason })
+        }
+      },
     })
     const summary = events.map(e => ({
       id: e.id,
@@ -124,6 +133,7 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
           ...(maybeMore ? {
             note: `Returned exactly the limit (${mergedLimit}), so there may be more. Re-run with paginate: true to collect the full set, or raise the limit.`,
           } : {}),
+          ...(refused.size ? { refused: [...refused.values()] } : {}),
           events: summary,
         },
         null, 2,

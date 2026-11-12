@@ -29,21 +29,25 @@ describe('relay-query filter forwarding', () => {
   let capturedFilter: Filter | undefined
   let capturedRelays: string[] | undefined
   let capturedMode: 'query' | 'queryDirect' | undefined
+  // How the mock's relays end the REQ, reported through the query's onclose.
+  let nextCloses: Array<{ url: string; reason: string }> | undefined
 
   // Minimal RelayPool mock that records the filter the handler actually asks
   // the pool to query with. The handler path is the thing under test; the pool
   // internals themselves are exercised elsewhere.
   const mockPool = {
-    query: async (_npub: string, filter: Filter) => {
+    query: async (_npub: string, filter: Filter, opts?: { onclose?: (r: Array<{ url: string; reason: string }>) => void }) => {
       capturedFilter = filter
       capturedRelays = undefined
       capturedMode = 'query'
+      if (nextCloses) opts?.onclose?.(nextCloses)
       return []
     },
-    queryDirect: async (relays: string[], filter: Filter) => {
+    queryDirect: async (relays: string[], filter: Filter, opts?: { onclose?: (r: Array<{ url: string; reason: string }>) => void }) => {
       capturedFilter = filter
       capturedRelays = relays
       capturedMode = 'queryDirect'
+      if (nextCloses) opts?.onclose?.(nextCloses)
       return []
     },
     getRelays: () => ({ read: ['wss://read.example.com'], write: ['wss://write.example.com'] }),
@@ -88,6 +92,25 @@ describe('relay-query filter forwarding', () => {
     capturedFilter = undefined
     capturedRelays = undefined
     capturedMode = undefined
+    nextCloses = undefined
+  })
+
+  const resultOf = (r: unknown) => JSON.parse((r as { content: Array<{ text: string }> }).content[0].text)
+
+  it('reports the relays that refused the REQ, so a refusal is not read as no events', async () => {
+    nextCloses = [
+      { url: 'wss://read.example.com', reason: 'restricted: this key has no access' },
+      { url: 'wss://other.example.com', reason: 'closed automatically on eose' },
+    ]
+    const result = resultOf(await client.callTool({ name: 'relay-query', arguments: { kinds: [1] } }))
+    expect(result.count).toBe(0)
+    expect(result.refused).toEqual([{ relay: 'wss://read.example.com', reason: 'restricted: this key has no access' }])
+  })
+
+  it('leaves refused out when every relay ended the REQ normally', async () => {
+    nextCloses = [{ url: 'wss://read.example.com', reason: 'closed automatically on eose' }]
+    const result = resultOf(await client.callTool({ name: 'relay-query', arguments: { kinds: [1] } }))
+    expect(result).not.toHaveProperty('refused')
   })
 
   const AUTHOR_A = 'f9cc7a88e4da20428331068321e40855fcf510bf801c9e63b12867a467063bb6'
