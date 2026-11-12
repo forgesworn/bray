@@ -101,7 +101,17 @@ export interface ServiceWallet {
 }
 
 export interface ServiceTransport {
-  subscribe(relays: string[], filter: Filter, onEvent: (event: NostrEvent) => void): Promise<() => void>
+  /**
+   * `onclose`, if the transport supports it, is called when the relays end the
+   * subscription themselves, with each relay's reason; the service then
+   * subscribes again. A transport without it cannot report that.
+   */
+  subscribe(
+    relays: string[],
+    filter: Filter,
+    onEvent: (event: NostrEvent) => void,
+    onclose?: (reasons: Array<{ url: string; reason: string }>) => void,
+  ): Promise<() => void>
   publish(relays: string[], event: NostrEvent): Promise<void>
 }
 
@@ -284,7 +294,19 @@ export interface ServiceOptions {
   persist?: () => Promise<void>
   log?: (message: string) => void
   now?: () => number
+  /**
+   * Milliseconds before subscribing again once the relays end a subscription
+   * (default 5000), doubling up to a minute while they refuse a new one.
+   */
+  resubscribeDelayMs?: number
+  /**
+   * Asked before subscribing again: false stops the grant instead, for when
+   * the service should no longer answer (the active identity changed).
+   */
+  shouldServe?: () => boolean
 }
+
+const MAX_RESUBSCRIBE_DELAY_MS = 60_000
 
 // The fields another process may change while this one serves.
 function adopt(target: Grant, source: Grant): void {
@@ -306,6 +328,10 @@ export class WalletService {
   readonly #stops = new Map<string, () => void>()
   readonly #queues = new Map<string, Promise<void>>()
   readonly #grants = new Map<string, Grant>()
+  // One per grant while it is served: a subscription ending belongs to the
+  // session it was opened in, so a late close from an old one is ignored.
+  readonly #sessions = new Map<string, object>()
+  readonly #retries = new Map<string, ReturnType<typeof setTimeout>>()
 
   constructor(opts: ServiceOptions) {
     this.#opts = opts
@@ -320,25 +346,83 @@ export class WalletService {
     if (grant.revokedAt) return
     this.stop(grant.id)
     this.#grants.set(grant.id, grant)
+    const session = {}
+    this.#sessions.set(grant.id, session)
     await this.#opts.transport.publish(grant.relays, infoEvent(grant))
+    await this.#listen(grant, session)
+    this.#opts.log?.(`serving ${grant.name} on ${grant.relays.join(', ')}`)
+  }
+
+  // Subscribe for the grant's requests. It starts MAX_REQUEST_AGE_SECS back,
+  // here as on a resubscription; a request seen before is in grant.seen, and
+  // a spending one is written there before it runs, so it is not paid twice.
+  async #listen(grant: Grant, session: object): Promise<void> {
     const since = Math.floor(this.#now() / 1000) - MAX_REQUEST_AGE_SECS
+    let ended = false
     const stop = await this.#opts.transport.subscribe(
       grant.relays,
       { kinds: [NWC_REQUEST_KIND], '#p': [grant.servicePubkey], since },
       (event) => this.#enqueue(grant.id, event),
+      (reasons) => {
+        if (ended) return
+        ended = true
+        this.#ended(grant, session, reasons)
+      },
     )
+    if (this.#sessions.get(grant.id) !== session) {
+      stop()
+      return
+    }
     this.#stops.set(grant.id, stop)
-    this.#opts.log?.(`serving ${grant.name} on ${grant.relays.join(', ')}`)
+  }
+
+  // The relays ended the subscription (not this service: stop() ends the
+  // session first). Subscribe again rather than go quiet while serving.
+  #ended(grant: Grant, session: object, reasons: Array<{ url: string; reason: string }>): void {
+    if (this.#sessions.get(grant.id) !== session) return
+    this.#stops.delete(grant.id)
+    const why = reasons.map(({ url, reason }) => `${url}: ${reason}`).join('; ') || 'no reason given'
+    this.#opts.log?.(`subscription for ${grant.name} ended (${why})`)
+    this.#retry(grant, session, this.#opts.resubscribeDelayMs ?? 5_000)
+  }
+
+  #retry(grant: Grant, session: object, delayMs: number): void {
+    const timer = setTimeout(() => { void this.#resubscribe(grant, session, delayMs) }, delayMs)
+    this.#retries.set(grant.id, timer)
+  }
+
+  async #resubscribe(grant: Grant, session: object, delayMs: number): Promise<void> {
+    this.#retries.delete(grant.id)
+    if (this.#sessions.get(grant.id) !== session) return
+    if (this.#opts.shouldServe && !this.#opts.shouldServe()) {
+      this.stop(grant.id)
+      this.#opts.log?.(`stopped serving ${grant.name}: it should no longer be served here (the identity changed)`)
+      return
+    }
+    try {
+      await this.#listen(grant, session)
+      this.#opts.log?.(`serving ${grant.name} again`)
+    } catch (err) {
+      const next = Math.min(delayMs * 2, MAX_RESUBSCRIBE_DELAY_MS)
+      this.#opts.log?.(`could not subscribe again for ${grant.name}: ${(err as Error).message}; trying again in ${next} ms`)
+      this.#retry(grant, session, next)
+    }
   }
 
   stop(grantId: string): void {
+    // End the session first, so the subscription closing below is not taken
+    // for the relays ending it.
+    this.#sessions.delete(grantId)
+    const retry = this.#retries.get(grantId)
+    if (retry) clearTimeout(retry)
+    this.#retries.delete(grantId)
     this.#stops.get(grantId)?.()
     this.#stops.delete(grantId)
     this.#grants.delete(grantId)
   }
 
   close(): void {
-    for (const id of [...this.#stops.keys()]) this.stop(id)
+    for (const id of new Set([...this.#stops.keys(), ...this.#sessions.keys()])) this.stop(id)
   }
 
   // The grant as the store has it now. False when it is gone or revoked.

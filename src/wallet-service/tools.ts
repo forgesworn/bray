@@ -110,12 +110,15 @@ export function registerWalletServiceTools(
     service = new WalletService({
       wallet: upstreamWallet({ uri, alias: deps.ctx.activeNpub, guard: defaultPaymentGuard() }),
       transport: {
-        subscribe: (relays, filter, onEvent) => deps.pool.subscribe(relays, filter, onEvent),
+        // With onclose the service subscribes again when a relay ends it.
+        subscribe: (relays, filter, onEvent, onclose) => deps.pool.subscribe(relays, filter, onEvent, { onclose }),
         publish: async (relays, event) => {
           await deps.pool.publishDirect(relays, event)
         },
       },
       store: fileGrantStore(grantsFile, pubkey),
+      // An identity switch is a different wallet: do not subscribe again for it.
+      shouldServe: () => identity() === servingFor,
     })
     return service
   }
