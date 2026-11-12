@@ -1,6 +1,6 @@
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
 import type { SigningContext } from '../signing-context.js'
-import type { RelayPool } from '../relay-pool.js'
+import type { RelayPool, SubscriptionClose } from '../relay-pool.js'
 import type { RelaySet, PublishResult } from '../types.js'
 import { validatePublicUrl } from '../validation.js'
 
@@ -415,6 +415,8 @@ export interface SubscribeResult {
  * @param filter - Nostr filter object.
  * @param onEvent - Callback invoked for each matching event.
  * @param relayOverrides - Optional explicit relay URLs.
+ * @param opts - `onclose` is called once every relay has ended the subscription,
+ *   with each relay's reason. Stopping it yourself also ends it ("closed by caller").
  * @returns Async cleanup function.
  * @example
  * const stop = await handleSubscribe(pool, npub, { kinds: [1] }, ev => console.log(ev))
@@ -427,6 +429,7 @@ export async function handleSubscribe(
   filter: Filter,
   onEvent: (event: NostrEvent) => void,
   relayOverrides?: string[],
+  opts: { onclose?: (reasons: SubscriptionClose[]) => void } = {},
 ): Promise<() => void> {
   const relays = relayOverrides?.length
     ? relayOverrides
@@ -436,5 +439,5 @@ export async function handleSubscribe(
     throw new Error('No relays available. Set NOSTR_RELAYS or pass --relay <url>.')
   }
 
-  return pool.subscribe(relays, filter, onEvent)
+  return pool.subscribe(relays, filter, onEvent, opts)
 }

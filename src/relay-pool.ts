@@ -37,6 +37,12 @@ export interface Subscription {
   close(): void
 }
 
+/** Why one relay ended a subscription: its CLOSED reason, or the connection's fate. */
+export interface SubscriptionClose {
+  url: string
+  reason: string
+}
+
 /** Params threaded through to nostr-tools: deadlines plus NIP-42 auth retry. */
 export interface PoolParams {
   maxWait?: number
@@ -48,7 +54,7 @@ export interface PoolParams {
 export interface PoolLike {
   publish(relays: string[], event: NostrEvent, params?: PoolParams): Promise<string>[]
   querySync(relays: string[], filter: Filter, params?: PoolParams): Promise<NostrEvent[]>
-  subscribeMany?(relays: string[], filter: Filter, handlers: { onevent(event: NostrEvent): void; oneose?(): void } & Pick<PoolParams, 'onauth'>): Subscription
+  subscribeMany?(relays: string[], filter: Filter, handlers: { onevent(event: NostrEvent): void; oneose?(): void; onclose?(reasons: SubscriptionClose[]): void } & Pick<PoolParams, 'onauth'>): Subscription
   ensureRelay?(url: string, params?: { connectionTimeout?: number; abort?: AbortSignal }): Promise<AbstractRelay>
   /** Install the eager AUTH-challenge responder. Absent on injected test doubles. */
   setAutomaticAuth?(signer: ((relayUrl: string) => AuthSigner | null) | undefined): void
@@ -447,18 +453,32 @@ export class RelayPool {
     }
   }
 
-  /** Live subscription — calls onEvent for each matching event until the returned function is called. */
+  /**
+   * Live subscription — calls onEvent for each matching event until the returned function is called.
+   *
+   * `onclose` is called once every relay has ended the subscription, with each
+   * relay's reason (auth failures explained as for a publish). Closing it with
+   * the returned function also ends it, with the reason "closed by caller".
+   */
   async subscribe(
     relays: string[],
     filter: Filter,
     onEvent: (event: NostrEvent) => void,
+    opts: { onclose?: (reasons: SubscriptionClose[]) => void } = {},
   ): Promise<() => void> {
     this.#validateDirectRelays(relays)
     const pool = await this.poolReady
     if (!pool.subscribeMany) {
       throw new Error('The underlying pool does not support subscriptions. Ensure nostr-tools/pool is available.')
     }
-    const sub = pool.subscribeMany(relays, filter, { onevent: onEvent, ...this.#authParams() })
+    const { onclose } = opts
+    const sub = pool.subscribeMany(relays, filter, {
+      onevent: onEvent,
+      ...(onclose ? {
+        onclose: (reasons: SubscriptionClose[]) => onclose(reasons.map(({ url, reason }) => ({ url, reason: this.#annotateAuthError(reason) }))),
+      } : {}),
+      ...this.#authParams(),
+    })
     return () => sub.close()
   }
 

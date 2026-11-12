@@ -223,18 +223,29 @@ export async function dispatch(
         ...(limit !== undefined ? { limit } : {}),
       }
 
+      // Run until SIGINT, or until every relay has ended the subscription.
+      // Stopping on SIGINT closes it too ("closed by caller"); that is not news.
+      let stopping = false
+      let ended!: (reasons: Array<{ url: string; reason: string }>) => void
+      const closedByRelays = new Promise<Array<{ url: string; reason: string }>>(resolve => { ended = resolve })
       const unsubscribe = await handleSubscribe(
         pool,
         ctx.activeNpub,
         filter,
         (event: any) => process.stdout.write(JSON.stringify(event) + '\n'),
         relayOverrides.length ? relayOverrides : undefined,
+        { onclose: reasons => { if (!stopping) ended(reasons) } },
       )
 
-      // Run until SIGINT
-      await new Promise<void>(resolve => {
-        process.once('SIGINT', () => { unsubscribe(); resolve() })
+      const reasons = await new Promise<Array<{ url: string; reason: string }> | undefined>(resolve => {
+        process.once('SIGINT', () => { stopping = true; unsubscribe(); resolve(undefined) })
+        void closedByRelays.then(resolve)
       })
+      if (reasons) {
+        for (const { url, reason } of reasons) console.error(`${url}: ${reason}`)
+        console.error('subscription ended: every relay closed it')
+        process.exitCode = 1
+      }
       break
     }
 
