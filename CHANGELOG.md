@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.12.1 (2026-11-12)
+
+### Bug Fixes
+
+- guard the bunker's automatic NIP-42 answers, and log undelivered responses (#162)
+
+
+
 ## 3.12.0 (2026-11-12)
 
 ### Features
