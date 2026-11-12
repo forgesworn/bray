@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.12.0 (2026-11-12)
+
+### Features
+
+- report why relays refuse or end a request, and fix eager AUTH crashes and false publish success (#161)
+
+
+
 ## 3.11.0 (2026-10-30)
 
 ### Features
