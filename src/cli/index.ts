@@ -243,7 +243,7 @@ Utility:
   verify <event-json>                 Verify event hash and signature
   encrypt <pubkey-hex> "plaintext"    NIP-44 encrypt for a recipient
   decrypt <pubkey-hex> <ciphertext>   NIP-44 decrypt from a sender
-  count --kinds 1 [--authors <hex>]   Count events matching filter
+  count --kinds 1 [--authors <hex>] [--relay url]  Count events (NIP-45 COUNT when there is one relay)
   fetch <nip19>                       Fetch events by nip19 code
 
 MuSig2 (BIP-327 multi-signature):

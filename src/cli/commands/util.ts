@@ -10,6 +10,7 @@ import {
 import { validateInputPath } from '../../validation.js'
 import * as fmt from '../../format.js'
 import type { Helpers } from '../dispatch.js'
+import { handleRelayCount } from '../../relay/count.js'
 
 export async function dispatch(
   cmd: string,
@@ -18,7 +19,7 @@ export async function dispatch(
   ctx: any,
   pool: any,
 ): Promise<void> {
-  const { req, flag, hasFlag, out } = h
+  const { req, flag, flags, hasFlag, out } = h
 
   switch (cmd) {
     case 'decode':
@@ -149,7 +150,22 @@ export async function dispatch(
       if (authors) filter.authors = authors.split(',')
       const since = flag('since')
       if (since) filter.since = parseInt(since, 10)
-      out(await handleCount(pool, ctx.activeNpub, filter as any))
+      const relayOverrides = flags('relay')
+      const relays: string[] = relayOverrides.length ? relayOverrides : pool.getRelays(ctx.activeNpub).read
+      if (relays.length === 0) throw new Error('No relays available. Set NOSTR_RELAYS or pass --relay <url>.')
+      if (relays.length === 1) {
+        // One relay: a NIP-45 COUNT through the pool (Tor, AUTH and URL rules
+        // apply), falling back to counting a capped REQ if it lacks NIP-45.
+        const result = await handleRelayCount(relays, filter, pool)
+        out({ count: result.total, relays: result.counts })
+        if (result.counts.every(c => c.error)) process.exitCode = 1
+      } else {
+        // Several relays: COUNT cannot tell which events they share, so fetch
+        // and count each event once.
+        out(relayOverrides.length
+          ? { count: (await pool.queryDirect(relays, filter as any)).length }
+          : await handleCount(pool, ctx.activeNpub, filter as any))
+      }
       break
     }
 

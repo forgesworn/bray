@@ -266,6 +266,11 @@ describe('relay-count filter forwarding', () => {
 
   const mockPool = {
     query: async () => [],
+    // The tool counts through the pool: this is the filter sent as COUNT.
+    countDirect: async (relays: string[], filter: Filter) => {
+      capturedFilter = filter as Record<string, unknown>
+      return relays.map(url => ({ url, count: 0 }))
+    },
     queryDirect: async (_relays: string[], filter: Filter) => {
       // count.ts wraps the filter with { ...filter, limit: 1000 } for the
       // fallback path. Strip `limit` before asserting so the tests focus on
@@ -411,6 +416,11 @@ describe('relay-count via execute-action (catalog inner strip)', () => {
 
   const mockPool = {
     query: async () => [],
+    // The tool counts through the pool: this is the filter sent as COUNT.
+    countDirect: async (relays: string[], filter: Filter) => {
+      capturedFilter = filter as Record<string, unknown>
+      return relays.map(url => ({ url, count: 0 }))
+    },
     queryDirect: async (_relays: string[], filter: Filter) => {
       const { limit: _ignored, ...rest } = filter as Record<string, unknown>
       capturedFilter = rest
