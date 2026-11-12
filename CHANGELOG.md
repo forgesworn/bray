@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.13.0 (2026-11-12)
+
+### Features
+
+- send NIP-45 COUNT through the relay pool, so TOR_PROXY and NIP-42 apply to counts (#164)
+
+
+
 ## 3.12.2 (2026-11-12)
 
 ### Bug Fixes
