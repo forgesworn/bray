@@ -130,7 +130,7 @@ if (config.readOnly) {
 // effect when authMode is not 'off' -- the pool checks the mode per operation.
 // Read-only mode has no signer, and loadConfig has already set authMode off.
 if (!config.readOnly) {
-  pool.setAuthSigner(async evt => ctx.getSigningFunction()(evt) as any)
+  pool.setAuthSigner(async evt => ctx.getSigningFunction()(evt) as any, () => ctx.activePublicKeyHex)
 }
 
 const trust = new TrustContext(ctx, pool, {

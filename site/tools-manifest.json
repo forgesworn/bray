@@ -1,7 +1,7 @@
 {
   "name": "nostr-bray",
   "mcpName": "dev.forgesworn/bray",
-  "version": "3.12.1",
+  "version": "3.13.0",
   "description": "Trust-aware Nostr MCP server, CLI and TypeScript SDK for AI agents and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "homepage": "https://bray.forgesworn.dev",
   "totalTools": 261,
@@ -6547,7 +6547,7 @@
     },
     {
       "name": "relay-auth",
-      "description": "Authenticate to a relay that requires NIP-42 AUTH. Connects to the relay, waits for an AUTH challenge, signs a kind 22242 event, and sends it back. Returns { authenticated: true/false }. Use this when a relay-query fails due to AUTH requirements, then retry the query.",
+      "description": "Authenticate (NIP-42) bray's own connection to a relay as the active identity, so later queries and publishes to that relay on it are served. Waits for the relay's AUTH challenge, signs a kind 22242 event and sends it back. Returns { authenticated: true/false }. Use this when a relay-query fails due to AUTH requirements, then retry the query. Switching identity drops a connection that authenticated as another identity, so authenticate again after a switch.",
       "annotations": {
         "readOnlyHint": false
       },

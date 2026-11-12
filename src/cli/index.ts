@@ -400,7 +400,7 @@ if (config.bunkerUri) {
   ctx = new IdentityContext(config.secretKey, config.secretFormat, { forbidPubkeys: config.forbidPubkeys })
 }
 // NIP-42: the pool answers AUTH challenges with the active identity's key.
-pool.setAuthSigner(async evt => ctx.getSigningFunction()(evt) as any)
+pool.setAuthSigner(async evt => ctx.getSigningFunction()(evt) as any, () => ctx.activePublicKeyHex)
 
 const globalNwcUri = config.nwcUri
 const walletsFile = config.walletsFile
