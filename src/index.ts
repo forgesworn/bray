@@ -12,6 +12,7 @@ import { registerAllTools } from './tool-groups.js'
 import { configureHttpClient } from './http-client.js'
 import { BRAY_VERSION } from './version.js'
 import { ReadOnlyContext, createReadOnlyFilter, READ_ONLY_MESSAGE } from './read-only.js'
+import { errorMessage } from './error-message.js'
 
 const config = await loadConfig({ allowReadOnly: true })
 // Route every fetch() in this process through the SOCKS proxy when Tor is
@@ -46,7 +47,7 @@ const nip65 = new Nip65Manager(pool, config.relays)
 function loadIdentityRelays(npub: string): void {
   nip65.loadForIdentity(npub)
     .then(masterRelays => pool.reconfigure(npub, masterRelays))
-    .catch(e => console.error('NIP-65 relay load failed:', (e as Error).message))
+    .catch(e => console.error('NIP-65 relay load failed:', errorMessage(e)))
 }
 
 // Establish the bunker connection in the background, with a bounded connect and
@@ -74,12 +75,12 @@ async function establishBunkerInBackground(base: BunkerContext): Promise<void> {
           if (!hw.listingAvailable) console.error(hw.listingUnavailableMessage)
         }
       } catch (e) {
-        console.error('Heartwood probe failed (non-fatal):', (e as Error).message)
+        console.error('Heartwood probe failed (non-fatal):', errorMessage(e))
       }
       return
     } catch (e) {
       const delay = Math.min(30_000, 1_000 * 2 ** Math.min(attempt, 5))
-      console.error(`Bunker connect failed (attempt ${attempt + 1}), retrying in ${delay}ms:`, (e as Error).message)
+      console.error(`Bunker connect failed (attempt ${attempt + 1}), retrying in ${delay}ms:`, errorMessage(e))
       await new Promise(resolve => setTimeout(resolve, delay))
     }
   }
@@ -109,7 +110,7 @@ if (config.readOnly) {
     base = BunkerContext.create(config.bunkerUri, undefined, { paired: config.bunkerPaired, torProxy: config.torProxy })
   } catch (e) {
     // No network has happened yet, so exiting cannot flood the signer.
-    console.error((e as Error).message)
+    console.error(errorMessage(e))
     process.exit(1)
   }
   ctx = base

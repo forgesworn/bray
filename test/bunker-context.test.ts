@@ -2,8 +2,28 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { mkdtempSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { readStateFile } from '../src/state.js'
-import { resolveClientKey, buildConnectParams, withTimeout, TimeoutError, CLIENT_NAME } from '../src/bunker-context.js'
+import { generateSecretKey, getPublicKey } from 'nostr-tools/pure'
+import { readStateFile, writeStateFile } from '../src/state.js'
+import { BunkerContext, resolveClientKey, buildConnectParams, withTimeout, TimeoutError, CLIENT_NAME } from '../src/bunker-context.js'
+
+describe('BunkerContext.establish when the signer refuses', () => {
+  it('says what the signer answered', async () => {
+    // A refusing signer's NIP-46 `error` field reaches us as a bare string,
+    // not an Error, so reading `.message` off it printed "undefined".
+    const stateDir = mkdtempSync(join(tmpdir(), 'bray-refusal-test-'))
+    const bunkerPk = getPublicKey(generateSecretKey())
+    // A paired context needs the client key that pairing stored.
+    writeStateFile('client-keys.json', { [bunkerPk]: Buffer.from(generateSecretKey()).toString('hex') }, stateDir)
+    const ctx = BunkerContext.create(`bunker://${bunkerPk}?relay=ws://127.0.0.1:9`, stateDir, { paired: true })
+    const signer = (ctx as unknown as { signer: { getPublicKey: () => Promise<string> } }).signer
+    signer.getPublicKey = () => Promise.reject('unauthorised')
+    try {
+      await expect(ctx.establish(1_000)).rejects.toThrow(/^unauthorised\. If the signer app no longer lists bray/)
+    } finally {
+      ctx.destroy()
+    }
+  })
+})
 
 describe('resolveClientKey', () => {
   let stateDir: string

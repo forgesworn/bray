@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs'
 import { randomBytes, createHash } from 'node:crypto'
 import { verifyEvent } from 'nostr-tools/pure'
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
+import { errorMessage } from './error-message.js'
 
 export interface ServeOptions {
   hostname?: string
@@ -231,7 +232,7 @@ async function serveBlossom(
 
     json(405, { message: `method ${req.method} not allowed on ${path}` })
   } catch (e) {
-    json(400, { message: (e as Error).message })
+    json(400, { message: errorMessage(e) })
   }
 }
 

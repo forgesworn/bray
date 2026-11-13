@@ -1,6 +1,7 @@
 import { validateRelayUrl } from './handlers.js'
 import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
+import { errorMessage } from '../error-message.js'
 
 export interface RelayAuthResult {
   authenticated: boolean
@@ -83,7 +84,7 @@ export async function handleRelayAuth(
                 settled = true
                 clearTimeout(timeout)
                 ws.close()
-                resolve({ authenticated: false, relay, error: `Failed to sign AUTH event: ${(err as Error).message}` })
+                resolve({ authenticated: false, relay, error: `Failed to sign AUTH event: ${errorMessage(err)}` })
               }
             }
           } else if (msg[0] === 'OK') {
@@ -123,7 +124,7 @@ export async function handleRelayAuth(
       if (!settled) {
         settled = true
         clearTimeout(timeout)
-        resolve({ authenticated: false, relay, error: `Failed to create WebSocket: ${(err as Error).message}` })
+        resolve({ authenticated: false, relay, error: `Failed to create WebSocket: ${errorMessage(err)}` })
       }
     })
   })
