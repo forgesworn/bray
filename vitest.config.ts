@@ -37,5 +37,7 @@ export default defineConfig({
   test: {
     include: ['test/**/*.test.ts'],
     exclude: ['node_modules/**', '.claude/**', 'dist/**'],
+    // Keeps every test out of the developer's real ~/.config/bray.
+    setupFiles: ['test/setup/isolate-home.ts'],
   },
 })
