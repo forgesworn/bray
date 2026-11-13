@@ -1,6 +1,7 @@
 import type { Filter } from 'nostr-tools'
 import type { RelayPool } from '../relay-pool.js'
 import { validateRelayUrl } from './handlers.js'
+import { errorMessage } from '../error-message.js'
 
 export interface CountResult {
   relay: string
@@ -70,7 +71,7 @@ async function countThroughPool(
       const events = await pool.queryDirect([answer.url], { ...filter, limit: 1000 } as Filter)
       return { relay: answer.url, count: events.length, fallback: true, estimated: events.length >= 1000 }
     } catch (err) {
-      return { relay: answer.url, count: 0, error: `COUNT failed (${answer.error}) and the fallback failed: ${(err as Error).message}` }
+      return { relay: answer.url, count: 0, error: `COUNT failed (${answer.error}) and the fallback failed: ${errorMessage(err)}` }
     }
   }))
   return {
@@ -102,14 +103,14 @@ async function countFromRelay(
         return {
           relay: url,
           count: 0,
-          error: `COUNT not supported and fallback failed: ${(fallbackErr as Error).message}`,
+          error: `COUNT not supported and fallback failed: ${errorMessage(fallbackErr)}`,
         }
       }
     }
     return {
       relay: url,
       count: 0,
-      error: `COUNT not supported: ${(err as Error).message}`,
+      error: `COUNT not supported: ${errorMessage(err)}`,
     }
   }
 }

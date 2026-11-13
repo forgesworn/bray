@@ -23,6 +23,7 @@ import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 import type { PublicIdentity, SignFn } from './types.js'
 import type { SigningContext } from './signing-context.js'
 import { readStateFile, writeStateFile } from './state.js'
+import { errorMessage } from './error-message.js'
 
 
 /** Bound the NIP-46 connect handshake. nostr-tools' BunkerSigner has no
@@ -252,7 +253,7 @@ export class BunkerContext implements SigningContext {
         this.pubkeyHex = await withTimeout(this.signer.getPublicKey(), timeoutMs, 'bunker get_public_key')
       } catch (e) {
         // Most likely the app has been revoked or reinstalled: say how to fix it.
-        throw new Error(`${(e as Error).message}. If the signer app no longer lists bray, ${PAIRED_REPAIR_HINT}`)
+        throw new Error(`${errorMessage(e)}. If the signer app no longer lists bray, ${PAIRED_REPAIR_HINT}`)
       }
       return
     }

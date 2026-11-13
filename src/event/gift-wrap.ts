@@ -20,6 +20,7 @@
 import { finalizeEvent, generateSecretKey, getEventHash } from 'nostr-tools/pure'
 import type { Event as NostrEvent } from 'nostr-tools'
 import type { SigningContext } from '../signing-context.js'
+import { errorMessage } from '../error-message.js'
 
 /** Timestamps are randomised up to two days back, per NIP-59, to frustrate correlation. */
 const TWO_DAYS = 2 * 24 * 60 * 60
@@ -133,7 +134,7 @@ export async function handleGiftUnwrap(
   try {
     seal = JSON.parse(await ctx.nip44Decrypt(wrap.pubkey, wrap.content))
   } catch (e) {
-    throw new Error(`Could not decrypt the gift wrap — it may not be addressed to this identity: ${(e as Error).message}`)
+    throw new Error(`Could not decrypt the gift wrap — it may not be addressed to this identity: ${errorMessage(e)}`)
   }
   if (seal?.kind !== 13) {
     throw new Error(`Expected a kind 13 seal inside the wrap, got kind ${seal?.kind}`)
@@ -144,7 +145,7 @@ export async function handleGiftUnwrap(
   try {
     rumor = JSON.parse(await ctx.nip44Decrypt(seal.pubkey, seal.content))
   } catch (e) {
-    throw new Error(`Could not decrypt the seal: ${(e as Error).message}`)
+    throw new Error(`Could not decrypt the seal: ${errorMessage(e)}`)
   }
 
   return {

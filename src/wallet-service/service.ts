@@ -3,6 +3,7 @@ import type { Event as NostrEvent, Filter } from 'nostr-tools'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { tryDecodeBolt11 } from 'farrier-kit'
 import { feeReserveMsat } from '../zap/payment-guard.js'
+import { errorMessage } from '../error-message.js'
 
 // A NIP-47 wallet service: the server side of Nostr Wallet Connect.
 //
@@ -404,7 +405,7 @@ export class WalletService {
       this.#opts.log?.(`serving ${grant.name} again`)
     } catch (err) {
       const next = Math.min(delayMs * 2, MAX_RESUBSCRIBE_DELAY_MS)
-      this.#opts.log?.(`could not subscribe again for ${grant.name}: ${(err as Error).message}; trying again in ${next} ms`)
+      this.#opts.log?.(`could not subscribe again for ${grant.name}: ${errorMessage(err)}; trying again in ${next} ms`)
       this.#retry(grant, session, next)
     }
   }
@@ -465,7 +466,7 @@ export class WalletService {
       grantId,
       previous
         .then(() => this.#handle(grantId, event))
-        .catch((err: unknown) => this.#opts.log?.(`request failed: ${(err as Error).message}`)),
+        .catch((err: unknown) => this.#opts.log?.(`request failed: ${errorMessage(err)}`)),
     )
   }
 
@@ -536,7 +537,7 @@ export class WalletService {
       answer = { result_type: method, result: await this.#dispatch(grant, method, params) }
     } catch (err) {
       const code = err instanceof ServiceError ? err.code : 'INTERNAL'
-      const message = (err as Error).message || 'The wallet could not answer that.'
+      const message = errorMessage(err) || 'The wallet could not answer that.'
       answer = { result_type: method, error: { code, message } }
       this.#opts.log?.(`refused ${method || 'an unnamed method'} on ${grant.name}: ${message}`)
     }

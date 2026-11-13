@@ -4,6 +4,7 @@ import type { PublishResult, RelaySet } from './types.js'
 import { validatePublicUrl, validateRelayScheme } from './validation.js'
 import { brayFetch } from './http-client.js'
 import { isConnectionFailure, setAutomaticAuth, type ChallengeSigner } from './nostr-tools-guards.js'
+import { errorMessage } from './error-message.js'
 
 /**
  * Signs a NIP-42 kind 22242 template produced by the relay layer.
@@ -63,7 +64,6 @@ export interface RelayCount {
   error?: string
 }
 
-const reasonOf = (err: unknown): string => (err instanceof Error ? err.message : String(err))
 
 /** Settle with `p`, or reject with `message` after `ms`. */
 function within<T>(ms: number, p: Promise<T>, message: string): Promise<T> {
@@ -649,7 +649,7 @@ export class RelayPool {
     try {
       relay = await pool.ensureRelay(url, { connectionTimeout: timeoutMs })
     } catch (err) {
-      return { url, error: `connection failure: ${reasonOf(err)}` }
+      return { url, error: `connection failure: ${errorMessage(err)}` }
     }
     const count = async (): Promise<RelayCount> => {
       // countWithHLL resolves with the relay's whole COUNT payload, approximate included.
@@ -659,14 +659,14 @@ export class RelayPool {
     try {
       return await count()
     } catch (err) {
-      const reason = reasonOf(err)
+      const reason = errorMessage(err)
       const { onauth } = this.#authParams()
       if (!reason.startsWith('auth-required: ') || !onauth) return { url, error: this.#annotateAuthError(reason) }
       try {
         await relay.auth(onauth as Parameters<AbstractRelay['auth']>[0])
         return await count()
       } catch (authErr) {
-        return { url, error: this.#annotateAuthError(reasonOf(authErr)) }
+        return { url, error: this.#annotateAuthError(errorMessage(authErr)) }
       }
     }
   }
@@ -697,7 +697,7 @@ export class RelayPool {
     try {
       relay = await pool.ensureRelay(url, { connectionTimeout: timeoutMs })
     } catch (err) {
-      return { authenticated: false, relay: url, error: `connection failure: ${reasonOf(err)}` }
+      return { authenticated: false, relay: url, error: `connection failure: ${errorMessage(err)}` }
     }
     // nostr-tools keeps the latest challenge on the relay; it is private in its types.
     const challenge = () => (relay as unknown as { challenge?: string }).challenge
@@ -717,7 +717,7 @@ export class RelayPool {
       return { authenticated: true, relay: url, pubkey: this.#connectionOwners.get(relay.url)?.authedBy ?? current }
     } catch (err) {
       pool.forget?.(url)
-      return { authenticated: false, relay: url, error: `AUTH rejected: ${reasonOf(err)}` }
+      return { authenticated: false, relay: url, error: `AUTH rejected: ${errorMessage(err)}` }
     }
   }
 
@@ -758,7 +758,7 @@ export class RelayPool {
       })
     } catch (error) {
       if (opts.signal?.aborted) throw new DOMException('NIP-77 reconciliation was cancelled', 'AbortError')
-      throw new Nip77UnavailableError(`Could not open NIP-77 relay connection: ${(error as Error).message}`)
+      throw new Nip77UnavailableError(`Could not open NIP-77 relay connection: ${errorMessage(error)}`)
     }
 
     return new Promise<ReconcileDirectResult>((resolve, reject) => {
@@ -828,7 +828,7 @@ export class RelayPool {
           close()
         }
       }
-      void sync.start().catch((error: unknown) => fail(new Nip77UnavailableError(`Could not start NIP-77 reconciliation: ${(error as Error).message}`)))
+      void sync.start().catch((error: unknown) => fail(new Nip77UnavailableError(`Could not start NIP-77 reconciliation: ${errorMessage(error)}`)))
     })
   }
 

@@ -1,3 +1,4 @@
+import { errorMessage } from '../../error-message.js'
 /**
  * Bunker command module.
  * bunker sign, bunker connect, bunker pair, bunker authorize, bunker revoke, bunker status, and bunker daemon
@@ -67,7 +68,7 @@ export async function dispatch(args: string[]): Promise<void> {
       })
       await client.resolvePublicKey()
     } catch (err) {
-      console.error(`bunker connect: failed to connect — ${(err as Error).message}`)
+      console.error(`bunker connect: failed to connect — ${errorMessage(err)}`)
       process.exit(1)
     }
 
@@ -209,7 +210,7 @@ export async function dispatch(args: string[]): Promise<void> {
       if (err instanceof PairingDeclinedError) {
         console.error('bunker pair: not saved.')
       } else {
-        console.error(`bunker pair: ${(err as Error).message}`)
+        console.error(`bunker pair: ${errorMessage(err)}`)
       }
       process.exit(1)
     }
@@ -325,7 +326,7 @@ export async function dispatch(args: string[]): Promise<void> {
     try {
       removed = revokeClient(clientPk)
     } catch (err) {
-      console.error(`bunker revoke: ${(err as Error).message}`)
+      console.error(`bunker revoke: ${errorMessage(err)}`)
       process.exit(1)
     }
     if (removed === 0) {
@@ -442,7 +443,7 @@ export async function dispatch(args: string[]): Promise<void> {
     try {
       bunkerKeyHex = getOrCreateBunkerKey(persona ?? profileName ?? 'default')
     } catch (err) {
-      console.error(`bunker: ${(err as Error).message}`)
+      console.error(`bunker: ${errorMessage(err)}`)
       process.exit(1)
     }
   }

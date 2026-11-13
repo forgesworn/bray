@@ -28,6 +28,7 @@ import { readStateFile, writeStateFile } from './state.js'
 import { isOnionUrl, validateRelayScheme } from './validation.js'
 import { webSocketFor } from './ws-safe.js'
 import { setAutomaticAuth } from './nostr-tools-guards.js'
+import { errorMessage } from './error-message.js'
 
 /** Saved by `bunker connect` and `bunker pair`; read by loadConfig. */
 export const BUNKER_URI_FILE = 'bunker-uri'
@@ -37,10 +38,6 @@ const NOSTR_CONNECT_KIND = 24133
 
 /** How long to try to reach each relay before leaving it out. */
 const CONNECT_WAIT_MS = 10_000
-
-function reasonText(reason: unknown): string {
-  return reason instanceof Error ? reason.message : String(reason)
-}
 
 /** Show the URI after this long even if a relay has not confirmed the subscription. */
 const LISTEN_WAIT_MS = 5_000
@@ -138,7 +135,7 @@ export async function pairWithNostrConnect(options: PairOptions): Promise<PairRe
     )
     const reachable = relays.filter((_relay, i) => attempts[i].status === 'fulfilled')
     attempts.forEach((attempt, i) => {
-      if (attempt.status === 'rejected') options.onRelayUnreachable?.(relays[i], reasonText(attempt.reason))
+      if (attempt.status === 'rejected') options.onRelayUnreachable?.(relays[i], errorMessage(attempt.reason))
     })
     if (reachable.length === 0) {
       throw new Error(`could not reach any relay: ${relays.join(', ').slice(0, 256)}`)
@@ -187,7 +184,7 @@ export async function pairWithNostrConnect(options: PairOptions): Promise<PairRe
       if (e instanceof TimeoutError) {
         throw new Error(`no signer answered within ${Math.round(timeoutMs / 1000)}s`)
       }
-      throw new Error(`could not listen on the relays: ${(e as Error).message}`)
+      throw new Error(`could not listen on the relays: ${errorMessage(e)}`)
     }
     sub?.close()
     sub = undefined

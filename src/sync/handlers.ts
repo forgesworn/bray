@@ -10,9 +10,9 @@ import { readFileSync, statSync } from 'node:fs'
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
 import { matchFilter, verifyEvent } from 'nostr-tools'
 import type { RelayPool } from '../relay-pool.js'
-import { Nip77UnavailableError } from '../relay-pool.js'
 import { assertEventSemanticallyValid } from '../event-validation/validator.js'
 import { nostrEventSchema, validateInputPath } from '../validation.js'
+import { errorMessage } from '../error-message.js'
 
 export type SyncProtocol = 'nip77' | 'req-fallback'
 export type SyncProtocolPreference = 'auto' | SyncProtocol
@@ -218,7 +218,7 @@ export async function handleSyncPlan(pool: RelayPool, opts: SyncPlanOptions): Pr
     } catch (error) {
       if ((error as Error).name === 'AbortError') throw error
       if (preference === 'nip77') throw error
-      const reason = error instanceof Nip77UnavailableError ? error.message : (error as Error).message
+      const reason = errorMessage(error)
       warnings.push(`NIP-77 unavailable; used bounded REQ fallback: ${reason}`)
     }
   } else {
@@ -326,7 +326,7 @@ export async function handleSyncPush(pool: RelayPool, opts: SyncPushOptions): Pr
     } catch (error) {
       if ((error as Error).name === 'AbortError') throw error
       failed++
-      results.push({ id, success: false, error: (error as Error).message })
+      results.push({ id, success: false, error: errorMessage(error) })
     }
   }
 
