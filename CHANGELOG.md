@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.14.2 (2026-11-13)
+
+### Bug Fixes
+
+- say why a relay or signer refused, instead of "undefined" (#168)
+
+
+
 ## 3.14.1 (2026-11-12)
 
 ### Bug Fixes
