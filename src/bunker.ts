@@ -38,7 +38,25 @@ export interface BunkerOptions {
   open?: boolean
   /** Called with the new link each time a client uses up the connect secret. */
   onUrlChange?: (url: string) => void
+  /**
+   * Milliseconds before subscribing again to a relay that ended the
+   * subscription (default 5000), doubling up to a minute while the relay
+   * keeps refusing or dropping it.
+   */
+  resubscribeDelayMs?: number
 }
+
+const MAX_RESUBSCRIBE_DELAY_MS = 60_000
+// A subscription that lasted this long was healthy: the next drop starts the
+// backoff again instead of continuing it.
+const HEALTHY_SUBSCRIPTION_MS = 30_000
+// A resubscription asks for requests from this far back, the longest a client
+// waits on a signature (the bunker client's own timeout), so a request sent
+// during a short outage is still answered.
+const RESUBSCRIBE_WINDOW_SECS = 60
+// Request ids kept to answer each event once: the same request can arrive from
+// several relays, and again when a resubscription replays it.
+const SEEN_EVENTS_MAX = 2048
 
 /**
  * Remove a client pubkey from every bunker key's approvals in
@@ -152,20 +170,66 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
   const answerChallenge = async (template: EventTemplate) => finalizeEvent(template, bunkerSk)
   setAutomaticAuth(pool, () => answerChallenge)
 
-  // Subscribe to kind 24133 events addressed to us
-  const sub = pool.subscribeMany(
-    relays,
-    { kinds: [24133], '#p': [bunkerPk] } as any,
-    {
-      onevent: async (event: NostrEvent) => {
-        try {
-          await handleRequest(event)
-        } catch (e: any) {
-          log(`Error handling request: ${e.message}`)
-        }
+  // Subscribe to kind 24133 events addressed to us, one subscription per relay
+  // so that each can be restored on its own. nostr-tools reports the end of a
+  // multi-relay subscription only once every relay has ended it, and it does
+  // not reconnect by default, so a relay that drops would otherwise stay
+  // unlistened to for as long as another one stayed up.
+  const baseResubscribeDelay = opts.resubscribeDelayMs ?? 5_000
+  const seenEvents = new Set<string>()
+  const subscriptions = new Map<string, { close: () => unknown }>()
+  const retries = new Map<string, ReturnType<typeof setTimeout>>()
+  let closed = false
+
+  const onEvent = async (event: NostrEvent) => {
+    if (seenEvents.has(event.id)) return
+    seenEvents.add(event.id)
+    if (seenEvents.size > SEEN_EVENTS_MAX) seenEvents.delete(seenEvents.values().next().value as string)
+    try {
+      await handleRequest(event)
+    } catch (e: any) {
+      log(`Error handling request: ${e.message}`)
+    }
+  }
+
+  // `delayMs` is the wait to use if this subscription ends before it proved
+  // healthy; the wait doubles while a relay keeps dropping it.
+  function listen(url: string, delayMs: number, since?: number): void {
+    const startedAt = Date.now()
+    let ended = false
+    const filter = { kinds: [24133], '#p': [bunkerPk], ...(since === undefined ? {} : { since }) }
+    const sub = pool.subscribeMany([url], filter as any, {
+      onevent: onEvent,
+      onclose: reasons => {
+        // close() ends every subscription itself; that is not a drop.
+        if (closed || ended) return
+        ended = true
+        subscriptions.delete(url)
+        const why = reasons.map(r => r.reason).join('; ') || 'no reason given'
+        const wait = Date.now() - startedAt >= HEALTHY_SUBSCRIPTION_MS ? baseResubscribeDelay : delayMs
+        log(`Subscription on ${url} ended (${why}); subscribing again in ${wait} ms`)
+        retry(url, wait)
       },
-    },
-  )
+    })
+    subscriptions.set(url, sub)
+  }
+
+  function retry(url: string, waitMs: number): void {
+    const nextMs = Math.min(waitMs * 2, MAX_RESUBSCRIBE_DELAY_MS)
+    retries.set(url, setTimeout(() => {
+      retries.delete(url)
+      if (closed) return
+      try {
+        listen(url, nextMs, Math.floor(Date.now() / 1000) - RESUBSCRIBE_WINDOW_SECS)
+        log(`Subscribed again on ${url}`)
+      } catch (e: any) {
+        log(`Could not subscribe again on ${url}: ${e.message}; trying again in ${nextMs} ms`)
+        retry(url, nextMs)
+      }
+    }, waitMs))
+  }
+
+  for (const url of new Set(relays)) listen(url, baseResubscribeDelay)
 
   // `bunker revoke` edits the approvals file while the daemon runs, so a
   // client approved in memory is checked against the file before each request.
@@ -429,7 +493,11 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
     pubkey: bunkerPk,
     npub: bunkerNpub,
     close: () => {
-      sub.close()
+      closed = true
+      for (const timer of retries.values()) clearTimeout(timer)
+      retries.clear()
+      for (const sub of subscriptions.values()) sub.close()
+      subscriptions.clear()
       pool.destroy()
       bunkerSk.fill(0)
     },
