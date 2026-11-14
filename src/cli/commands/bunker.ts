@@ -411,6 +411,7 @@ export async function dispatch(args: string[]): Promise<void> {
 
   // Bunker daemon
   const { startBunker } = await import('../../bunker.js')
+  const { holdProcessOpen } = await import('../../hold-open.js')
   const { readNsecTreeProfileMnemonic, getOrCreateBunkerKey } = await import('../../bunker-helpers.js')
 
   // --profile <name>: load the master straight from an nsec-tree-cli profile
@@ -484,7 +485,12 @@ export async function dispatch(args: string[]): Promise<void> {
   }
   console.error(`Signing as: ${bCtx.activeNpub}`)
   console.error('Press Ctrl+C to stop')
-  process.on('SIGINT', () => { bunker.close(); bCtx.destroy(); process.exit(0) })
-  process.on('SIGTERM', () => { bunker.close(); bCtx.destroy(); process.exit(0) })
-  await new Promise(() => {})
+  // The daemon is held up by a timer, not by its relay sockets: a relay that
+  // restarts or an idle close must not leave the process with nothing to wait
+  // for (Node then exits with code 13). The bunker resubscribes on its own.
+  const hold = holdProcessOpen()
+  const stop = () => { hold.release(); bunker.close(); bCtx.destroy(); process.exit(0) }
+  process.on('SIGINT', stop)
+  process.on('SIGTERM', stop)
+  await hold.done
 }

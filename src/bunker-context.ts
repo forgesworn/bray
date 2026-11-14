@@ -328,6 +328,9 @@ export class BunkerContext implements SigningContext {
     }
   }
 
+  /** Signatures come from the remote signer over a relay. A getter, so a Heartwood context re-classed from this one has it too. */
+  get remoteSigner(): boolean { return true }
+
   /** List identities — bunker mode only has one (the remote key) */
   async listIdentities(): Promise<PublicIdentity[]> {
     return [{ npub: this.activeNpub, purpose: 'bunker', index: 0 }]

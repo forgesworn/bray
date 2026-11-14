@@ -5,6 +5,12 @@ import type { PublicIdentity, SignFn } from './types.js'
 export interface SigningContext {
   readonly activeNpub: string
   readonly activePublicKeyHex: string
+  /**
+   * True when signatures come from another device or process over a relay
+   * (NIP-46), so a signature takes seconds, not microseconds, and may wait on
+   * a person. Unset for a local key.
+   */
+  readonly remoteSigner?: boolean
   getSigningFunction(): SignFn
   listIdentities(): Promise<PublicIdentity[]>
   nip44Encrypt(recipientPubkey: string, plaintext: string): Promise<string>
