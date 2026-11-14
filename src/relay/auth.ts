@@ -23,11 +23,11 @@ export interface RelayAuthResult {
  * ignores TOR_PROXY, and closes that connection once authenticated, so the
  * AUTH applies to nothing else. It only shows that the relay accepts the key.
  *
- * Waits: connecting, the challenge and the relay's OK each get `timeoutMs`
- * (default 5 s). The signature gets the same, except that a remote signer
- * (NIP-46) gets the bunker client's own request limit, since it signs over a
- * relay and may wait on a person to approve. An explicit `timeoutMs` applies
- * to every step. The error says which step timed out.
+ * Waits: connecting and the challenge each get `timeoutMs` (default 5 s).
+ * The signature gets the same, except that a remote signer (NIP-46) gets the
+ * bunker client's own request limit, since it signs over a relay and may wait
+ * on a person to approve. An explicit `timeoutMs` applies to all three. The
+ * relay's OK keeps nostr-tools' own 4.4 s. The error says which step timed out.
  *
  * Flow:
  * 1. Connect via WebSocket

@@ -26,17 +26,37 @@ function signerAnsweringAfter(ms: number) {
   })
 }
 
-/** An nostr-tools relay double: has its challenge; auth signs, then waits `okMs` for the relay's OK. */
-function relayDouble(opts: { okMs?: number } = {}) {
+/**
+ * A relay double that behaves as nostr-tools 2.24.1's AbstractRelay.auth does:
+ * it has its challenge, reuses a pending attempt, catches an error from the
+ * signer, logs it and never settles, and once signed waits `publishTimeout`
+ * (4.4 s) for the OK before rejecting with 'auth timed out'. `okMs` is when
+ * the relay answers (never, if Infinity); `refuse` makes that answer a refusal.
+ */
+function relayDouble(opts: { okMs?: number; refuse?: string } = {}) {
   return {
     url: 'wss://relay.example.com',
     challenge: 'challenge-1',
+    publishTimeout: 4_400,
+    authPromise: undefined as Promise<string> | undefined,
     subscribe: () => ({ close() {} }),
-    async auth(sign: (evt: any) => Promise<any>) {
-      await sign({ kind: 22242, created_at: Math.floor(Date.now() / 1000), tags: [['relay', RELAY], ['challenge', 'challenge-1']], content: '' })
-      if (opts.okMs === Infinity) await new Promise(() => {})
-      else if (opts.okMs) await new Promise(resolve => setTimeout(resolve, opts.okMs))
-      return 'ok'
+    auth(sign: (evt: any) => Promise<any>) {
+      if (this.authPromise) return this.authPromise
+      this.authPromise = new Promise<string>(async (resolve, reject) => {
+        try {
+          await sign({ kind: 22242, created_at: Math.floor(Date.now() / 1000), tags: [['relay', RELAY], ['challenge', 'challenge-1']], content: '' })
+          const wait = setTimeout(() => reject(new Error('auth timed out')), this.publishTimeout)
+          if (opts.okMs === Infinity) return
+          setTimeout(() => {
+            clearTimeout(wait)
+            if (opts.refuse) reject(new Error(opts.refuse))
+            else resolve('ok')
+          }, opts.okMs ?? 0)
+        } catch {
+          // nostr-tools: console.warn('subscribe auth function failed:', err), and nothing more
+        }
+      })
+      return this.authPromise
     },
   }
 }
@@ -96,16 +116,16 @@ describe('relay-auth with a remote signer', () => {
     expect(forget).toHaveBeenCalled()
   })
 
-  it('gives the relay its own 5 s for the OK once the signature is in, and names that step', async () => {
+  it('gives the relay nostr-tools\' 4.4 s for the OK once the signature is in, and names that step', async () => {
     vi.useFakeTimers()
     // 30 s of signing, then a relay that never answers: the OK wait starts at the signature.
     const { pool, ctx } = setup(signerAnsweringAfter(30_000), relayDouble({ okMs: Infinity }))
     const start = handleRelayAuth(ctx, RELAY, pool)
-    const signing = await run(start, 30_000 + 4_900)
+    const signing = await run(start, 30_000 + 4_300)
     expect(signing.done).toBe(false)
     const out = await run(start, 200)
     expect(out.done).toBe(true)
-    expect(out.result!.error).toContain('the relay did not answer the signed AUTH within 5000 ms')
+    expect(out.result!.error).toBe('AUTH timed out: the relay did not answer the signed AUTH within 4400 ms')
   })
 
   it('accepts a slow OK within its own budget after a slow signature', async () => {
@@ -127,11 +147,26 @@ describe('relay-auth with a remote signer', () => {
     expect(long.result).toMatchObject({ authenticated: true })
   })
 
-  it('reports a signer that refuses as not signed, not as a relay rejection', async () => {
-    const { pool, ctx } = setup(async () => { throw new Error('user denied the request') })
-    const result = await handleRelayAuth(ctx, RELAY, pool)
-    expect(result.authenticated).toBe(false)
-    expect(result.error).toBe('AUTH not signed: user denied the request')
+  it('reports a signer that refuses as not signed, at once, though nostr-tools drops the error', async () => {
+    vi.useFakeTimers()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const { pool, ctx, forget } = setup(async () => { throw new Error('user denied the request') })
+      const out = await run(handleRelayAuth(ctx, RELAY, pool), 10)
+      expect(out.done).toBe(true)
+      expect(out.result).toEqual({ authenticated: false, relay: RELAY, error: 'AUTH not signed: user denied the request' })
+      expect(forget).toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  it('reports a relay that refuses the signed AUTH as a rejection, not as unsigned', async () => {
+    vi.useFakeTimers()
+    const { pool, ctx } = setup(signerAnsweringAfter(2_000), relayDouble({ okMs: 100, refuse: 'restricted: not a member' }))
+    const out = await run(handleRelayAuth(ctx, RELAY, pool), 2_200)
+    expect(out.done).toBe(true)
+    expect(out.result!.error).toBe('AUTH rejected: restricted: not a member')
   })
 
   it('leaves no timer behind once it has finished', async () => {

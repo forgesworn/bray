@@ -242,7 +242,7 @@ relay-auth({ relay: "wss://auth.relay.example" })
 
 `relay-auth` connects to the relay, waits for an AUTH challenge, signs a kind 22242 event, and sends the signed event back. If a `relay-query` or write operation fails because the relay demands auth, call `relay-auth` first and then retry.
 
-Each step (connect, challenge, signature, relay OK) waits 5 seconds. When the identity signs through a remote signer (a NIP-46 bunker or a hardware signer), the signature gets up to 60 seconds, so there is time to approve it. A timeout says which step it was. Pass `timeout_ms` (1000 to 120000) to set the wait for every step.
+Connecting, the challenge and the signature each wait 5 seconds. When the identity signs through a remote signer (a NIP-46 bunker or a hardware signer), the signature gets up to 60 seconds, so there is time to approve it. The relay then has 4.4 seconds to accept the signed AUTH. A timeout says which step it was. Pass `timeout_ms` (1000 to 120000) to set the wait for connecting, the challenge and the signature.
 
 ### NIP-45 Event Counting
 
