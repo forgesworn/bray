@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.14.3 (2026-11-14)
+
+### Bug Fixes
+
+- keep the bunker daemon alive across relay drops, and give relay-auth time for a remote signer (#171)
+
+
+
 ## 3.14.2 (2026-11-13)
 
 ### Bug Fixes
