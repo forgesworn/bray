@@ -18,7 +18,7 @@ import { SimplePool } from 'nostr-tools/pool'
 import { generateSecretKey, finalizeEvent } from 'nostr-tools/pure'
 import { npubEncode } from 'nostr-tools/nip19'
 import { webSocketFor } from './ws-safe.js'
-import { setAutomaticAuth } from './nostr-tools-guards.js'
+import { guardRelaySends, setAutomaticAuth } from './nostr-tools-guards.js'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 import type { PublicIdentity, SignFn } from './types.js'
 import type { SigningContext } from './signing-context.js'
@@ -211,6 +211,7 @@ export class BunkerContext implements SigningContext {
     // relays that only let a key read messages addressed to it still work.
     // Its own WebSocket class, so TOR_PROXY applies to signer traffic too.
     const pool = new SimplePool({ websocketImplementation: webSocketFor(options.torProxy) } as ConstructorParameters<typeof SimplePool>[0])
+    guardRelaySends(pool)
     const answerChallenge = async (template: EventTemplate) => finalizeEvent(template, clientSk)
     setAutomaticAuth(pool, () => answerChallenge)
 

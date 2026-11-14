@@ -3,7 +3,7 @@ import type { AbstractRelay } from 'nostr-tools/abstract-relay'
 import type { PublishResult, RelaySet } from './types.js'
 import { validatePublicUrl, validateRelayScheme } from './validation.js'
 import { brayFetch } from './http-client.js'
-import { isConnectionFailure, setAutomaticAuth, type ChallengeSigner } from './nostr-tools-guards.js'
+import { guardRelaySends, isConnectionFailure, setAutomaticAuth, type ChallengeSigner } from './nostr-tools-guards.js'
 import { errorMessage } from './error-message.js'
 
 /**
@@ -168,6 +168,7 @@ async function createRealPool(torProxy?: string): Promise<PoolLike> {
   useWebSocketImplementation(WebSocketImpl)
 
   const pool = new SimplePool({ websocketImplementation: WebSocketImpl } as ConstructorParameters<typeof SimplePool>[0])
+  guardRelaySends(pool)
   const { normalizeURL } = await import('nostr-tools/utils')
   // nostr-tools reaches every relay through ensureRelay, so this is where a
   // connection can be refused reuse. The relay map is protected in its types.

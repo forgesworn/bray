@@ -2,7 +2,7 @@ import type { EventTemplate, VerifiedEvent } from 'nostr-tools'
 import type { AbstractRelay } from 'nostr-tools/abstract-relay'
 
 /**
- * Guards for two nostr-tools (2.24) behaviours that otherwise mislead or crash
+ * Guards for three nostr-tools (2.24) behaviours that otherwise mislead or crash
  * bray. Every pool bray creates goes through these: the relay pool, the bunker
  * daemon, the bunker client and bunker pairing.
  */
@@ -58,6 +58,64 @@ export function setAutomaticAuth(
     if (relay) guardAutomaticAuth(relay)
     return sign
   })
+}
+
+const sendGuardedRelays = new WeakSet<AbstractRelay>()
+
+/** The pending-publish entry nostr-tools keeps per event id; private in its types. */
+type PendingPublish = { reject(reason: unknown): void; timeout: ReturnType<typeof setTimeout> }
+
+/**
+ * Keep a send on a closed connection from ending the process.
+ *
+ * nostr-tools sends an AUTH answer, and a subscription's REQ, without awaiting
+ * the send, and `send` rejects once the connection has closed. A relay that
+ * dropped the connection while the AUTH signature was still being made (a
+ * remote signer can take many seconds) therefore left a rejection nothing
+ * handled, and Node exited. Every send gets a handler here. A failed AUTH send
+ * also fails that AUTH at once with the send's error, the one nostr-tools'
+ * own automatic answer already ignores, instead of leaving it to report
+ * "auth timed out" seconds later.
+ */
+function guardSends(relay: AbstractRelay): void {
+  if (sendGuardedRelays.has(relay)) return
+  sendGuardedRelays.add(relay)
+  const send = relay.send.bind(relay)
+  relay.send = message => {
+    const sent = send(message)
+    sent.catch(err => { if (message.startsWith('["AUTH",')) failPendingAuth(relay, message, err) })
+    return sent
+  }
+}
+
+function failPendingAuth(relay: AbstractRelay, message: string, err: unknown): void {
+  let id: unknown
+  try { id = (JSON.parse(message) as [string, { id?: unknown }])[1]?.id } catch { return }
+  if (typeof id !== 'string') return
+  const pending = (relay as unknown as { openEventPublishes: Map<string, PendingPublish> }).openEventPublishes
+  const entry = pending.get(id)
+  if (!entry) return
+  clearTimeout(entry.timeout)
+  pending.delete(id)
+  entry.reject(err)
+}
+
+/**
+ * Guard every relay a nostr-tools SimplePool connects to, as above. Call it
+ * once, straight after creating the pool.
+ */
+export function guardRelaySends(pool: object): void {
+  // The relay map is protected in nostr-tools' types. ensureRelay is the only
+  // place a relay is made, and it adds the relay to the map before it starts
+  // connecting, so the relay is guarded before any message can arrive. The map
+  // is read on each call because destroy() replaces it.
+  const p = pool as { relays: Map<string, AbstractRelay>; ensureRelay: (...args: unknown[]) => Promise<AbstractRelay> }
+  const ensureRelay = p.ensureRelay.bind(pool)
+  p.ensureRelay = (...args) => {
+    const ready = ensureRelay(...args)
+    for (const relay of p.relays.values()) guardSends(relay)
+    return ready
+  }
 }
 
 /**
