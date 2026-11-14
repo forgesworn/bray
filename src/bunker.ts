@@ -16,7 +16,7 @@ import { finalizeEvent, getPublicKey, generateSecretKey } from 'nostr-tools/pure
 import { npubEncode } from 'nostr-tools/nip19'
 import { SimplePool } from 'nostr-tools/pool'
 import { webSocketFor } from './ws-safe.js'
-import { isConnectionFailure, setAutomaticAuth } from './nostr-tools-guards.js'
+import { guardRelaySends, isConnectionFailure, setAutomaticAuth } from './nostr-tools-guards.js'
 import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 import type { IdentityContext } from './context.js'
 import { readStateFile, readStateFileStrict, writeStateFile } from './state.js'
@@ -167,6 +167,7 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
   // Sign in (NIP-42) with the bunker key when a relay asks, so a private
   // relay lets the bunker read requests addressed to it.
   const pool = new SimplePool({ websocketImplementation: webSocketFor(opts.torProxy) } as ConstructorParameters<typeof SimplePool>[0])
+  guardRelaySends(pool)
   const answerChallenge = async (template: EventTemplate) => finalizeEvent(template, bunkerSk)
   setAutomaticAuth(pool, () => answerChallenge)
 
