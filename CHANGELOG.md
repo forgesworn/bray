@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.14.4 (2026-11-14)
+
+### Bug Fixes
+
+- survive a relay that closes while an AUTH is being signed (#172)
+
+
+
 ## 3.14.3 (2026-11-14)
 
 ### Bug Fixes
