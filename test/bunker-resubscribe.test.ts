@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { WebSocketServer } from 'ws'
-import { finalizeEvent, generateSecretKey } from 'nostr-tools/pure'
+import { finalizeEvent, generateSecretKey, verifyEvent } from 'nostr-tools/pure'
 import { encrypt, getConversationKey } from 'nostr-tools/nip44'
 import { startBunker } from '../src/bunker.js'
 import { holdProcessOpen } from '../src/hold-open.js'
@@ -21,12 +21,16 @@ async function until(check: () => boolean, ms = 3_000): Promise<void> {
 /**
  * A relay that can go away and come back on the same port, as a restart does.
  * It records each REQ it receives and each EVENT published to it, and `inject`
- * pushes an event into the live subscriptions.
+ * pushes an event into the live subscriptions. With `requireAuth` it behaves as
+ * a members-only relay: every REQ or EVENT is refused with `auth-required:`
+ * until that connection has answered a challenge, which it sends either on
+ * connect or only with its first refusal.
  */
-function restartableRelay() {
+function restartableRelay(opts: { requireAuth?: 'challenge on connect' | 'challenge on refusal' } = {}) {
   let wss: WebSocketServer | null = null
   let port = 0
   const reqs: Array<{ filter: Record<string, unknown> }> = []
+  const refusedReqs: string[] = []
   const published: Array<Record<string, unknown>> = []
   const live: Array<{ send(data: string): void; id: string }> = []
 
@@ -35,9 +39,23 @@ function restartableRelay() {
     await new Promise(resolve => server.once('listening', resolve))
     port = (server.address() as { port: number }).port
     server.on('connection', ws => {
+      const challenge = Math.random().toString(36).slice(2)
+      let authed = !opts.requireAuth
+      if (opts.requireAuth === 'challenge on connect') ws.send(JSON.stringify(['AUTH', challenge]))
       ws.on('message', data => {
         const msg = JSON.parse(String(data))
-        if (msg[0] === 'REQ') {
+        if (msg[0] === 'AUTH') {
+          const evt = msg[1]
+          const ok = verifyEvent(evt) && evt.kind === 22242 && evt.tags.some((t: string[]) => t[0] === 'challenge' && t[1] === challenge)
+          if (ok) authed = true
+          ws.send(JSON.stringify(['OK', evt.id, ok, ok ? '' : 'invalid: bad AUTH']))
+        } else if (!authed && msg[0] === 'REQ') {
+          refusedReqs.push(msg[1])
+          if (opts.requireAuth === 'challenge on refusal') ws.send(JSON.stringify(['AUTH', challenge]))
+          ws.send(JSON.stringify(['CLOSED', msg[1], 'auth-required: members only']))
+        } else if (!authed && msg[0] === 'EVENT') {
+          ws.send(JSON.stringify(['OK', msg[1].id, false, 'auth-required: members only']))
+        } else if (msg[0] === 'REQ') {
           reqs.push({ filter: msg[2] })
           live.push({ send: d => ws.send(d), id: msg[1] })
           ws.send(JSON.stringify(['EOSE', msg[1]]))
@@ -62,6 +80,7 @@ function restartableRelay() {
     stop,
     get url() { return `ws://127.0.0.1:${port}` },
     reqs,
+    refusedReqs,
     published,
     inject: (event: unknown) => { for (const sub of live) sub.send(JSON.stringify(['EVENT', sub.id, event])) },
   }
@@ -73,10 +92,10 @@ describe('bunker daemon when a relay drops its subscription', () => {
     while (cleanups.length) await cleanups.pop()!()
   })
 
-  function start(relays: string[]) {
+  function start(relays: string[], resubscribeDelayMs = 30) {
     const stateDir = mkdtempSync(join(tmpdir(), 'bray-bunker-resub-'))
     const ctx = new IdentityContext(TEST_NSEC, 'nsec')
-    const bunker = startBunker({ ctx, relays, quiet: true, stateDir, resubscribeDelayMs: 30 })
+    const bunker = startBunker({ ctx, relays, quiet: true, stateDir, resubscribeDelayMs })
     cleanups.push(() => rmSync(stateDir, { recursive: true, force: true }), () => ctx.destroy(), () => bunker.close())
     return bunker
   }
@@ -115,6 +134,44 @@ describe('bunker daemon when a relay drops its subscription', () => {
     await until(() => r.published.length > 0)
     expect(r.published).toHaveLength(1)
     expect(r.published[0].kind).toBe(24133)
+  })
+
+  it('serves a members-only relay that challenges on connect, before and after a restart', async () => {
+    const r = restartableRelay({ requireAuth: 'challenge on connect' })
+    await r.listen()
+    cleanups.push(r.stop)
+    const bunker = start([r.url])
+    await until(() => r.reqs.length === 1)
+    expect(r.reqs).toHaveLength(1)
+
+    await r.stop()
+    await pause(150)
+    await r.listen()
+    await until(() => r.reqs.length === 2)
+    expect(r.reqs).toHaveLength(2)
+
+    // The reply is an EVENT, which the relay accepts only once authenticated.
+    r.inject(request(bunker.pubkey, 'members-only'))
+    await until(() => r.published.length > 0)
+    expect(r.published).toHaveLength(1)
+    expect(r.published[0].kind).toBe(24133)
+  })
+
+  it('authenticates and subscribes again at once when a relay refuses the REQ with auth-required', async () => {
+    // This relay sends its challenge only with the refusal. With a 10 s
+    // resubscribe delay, only an immediate AUTH and REQ restores the
+    // subscription within the wait here.
+    const r = restartableRelay({ requireAuth: 'challenge on refusal' })
+    await r.listen()
+    cleanups.push(r.stop)
+    const bunker = start([r.url], 10_000)
+    await until(() => r.reqs.length === 1)
+    expect(r.refusedReqs).toHaveLength(1)
+    expect(r.reqs).toHaveLength(1)
+
+    r.inject(request(bunker.pubkey, 'after-challenge'))
+    await until(() => r.published.length > 0)
+    expect(r.published).toHaveLength(1)
   })
 
   it('keeps trying while the relay stays down', async () => {

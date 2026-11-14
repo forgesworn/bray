@@ -200,6 +200,10 @@ export function startBunker(opts: BunkerOptions): BunkerInstance {
     const filter = { kinds: [24133], '#p': [bunkerPk], ...(since === undefined ? {} : { since }) }
     const sub = pool.subscribeMany([url], filter as any, {
       onevent: onEvent,
+      // A members-only relay refuses a REQ that beats the AUTH with
+      // `auth-required:`; nostr-tools then authenticates and subscribes again
+      // at once, instead of the drop path below waiting out its delay.
+      onauth: answerChallenge,
       onclose: reasons => {
         // close() ends every subscription itself; that is not a drop.
         if (closed || ended) return
