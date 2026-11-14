@@ -225,14 +225,15 @@ export function registerRelayTools(server: McpServer, deps: ToolDeps): void {
   })
 
   server.registerTool('relay-auth', {
-    description: 'Authenticate (NIP-42) bray\'s own connection to a relay as the active identity, so later queries and publishes to that relay on it are served. Waits for the relay\'s AUTH challenge, signs a kind 22242 event and sends it back. Returns { authenticated: true/false }. Use this when a relay-query fails due to AUTH requirements, then retry the query. Switching identity drops a connection that authenticated as another identity, so authenticate again after a switch.',
+    description: 'Authenticate (NIP-42) bray\'s own connection to a relay as the active identity, so later queries and publishes to that relay on it are served. Waits for the relay\'s AUTH challenge, signs a kind 22242 event and sends it back. Returns { authenticated: true/false }. Use this when a relay-query fails due to AUTH requirements, then retry the query. Switching identity drops a connection that authenticated as another identity, so authenticate again after a switch. Each step (connect, challenge, signature, relay OK) waits 5 seconds, except that a remote signer (NIP-46 bunker or hardware signer) gets up to 60 seconds to sign; a timeout names the step. timeout_ms sets the wait for every step.',
     inputSchema: {
       relay: relayUrl.describe('Relay WebSocket URL to authenticate with'),
+      timeout_ms: z.number().int().min(1_000).max(120_000).optional().describe('Wait for each step in milliseconds (1000 to 120000). Default 5000, and 60000 for the signature when the identity signs through a remote signer.'),
     },
     annotations: { readOnlyHint: false },
-  }, async ({ relay }) => {
+  }, async ({ relay, timeout_ms }) => {
     // On the pool's own connection, so the retried query is authenticated.
-    const result = await handleRelayAuth(deps.ctx, relay, deps.pool)
+    const result = await handleRelayAuth(deps.ctx, relay, deps.pool, { timeoutMs: timeout_ms })
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     }

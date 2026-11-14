@@ -1,7 +1,7 @@
 {
   "name": "nostr-bray",
   "mcpName": "dev.forgesworn/bray",
-  "version": "3.13.0",
+  "version": "3.14.2",
   "description": "Trust-aware Nostr MCP server, CLI and TypeScript SDK for AI agents and humans. Three dimensions of trust -- verification, proximity, and access -- woven into every interaction.",
   "homepage": "https://bray.forgesworn.dev",
   "totalTools": 261,
@@ -6547,7 +6547,7 @@
     },
     {
       "name": "relay-auth",
-      "description": "Authenticate (NIP-42) bray's own connection to a relay as the active identity, so later queries and publishes to that relay on it are served. Waits for the relay's AUTH challenge, signs a kind 22242 event and sends it back. Returns { authenticated: true/false }. Use this when a relay-query fails due to AUTH requirements, then retry the query. Switching identity drops a connection that authenticated as another identity, so authenticate again after a switch.",
+      "description": "Authenticate (NIP-42) bray's own connection to a relay as the active identity, so later queries and publishes to that relay on it are served. Waits for the relay's AUTH challenge, signs a kind 22242 event and sends it back. Returns { authenticated: true/false }. Use this when a relay-query fails due to AUTH requirements, then retry the query. Switching identity drops a connection that authenticated as another identity, so authenticate again after a switch. Each step (connect, challenge, signature, relay OK) waits 5 seconds, except that a remote signer (NIP-46 bunker or hardware signer) gets up to 60 seconds to sign; a timeout names the step. timeout_ms sets the wait for every step.",
       "annotations": {
         "readOnlyHint": false
       },
@@ -6559,6 +6559,12 @@
             "type": "string",
             "pattern": "^wss?:\\/\\/",
             "description": "Relay WebSocket URL to authenticate with"
+          },
+          "timeout_ms": {
+            "description": "Wait for each step in milliseconds (1000 to 120000). Default 5000, and 60000 for the signature when the identity signs through a remote signer.",
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
           }
         },
         "required": [

@@ -195,6 +195,15 @@ async function createRealPool(torProxy?: string): Promise<PoolLike> {
   } satisfies PoolLike
 }
 
+/** An AUTH step that did not finish in time. */
+class AuthTimeout extends Error {
+  constructor(step: 'signature' | 'relay OK', ms: number) {
+    super(step === 'signature'
+      ? `AUTH timed out: no signature within ${ms} ms (the signer did not answer; if it is a remote signer, approve the request there)`
+      : `AUTH timed out: the relay did not answer the signed AUTH within ${ms} ms`)
+  }
+}
+
 export class RelayPool {
   private pool: PoolLike | undefined
   private poolReady: Promise<PoolLike>
@@ -681,13 +690,20 @@ export class RelayPool {
    * that carried another identity's traffic is replaced first; after a refusal
    * the connection is dropped, since nostr-tools keeps its first attempt and a
    * second try on it would only repeat the refusal.
+   *
+   * Each step has its own wait, and a timeout names the step. `timeoutMs`
+   * (default 5 s) bounds the connection, the challenge and the relay's OK.
+   * `signTimeoutMs` bounds the signature and defaults to `timeoutMs`: a signer
+   * that answers over a relay (NIP-46) needs far longer than a local key, so
+   * the caller gives it the remote signer's own limit.
    */
-  async authenticate(url: string, opts: { timeoutMs?: number } = {}): Promise<{ authenticated: boolean; relay: string; pubkey?: string; error?: string }> {
+  async authenticate(url: string, opts: { timeoutMs?: number; signTimeoutMs?: number } = {}): Promise<{ authenticated: boolean; relay: string; pubkey?: string; error?: string }> {
     this.#validateDirectRelays([url])
     if (!this.authSigner) return { authenticated: false, relay: url, error: 'NIP-42 AUTH requested but no signer is configured' }
     const pool = await this.poolReady
     if (!pool.ensureRelay) return { authenticated: false, relay: url, error: 'the underlying relay pool cannot authenticate' }
     const timeoutMs = opts.timeoutMs ?? 5_000
+    const signTimeoutMs = opts.signTimeoutMs ?? timeoutMs
     const { normalizeURL } = await import('nostr-tools/utils')
     const current = this.#activePubkey()
     const owner = this.#connectionOwners.get(normalizeURL(url))
@@ -705,19 +721,46 @@ export class RelayPool {
     const probeAt = Date.now() + Math.min(500, timeoutMs / 2)
     let probed = false
     while (!challenge()) {
-      if (Date.now() >= deadline) return { authenticated: false, relay: url, error: 'AUTH handshake timed out (no challenge received)' }
+      if (Date.now() >= deadline) return { authenticated: false, relay: url, error: `AUTH handshake timed out (no challenge received within ${timeoutMs} ms)` }
       if (!probed && Date.now() >= probeAt) {
         probed = true
         const probe = relay.subscribe([{ limit: 0 }], { onevent: () => {}, oneose: () => probe.close(), onclose: () => {} })
       }
       await new Promise(resolve => setTimeout(resolve, 25))
     }
+    // relay.auth signs, sends and waits for the relay's OK. The wait is split so
+    // each part has its own budget and a timeout can say which part it was: the
+    // signature (remote signers are slow) and then the relay's OK.
+    let step: 'signature' | 'relay OK' = 'signature'
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let startOk = () => {}
+    let settled = false
+    const expired = new Promise<never>((_, reject) => {
+      const arm = (ms: number) => {
+        clearTimeout(timer)
+        timer = setTimeout(() => reject(new AuthTimeout(step, ms)), ms)
+      }
+      arm(signTimeoutMs)
+      // A signature that arrives after the call ended must not start a timer.
+      startOk = () => { if (settled) return; step = 'relay OK'; arm(timeoutMs) }
+    })
+    const signAndStartOk = async (evt: EventTemplate): Promise<NostrEvent> => {
+      const signed = await this.#signAuth(evt)
+      startOk()
+      return signed
+    }
     try {
-      await within(timeoutMs, relay.auth(this.#signAuth as Parameters<AbstractRelay['auth']>[0]), 'AUTH timed out')
+      await Promise.race([relay.auth(signAndStartOk as Parameters<AbstractRelay['auth']>[0]), expired])
       return { authenticated: true, relay: url, pubkey: this.#connectionOwners.get(relay.url)?.authedBy ?? current }
     } catch (err) {
       pool.forget?.(url)
+      if (err instanceof AuthTimeout) return { authenticated: false, relay: url, error: err.message }
+      // A refusal before the relay was asked is the signer's, not the relay's.
+      if (step === 'signature') return { authenticated: false, relay: url, error: `AUTH not signed: ${errorMessage(err)}` }
       return { authenticated: false, relay: url, error: `AUTH rejected: ${errorMessage(err)}` }
+    } finally {
+      settled = true
+      clearTimeout(timer)
     }
   }
 

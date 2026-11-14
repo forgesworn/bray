@@ -594,8 +594,8 @@ Count events matching a filter without fetching (NIP-45). Falls back to fetch-an
 - Input: relays, kinds (optional), authors (optional), tags (optional), since (optional), until (optional)
 
 #### relay-auth
-Authenticate to a relay requiring NIP-42 AUTH. Signs a kind 22242 event.
-- Input: relay (URL)
+Authenticate to a relay requiring NIP-42 AUTH. Signs a kind 22242 event. Each step waits 5 s; a remote signer gets 60 s to sign, and a timeout names the step.
+- Input: relay (URL), timeout_ms (optional, 1000-120000, wait for each step)
 
 #### relay-discover
 Discover relays used by your contacts. Fetches NIP-65 relay lists from your follow list, ranks by popularity.

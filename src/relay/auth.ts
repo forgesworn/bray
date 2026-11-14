@@ -2,6 +2,7 @@ import { validateRelayUrl } from './handlers.js'
 import type { SigningContext } from '../signing-context.js'
 import type { RelayPool } from '../relay-pool.js'
 import { errorMessage } from '../error-message.js'
+import { REQUEST_TIMEOUT_MS } from '../bunker-context.js'
 
 export interface RelayAuthResult {
   authenticated: boolean
@@ -22,6 +23,12 @@ export interface RelayAuthResult {
  * ignores TOR_PROXY, and closes that connection once authenticated, so the
  * AUTH applies to nothing else. It only shows that the relay accepts the key.
  *
+ * Waits: connecting, the challenge and the relay's OK each get `timeoutMs`
+ * (default 5 s). The signature gets the same, except that a remote signer
+ * (NIP-46) gets the bunker client's own request limit, since it signs over a
+ * relay and may wait on a person to approve. An explicit `timeoutMs` applies
+ * to every step. The error says which step timed out.
+ *
  * Flow:
  * 1. Connect via WebSocket
  * 2. Wait for ["AUTH", challenge] message
@@ -33,10 +40,12 @@ export async function handleRelayAuth(
   ctx: SigningContext,
   relay: string,
   pool?: RelayPool,
+  opts: { timeoutMs?: number } = {},
 ): Promise<RelayAuthResult> {
   if (pool) {
     validateRelayUrl(relay, { allowPrivate: pool.allowsPrivateRelays?.() === true })
-    return pool.authenticate(relay)
+    const signTimeoutMs = opts.timeoutMs === undefined && ctx.remoteSigner === true ? REQUEST_TIMEOUT_MS : undefined
+    return pool.authenticate(relay, { timeoutMs: opts.timeoutMs, signTimeoutMs })
   }
   validateRelayUrl(relay) // throws on private IPs -- intentionally not caught
 
