@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.15.0 (2026-11-15)
+
+### Features
+
+- add owner wrapped-account recovery (#173)
+
+
+
 ## 3.14.4 (2026-11-14)
 
 ### Bug Fixes
