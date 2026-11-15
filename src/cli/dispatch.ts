@@ -45,6 +45,7 @@ export const COMPOUND_COMMANDS = new Set([
 
 // Commands that work purely offline — no relay connection needed
 export const OFFLINE_COMMANDS = new Set([
+  'key-wrap', 'key-check', 'key-load',
   'whoami', 'create', 'list', 'derive', 'persona', 'switch', 'prove',
   'backup', 'restore', 'spoken-challenge', 'spoken-verify', 'trust-verify',
   'ring-verify', 'zap-decode', 'safety-configure', 'safety-activate',

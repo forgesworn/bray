@@ -911,7 +911,9 @@ describe('bunker sign — local relay', { timeout: 30_000 }, () => {
   })
 
   it('fails gracefully when BUNKER_URI is missing', () => {
-    const err = cliExpectFail({ PATH: process.env.PATH! }, 'bunker', 'sign')
+    // A saved owner pairing is also a valid URI source. Keep this negative
+    // case in the test's empty config home, never the operator's real home.
+    const err = cliExpectFail({ PATH: process.env.PATH!, HOME: TEST_CONFIG_HOME, XDG_CONFIG_HOME: TEST_CONFIG_HOME }, 'bunker', 'sign')
     expect(err).toContain('missing bunker URI')
   })
 })

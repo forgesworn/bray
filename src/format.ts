@@ -23,6 +23,7 @@ const st = sanitiseTerminal
 
 export function formatIdentity(id: PublicIdentity): string {
   let line = `${id.npub}`
+  if (id.origin === 'imported') return `${line}  (imported; recovery needs master + encrypted record)`
   if (id.personaName) line += `  (persona: ${id.personaName})`
   else if (id.purpose) line += `  (${id.purpose}${id.index ? ` #${id.index}` : ''})`
   return line

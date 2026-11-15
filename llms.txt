@@ -184,3 +184,15 @@ Requires Node.js 24 or later. `npx nostr-bray` with no arguments starts the MCP 
 - Agent scenarios (worked JSON-RPC transcripts): https://github.com/forgesworn/bray/tree/main/examples/agent-scenarios
 - Trust scoring: https://github.com/forgesworn/bray/blob/main/docs/trust-scoring.md
 - Dispatch protocol: https://github.com/forgesworn/bray/blob/main/docs/dispatch.md
+
+## Wrapped existing accounts (preview)
+
+Owner-only local CLI commands `key-wrap <nsec-or-hex-file> <new-backup-file>`,
+`key-check <backup-file> <expected-npub>` and `key-load <backup-file>
+<expected-npub>` preserve an existing raw account. Recovery needs the same
+master/root construction AND the encrypted file. Load is process-local and
+does not activate the key; select its npub explicitly in shell mode. Imported
+identities report origin/recovery metadata, cannot get derivation proofs and
+retain forbidden-key enforcement. No MCP tool or hardware fallback is added.
+Pins the published nsec-tree 1.7.0-alpha.1 alpha with verified npm integrity. See docs/wrapped-account-preview.md for the SDK,
+file policy and release gate.

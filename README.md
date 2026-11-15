@@ -428,6 +428,11 @@ npx nostr-bray prove blind               # create a linkage proof
 npx nostr-bray --help                    # see all commands
 ```
 
+An unreleased preview adds owner-only `key-wrap`, `key-check` and `key-load`
+for encrypted backups of existing unrelated accounts. Recovery needs the
+same master **and** the saved file. See the [preview guide](docs/wrapped-account-preview.md)
+for dependency gates, explicit activation and the SDK operations.
+
 ## Use as a library
 
 The package is also a TypeScript SDK (ESM only). `nostr-bray/sdk` is the factory API:

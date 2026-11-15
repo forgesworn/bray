@@ -1,5 +1,7 @@
-import { fromNsec, fromMnemonic, derive, zeroise } from 'nsec-tree'
+import { fromNsec, fromMnemonic, derive } from 'nsec-tree'
 import { createBlindProof, createFullProof } from 'nsec-tree/proof'
+import { wrapNsec, unwrapNsec } from 'nsec-tree/wrapped'
+import type { UnwrappedNsec } from 'nsec-tree/wrapped'
 import { finalizeEvent, getPublicKey } from 'nostr-tools/pure'
 import { decode, npubEncode, nsecEncode } from 'nostr-tools/nip19'
 import type { TreeRoot, Identity, LinkageProof } from 'nsec-tree'
@@ -8,8 +10,7 @@ import type { PublicIdentity, SignFn } from './types.js'
 import type { ExtendedSigningContext } from './signing-context.js'
 import { decode as decodeNip19 } from 'nostr-tools/nip19'
 
-interface CacheEntry {
-  identity: Identity
+type CacheEntry = ({ identity: Identity; imported?: false } | { identity: UnwrappedNsec; imported: true }) & {
   purpose: string
   index: number
   personaName?: string
@@ -73,6 +74,7 @@ export class IdentityContext implements ExtendedSigningContext {
   private activeEntry!: CacheEntry
   private maxCacheSize: number
   private forbidden: Set<string>
+  private destroyed = false
 
   constructor(secretKey: string, format: 'nsec' | 'hex' | 'mnemonic', opts?: ContextOptions) {
     this.maxCacheSize = opts?.maxCache ?? 5
@@ -122,16 +124,64 @@ export class IdentityContext implements ExtendedSigningContext {
    * Only the npub is in the message; it is public, and nothing else is.
    */
   private activate(entry: CacheEntry): void {
-    const hex = Buffer.from(entry.identity.publicKey).toString('hex')
+    this.assertAllowed(entry.identity)
+    this.activeEntry = entry
+  }
+
+  private assertAllowed(identity: {publicKey: Uint8Array; npub: string}): void {
+    const hex = Buffer.from(identity.publicKey).toString('hex')
     if (this.forbidden.has(hex)) {
       throw new Error(
-        `Refusing to activate ${entry.identity.npub}: it is on this process's forbidden list. ` +
+        `Refusing to activate ${identity.npub}: it is on this process's forbidden list. ` +
           'That list is for principals - a person\'s key, never an agent\'s. An agent signing as its ' +
           'principal can attest that it belongs to itself and approve its own requests, because it is ' +
           'the principal those checks look for. Point NOSTR_SECRET_KEY at the agent\'s own key.',
       )
     }
-    this.activeEntry = entry
+  }
+
+  /** Recover an encrypted raw key into local memory. Does not activate it or grant MCP authority. */
+  async importWrappedIdentity(record: string, expectedNpub: string): Promise<PublicIdentity> {
+    if (this.destroyed) throw new Error('IdentityContext has been destroyed')
+    const imported = await unwrapNsec(this.root, record, expectedNpub)
+    let retained = false
+    try {
+      if (this.destroyed) throw new Error('IdentityContext has been destroyed')
+      this.assertAllowed(imported)
+      const existing = this.cache.get(imported.npub)
+      if (imported.npub === this.masterEntry.identity.npub || (existing && !existing.imported)) {
+        throw new Error('Identity is already loaded with different provenance')
+      }
+      if (!existing) {
+        this.putCache(imported.npub, {identity: imported, imported: true, purpose: '', index: 0, lastUsed: Date.now()})
+        retained = true
+      }
+      return {npub: imported.npub, origin: 'imported', recovery: 'master-and-record'}
+    } finally { if (!retained) imported.privateKey.fill(0) }
+  }
+
+  /** Owner SDK operation: wrap a raw key without loading or activating it. */
+  async wrapRawIdentity(privateKey: Uint8Array): Promise<string> {
+    if (this.destroyed) throw new Error('IdentityContext has been destroyed')
+    return wrapNsec(this.root, privateKey)
+  }
+
+  /** Owner file read-back: authenticate an exact account without retaining or activating it. */
+  async checkWrappedIdentity(record: string, expectedNpub?: string): Promise<PublicIdentity> {
+    if (this.destroyed) throw new Error('IdentityContext has been destroyed')
+    const imported = await unwrapNsec(this.root, record, expectedNpub)
+    try {
+      if (this.destroyed) throw new Error('IdentityContext has been destroyed')
+      return {npub: imported.npub, origin: 'imported', recovery: 'master-and-record'}
+    } finally { imported.privateKey.fill(0) }
+  }
+
+  /** Rewrap a loaded imported key. Derived identities retain their existing recovery path. */
+  async wrapImportedIdentity(npub: string): Promise<string> {
+    if (this.destroyed) throw new Error('IdentityContext has been destroyed')
+    const entry = this.cache.get(npub)
+    if (!entry?.imported) throw new Error('Imported identity is not loaded')
+    return wrapNsec(this.root, entry.identity.privateKey)
   }
 
   /** Current active identity's npub (bech32) */
@@ -153,7 +203,7 @@ export class IdentityContext implements ExtendedSigningContext {
   async derive(purpose: string, index: number): Promise<PublicIdentity> {
     // Return from cache if already derived
     for (const [npub, entry] of this.cache) {
-      if (entry.purpose === purpose && entry.index === index && !entry.personaName) {
+      if (!entry.imported && entry.purpose === purpose && entry.index === index && !entry.personaName) {
         entry.lastUsed = Date.now()
         return { npub, purpose, index }
       }
@@ -176,7 +226,7 @@ export class IdentityContext implements ExtendedSigningContext {
    *  key you'd get anywhere else in the ecosystem. */
   async use(purpose: string, index = 0): Promise<void> {
     for (const [, entry] of this.cache) {
-      if (entry.purpose === purpose && entry.index === index && !entry.personaName) {
+      if (!entry.imported && entry.purpose === purpose && entry.index === index && !entry.personaName) {
         entry.lastUsed = Date.now()
         this.activate(entry)
         return
@@ -192,7 +242,7 @@ export class IdentityContext implements ExtendedSigningContext {
   async derivePersona(name: string, index: number): Promise<PublicIdentity> {
     // Return from cache if already derived
     for (const [npub, entry] of this.cache) {
-      if (entry.personaName === name && entry.index === index) {
+      if (!entry.imported && entry.personaName === name && entry.index === index) {
         entry.lastUsed = Date.now()
         return { npub, purpose: entry.purpose, index: entry.index, personaName: name }
       }
@@ -213,14 +263,22 @@ export class IdentityContext implements ExtendedSigningContext {
 
   /** Switch active identity by purpose+index, persona name, or "master" */
   async switch(purposeOrName: string, index?: number): Promise<void> {
+    if (purposeOrName.startsWith('npub1')) {
+      const entry = this.cache.get(purposeOrName)
+      if (!entry) throw new Error('Identity is not loaded; restore its encrypted record first')
+      this.activate(entry)
+      entry.lastUsed = Date.now()
+      return
+    }
     if (purposeOrName === 'master') {
       this.activate(this.masterEntry)
       this.masterEntry.lastUsed = Date.now()
       return
     }
 
-    // Check cache for matching purpose or persona name
+    // Imported keys can only be selected explicitly by npub.
     for (const [, entry] of this.cache) {
+      if (entry.imported) continue
       const matchesPurpose = entry.purpose === purposeOrName && (index === undefined || entry.index === index)
       const matchesPersona = entry.personaName === purposeOrName && (index === undefined || entry.index === index)
       if (matchesPurpose || matchesPersona) {
@@ -282,6 +340,10 @@ export class IdentityContext implements ExtendedSigningContext {
       { npub: this.masterEntry.identity.npub, purpose: 'master', index: 0 },
     ]
     for (const [, entry] of this.cache) {
+      if (entry.imported) {
+        result.push({npub: entry.identity.npub, origin: 'imported', recovery: 'master-and-record'})
+        continue
+      }
       result.push({
         npub: entry.identity.npub,
         purpose: entry.purpose,
@@ -298,6 +360,7 @@ export class IdentityContext implements ExtendedSigningContext {
     if (this.activeEntry === this.masterEntry) {
       throw new Error('Cannot prove master identity — it is the raw key, not a derived child. Switch to a derived identity first.')
     }
+    if (this.activeEntry.imported) throw new Error('Cannot prove an imported identity as a derived child')
     const child = this.activeEntry.identity
     if (mode === 'full') {
       return createFullProof(this.root, child)
@@ -346,9 +409,10 @@ export class IdentityContext implements ExtendedSigningContext {
 
   /** Destroy all identities and the tree root */
   destroy(): void {
-    zeroise(this.masterEntry.identity)
+    this.destroyed = true
+    this.masterEntry.identity.privateKey.fill(0)
     for (const [, entry] of this.cache) {
-      zeroise(entry.identity)
+      entry.identity.privateKey.fill(0)
     }
     this.cache.clear()
     this.root.destroy()
@@ -357,6 +421,10 @@ export class IdentityContext implements ExtendedSigningContext {
   /** Insert into LRU cache, evicting oldest if at capacity */
   private putCache(npub: string, entry: CacheEntry): void {
     if (this.cache.has(npub)) {
+      if (this.cache.get(npub)!.imported && !entry.imported) {
+        entry.identity.privateKey.fill(0)
+        throw new Error('Identity is already loaded with imported provenance')
+      }
       this.cache.set(npub, entry)
       return
     }
@@ -374,7 +442,7 @@ export class IdentityContext implements ExtendedSigningContext {
       }
       if (oldestNpub) {
         const evicted = this.cache.get(oldestNpub)!
-        zeroise(evicted.identity)
+        evicted.identity.privateKey.fill(0)
         this.cache.delete(oldestNpub)
       }
     }
