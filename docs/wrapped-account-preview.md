@@ -1,11 +1,9 @@
 # Wrapped existing accounts (preview)
 
-This branch needs the unpublished `nsec-tree@1.7.0-alpha.1` candidate in the
-sibling nsec-tree checkout. Its lock entry uses that locally packed artifact's
-integrity at the intended npm URL. Publish the exact artifact before clean
-registry installs or merging this consumer branch. Repack and update the
-integrity if the library changes. The complete cross-repository handover is
-`nsec-tree/WRAPPED-PREVIEW-HANDOVER.md`; the format is `WRAPPED-NSEC.md` there.
+This preview pins the published `nsec-tree@1.7.0-alpha.1` alpha and its verified
+npm tarball integrity. Stable nsec-tree `latest` remains 1.6.0. The canonical
+format and custody contract are [WRAPPED-NSEC.md](https://github.com/forgesworn/nsec-tree/blob/v1.7.0-alpha.1/WRAPPED-NSEC.md).
+Independent security review and hardware recovery acceptance remain pending.
 
 Owner CLI operations work offline with a configured **local** master. Remote,
 hardware and read-only contexts cannot export or restore this way. Both the
