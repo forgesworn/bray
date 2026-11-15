@@ -6,6 +6,8 @@ import {
 } from '../../exports.js'
 import * as fmt from '../../format.js'
 import type { Helpers } from '../dispatch.js'
+import { IdentityContext } from '../../context.js'
+import { wrapKeyFile, checkWrappedKeyFile, loadWrappedKeyFile } from '../../identity/wrapped-files.js'
 
 export async function dispatch(
   cmd: string,
@@ -17,6 +19,20 @@ export async function dispatch(
   const { req, flag, hasFlag, out } = h
 
   switch (cmd) {
+    case 'key-wrap':
+    case 'key-check':
+    case 'key-load': {
+      if (!(ctx instanceof IdentityContext)) throw new Error('Encrypted key files require a local owner context; hardware/remote export is unavailable')
+      const file = req(1, `${cmd} <file> <${cmd === 'key-wrap' ? 'output-file' : 'expected-npub'}>`)
+      const target = req(2, `${cmd} <file> <${cmd === 'key-wrap' ? 'output-file' : 'expected-npub'}>`)
+      if (cmd === 'key-wrap') out(await wrapKeyFile(ctx, file, target))
+      else if (cmd === 'key-check') out(await checkWrappedKeyFile(ctx, file, target))
+      else {
+        out(await loadWrappedKeyFile(ctx, file, target))
+        console.error('Loaded into this process only; in shell mode, switch to its npub explicitly before signing.')
+      }
+      break
+    }
     case 'whoami':
       console.log(ctx.activeNpub)
       break

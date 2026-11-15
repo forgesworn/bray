@@ -181,7 +181,7 @@
     "nostr-attestations": "^3.0.1",
     "nostr-tools": "2.24.1",
     "nostr-veil": "^0.34.0",
-    "nsec-tree": "^1.4.2",
+    "nsec-tree": "1.7.0-alpha.1",
     "signet-protocol": "^1.1.0",
     "socks-proxy-agent": "^10.0.0",
     "spoken-token": "^2.0.3",

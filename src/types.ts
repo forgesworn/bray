@@ -2,6 +2,8 @@ import type { Event as NostrEvent, EventTemplate } from 'nostr-tools'
 
 /** Public identity info returned by tools — never includes private keys */
 export interface PublicIdentity {
+  readonly origin?: 'imported'
+  readonly recovery?: 'master-and-record'
   readonly npub: string
   readonly purpose?: string
   readonly index?: number

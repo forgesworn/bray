@@ -1,6 +1,9 @@
 /** Per-command help with examples and detail */
 export const COMMAND_HELP: Record<string, { usage: string; description: string; examples: string[]; notes?: string }> = {
   // Identity
+  'key-wrap': {usage: 'key-wrap <nsec-or-hex-file> <new-backup-file>', description: 'Preview: encrypt an existing raw key with the configured local master. Creates a new 0600 .nstw file and verifies it. Recovery needs the same master/root construction and this file. Keep an independent backup.', examples: ['nostr-bray key-wrap ./existing.key ./account.nstw']},
+  'key-check': {usage: 'key-check <backup-file> <expected-npub>', description: 'Authenticate an encrypted account backup against the configured local master and exact npub, without retaining the key.', examples: ['nostr-bray key-check ./account.nstw npub1...']},
+  'key-load': {usage: 'key-load <backup-file> <expected-npub>', description: 'Explicitly load an imported account into this local process without activating it. In shell mode use switch <npub> next. Imported keys cannot receive derivation proofs. No MCP recovery tool is added.', examples: ['key-load ./account.nstw npub1...']},
   whoami: { usage: 'whoami', description: 'Show the active identity\'s npub.', examples: ['nostr-bray whoami'] },
   create: { usage: 'create', description: 'Generate a fresh Nostr identity with a BIP-39 mnemonic seed. Returns the master npub and mnemonic for backup.', examples: ['nostr-bray create'], notes: 'Store the mnemonic securely — it will not be shown again.' },
   list: { usage: 'list', description: 'List all known identities. Returns npub, purpose, and persona name. Never includes private keys.', examples: ['nostr-bray list'] },

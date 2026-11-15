@@ -1269,3 +1269,16 @@ Execute an action found via search-actions.
 - Migration verifies backup event signatures before re-signing
 - Four-tier auth progression: bunker (NIP-46) > ncryptsec (NIP-49) > file > env var
 - Dispatch trust boundary: only known identities can send/receive tasks
+
+## Wrapped existing accounts (unreleased preview)
+
+Owner-only local CLI commands `key-wrap <nsec-or-hex-file> <new-backup-file>`,
+`key-check <backup-file> <expected-npub>` and `key-load <backup-file>
+<expected-npub>` preserve an existing raw account. Recovery needs the same
+master/root construction AND the encrypted file. Load is process-local and
+does not activate the key; select its npub explicitly in shell mode. Imported
+identities report origin/recovery metadata, cannot get derivation proofs and
+retain forbidden-key enforcement. No MCP tool or hardware fallback is added.
+Requires the unpublished nsec-tree 1.7.0-alpha.1 candidate before registry
+installs/consumer merge. See docs/wrapped-account-preview.md for the SDK,
+file policy and release gate.

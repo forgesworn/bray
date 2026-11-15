@@ -82,6 +82,9 @@ const HELP = `nostr-bray — Sovereign Nostr identities for AI agents
 Usage: nostr-bray [command] [args]
 
 Identity:
+  key-wrap <key-file> <backup-file>    Encrypt an existing raw key (preview)
+  key-check <backup-file> <npub>      Verify an exact encrypted account backup
+  key-load <backup-file> <npub>       Load into this process; switch npub separately
   whoami                              Show active identity npub
   create                              Generate a fresh identity (mnemonic + npub)
   list                                List all identities
@@ -420,6 +423,7 @@ const envDefault = process.env.NOSTR_BRAY_OUTPUT === 'json' ? 'json' : 'human'
 // Category sets for routing
 const IDENTITY_CMDS = new Set([
   'whoami', 'create', 'list', 'derive', 'persona', 'switch', 'prove', 'proof-publish',
+  'key-wrap', 'key-check', 'key-load',
   'backup', 'restore', 'identity-backup', 'identity-restore', 'migrate',
 ])
 const SOCIAL_CMDS = new Set([
@@ -488,6 +492,7 @@ async function run(cmdArgs: string[]): Promise<void> {
 
 const ALL_COMMANDS = [
   'whoami', 'create', 'list', 'derive', 'persona', 'switch', 'prove', 'proof-publish',
+  'key-wrap', 'key-check', 'key-load',
   'backup', 'restore', 'identity-backup', 'identity-restore', 'migrate',
   'post', 'reply', 'react', 'delete', 'repost', 'profile', 'profile-set', 'contacts', 'follow', 'unfollow', 'dm', 'dm-read', 'feed', 'notifications', 'nip-publish', 'nip-read',
   'attest', 'claim', 'trust-read', 'trust-verify', 'trust-revoke', 'trust-request', 'trust-request-list', 'trust-rank',
