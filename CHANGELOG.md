@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.15.1 (2026-11-23)
+
+### Bug Fixes
+
+- take verify-person ring endorsements from kind 30382 proofs
+
+
+
 ## 3.15.0 (2026-11-15)
 
 ### Features
