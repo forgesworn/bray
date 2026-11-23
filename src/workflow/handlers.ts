@@ -1,13 +1,11 @@
 import { npubEncode } from 'nostr-tools/nip19'
 import { verifyNip05 } from '../identity/nip05.js'
 import { parseAttestation, attestationFilter } from 'nostr-attestations'
-import { verifyProof } from 'nostr-veil/proof'
 import type { Event as NostrEvent, Filter } from 'nostr-tools'
-import type { ProofVerification } from 'nostr-veil/proof'
 import type { SigningContext, ExtendedSigningContext } from '../signing-context.js'
 import type { IdentityContext } from '../context.js'
 import type { RelayPool } from '../relay-pool.js'
-import type { VeilScoring } from '../veil/scoring.js'
+import type { VeilScoring, RingProofReport } from '../veil/scoring.js'
 import type { TrustContext, TrustAssessment } from '../trust-context.js'
 
 // ---------------------------------------------------------------------------
@@ -378,7 +376,7 @@ export interface VerificationResult {
   signetScore?: number
   attestations: Array<{ type: string; by: string; content: string }>
   linkageProofs: Array<{ mode: string; linkedTo: string }>
-  ringEndorsements: Array<{ circleSize: number; threshold: number; verified: boolean }>
+  ringEndorsements: RingProofReport[]
   spokenChallenge?: { token: string; expiresIn: string; counter: number }
   confidence: 'high' | 'medium' | 'low' | 'unknown'
 }
@@ -464,18 +462,9 @@ export async function handleVerifyPerson(
   let spokenChallenge: VerificationResult['spokenChallenge'] | undefined
 
   if (method === 'full') {
-    // Verify ring endorsement proofs
-    for (const ev of attEvents) {
-      const hasVeilSig = ev.tags.some(t => t[0] === 'veil-sig')
-      if (hasVeilSig) {
-        const verification: ProofVerification = verifyProof(ev)
-        ringEndorsements.push({
-          circleSize: verification.circleSize,
-          threshold: verification.threshold,
-          verified: verification.valid,
-        })
-      }
-    }
+    // Ring proofs are kind 30382 assertions, not attestations. The scoring
+    // engine pins the kind and says whether each ring is one the caller trusts.
+    ringEndorsements.push(...await scoring.ringProofs(args.pubkey))
 
     // Generate spoken challenge
     try {

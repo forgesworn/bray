@@ -10,6 +10,23 @@ export interface TrustScoreResult extends TrustCacheEntry {
   flags: string[]
 }
 
+/** One kind 30382 ring proof about a pubkey, as `verify-person` reports it. */
+export interface RingProofReport {
+  circleSize: number
+  threshold: number
+  /** The signatures verify. Anyone can build a ring that verifies. */
+  verified: boolean
+  /**
+   * Verified, the ring is one the caller has reason to believe, and at least
+   * one signature cannot be the subject's own.
+   */
+  trusted: boolean
+  /** The subject is a ring member, so one signature may be theirs. */
+  subjectInRing: boolean
+  /** Distinct signers, less one when the subject is in the ring. */
+  independentSigners: number
+}
+
 export interface ScoredEvent extends NostrEvent {
   _trustScore: number
 }
@@ -266,6 +283,43 @@ export class VeilScoring {
     this.cache.set(cacheKey, entry)
 
     return { pubkey, ...entry, flags }
+  }
+
+  /**
+   * Every ring proof published about a pubkey, one entry per kind 30382 event.
+   * Follows scoring: the kind is pinned, the proof must be about this pubkey,
+   * `trusted` needs `isTrustedRing`, and a subject inside the ring cannot be
+   * their own only signer. Not cached.
+   */
+  async ringProofs(pubkey: string): Promise<RingProofReport[]> {
+    pubkey = pubkey.toLowerCase()
+    const events = await this.pool.query(this.ctx.activeNpub, {
+      kinds: [30382],
+      '#d': [pubkey],
+    } as any)
+
+    const proofs = events.filter(event =>
+      event.kind === 30382
+      && event.tags.some((t: string[]) => t[0] === 'veil-sig')
+      && parseAssertion(event).subject === pubkey)
+    if (proofs.length === 0) return []
+
+    const follows = (await this.follows()).set
+    return proofs.map(event => {
+      const verification = verifyProof(event, { expectedKind: 30382 })
+      const ringTag = event.tags.find((t: string[]) => t[0] === 'veil-ring')
+      const members = ringTag ? ringTag.slice(1) : []
+      return {
+        circleSize: verification.circleSize,
+        threshold: verification.threshold,
+        verified: verification.valid,
+        trusted: verification.valid
+          && verification.independentSigners > 0
+          && this.isTrustedRing(event, members, follows),
+        subjectInRing: verification.subjectInRing,
+        independentSigners: verification.independentSigners,
+      }
+    })
   }
 
   /**

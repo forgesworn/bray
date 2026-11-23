@@ -62,6 +62,8 @@ Key images are grouped by scope (the `electionId` inside each signature) and a r
 
 Subject in the ring: the ring signature hides which member signed, so when the subject is a member of a trusted ring, one signature per scope may be the subject's own. Key images stop a member signing twice per scope, so at most one per scope can be theirs. bray therefore deducts one key image from each scope whose trusted proofs include the subject as a member (never below zero) and flags `subject is a ring member`. A threshold-1 proof whose ring contains the subject scores nothing.
 
+`verify-person` in full mode lists each kind 30382 ring proof about the pubkey with `verified` (the signatures check out) and `trusted` (the ring also passes the three rules above, and at least one signature cannot be the subject's own). Anyone can build a ring that verifies, so read `trusted`, not `verified`.
+
 The score is `endorsements + 3 * ringEndorsements`, trusted counts only. `untrustedEndorsements` and `untrustedRingEndorsements` appear beside them in `trust-score` proximity output so you can see what was set aside.
 
 ### Strict mode follow pass

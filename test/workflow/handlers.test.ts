@@ -293,6 +293,48 @@ describe('workflow handlers', () => {
       expect(result.spokenChallenge).toBeUndefined() // quick mode
     })
 
+    it('full mode takes ring endorsements from kind 30382 scoring, not from attestation events', async () => {
+      // A ring anyone can make: two throwaway keys vouching for ALICE, relabelled
+      // as a kind 31000 attestation. Its signatures are genuine, so a verifier
+      // that neither pins the kind nor checks the circle reports it as verified.
+      const { createTrustCircle, contributeAssertion, aggregateContributions } = await import('nostr-veil/proof')
+      const { generateSecretKey, getPublicKey } = await import('nostr-tools/pure')
+      const keys = [1, 2].map(() => generateSecretKey())
+      const circle = createTrustCircle(keys.map(sk => getPublicKey(sk)))
+      const contributions = keys.map(sk => contributeAssertion(
+        circle, ALICE, { rank: 100 }, Buffer.from(sk).toString('hex'),
+        circle.members.indexOf(getPublicKey(sk)),
+      ))
+      const forged = {
+        ...aggregateContributions(circle, ALICE, contributions),
+        id: '0'.repeat(64), pubkey: BOB, created_at: Math.floor(Date.now() / 1000), sig: 'f'.repeat(128),
+        kind: 31000,
+      }
+
+      const pool = mockPool({
+        query: vi.fn()
+          .mockResolvedValueOnce([]) // profile (kind 0)
+          .mockResolvedValueOnce([forged]) // attestations (kind 31000)
+          .mockResolvedValueOnce([]), // linkage proofs (kind 30078)
+      })
+      const genuine = { circleSize: 5, threshold: 3, verified: true, trusted: true, subjectInRing: false, independentSigners: 3 }
+      const scoring = mockScoring({ ringProofs: vi.fn().mockResolvedValue([genuine]) })
+
+      const result = await handleVerifyPerson(ctx, pool as any, scoring as any, { pubkey: ALICE, method: 'full' })
+
+      expect(scoring.ringProofs).toHaveBeenCalledWith(ALICE)
+      expect(result.ringEndorsements).toEqual([genuine])
+    })
+
+    it('quick mode does not look up ring proofs', async () => {
+      const scoring = mockScoring({ ringProofs: vi.fn().mockResolvedValue([]) })
+
+      const result = await handleVerifyPerson(ctx, mockPool() as any, scoring as any, { pubkey: ALICE, method: 'quick' })
+
+      expect(scoring.ringProofs).not.toHaveBeenCalled()
+      expect(result.ringEndorsements).toEqual([])
+    })
+
     it('returns unknown confidence for zero-score pubkey with no data', async () => {
       const pool = mockPool() // all queries return empty
 

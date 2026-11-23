@@ -608,3 +608,82 @@ describe('VeilScoring', () => {
     })
   })
 })
+
+describe('VeilScoring.ringProofs', () => {
+  const scoring = (pool: ReturnType<typeof mockVeilPool>, opts: ConstructorParameters<typeof VeilScoring>[3] = {}) =>
+    new VeilScoring(pool as any, new TrustCache({ ttl: 60_000, maxEntries: 100 }), ctxFor(), opts)
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockVerifyProof.mockReturnValue(VALID_PROOF)
+  })
+
+  it('reports a kind 30382 ring proof from a configured circle as verified and trusted', async () => {
+    const ring = members(STRANGER, OTHER_STRANGER, FOLLOW_A)
+    const proof = mockRingProofEvent({ publisher: STRANGER, subject: SUBJECT, members: ring, keyImages: ['ki-a'] })
+    const pool = mockVeilPool({ assertions: [proof], follows: [mockFollowEvent(CALLER, [])] })
+
+    const result = await scoring(pool, { trustedCircles: [computeCircleId(ring)] }).ringProofs(SUBJECT)
+
+    expect(result).toEqual([{ circleSize: 3, threshold: 1, verified: true, trusted: true, subjectInRing: false, independentSigners: 1 }])
+    expect(mockVerifyProof).toHaveBeenCalledWith(proof, { expectedKind: 30382 })
+    expect(pool.query).toHaveBeenCalledWith('npub1test', { kinds: [30382], '#d': [SUBJECT] })
+  })
+
+  it('reports a valid proof from a ring nobody vouches for as verified but not trusted', async () => {
+    const proof = mockRingProofEvent({
+      publisher: STRANGER, subject: SUBJECT, members: members(STRANGER, OTHER_STRANGER), keyImages: ['ki-a'],
+    })
+    const pool = mockVeilPool({ assertions: [proof], follows: [mockFollowEvent(CALLER, [FOLLOW_A])] })
+
+    const result = await scoring(pool).ringProofs(SUBJECT)
+
+    expect(result).toEqual([{ circleSize: 3, threshold: 1, verified: true, trusted: false, subjectInRing: false, independentSigners: 1 }])
+  })
+
+  it('never reports an invalid proof as trusted, even from a configured circle', async () => {
+    const ring = members(FOLLOW_A, FOLLOW_B)
+    mockVerifyProof.mockReturnValue({ ...VALID_PROOF, valid: false, circleSize: 0, threshold: 0, errors: ['bad signature'] })
+    const proof = mockRingProofEvent({ publisher: STRANGER, subject: SUBJECT, members: ring, keyImages: ['ki-a'] })
+    const pool = mockVeilPool({ assertions: [proof], follows: [mockFollowEvent(CALLER, [FOLLOW_A, FOLLOW_B])] })
+
+    const result = await scoring(pool, { trustedCircles: [computeCircleId(ring)] }).ringProofs(SUBJECT)
+
+    expect(result).toEqual([{ circleSize: 0, threshold: 0, verified: false, trusted: false, subjectInRing: false, independentSigners: 1 }])
+  })
+
+  it('does not trust a ring of follows when the only signature may be the subject\'s own', async () => {
+    const ring = members(SUBJECT, FOLLOW_A, FOLLOW_B)
+    mockVerifyProof.mockReturnValue({ ...VALID_PROOF, subjectInRing: true, independentSigners: 0 })
+    const proof = mockRingProofEvent({ publisher: STRANGER, subject: SUBJECT, members: ring, keyImages: ['ki-a'] })
+    const pool = mockVeilPool({ assertions: [proof], follows: [mockFollowEvent(CALLER, [SUBJECT, FOLLOW_A, FOLLOW_B])] })
+
+    const result = await scoring(pool).ringProofs(SUBJECT)
+
+    expect(result).toEqual([{ circleSize: 3, threshold: 1, verified: true, trusted: false, subjectInRing: true, independentSigners: 0 }])
+  })
+
+  it('trusts a ring containing the subject once another member must have signed', async () => {
+    const ring = members(SUBJECT, FOLLOW_A, FOLLOW_B)
+    mockVerifyProof.mockReturnValue({ ...VALID_PROOF, threshold: 2, distinctSigners: 2, subjectInRing: true, independentSigners: 1 })
+    const proof = mockRingProofEvent({ publisher: STRANGER, subject: SUBJECT, members: ring, keyImages: ['ki-a', 'ki-b'], threshold: 2 })
+    const pool = mockVeilPool({ assertions: [proof], follows: [mockFollowEvent(CALLER, [SUBJECT, FOLLOW_A, FOLLOW_B])] })
+
+    const result = await scoring(pool).ringProofs(SUBJECT)
+
+    expect(result).toEqual([{ circleSize: 3, threshold: 2, verified: true, trusted: true, subjectInRing: true, independentSigners: 1 }])
+  })
+
+  it('ignores other kinds, other subjects and plain assertions', async () => {
+    const ring = members(FOLLOW_A, FOLLOW_B)
+    const wrongKind = { ...mockRingProofEvent({ publisher: STRANGER, subject: SUBJECT, members: ring, keyImages: ['ki-a'] }), kind: 31000 }
+    const wrongSubject = mockRingProofEvent({ publisher: STRANGER, subject: STRANGER, members: ring, keyImages: ['ki-b'] })
+    const plain = mockAssertionEvent({ provider: FOLLOW_A, subject: SUBJECT })
+    const pool = mockVeilPool({ assertions: [wrongKind, wrongSubject, plain], follows: [mockFollowEvent(CALLER, [])] })
+
+    const result = await scoring(pool).ringProofs(SUBJECT)
+
+    expect(result).toEqual([])
+    expect(mockVerifyProof).not.toHaveBeenCalled()
+  })
+})
