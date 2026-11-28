@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.15.3 (2026-11-28)
+
+### Bug Fixes
+
+- bump nostr-veil to ^0.41.0 (#180) (deps)
+
+
+
 ## 3.15.2 (2026-11-28)
 
 ### Bug Fixes
